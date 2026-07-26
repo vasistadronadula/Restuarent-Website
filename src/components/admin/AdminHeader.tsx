@@ -293,27 +293,7 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
         .menu-item.danger { color: #ef4444; }
         .menu-item.danger:hover { background: rgba(239,68,68,0.06); }
 
-        /* Desktop search */
-        .desktop-search {
-          display: none;
-        }
         @media (min-width: 900px) {
-          .desktop-search {
-            display: flex; align-items: center; gap: 8px;
-            background: rgba(0,0,0,0.03); border-radius: 12px;
-            padding: 0 14px; height: 36px; min-width: 200px;
-            border: 1px solid rgba(0,0,0,0.08);
-            transition: all 0.2s ease;
-          }
-          .desktop-search:focus-within {
-            background: #FFFFFF; border-color: rgba(249,115,22,0.4);
-            box-shadow: 0 0 0 3px rgba(249,115,22,0.1);
-          }
-          .desktop-search input {
-            background: none; border: none; outline: none;
-            color: #212121; font-size: 13px; width: 140px;
-          }
-          .desktop-search input::placeholder { color: rgba(33,33,33,0.45); }
           .autoprint-chip { display: flex !important; }
         }
         .autoprint-chip {
@@ -345,15 +325,6 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
               <span style={{ color: 'rgba(100,116,139,0.6)' }}>·</span>
               <LiveClock />
             </div>
-          </div>
-
-          {/* Desktop Search */}
-          <div className="desktop-search">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <circle cx="11" cy="11" r="8" stroke="rgba(100,116,139,0.7)" strokeWidth="2" />
-              <path d="M21 21L16.65 16.65" stroke="rgba(100,116,139,0.7)" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            <input placeholder="Search orders, dishes..." />
           </div>
 
           <div className="header-actions">

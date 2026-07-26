@@ -42,6 +42,29 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   customer: 'Customer',
 };
 
+// Plain-English summary of what each role can reach. Shown wherever a role is
+// assigned, so picking a role visibly means picking permissions rather than
+// choosing an opaque label from a dropdown.
+export const ROLE_ACCESS_SUMMARY: Record<UserRole, string> = {
+  admin: 'Full access — every page, report and setting',
+  manager: 'Full access — every page, report and setting',
+  chef: 'Kitchen Display only',
+  cashier: 'Orders, POS billing & bills',
+  waiter: 'Reservations & tables only',
+  customer: 'No admin access',
+};
+
+export const ROLE_ICONS: Record<UserRole, string> = {
+  admin: '👑',
+  manager: '🗂️',
+  chef: '🔥',
+  cashier: '🧾',
+  waiter: '🍽️',
+  customer: '👤',
+};
+
+export const STAFF_ROLES = ['admin', 'manager', 'chef', 'cashier', 'waiter'] as const;
+
 export function canAccess(role: UserRole | null | undefined, pathname: string): boolean {
   if (!role) return false;
   const allowed = ROLE_ALLOWED_PREFIXES[role];

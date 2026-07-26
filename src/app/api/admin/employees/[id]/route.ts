@@ -26,7 +26,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 // client path other entities use.
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
-    await requireAdmin(request);
+    const caller = await requireAdmin(request);
     const { id } = await params;
 
     const body = (await request.json()) as UpdateEmployeeBody;
@@ -41,6 +41,16 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       .from('employees').select('auth_user_id').eq('id', id).maybeSingle();
     if (findError || !employee) {
       return NextResponse.json({ error: 'Employee not found.' }, { status: 404 });
+    }
+
+    // Self-lockout guard: deactivating or demoting your own account would
+    // immediately revoke your own admin access with no way back in from the UI.
+    const isSelf = employee.auth_user_id === caller.id;
+    if (isSelf && body.status === 'Inactive') {
+      return NextResponse.json({ error: 'You cannot deactivate your own account.' }, { status: 400 });
+    }
+    if (isSelf && body.role && body.role !== 'admin' && body.role !== 'manager') {
+      return NextResponse.json({ error: 'You cannot remove your own admin access.' }, { status: 400 });
     }
 
     const employeeUpdate: Record<string, unknown> = {};
@@ -87,7 +97,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 // login.
 export async function DELETE(request: Request, { params }: RouteContext) {
   try {
-    await requireAdmin(request);
+    const caller = await requireAdmin(request);
     const { id } = await params;
 
     const admin = getSupabaseAdmin();
@@ -97,6 +107,10 @@ export async function DELETE(request: Request, { params }: RouteContext) {
       .from('employees').select('auth_user_id').eq('id', id).maybeSingle();
     if (findError || !employee) {
       return NextResponse.json({ error: 'Employee not found.' }, { status: 404 });
+    }
+
+    if (employee.auth_user_id === caller.id) {
+      return NextResponse.json({ error: 'You cannot remove your own account.' }, { status: 400 });
     }
 
     if (employee.auth_user_id) {

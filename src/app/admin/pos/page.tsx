@@ -213,7 +213,7 @@ export default function CashierPOSPage() {
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, gap: 1.5, minHeight: { xs: 400, md: 'auto' } }}>
 
           {/* Search & Filters */}
-          <Paper elevation={0} sx={{ p: 2, borderRadius: '16px', border: '1px solid #E2E8F0', bgcolor: 'white' }}>
+          <Paper elevation={0} sx={{ p: 2, borderRadius: '16px', border: '1px solid #E7E5E4', bgcolor: 'white' }}>
             <Grid container spacing={1.5} sx={{ alignItems: 'center' }}>
               <Grid size={{ xs: 12, md: 5 }}>
                 <TextField
@@ -222,7 +222,7 @@ export default function CashierPOSPage() {
                   value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                   slotProps={{
                     input: {
-                      startAdornment: <InputAdornment position="start"><Search sx={{ color: '#94A3B8' }} /></InputAdornment>,
+                      startAdornment: <InputAdornment position="start"><Search sx={{ color: '#A8A29E' }} /></InputAdornment>,
                       endAdornment: searchQuery ? (
                         <InputAdornment position="end">
                           <IconButton size="small" onClick={() => setSearchQuery('')}><Clear fontSize="small" /></IconButton>
@@ -242,8 +242,8 @@ export default function CashierPOSPage() {
                       onClick={() => setVegFilter(v)}
                       sx={{
                         fontWeight: 700, cursor: 'pointer',
-                        bgcolor: vegFilter === v ? (v === 'veg' ? '#2E7D32' : v === 'non-veg' ? '#C62828' : '#0F172A') : '#F1F5F9',
-                        color: vegFilter === v ? 'white' : '#64748B',
+                        bgcolor: vegFilter === v ? (v === 'veg' ? '#15803D' : v === 'non-veg' ? '#C62828' : '#1C1917') : '#F1EFED',
+                        color: vegFilter === v ? 'white' : '#78716C',
                       }}
                     />
                   ))}
@@ -260,9 +260,9 @@ export default function CashierPOSPage() {
                   onClick={() => setSelectedCategory(cat.value)}
                   sx={{
                     fontWeight: selectedCategory === cat.value ? 700 : 500,
-                    bgcolor: selectedCategory === cat.value ? '#C62828' : '#F8FAFC',
-                    color: selectedCategory === cat.value ? 'white' : '#334155',
-                    border: selectedCategory === cat.value ? 'none' : '1px solid #E2E8F0',
+                    bgcolor: selectedCategory === cat.value ? '#C62828' : '#FAFAF9',
+                    color: selectedCategory === cat.value ? 'white' : '#44403C',
+                    border: selectedCategory === cat.value ? 'none' : '1px solid #E7E5E4',
                     cursor: 'pointer', flexShrink: 0,
                   }}
                 />
@@ -279,7 +279,7 @@ export default function CashierPOSPage() {
                 return (
                   <Grid key={item.id} size={{ xs: 12, sm: 6, md: 4 }}>
                     <Card sx={{
-                      borderRadius: '16px', border: '1px solid #E2E8F0',
+                      borderRadius: '16px', border: '1px solid #E7E5E4',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                       transition: 'all 0.2s', '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 6px 16px rgba(0,0,0,0.08)' },
                       display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%',
@@ -289,12 +289,12 @@ export default function CashierPOSPage() {
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
                             <Box sx={{
                               width: 14, height: 14, borderRadius: '3px',
-                              border: `2px solid ${isVeg ? '#2E7D32' : '#C62828'}`,
+                              border: `2px solid ${isVeg ? '#15803D' : '#C62828'}`,
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                             }}>
-                              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: isVeg ? '#2E7D32' : '#C62828' }} />
+                              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: isVeg ? '#15803D' : '#C62828' }} />
                             </Box>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0F172A', lineHeight: 1.2 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1C1917', lineHeight: 1.2 }}>
                               {item.name}
                             </Typography>
                           </Box>
@@ -352,15 +352,15 @@ export default function CashierPOSPage() {
         <Paper elevation={0} sx={{
           width: { xs: '100%', md: 380 }, flexShrink: 0,
           maxHeight: { xs: 'none', md: '100%' },
-          borderRadius: '20px', border: '1px solid #E2E8F0',
+          borderRadius: '20px', border: '1px solid #E7E5E4',
           display: 'flex', flexDirection: 'column', overflow: 'hidden', bgcolor: 'white',
           boxShadow: '0 8px 30px rgba(0,0,0,0.06)',
         }}>
 
           {/* Header */}
-          <Box sx={{ p: 2, bgcolor: '#0F172A', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ p: 2, bgcolor: '#1C1917', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Receipt sx={{ color: '#F97316' }} />
+              <Receipt sx={{ color: '#EA580C' }} />
               <Typography variant="h6" sx={{ fontWeight: 800, fontSize: '16px' }}>Counter Order</Typography>
             </Box>
             {posCart.length > 0 && (
@@ -371,7 +371,7 @@ export default function CashierPOSPage() {
           </Box>
 
           {/* Order Type & Customer Details */}
-          <Box sx={{ p: 2, bgcolor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+          <Box sx={{ p: 2, bgcolor: '#FAFAF9', borderBottom: '1px solid #E7E5E4' }}>
             <Grid container spacing={1.5}>
               <Grid size={{ xs: 12 }}>
                 <Box sx={{ display: 'flex', gap: 1 }}>
@@ -386,8 +386,8 @@ export default function CashierPOSPage() {
                       sx={{
                         flex: 1, fontWeight: 800, cursor: 'pointer', fontSize: '11px',
                         bgcolor: orderType === t.type ? '#C62828' : 'white',
-                        color: orderType === t.type ? 'white' : '#475569',
-                        border: '1px solid #E2E8F0',
+                        color: orderType === t.type ? 'white' : '#44403C',
+                        border: '1px solid #E7E5E4',
                       }}
                     />
                   ))}
@@ -427,7 +427,7 @@ export default function CashierPOSPage() {
           {/* Cart Items List */}
           <Box sx={{ flex: 1, overflowY: 'auto', p: 2 }}>
             {posCart.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 6, color: '#94A3B8' }}>
+              <Box sx={{ textAlign: 'center', py: 6, color: '#A8A29E' }}>
                 <Fastfood sx={{ fontSize: 48, opacity: 0.4, mb: 1 }} />
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>POS Cart is empty</Typography>
                 <Typography variant="caption">Click menu items to add to order</Typography>
@@ -435,22 +435,22 @@ export default function CashierPOSPage() {
             ) : (
               <Stack spacing={1.5}>
                 {posCart.map((item) => (
-                  <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, borderRadius: '12px', bgcolor: '#F8FAFC', border: '1px solid #E2E8F0' }}>
+                  <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, borderRadius: '12px', bgcolor: '#FAFAF9', border: '1px solid #E7E5E4' }}>
                     <Box sx={{ flex: 1, minWidth: 0, mr: 1 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#0F172A', lineHeight: 1.2 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#1C1917', lineHeight: 1.2 }}>
                         {item.name}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#64748B', fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: '#78716C', fontWeight: 600 }}>
                         ₹{item.price} × {item.quantity} = ₹{item.price * item.quantity}
                       </Typography>
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <IconButton size="small" onClick={() => updateQuantity(item.id, -1)} sx={{ bgcolor: 'white', border: '1px solid #CBD5E1' }}>
+                      <IconButton size="small" onClick={() => updateQuantity(item.id, -1)} sx={{ bgcolor: 'white', border: '1px solid #E7E5E4' }}>
                         <Remove fontSize="small" />
                       </IconButton>
                       <Typography variant="body2" sx={{ fontWeight: 800, px: 1 }}>{item.quantity}</Typography>
-                      <IconButton size="small" onClick={() => updateQuantity(item.id, 1)} sx={{ bgcolor: 'white', border: '1px solid #CBD5E1' }}>
+                      <IconButton size="small" onClick={() => updateQuantity(item.id, 1)} sx={{ bgcolor: 'white', border: '1px solid #E7E5E4' }}>
                         <Add fontSize="small" />
                       </IconButton>
                     </Box>
@@ -462,11 +462,11 @@ export default function CashierPOSPage() {
 
           {/* Bill Summary & Payment */}
           {posCart.length > 0 && (
-            <Box sx={{ p: 2, bgcolor: '#F8FAFC', borderTop: '1px solid #E2E8F0' }}>
+            <Box sx={{ p: 2, bgcolor: '#FAFAF9', borderTop: '1px solid #E7E5E4' }}>
 
               {/* Discount Selector */}
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748B' }}>Discount</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#78716C' }}>Discount</Typography>
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                   {[0, 5, 10, 15].map((d) => (
                     <Chip
@@ -474,8 +474,8 @@ export default function CashierPOSPage() {
                       sx={{
                         fontWeight: 700, cursor: 'pointer', fontSize: '10px', height: 22,
                         bgcolor: discountPercent === d ? '#C62828' : 'white',
-                        color: discountPercent === d ? 'white' : '#64748B',
-                        border: '1px solid #CBD5E1',
+                        color: discountPercent === d ? 'white' : '#78716C',
+                        border: '1px solid #E7E5E4',
                       }}
                     />
                   ))}
@@ -517,9 +517,9 @@ export default function CashierPOSPage() {
                     onClick={() => setPaymentMode(p.mode as 'cash' | 'upi' | 'card')}
                     sx={{
                       flex: 1, fontWeight: 800, cursor: 'pointer', fontSize: '11px',
-                      bgcolor: paymentMode === p.mode ? '#0F172A' : 'white',
-                      color: paymentMode === p.mode ? 'white' : '#475569',
-                      border: '1px solid #CBD5E1',
+                      bgcolor: paymentMode === p.mode ? '#1C1917' : 'white',
+                      color: paymentMode === p.mode ? 'white' : '#44403C',
+                      border: '1px solid #E7E5E4',
                     }}
                   />
                 ))}

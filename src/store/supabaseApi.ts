@@ -134,8 +134,16 @@ function mapEmployee(e: any): Employee {
     phone: e.phone,
     email: e.email || '',
     joinDate: e.joining_date || new Date().toISOString().split('T')[0],
-    salary: Number(e.salary) || 25000,
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80',
+    salary: Number(e.salary) || 0,
+    // Initials, not a stock photo — every employee previously got the same
+    // stranger's face from an Unsplash URL hardcoded here.
+    avatar: (e.name || '?')
+      .split(' ')
+      .filter(Boolean)
+      .map((n: string) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2),
     isActive: e.status === 'Active',
     shift: e.shift?.toLowerCase() || 'morning',
   };

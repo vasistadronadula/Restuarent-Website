@@ -58,8 +58,8 @@ export default function InventoryPage() {
 
   const getStockLevel = (item: InventoryItem) => {
     const pct = (item.quantity / Math.max(item.minQuantity * 3, 1)) * 100;
-    if (pct >= 70) return { color: '#2E7D32', label: 'In Stock', pct: Math.min(pct, 100) };
-    if (pct >= 40) return { color: '#FF9800', label: 'Medium', pct };
+    if (pct >= 70) return { color: '#15803D', label: 'In Stock', pct: Math.min(pct, 100) };
+    if (pct >= 40) return { color: '#EA580C', label: 'Medium', pct };
     return { color: '#C62828', label: 'Low Stock ⚠️', pct: Math.max(pct, 8) };
   };
 
@@ -163,11 +163,11 @@ export default function InventoryPage() {
       </Grid>
 
       {/* Main Content Table & Control Toolbar */}
-      <Paper elevation={0} sx={{ borderRadius: '24px', border: '1px solid #E2E8F0', bgcolor: 'white', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
-        <Box sx={{ p: 2.5, bgcolor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+      <Paper elevation={0} sx={{ borderRadius: '24px', border: '1px solid #E7E5E4', bgcolor: 'white', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
+        <Box sx={{ p: 2.5, bgcolor: '#FAFAF9', borderBottom: '1px solid #E7E5E4' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 2 }}>
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#0F172A' }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#1C1917' }}>
                 Inventory Management & Quick Stock Adjuster ({filteredInventory.length})
               </Typography>
               <Typography variant="caption" color="text.secondary">
@@ -206,11 +206,11 @@ export default function InventoryPage() {
                     px: 1.5, py: 0.4,
                     fontSize: '11px',
                     fontWeight: 700,
-                    bgcolor: selectedCategory === cat ? '#0F172A' : 'white',
-                    color: selectedCategory === cat ? 'white' : '#64748B',
+                    bgcolor: selectedCategory === cat ? '#1C1917' : 'white',
+                    color: selectedCategory === cat ? 'white' : '#78716C',
                     border: '1px solid',
-                    borderColor: selectedCategory === cat ? '#0F172A' : '#CBD5E1',
-                    '&:hover': { bgcolor: selectedCategory === cat ? '#1E293B' : '#F1F5F9' },
+                    borderColor: selectedCategory === cat ? '#1C1917' : '#E7E5E4',
+                    '&:hover': { bgcolor: selectedCategory === cat ? '#292524' : '#F1EFED' },
                   }}
                 >
                   {cat}
@@ -219,8 +219,8 @@ export default function InventoryPage() {
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box sx={{ display: 'flex', bgcolor: 'white', borderRadius: '8px', px: 1.2, py: 0.4, border: '1px solid #CBD5E1', alignItems: 'center', gap: 1 }}>
-                <Search style={{ fontSize: 16, color: '#94A3B8' }} />
+              <Box sx={{ display: 'flex', bgcolor: 'white', borderRadius: '8px', px: 1.2, py: 0.4, border: '1px solid #E7E5E4', alignItems: 'center', gap: 1 }}>
+                <Search style={{ fontSize: 16, color: '#A8A29E' }} />
                 <InputBase
                   placeholder="Search item or category..."
                   value={searchQuery}
@@ -246,10 +246,10 @@ export default function InventoryPage() {
         {/* Inventory Data Table */}
         <Box sx={{ overflowX: 'auto' }}>
           <Table sx={{ minWidth: 850 }}>
-            <TableHead sx={{ bgcolor: '#F8FAFC' }}>
+            <TableHead sx={{ bgcolor: '#FAFAF9' }}>
               <TableRow>
                 {['Item Name', 'Category', 'Quantity', 'Quick Adjust', 'Safety Threshold', 'Level', 'Cost/Unit', 'Total Valuation', 'Actions'].map((h) => (
-                  <TableCell key={h} sx={{ fontWeight: 800, fontSize: '11px', color: '#64748B', py: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                  <TableCell key={h} sx={{ fontWeight: 800, fontSize: '11px', color: '#78716C', py: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
                     {h}
                   </TableCell>
                 ))}
@@ -269,12 +269,12 @@ export default function InventoryPage() {
                   const stock = getStockLevel(item);
                   const isLow = item.quantity <= item.minQuantity;
                   return (
-                    <TableRow key={item.id} hover sx={{ bgcolor: isLow ? 'rgba(239,68,68,0.03)' : 'transparent', '&:hover': { bgcolor: '#F8FAFC' } }}>
+                    <TableRow key={item.id} hover sx={{ bgcolor: isLow ? 'rgba(239,68,68,0.03)' : 'transparent', '&:hover': { bgcolor: '#FAFAF9' } }}>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {isLow && <Warning style={{ fontSize: 16, color: '#DC2626' }} />}
+                          {isLow && <Warning style={{ fontSize: 16, color: '#B91C1C' }} />}
                           <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#0F172A' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#1C1917' }}>
                               {item.name}
                             </Typography>
                             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '10px' }}>
@@ -284,62 +284,62 @@ export default function InventoryPage() {
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Chip label={item.category} size="small" sx={{ bgcolor: '#F1F5F9', color: '#475569', fontWeight: 700, fontSize: '10px' }} />
+                        <Chip label={item.category} size="small" sx={{ bgcolor: '#F1EFED', color: '#44403C', fontWeight: 700, fontSize: '10px' }} />
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 900, color: isLow ? '#DC2626' : '#0F172A' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 900, color: isLow ? '#B91C1C' : '#1C1917' }}>
                           {item.quantity} {item.unit}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <Tooltip title="Subtract 1">
-                            <IconButton size="small" sx={{ color: '#DC2626', p: 0.3 }} onClick={() => adjustInventoryQuantity(item.id, -1)}>
+                            <IconButton size="small" sx={{ color: '#B91C1C', p: 0.3 }} onClick={() => adjustInventoryQuantity(item.id, -1)}>
                               <RemoveCircleOutlined fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Add 1">
-                            <IconButton size="small" sx={{ color: '#16A34A', p: 0.3 }} onClick={() => adjustInventoryQuantity(item.id, 1)}>
+                            <IconButton size="small" sx={{ color: '#15803D', p: 0.3 }} onClick={() => adjustInventoryQuantity(item.id, 1)}>
                               <AddCircleOutlined fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Add 5">
-                            <Button size="small" sx={{ minWidth: 28, height: 24, fontSize: '10px', fontWeight: 800, p: 0, color: '#0284C7' }} onClick={() => adjustInventoryQuantity(item.id, 5)}>
+                            <Button size="small" sx={{ minWidth: 28, height: 24, fontSize: '10px', fontWeight: 800, p: 0, color: '#1D4ED8' }} onClick={() => adjustInventoryQuantity(item.id, 5)}>
                               +5
                             </Button>
                           </Tooltip>
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 600 }}>
+                        <Typography variant="body2" sx={{ color: '#78716C', fontWeight: 600 }}>
                           {item.minQuantity} {item.unit}
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ width: 120 }}>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
                           <Chip label={stock.label} size="small" sx={{ bgcolor: `${stock.color}15`, color: stock.color, fontWeight: 800, fontSize: '10px', height: 20 }} />
-                          <LinearProgress variant="determinate" value={stock.pct} sx={{ height: 5, borderRadius: 3, bgcolor: '#F1F5F9', '& .MuiLinearProgress-bar': { bgcolor: stock.color, borderRadius: 3 } }} />
+                          <LinearProgress variant="determinate" value={stock.pct} sx={{ height: 5, borderRadius: 3, bgcolor: '#F1EFED', '& .MuiLinearProgress-bar': { bgcolor: stock.color, borderRadius: 3 } }} />
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#475569' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#44403C' }}>
                           ₹{item.costPerUnit.toLocaleString()}
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 800, color: '#16A34A' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 800, color: '#15803D' }}>
                           ₹{(item.quantity * item.costPerUnit).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                         </Typography>
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
                           <Tooltip title="Edit Item">
-                            <IconButton size="small" sx={{ color: '#0284C7' }} onClick={() => handleOpenEdit(item)}>
+                            <IconButton size="small" sx={{ color: '#1D4ED8' }} onClick={() => handleOpenEdit(item)}>
                               <Edit fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Delete Item">
-                            <IconButton size="small" sx={{ color: '#DC2626' }} onClick={() => handleOpenDelete(item)}>
+                            <IconButton size="small" sx={{ color: '#B91C1C' }} onClick={() => handleOpenDelete(item)}>
                               <Delete fontSize="small" />
                             </IconButton>
                           </Tooltip>
@@ -403,14 +403,14 @@ export default function InventoryPage() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2.5, pb: isMobile ? 'max(20px, env(safe-area-inset-bottom, 0px))' : 2.5 }}>
-          <Button onClick={() => setOpenAddDialog(false)} sx={{ color: '#64748B' }}>Cancel</Button>
+          <Button onClick={() => setOpenAddDialog(false)} sx={{ color: '#78716C' }}>Cancel</Button>
           <Button variant="contained" onClick={handleAddSubmit} sx={{ bgcolor: '#C62828', borderRadius: '10px', fontWeight: 800 }}>Save Item</Button>
         </DialogActions>
       </Dialog>
 
       {/* Modal: Edit Inventory Item */}
       <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth fullScreen={isMobile} slotProps={{ paper: { sx: { borderRadius: isMobile ? 0 : '20px' } } }}>
-        <DialogTitle sx={{ fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <DialogTitle sx={{ fontWeight: 800, color: '#1C1917', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           ✏️ Edit Inventory Item Details
           {isMobile && (
             <IconButton size="small" onClick={() => setOpenEditDialog(false)} aria-label="Close">
@@ -457,14 +457,14 @@ export default function InventoryPage() {
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2.5, pb: isMobile ? 'max(20px, env(safe-area-inset-bottom, 0px))' : 2.5 }}>
-          <Button onClick={() => setOpenEditDialog(false)} sx={{ color: '#64748B' }}>Cancel</Button>
-          <Button variant="contained" onClick={handleEditSubmit} sx={{ bgcolor: '#0F172A', borderRadius: '10px', fontWeight: 800 }}>Update Item</Button>
+          <Button onClick={() => setOpenEditDialog(false)} sx={{ color: '#78716C' }}>Cancel</Button>
+          <Button variant="contained" onClick={handleEditSubmit} sx={{ bgcolor: '#1C1917', borderRadius: '10px', fontWeight: 800 }}>Update Item</Button>
         </DialogActions>
       </Dialog>
 
       {/* Modal: Delete Confirmation */}
       <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)} slotProps={{ paper: { sx: { borderRadius: '16px', p: 1 } } }}>
-        <DialogTitle sx={{ fontWeight: 800, color: '#DC2626' }}>🗑️ Delete Inventory Item?</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800, color: '#B91C1C' }}>🗑️ Delete Inventory Item?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
             Are you sure you want to delete <strong>{selectedItem?.name}</strong> from inventory records? This action cannot be undone.
