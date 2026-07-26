@@ -1,6 +1,20 @@
 'use client';
-import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { CartItem, MenuItem } from '@/types';
+/**
+ * CartContext.tsx — Backward-Compatible Redux Adapter
+ * useCart() still works in all existing pages, but internally uses Redux cartSlice.
+ */
+import React, { createContext, useContext, ReactNode } from 'react';
+import { MenuItem, CartItem } from '@/types';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import {
+  addItem as addItemAction, removeItem as removeItemAction,
+  increaseQty as increaseQtyAction, decreaseQty as decreaseQtyAction,
+  clearCart as clearCartAction, toggleCart as toggleCartAction,
+  openCart as openCartAction, closeCart as closeCartAction,
+  applyCoupon as applyCouponAction, removeCoupon as removeCouponAction,
+  selectCartItems, selectCartIsOpen, selectCouponCode, selectCouponDiscount,
+  selectTotalItems, selectSubtotal, selectDiscountAmount, selectCgst, selectSgst, selectGrandTotal,
+} from '@/store/cartSlice';
 
 interface CartState {
   items: CartItem[];
@@ -8,65 +22,6 @@ interface CartState {
   couponCode: string;
   couponDiscount: number;
 }
-
-type CartAction =
-  | { type: 'ADD_ITEM'; payload: MenuItem }
-  | { type: 'REMOVE_ITEM'; payload: string }
-  | { type: 'INCREASE_QTY'; payload: string }
-  | { type: 'DECREASE_QTY'; payload: string }
-  | { type: 'CLEAR_CART' }
-  | { type: 'TOGGLE_CART' }
-  | { type: 'OPEN_CART' }
-  | { type: 'CLOSE_CART' }
-  | { type: 'APPLY_COUPON'; payload: { code: string; discount: number } }
-  | { type: 'REMOVE_COUPON' };
-
-const cartReducer = (state: CartState, action: CartAction): CartState => {
-  switch (action.type) {
-    case 'ADD_ITEM': {
-      const existing = state.items.find((i) => i.id === action.payload.id);
-      if (existing) {
-        return {
-          ...state,
-          items: state.items.map((i) =>
-            i.id === action.payload.id ? { ...i, quantity: i.quantity + 1 } : i
-          ),
-        };
-      }
-      return { ...state, items: [...state.items, { ...action.payload, quantity: 1 }] };
-    }
-    case 'REMOVE_ITEM':
-      return { ...state, items: state.items.filter((i) => i.id !== action.payload) };
-    case 'INCREASE_QTY':
-      return {
-        ...state,
-        items: state.items.map((i) =>
-          i.id === action.payload ? { ...i, quantity: i.quantity + 1 } : i
-        ),
-      };
-    case 'DECREASE_QTY':
-      return {
-        ...state,
-        items: state.items
-          .map((i) => (i.id === action.payload ? { ...i, quantity: i.quantity - 1 } : i))
-          .filter((i) => i.quantity > 0),
-      };
-    case 'CLEAR_CART':
-      return { ...state, items: [], couponCode: '', couponDiscount: 0 };
-    case 'TOGGLE_CART':
-      return { ...state, isOpen: !state.isOpen };
-    case 'OPEN_CART':
-      return { ...state, isOpen: true };
-    case 'CLOSE_CART':
-      return { ...state, isOpen: false };
-    case 'APPLY_COUPON':
-      return { ...state, couponCode: action.payload.code, couponDiscount: action.payload.discount };
-    case 'REMOVE_COUPON':
-      return { ...state, couponCode: '', couponDiscount: 0 };
-    default:
-      return state;
-  }
-};
 
 interface CartContextType {
   state: CartState;
@@ -92,51 +47,42 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const [state, dispatch] = useReducer(cartReducer, {
-    items: [],
-    isOpen: false,
-    couponCode: '',
-    couponDiscount: 0,
-  });
+  const dispatch = useAppDispatch();
+  const items = useAppSelector(selectCartItems);
+  const isOpen = useAppSelector(selectCartIsOpen);
+  const couponCode = useAppSelector(selectCouponCode);
+  const couponDiscount = useAppSelector(selectCouponDiscount);
+  const totalItems = useAppSelector(selectTotalItems);
+  const subtotal = useAppSelector(selectSubtotal);
+  const discountAmount = useAppSelector(selectDiscountAmount);
+  const cgst = useAppSelector(selectCgst);
+  const sgst = useAppSelector(selectSgst);
+  const grandTotal = useAppSelector(selectGrandTotal);
 
-  const subtotal = state.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const discountAmount = Math.min(
-    (subtotal * state.couponDiscount) / 100,
-    state.couponDiscount > 0 ? 300 : 0
-  );
-  const taxableAmount = subtotal - discountAmount;
-  const cgst = parseFloat((taxableAmount * 0.025).toFixed(2));
-  const sgst = parseFloat((taxableAmount * 0.025).toFixed(2));
-  const deliveryCharge = subtotal > 0 && subtotal < 500 ? 40 : 0;
-  const grandTotal = parseFloat((taxableAmount + cgst + sgst + deliveryCharge).toFixed(2));
-  const totalItems = state.items.reduce((sum, i) => sum + i.quantity, 0);
+  const state: CartState = { items, isOpen, couponCode, couponDiscount };
 
-  return (
-    <CartContext.Provider
-      value={{
-        state,
-        addItem: (item) => dispatch({ type: 'ADD_ITEM', payload: item }),
-        removeItem: (id) => dispatch({ type: 'REMOVE_ITEM', payload: id }),
-        increaseQty: (id) => dispatch({ type: 'INCREASE_QTY', payload: id }),
-        decreaseQty: (id) => dispatch({ type: 'DECREASE_QTY', payload: id }),
-        clearCart: () => dispatch({ type: 'CLEAR_CART' }),
-        toggleCart: () => dispatch({ type: 'TOGGLE_CART' }),
-        openCart: () => dispatch({ type: 'OPEN_CART' }),
-        closeCart: () => dispatch({ type: 'CLOSE_CART' }),
-        applyCoupon: (code, discount) => dispatch({ type: 'APPLY_COUPON', payload: { code, discount } }),
-        removeCoupon: () => dispatch({ type: 'REMOVE_COUPON' }),
-        totalItems,
-        subtotal,
-        cgst,
-        sgst,
-        discountAmount,
-        deliveryCharge,
-        grandTotal,
-      }}
-    >
-      {children}
-    </CartContext.Provider>
-  );
+  const value: CartContextType = {
+    state,
+    addItem: (item) => dispatch(addItemAction(item)),
+    removeItem: (id) => dispatch(removeItemAction(id)),
+    increaseQty: (id) => dispatch(increaseQtyAction(id)),
+    decreaseQty: (id) => dispatch(decreaseQtyAction(id)),
+    clearCart: () => dispatch(clearCartAction()),
+    toggleCart: () => dispatch(toggleCartAction()),
+    openCart: () => dispatch(openCartAction()),
+    closeCart: () => dispatch(closeCartAction()),
+    applyCoupon: (code, discount) => dispatch(applyCouponAction({ code, discount })),
+    removeCoupon: () => dispatch(removeCouponAction()),
+    totalItems,
+    subtotal,
+    cgst,
+    sgst,
+    discountAmount,
+    deliveryCharge: 0,
+    grandTotal,
+  };
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
 
 export const useCart = () => {

@@ -1,8 +1,8 @@
 'use client';
-import React, { useState, useMemo, Suspense } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box, Container, Typography, Grid, Chip, Button, TextField, InputAdornment,
-  Slider, ToggleButton, ToggleButtonGroup, Tabs, Tab, Divider, CircularProgress,
+  Slider, ToggleButton, ToggleButtonGroup,
   FormControl, Select, MenuItem as MuiMenuItem, InputLabel, Paper,
 } from '@mui/material';
 import {
@@ -12,21 +12,25 @@ import {
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import MenuCard from '@/components/customer/MenuCard';
-import { menuItems, categoryLabels } from '@/data/menuData';
+import { categoryLabels } from '@/data/menuData';
+import { useAdmin } from '@/context/AdminContext';
 import { Category, VegStatus } from '@/types';
 
 const categories: (Category | 'all')[] = [
-  'all', 'starters', 'south-indian', 'north-indian', 'chinese', 'biryani', 'tandoori', 'desserts', 'beverages',
+  'all', 'combos', 'starters', 'tandoori', 'biryani', 'south-indian', 'north-indian',
+  'chinese', 'rice', 'breads', 'desserts', 'beverages',
 ];
 
 const categoryEmojis: Record<string, string> = {
-  all: '🍽️', starters: '🥗', 'south-indian': '🥘', 'north-indian': '🍲',
-  chinese: '🥡', biryani: '🍚', tandoori: '🔥', desserts: '🍮', beverages: '🥤',
+  all: '🍽️', combos: '🎉', starters: '🥗', 'south-indian': '🥘', 'north-indian': '🍲',
+  chinese: '🥡', biryani: '🍚', tandoori: '🔥', rice: '🍚', breads: '🫓',
+  desserts: '🍮', beverages: '🥤',
 };
 
 type SortOption = 'popular' | 'price-asc' | 'price-desc' | 'rating';
 
 export default function MenuPage() {
+  const { menuItems: liveMenuItems } = useAdmin();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<Category | 'all'>('all');
   const [vegFilter, setVegFilter] = useState<VegStatus | 'all'>('all');
@@ -35,7 +39,7 @@ export default function MenuPage() {
   const [showFilters, setShowFilters] = useState(false);
 
   const filtered = useMemo(() => {
-    let items = [...menuItems];
+    let items = [...liveMenuItems];
 
     // Category
     if (activeCategory !== 'all') {
@@ -70,7 +74,7 @@ export default function MenuPage() {
     }
 
     return items;
-  }, [searchQuery, activeCategory, vegFilter, priceRange, sortBy]);
+  }, [liveMenuItems, searchQuery, activeCategory, vegFilter, priceRange, sortBy]);
 
   const resetFilters = () => {
     setSearchQuery('');
@@ -87,17 +91,17 @@ export default function MenuPage() {
       {/* Hero */}
       <Box sx={{
         background: 'linear-gradient(135deg, #C62828 0%, #1A0A0A 100%)',
-        py: { xs: 6, md: 10 }, textAlign: 'center',
+        py: { xs: 3, md: 4.5 }, textAlign: 'center',
       }}>
-        <Typography variant="h2" sx={{fontWeight: 800, color: 'white', fontSize: { xs: '2rem', md: '3rem' }, mb: 1.5}}>
+        <Typography variant="h2" sx={{fontWeight: 800, color: 'white', fontSize: { xs: '1.8rem', md: '2.5rem' }, mb: 1}}>
           Our <span style={{ color: '#FF9800' }}>Royal</span> Menu
         </Typography>
-        <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '1.1rem', maxWidth: 520, mx: 'auto' }}>
+        <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.95rem', maxWidth: 520, mx: 'auto' }}>
           Explore 100+ authentic Indian dishes crafted with love and tradition.
         </Typography>
       </Box>
 
-      <Container maxWidth="lg" sx={{ py: { xs: 4, md: 6 } }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 } }}>
         {/* Search + Sort */}
         <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
           <TextField

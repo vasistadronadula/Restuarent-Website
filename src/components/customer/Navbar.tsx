@@ -3,74 +3,74 @@ import React, { useState, useEffect } from 'react';
 import {
   AppBar, Toolbar, Box, Typography, Button, IconButton, Badge,
   Drawer, List, ListItem, ListItemButton, ListItemText, Divider,
-  useScrollTrigger, Slide, Avatar, Chip,
+  Avatar, Menu, MenuItem, Tooltip, Chip,
 } from '@mui/material';
 import {
-  Menu as MenuIcon, ShoppingCart, Phone, Restaurant,
-  Close, Home, Info, MenuBook, BookOnline, ContactMail, Dashboard,
+  Menu as MenuIcon, ShoppingCart, Phone, 
+  Close, Home, Info, MenuBook, BookOnline, ContactMail, Logout,
+  Login, Dashboard, Receipt,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useCart } from '@/context/CartContext';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { selectTotalItems, openCart } from '@/store/cartSlice';
+import { selectUser, selectUserRole, openAuthModal } from '@/store/authSlice';
+import { useAuth } from '@/context/AuthContext';
 import CartDrawer from './CartDrawer';
+import PalaPittaLogo from './PalaPittaLogo';
 
 const navLinks = [
   { label: 'Home',        href: '/',            icon: <Home fontSize="small" /> },
   { label: 'About',       href: '/about',        icon: <Info fontSize="small" /> },
   { label: 'Menu',        href: '/menu',         icon: <MenuBook fontSize="small" /> },
   { label: 'Reservation', href: '/reservation',  icon: <BookOnline fontSize="small" /> },
+  { label: 'My Orders',   href: '/orders',       icon: <Receipt fontSize="small" /> },
   { label: 'Contact',     href: '/contact',      icon: <ContactMail fontSize="small" /> },
 ];
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const pathname = usePathname();
-  const { totalItems, openCart } = useCart();
+  const dispatch = useAppDispatch();
+
+  // Fine-grained Redux selectors — each component only re-renders when its slice changes
+  const totalItems = useAppSelector(selectTotalItems);
+  const user = useAppSelector(selectUser);
+  const userRole = useAppSelector(selectUserRole);
+  const { signOutUser } = useAuth();
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
+  const handleMenuClose = () => setAnchorEl(null);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handler);
+    window.addEventListener('scroll', handler, { passive: true });
     return () => window.removeEventListener('scroll', handler);
   }, []);
 
-  const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : pathname.startsWith(href);
+  const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href);
 
   return (
     <>
       {/* Top Bar */}
-      <Box
-        sx={{
-          bgcolor: '#C62828',
-          py: 0.5,
-          display: { xs: 'none', md: 'block' },
-        }}
-      >
+      <Box sx={{ bgcolor: '#C62828', py: 0.3, display: { xs: 'none', md: 'block' } }}>
         <Box sx={{ maxWidth: 1200, mx: 'auto', px: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Phone sx={{ fontSize: 14 }} /> +91 98765 43210
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '11px' }}>
+              <Phone sx={{ fontSize: 13 }} /> +91 70326 82089
             </Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)' }}>
-              📍 Hyderabad, Telangana
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '11px' }}>
+              📍 Madhapur, Hyderabad
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Chip
-              label="🕐 Open: 7AM – 11PM"
+              label="🕐 Available on Swiggy & Zomato"
               size="small"
-              sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: 'white', fontSize: '11px' }}
+              sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: 'white', fontSize: '10px', height: 20 }}
             />
-            <Link href="/admin" style={{ textDecoration: 'none' }}>
-              <Chip
-                icon={<Dashboard sx={{ fontSize: '14px !important', color: 'white !important' }} />}
-                label="Admin Panel"
-                size="small"
-                sx={{ bgcolor: '#FF9800', color: 'white', fontSize: '11px', cursor: 'pointer',
-                  '&:hover': { bgcolor: '#E65100' } }}
-              />
-            </Link>
           </Box>
         </Box>
       </Box>
@@ -78,62 +78,61 @@ export default function Navbar() {
       {/* Main Navbar */}
       <AppBar
         position="sticky"
-        elevation={scrolled ? 4 : 0}
+        elevation={scrolled ? 3 : 0}
         sx={{
-          bgcolor: scrolled ? 'rgba(255,255,255,0.95)' : '#fff',
+          bgcolor: scrolled ? 'rgba(255,255,255,0.96)' : '#fff',
           backdropFilter: scrolled ? 'blur(20px)' : 'none',
-          borderBottom: '1px solid rgba(198,40,40,0.1)',
+          borderBottom: '1px solid rgba(198,40,40,0.08)',
           transition: 'all 0.3s ease',
           top: 0,
         }}
       >
-        <Toolbar sx={{ maxWidth: 1200, mx: 'auto', width: '100%', px: { xs: 2, md: 3 }, py: 1 }}>
-          {/* Logo */}
-          <Link href="/" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Box
-              sx={{
-                width: 44, height: 44, borderRadius: '12px',
-                background: 'linear-gradient(135deg, #C62828, #FF9800)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(198,40,40,0.3)',
-              }}
-            >
-              <Restaurant sx={{ color: 'white', fontSize: 24 }} />
-            </Box>
-            <Box>
-              <Typography
-                variant="h6"
-                sx={{
-                  color: '#C62828', fontWeight: 800, lineHeight: 1.1,
-                  fontSize: { xs: '16px', md: '20px' },
-                }}
-              >
-                Pala Pitta Ruchulu
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#616161', fontSize: '10px', letterSpacing: 1 }}>
-                RESTAURANT
-              </Typography>
-            </Box>
+        <Toolbar
+          variant="dense"
+          sx={{
+            maxWidth: 1200, mx: 'auto', width: '100%',
+            px: { xs: 2, md: 3 }, py: 0.4,
+            minHeight: { xs: '48px !important', md: '52px !important' },
+          }}
+        >
+          <Link href="/" style={{ textDecoration: 'none' }}>
+            <PalaPittaLogo variant="light" size="small" />
           </Link>
-
           <Box sx={{ flexGrow: 1 }} />
 
           {/* Desktop Nav Links */}
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.5, alignItems: 'center' }}>
-            {navLinks.map((link) => (
-              <Link key={link.href} href={link.href} style={{ textDecoration: 'none' }}>
+          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.3, alignItems: 'center' }}>
+            {user && (
+              <Link href="/admin" style={{ textDecoration: 'none' }}>
                 <Button
+                  size="small"
+                  startIcon={<Dashboard fontSize="small" />}
+                  sx={{
+                    bgcolor: 'rgba(198,40,40,0.12)', color: '#C62828',
+                    fontWeight: 800, fontSize: '12px', px: 1.5, py: 0.5, borderRadius: '8px',
+                    border: '1.5px solid rgba(198,40,40,0.3)', mr: 0.8,
+                    '&:hover': { bgcolor: '#C62828', color: 'white' },
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  Admin Dashboard
+                </Button>
+              </Link>
+            )}
+            {navLinks.map((link) => (
+              <Link key={link.href} href={link.href} prefetch={true} style={{ textDecoration: 'none' }}>
+                <Button
+                  size="small"
                   sx={{
                     color: isActive(link.href) ? '#C62828' : '#424242',
                     fontWeight: isActive(link.href) ? 700 : 500,
-                    px: 2, py: 1, borderRadius: '10px',
-                    position: 'relative',
+                    fontSize: '13px', px: 1.6, py: 0.5, borderRadius: '8px', position: 'relative',
                     '&::after': isActive(link.href) ? {
-                      content: '""', position: 'absolute', bottom: 4, left: '50%',
-                      transform: 'translateX(-50%)', width: '60%', height: 2,
+                      content: '""', position: 'absolute', bottom: 2, left: '50%',
+                      transform: 'translateX(-50%)', width: '50%', height: 2,
                       bgcolor: '#C62828', borderRadius: 4,
                     } : {},
-                    '&:hover': { bgcolor: 'rgba(198,40,40,0.08)', color: '#C62828' },
+                    '&:hover': { bgcolor: 'rgba(198,40,40,0.06)', color: '#C62828' },
                   }}
                 >
                   {link.label}
@@ -142,30 +141,86 @@ export default function Navbar() {
             ))}
           </Box>
 
-          {/* Cart + Order Now */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 1 }}>
+          {/* Cart + Auth */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, ml: 1 }}>
             <IconButton
-              onClick={openCart}
+              onClick={() => dispatch(openCart())}
+              size="small"
               sx={{
                 bgcolor: totalItems > 0 ? 'rgba(198,40,40,0.08)' : 'transparent',
                 border: totalItems > 0 ? '1px solid rgba(198,40,40,0.2)' : 'none',
+                p: 0.7,
                 '&:hover': { bgcolor: 'rgba(198,40,40,0.12)' },
               }}
             >
-              <Badge badgeContent={totalItems} color="primary" max={99}>
-                <ShoppingCart sx={{ color: '#C62828' }} />
+              <Badge badgeContent={totalItems} color="primary" max={99} slotProps={{ badge: { sx: { fontSize: '10px', height: 16, minWidth: 16 } } }}>
+                <ShoppingCart sx={{ color: '#C62828', fontSize: 20 }} />
               </Badge>
             </IconButton>
 
-            <Link href="/menu" style={{ textDecoration: 'none', display: { xs: 'none', sm: 'block' } as any }}>
+            {user ? (
+              <>
+                <Tooltip title={user.email || 'My Profile'}>
+                  <IconButton onClick={handleMenuOpen} size="small" sx={{ p: 0.3 }}>
+                    <Avatar sx={{ width: 32, height: 32, bgcolor: '#C62828', fontSize: '13px', fontWeight: 700, boxShadow: '0 2px 6px rgba(198,40,40,0.3)' }}>
+                      {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
+                    </Avatar>
+                  </IconButton>
+                </Tooltip>
+                <Menu
+                  anchorEl={anchorEl}
+                  open={Boolean(anchorEl)}
+                  onClose={handleMenuClose}
+                  slotProps={{ paper: { sx: { mt: 1, borderRadius: '14px', minWidth: 190, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', p: 0.5 } } }}
+                >
+                  <Box sx={{ px: 1.8, py: 1 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '13px' }}>
+                      {user.user_metadata?.full_name || (userRole === 'admin' ? 'Administrator' : 'Customer')}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-all', fontSize: '11px' }}>
+                      {user.email}
+                    </Typography>
+                  </Box>
+                  <Divider />
+                  <Link href="/orders" style={{ textDecoration: 'none', color: 'inherit' }} onClick={handleMenuClose}>
+                    <MenuItem sx={{ borderRadius: '8px', my: 0.5, fontSize: '13px', fontWeight: 600 }}>
+                      <Receipt fontSize="small" sx={{ mr: 1.2, color: '#C62828' }} /> My Orders History
+                    </MenuItem>
+                  </Link>
+                  {userRole === 'admin' && (
+                    <Link href="/admin" style={{ textDecoration: 'none', color: 'inherit' }} onClick={handleMenuClose}>
+                      <MenuItem sx={{ borderRadius: '8px', my: 0.5, color: '#FF9800', fontWeight: 700, fontSize: '13px' }}>
+                        <Dashboard fontSize="small" sx={{ mr: 1.2 }} /> Admin Dashboard
+                      </MenuItem>
+                    </Link>
+                  )}
+                  <MenuItem onClick={() => { handleMenuClose(); signOutUser(); }} sx={{ color: '#C62828', borderRadius: '8px', mt: 0.5, fontSize: '13px' }}>
+                    <Logout fontSize="small" sx={{ mr: 1.2 }} /> Sign Out
+                  </MenuItem>
+                </Menu>
+              </>
+            ) : (
               <Button
-                variant="contained"
-                color="primary"
-                size="small"
+                variant="outlined" color="primary" size="small"
+                onClick={() => dispatch(openAuthModal('login'))}
+                startIcon={<Login fontSize="small" />}
+                sx={{
+                  borderRadius: '8px', borderColor: '#C62828', color: '#C62828',
+                  fontWeight: 700, fontSize: '12px', px: 1.4, py: 0.4,
+                  '&:hover': { bgcolor: 'rgba(198,40,40,0.08)', borderColor: '#8E0000' },
+                }}
+              >
+                Log In
+              </Button>
+            )}
+
+            <Link href="/menu" style={{ textDecoration: 'none' }}>
+              <Button
+                variant="contained" color="primary" size="small"
                 sx={{
                   display: { xs: 'none', sm: 'flex' },
                   background: 'linear-gradient(135deg, #C62828, #EF5350)',
-                  px: 2.5, py: 1,
+                  px: 2, py: 0.5, borderRadius: '8px', fontSize: '12px', fontWeight: 700,
                   '&:hover': { background: 'linear-gradient(135deg, #8E0000, #C62828)' },
                 }}
               >
@@ -173,12 +228,11 @@ export default function Navbar() {
               </Button>
             </Link>
 
-            {/* Mobile menu */}
             <IconButton
-              sx={{ display: { xs: 'flex', md: 'none' }, color: '#C62828' }}
+              sx={{ display: { xs: 'flex', md: 'none' }, color: '#C62828', p: 0.5 }}
               onClick={() => setMobileOpen(true)}
             >
-              <MenuIcon />
+              <MenuIcon fontSize="small" />
             </IconButton>
           </Box>
         </Toolbar>
@@ -186,36 +240,30 @@ export default function Navbar() {
 
       {/* Mobile Drawer */}
       <Drawer
-        anchor="right"
-        open={mobileOpen}
-        onClose={() => setMobileOpen(false)}
+        anchor="right" open={mobileOpen} onClose={() => setMobileOpen(false)}
         slotProps={{ paper: { sx: { width: 280, borderTopLeftRadius: 20, borderBottomLeftRadius: 20 } } }}
       >
         <Box sx={{ p: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box sx={{ width: 36, height: 36, borderRadius: '10px', background: 'linear-gradient(135deg, #C62828, #FF9800)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Restaurant sx={{ color: 'white', fontSize: 18 }} />
-              </Box>
-              <Typography variant="h6" sx={{ color: '#C62828', fontWeight: 700 }}>Pala Pitta Ruchulu</Typography>
-            </Box>
-            <IconButton onClick={() => setMobileOpen(false)} size="small">
-              <Close />
-            </IconButton>
+            <PalaPittaLogo size="small" />
+            <IconButton onClick={() => setMobileOpen(false)} size="small"><Close /></IconButton>
           </Box>
           <Divider sx={{ mb: 2 }} />
-
           <List disablePadding>
+            {user && (
+              <ListItem disablePadding>
+                <Link href="/admin" style={{ textDecoration: 'none', width: '100%' }} onClick={() => setMobileOpen(false)}>
+                  <ListItemButton sx={{ borderRadius: '12px', mb: 0.5, bgcolor: 'rgba(198,40,40,0.12)', color: '#C62828', border: '1px solid rgba(198,40,40,0.2)' }}>
+                    <Box sx={{ mr: 1.5, color: '#C62828' }}><Dashboard fontSize="small" /></Box>
+                    <ListItemText primary="Admin Dashboard" slotProps={{ primary: { sx: { fontWeight: 800, fontSize: '14px' } } }} />
+                  </ListItemButton>
+                </Link>
+              </ListItem>
+            )}
             {navLinks.map((link) => (
               <ListItem key={link.href} disablePadding>
                 <Link href={link.href} style={{ textDecoration: 'none', width: '100%' }} onClick={() => setMobileOpen(false)}>
-                  <ListItemButton
-                    sx={{
-                      borderRadius: '12px', mb: 0.5,
-                      bgcolor: isActive(link.href) ? 'rgba(198,40,40,0.08)' : 'transparent',
-                      color: isActive(link.href) ? '#C62828' : '#424242',
-                    }}
-                  >
+                  <ListItemButton sx={{ borderRadius: '12px', mb: 0.5, bgcolor: isActive(link.href) ? 'rgba(198,40,40,0.08)' : 'transparent', color: isActive(link.href) ? '#C62828' : '#424242' }}>
                     <Box sx={{ mr: 1.5, color: isActive(link.href) ? '#C62828' : '#616161' }}>{link.icon}</Box>
                     <ListItemText primary={link.label} slotProps={{ primary: { sx: { fontWeight: isActive(link.href) ? 600 : 400 } } }} />
                   </ListItemButton>
@@ -223,27 +271,16 @@ export default function Navbar() {
               </ListItem>
             ))}
           </List>
-
           <Divider sx={{ my: 2 }} />
           <Link href="/menu" style={{ textDecoration: 'none' }} onClick={() => setMobileOpen(false)}>
-            <Button variant="contained" color="primary" fullWidth sx={{ mb: 1 }}>
-              🍽️ Order Now
-            </Button>
+            <Button variant="contained" color="primary" fullWidth sx={{ mb: 1 }}>🍽️ Order Now</Button>
           </Link>
           <Link href="/reservation" style={{ textDecoration: 'none' }} onClick={() => setMobileOpen(false)}>
-            <Button variant="outlined" color="primary" fullWidth sx={{ mb: 1 }}>
-              📅 Reserve Table
-            </Button>
+            <Button variant="outlined" color="primary" fullWidth sx={{ mb: 1 }}>📅 Reserve Table</Button>
           </Link>
-          <Link href="/admin" style={{ textDecoration: 'none' }} onClick={() => setMobileOpen(false)}>
-            <Button variant="text" color="secondary" fullWidth startIcon={<Dashboard />}>
-              Admin Panel
-            </Button>
-          </Link>
-
           <Box sx={{ mt: 3, p: 2, bgcolor: '#FFF8F2', borderRadius: '12px' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>📞 +91 98765 43210</Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>📍 Hyderabad, Telangana</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>📞 +91 70326 82089</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>📍 Madhapur, Hyderabad, TS</Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>🕐 7AM – 11PM Daily</Typography>
           </Box>
         </Box>

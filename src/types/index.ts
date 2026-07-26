@@ -4,7 +4,7 @@
 
 export type VegStatus = 'veg' | 'non-veg' | 'egg';
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
-export type PaymentMode = 'cash' | 'upi' | 'card' | 'cod';
+export type PaymentMode = 'cash' | 'upi' | 'card' | 'cod' | 'razorpay' | 'online';
 export type PaymentStatus = 'paid' | 'unpaid' | 'partial';
 export type ReservationStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
 export type EmployeeRole = 'admin' | 'manager' | 'cashier' | 'chef' | 'waiter';
@@ -16,7 +16,16 @@ export type Category =
   | 'biryani'
   | 'tandoori'
   | 'desserts'
-  | 'beverages';
+  | 'beverages'
+  | 'combos'
+  | 'rice'
+  | 'breads';
+
+export interface PortionPrices {
+  single?: number;
+  full?: number;
+  large?: number;
+}
 
 export interface MenuItem {
   id: string;
@@ -34,10 +43,13 @@ export interface MenuItem {
   tags: string[];
   spiceLevel?: 1 | 2 | 3;
   prepTime?: number; // in minutes
+  portionPrices?: PortionPrices; // S, F, L prices
 }
 
 export interface CartItem extends MenuItem {
   quantity: number;
+  selectedPortion?: 'single' | 'full' | 'large';
+  selectedPrice?: number;
 }
 
 export interface Customer {
@@ -63,7 +75,11 @@ export interface OrderItem {
   price: number;
   quantity: number;
   vegStatus: VegStatus;
+  selectedPortion?: 'single' | 'full' | 'large';
 }
+
+export type OrderSource = 'direct' | 'swiggy' | 'zomato';
+export type OrderType = 'takeaway' | 'dine-in' | 'counter';
 
 export interface Order {
   id: string;
@@ -88,6 +104,11 @@ export interface Order {
   tableNumber?: number;
   notes?: string;
   couponCode?: string;
+  orderSource?: OrderSource;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  userId?: string | null;
+  orderType?: OrderType;
 }
 
 export interface Reservation {
@@ -102,6 +123,7 @@ export interface Reservation {
   status: ReservationStatus;
   specialRequest?: string;
   createdAt: string;
+  userId?: string | null;
 }
 
 export interface Employee {

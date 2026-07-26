@@ -2,20 +2,19 @@
 import React, { useState, useMemo } from 'react';
 import {
   Box, Paper, Typography, Chip, IconButton, Button, TextField,
-  Select, MenuItem as MuiMenuItem, FormControl, InputLabel,
   Table, TableBody, TableCell, TableHead, TableRow, Avatar,
-  Dialog, DialogTitle, DialogContent, DialogActions, Divider, Grid,
-  InputAdornment, Tooltip, Stack,
+  Dialog, DialogTitle, DialogContent, DialogActions, Divider,
+  InputAdornment, Tooltip, Stack, useMediaQuery, useTheme,
 } from '@mui/material';
 import {
-  Search, Visibility, Edit, Print, CheckCircle,
+  Search, Visibility, CheckCircle, Close,
   LocalShipping, Cancel, HourglassEmpty, Restaurant,
 } from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
-import { OrderStatus } from '@/types';
+import { Order, OrderStatus } from '@/types';
 
-const statusConfig = {
+const statusConfig: Record<OrderStatus, { label: string; color: string; bg: string; icon: React.ReactElement }> = {
   pending:   { label: 'Pending',   color: '#FF9800', bg: 'rgba(255,152,0,0.1)',     icon: <HourglassEmpty sx={{ fontSize: 14 }} /> },
   preparing: { label: 'Preparing', color: '#1565C0', bg: 'rgba(21,101,192,0.1)',   icon: <Restaurant sx={{ fontSize: 14 }} /> },
   ready:     { label: 'Ready',     color: '#2E7D32', bg: 'rgba(46,125,50,0.1)',    icon: <CheckCircle sx={{ fontSize: 14 }} /> },
@@ -29,9 +28,11 @@ const nextStatus: Record<OrderStatus, OrderStatus | null> = {
 
 export default function OrdersPage() {
   const { orders, updateOrderStatus } = useAdmin();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
-  const [selectedOrder, setSelectedOrder] = useState<typeof orders[0] | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
@@ -91,13 +92,19 @@ export default function OrdersPage() {
             </TableHead>
             <TableBody>
               {filtered.map((order) => {
-                const sc = statusConfig[order.status];
+                const sc = statusConfig[order.status] || statusConfig.pending;
                 const next = nextStatus[order.status];
                 return (
                   <TableRow key={order.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                     <TableCell>
                       <Typography variant="body2" color="primary" sx={{ fontWeight: 700 }}>{order.orderId}</Typography>
-                      {order.tableNumber && <Typography variant="caption" color="text.secondary">Table {order.tableNumber}</Typography>}
+                      {order.orderSource === 'swiggy' && (
+                        <Chip label="🟠 SWIGGY" size="small" sx={{ bgcolor: '#FFF3E0', color: '#E65100', fontSize: '9px', fontWeight: 800, height: 18 }} />
+                      )}
+                      {order.orderSource === 'zomato' && (
+                        <Chip label="🔴 ZOMATO" size="small" sx={{ bgcolor: '#FFEBEE', color: '#C62828', fontSize: '9px', fontWeight: 800, height: 18 }} />
+                      )}
+                      {order.tableNumber && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Table {order.tableNumber}</Typography>}
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -178,14 +185,23 @@ export default function OrdersPage() {
 
       {/* Order Detail Dialog */}
       {selectedOrder && (
-        <Dialog open={!!selectedOrder} onClose={() => setSelectedOrder(null)} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 700 }}>
-            Order Details – {selectedOrder.orderId}
-            <Chip
-              label={statusConfig[selectedOrder.status].label}
-              size="small"
-              sx={{ bgcolor: statusConfig[selectedOrder.status].bg, color: statusConfig[selectedOrder.status].color, fontWeight: 700 }}
-            />
+        <Dialog open={!!selectedOrder} onClose={() => setSelectedOrder(null)} maxWidth="sm" fullWidth fullScreen={isMobile}>
+          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 700, gap: 1 }}>
+            <Box sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              Order Details – {selectedOrder.orderId}
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
+              <Chip
+                label={statusConfig[selectedOrder.status].label}
+                size="small"
+                sx={{ bgcolor: statusConfig[selectedOrder.status].bg, color: statusConfig[selectedOrder.status].color, fontWeight: 700 }}
+              />
+              {isMobile && (
+                <IconButton size="small" onClick={() => setSelectedOrder(null)} aria-label="Close">
+                  <Close fontSize="small" />
+                </IconButton>
+              )}
+            </Box>
           </DialogTitle>
           <DialogContent>
             <Typography variant="subtitle2" color="text.secondary" sx={{fontWeight: 700, mb: 1}}>CUSTOMER</Typography>
@@ -231,7 +247,7 @@ export default function OrdersPage() {
               </Box>
             </Stack>
           </DialogContent>
-          <DialogActions sx={{ p: 2.5, gap: 1 }}>
+          <DialogActions sx={{ p: 2.5, pb: isMobile ? 'max(20px, env(safe-area-inset-bottom, 0px))' : 2.5, gap: 1 }}>
             <Button onClick={() => setSelectedOrder(null)} variant="outlined" sx={{ borderRadius: '10px' }}>Close</Button>
             {nextStatus[selectedOrder.status] && (
               <Button

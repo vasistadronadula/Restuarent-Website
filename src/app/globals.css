@@ -42,8 +42,199 @@ a {
   text-decoration: none;
 }
 
+/* ============================================================ */
+/* Text Field & Input Adornment Vertical Centering Fixes       */
+/* ============================================================ */
+
+.MuiOutlinedInput-root,
+.MuiInputBase-root {
+  align-items: center !important;
+  background-color: #ffffff !important;
+  color-scheme: light !important;
+}
+
+input,
+textarea,
+select,
+.MuiInputBase-input,
+.MuiOutlinedInput-input {
+  background-color: transparent !important;
+  color-scheme: light !important;
+  color: #212121 !important;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+  box-shadow: 0 0 0 1000px #ffffff inset !important;
+  -webkit-text-fill-color: #212121 !important;
+  caret-color: #212121 !important;
+  background-color: transparent !important;
+  transition: background-color 50000s ease-in-out 0s !important;
+}
+
+.MuiInputAdornment-root {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.MuiInputAdornment-positionStart {
+  margin-right: 8px !important;
+}
+
+.MuiInputAdornment-positionEnd {
+  margin-left: 8px !important;
+}
+
+.MuiInputAdornment-root .MuiSvgIcon-root {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  vertical-align: middle !important;
+  margin: auto 0 !important;
+}
+
+.MuiInputBase-input {
+  display: flex;
+  align-items: center;
+}
+
+/* Button, Badge & Chip Icon Centering */
+.MuiButton-startIcon,
+.MuiButton-endIcon,
+.MuiChip-icon,
+.MuiIconButton-root {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.MuiSvgIcon-root {
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* ============================================================ */
+/* Veg & Non-Veg Badge Indicator Centering                      */
+/* ============================================================ */
+
+.veg-indicator,
+.non-veg-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #2E7D32;
+  position: relative;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.veg-indicator::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #2E7D32;
+}
+
+.non-veg-indicator {
+  border-color: #C62828;
+}
+
+.non-veg-indicator::after {
+  content: '';
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 7px solid #C62828;
+}
+
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;
   }
 }
+
+/* ============================================================ */
+/* Admin Dark Theme — MUI Override                              */
+/* ============================================================ */
+
+/* Override white background for admin dark UI Select components */
+.status-select-wrap .MuiInputBase-root,
+.status-select-wrap .MuiSelect-root,
+.admin-dark-select .MuiInputBase-root {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+.status-select-wrap .MuiInputBase-input,
+.status-select-wrap .MuiSelect-select,
+.admin-dark-select .MuiSelect-select {
+  color: inherit !important;
+  color-scheme: dark !important;
+  background-color: transparent !important;
+}
+
+/* ============================================================ */
+/* Thermal Receipt POS Print Styling                            */
+/* ============================================================ */
+@media print {
+  @page {
+    size: 80mm 297mm;
+    margin: 0;
+  }
+  html, body {
+    width: 80mm !important;
+    max-width: 80mm !important;
+    height: 297mm !important;
+    max-height: 297mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  #invoice-thermal-receipt,
+  #invoice-thermal-receipt * {
+    visibility: visible !important;
+  }
+  #invoice-thermal-receipt {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    max-width: 80mm !important;
+    margin: 0 !important;
+    padding: 4mm 2mm 15mm 2mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+  }
+}
+

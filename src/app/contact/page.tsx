@@ -1,19 +1,17 @@
 'use client';
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Box, Container, Grid, Typography, TextField, Button, Paper,
-  Divider, Chip, Alert, CircularProgress,
+  Box, Container, Grid, Typography, Button, Paper, Divider, Chip,
 } from '@mui/material';
-import { Phone, Email, LocationOn, AccessTime, WhatsApp, Send, CheckCircle } from '@mui/icons-material';
+import { Phone, Email, LocationOn, AccessTime, WhatsApp, OpenInNew } from '@mui/icons-material';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
-import toast from 'react-hot-toast';
 
 const contactInfo = [
-  { icon: <LocationOn />, label: 'Address', value: '12-3-456, Royal Complex, Banjara Hills, Road No. 10\nHyderabad, Telangana – 500034', color: '#C62828' },
-  { icon: <Phone />, label: 'Phone', value: '+91 98765 43210\n+91 40-2345-6789', color: '#2E7D32' },
-  { icon: <Email />, label: 'Email', value: 'info@palapittaruchulu.in\nreservations@palapittaruchulu.in', color: '#1565C0' },
-  { icon: <WhatsApp />, label: 'WhatsApp', value: '+91 98765 43210\n(Quick Replies Available)', color: '#25D366' },
+  { icon: <LocationOn />, label: 'Address', value: '1/90/2/E/A, Sri Sai Nilayam, Vinayaka Nagar Colony,\nCircle 20, Madhapur, Hyderabad, TS – 500081', color: '#C62828' },
+  { icon: <Phone />, label: 'Phone / Orders', value: '+91 70326 82089', color: '#2E7D32' },
+  { icon: <Email />, label: 'Email / Web', value: 'palapittaruchulu@gmail.com\nwww.palapittaruchulu.com', color: '#1565C0' },
+  { icon: <WhatsApp />, label: 'WhatsApp Direct', value: '+91 70326 82089\nInstant Customer Support', color: '#25D366' },
 ];
 
 const hours = [
@@ -23,21 +21,7 @@ const hours = [
 ];
 
 export default function ContactPage() {
-  const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' });
-  const [loading, setLoading] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleSubmit = async () => {
-    if (!form.name || !form.email || !form.message) {
-      toast.error('Please fill all required fields');
-      return;
-    }
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 1500));
-    setSubmitted(true);
-    setLoading(false);
-    toast.success('Message sent! We\'ll reply within 24 hours 😊');
-  };
+  const whatsappUrl = 'https://wa.me/917032682089';
 
   return (
     <>
@@ -45,11 +29,11 @@ export default function ContactPage() {
 
       {/* Hero */}
       <Box sx={{ background: 'linear-gradient(135deg, #1A0A0A, #C62828)', py: { xs: 6, md: 10 }, textAlign: 'center' }}>
-        <Typography variant="h2" sx={{fontWeight: 800, color: 'white', fontSize: { xs: '2rem', md: '3rem' }, mb: 1.5}}>
-          📞 Get in Touch
+        <Typography variant="h2" sx={{ fontWeight: 800, color: 'white', fontSize: { xs: '2rem', md: '3rem' }, mb: 1.5 }}>
+          📞 Contact Us
         </Typography>
         <Typography sx={{ color: 'rgba(255,255,255,0.8)', maxWidth: 480, mx: 'auto' }}>
-          Have a question, feedback, or a special request? We'd love to hear from you!
+          Connect with Pala Pitta Ruchulu instantly on WhatsApp for orders, inquiries & reservations!
         </Typography>
       </Box>
 
@@ -65,7 +49,7 @@ export default function ContactPage() {
                     {info.icon}
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="text.secondary" sx={{fontWeight: 600, display: 'block'}}>{info.label.toUpperCase()}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>{info.label.toUpperCase()}</Typography>
                     <Typography variant="body2" sx={{ whiteSpace: 'pre-line', mt: 0.3, fontWeight: 500 }}>{info.value}</Typography>
                   </Box>
                 </Paper>
@@ -75,17 +59,17 @@ export default function ContactPage() {
               <Paper sx={{ p: 2.5, borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', mb: 2.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                   <AccessTime sx={{ color: '#C62828' }} />
-                  <Typography variant="subtitle1" sx={{fontWeight: 700}}>Opening Hours</Typography>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Opening Hours</Typography>
                 </Box>
                 {hours.map((h, i) => (
                   <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                     <Typography variant="body2" color="text.secondary">{h.day}</Typography>
-                    <Typography variant="body2" sx={{fontWeight: 600}}>{h.time}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{h.time}</Typography>
                   </Box>
                 ))}
               </Paper>
 
-              {/* Map Placeholder */}
+              {/* Map */}
               <Paper sx={{ borderRadius: '16px', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', height: 220, position: 'relative' }}>
                 <Box
                   component="iframe"
@@ -102,9 +86,9 @@ export default function ContactPage() {
                   bgcolor: 'rgba(255,248,242,0.9)', flexDirection: 'column', gap: 1,
                 }}>
                   <LocationOn sx={{ fontSize: 48, color: '#C62828' }} />
-                  <Typography sx={{fontWeight: 700}}>Banjara Hills, Hyderabad</Typography>
+                  <Typography sx={{ fontWeight: 700 }}>Madhapur, Hyderabad</Typography>
                   <Button
-                    href="https://maps.google.com/?q=Banjara+Hills+Hyderabad"
+                    href="https://maps.google.com/?q=Pala+Pitta+Ruchulu+Madhapur+Hyderabad"
                     target="_blank"
                     variant="contained" color="primary" size="small" sx={{ borderRadius: '10px' }}
                   >
@@ -114,65 +98,136 @@ export default function ContactPage() {
               </Paper>
             </Grid>
 
-            {/* Right – Contact Form */}
+            {/* Right – WhatsApp Direct Support Only */}
             <Grid size={{ xs: 12, md: 7 }}>
-              <Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: '24px', boxShadow: '0 8px 40px rgba(0,0,0,0.1)' }}>
-                {submitted ? (
-                  <Box sx={{ textAlign: 'center', py: 8 }}>
-                    <CheckCircle sx={{ fontSize: 64, color: '#2E7D32', mb: 2 }} />
-                    <Typography variant="h5" color="#2E7D32" sx={{fontWeight: 800, mb: 1}}>Message Sent!</Typography>
-                    <Typography color="text.secondary" sx={{mb: 3}}>Thank you, {form.name}! We'll get back to you within 24 hours.</Typography>
-                    <Button variant="outlined" color="primary" onClick={() => { setSubmitted(false); setForm({ name: '', email: '', phone: '', subject: '', message: '' }); }}>
-                      Send Another Message
-                    </Button>
-                  </Box>
-                ) : (
-                  <>
-                    <Typography variant="h5" color="#C62828" sx={{fontWeight: 800, mb: 0.5}}>Send us a Message</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{mb: 3}}>We'll reply within 24 hours during business days.</Typography>
-                    <Grid container spacing={2.5}>
-                      <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="Your Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="Email Address *" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="Phone Number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-                      </Grid>
-                      <Grid size={{ xs: 12, sm: 6 }}>
-                        <TextField fullWidth label="Subject" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                          placeholder="e.g. Table Reservation Query"
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12 }}>
-                        <TextField fullWidth label="Your Message *" multiline rows={5}
-                          value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })}
-                          placeholder="Tell us how we can help you..."
-                        />
-                      </Grid>
-                    </Grid>
-                    <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-                      <Button
-                        fullWidth variant="contained" color="primary" size="large"
-                        onClick={handleSubmit} disabled={loading} endIcon={loading ? <CircularProgress size={18} color="inherit" /> : <Send />}
-                        sx={{ py: 1.8, borderRadius: '14px', fontWeight: 700, background: 'linear-gradient(135deg, #C62828, #EF5350)' }}
-                      >
-                        {loading ? 'Sending...' : 'Send Message'}
-                      </Button>
-                      <Button
-                        variant="outlined" color="success" size="large"
-                        href="https://wa.me/919876543210"
-                        target="_blank"
-                        startIcon={<WhatsApp />}
-                        sx={{ py: 1.8, borderRadius: '14px', fontWeight: 700, borderColor: '#25D366', color: '#25D366',
-                          '&:hover': { bgcolor: 'rgba(37,211,102,0.08)', borderColor: '#25D366' } }}
-                      >
-                        WhatsApp
-                      </Button>
-                    </Box>
-                  </>
-                )}
+              <Paper
+                sx={{
+                  p: { xs: 4, md: 6 },
+                  borderRadius: '24px',
+                  boxShadow: '0 12px 40px rgba(37,211,102,0.12)',
+                  border: '2px solid rgba(37,211,102,0.3)',
+                  background: 'linear-gradient(180deg, #FFFFFF 0%, #F4FBF6 100%)',
+                  textAlign: 'center',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 520,
+                }}
+              >
+                {/* Large Animated WhatsApp Badge */}
+                <Box
+                  sx={{
+                    width: 96,
+                    height: 96,
+                    borderRadius: '50%',
+                    bgcolor: '#25D366',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mb: 3,
+                    boxShadow: '0 12px 30px rgba(37,211,102,0.4)',
+                    '& .MuiSvgIcon-root': {
+                      fontSize: 54,
+                      display: 'block',
+                      margin: '0 auto',
+                    },
+                  }}
+                >
+                  <WhatsApp />
+                </Box>
+
+                <Chip
+                  label="⚡ FASTEST SUPPORT"
+                  sx={{
+                    bgcolor: 'rgba(37,211,102,0.15)',
+                    color: '#1B5E20',
+                    fontWeight: 800,
+                    fontSize: '12px',
+                    letterSpacing: 1,
+                    mb: 2,
+                    px: 1,
+                  }}
+                />
+
+                <Typography variant="h4" sx={{ fontWeight: 800, color: '#1B5E20', mb: 1.5 }}>
+                  Chat Direct on WhatsApp 💬
+                </Typography>
+
+                <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 460, mb: 4, lineHeight: 1.7 }}>
+                  Skip the contact form! Click below to message Pala Pitta Ruchulu directly on WhatsApp for instant food orders, table bookings, catering queries & fast support.
+                </Typography>
+
+                {/* Primary WhatsApp Action Button */}
+                <Button
+                  variant="contained"
+                  size="large"
+                  href={whatsappUrl}
+                  target="_blank"
+                  startIcon={<WhatsApp sx={{ fontSize: 28 }} />}
+                  endIcon={<OpenInNew />}
+                  sx={{
+                    py: 2,
+                    px: 5,
+                    borderRadius: '16px',
+                    fontSize: '18px',
+                    fontWeight: 800,
+                    bgcolor: '#25D366',
+                    color: 'white',
+                    boxShadow: '0 8px 24px rgba(37,211,102,0.4)',
+                    textTransform: 'none',
+                    '&:hover': {
+                      bgcolor: '#1EBE57',
+                      boxShadow: '0 12px 32px rgba(37,211,102,0.5)',
+                      transform: 'translateY(-2px)',
+                    },
+                    transition: 'all 0.2s ease',
+                    mb: 4,
+                  }}
+                >
+                  Chat on WhatsApp (+91 70326 82089)
+                </Button>
+
+                <Divider sx={{ width: '80%', mb: 4 }} />
+
+                {/* Direct Action Chips */}
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: 1, mb: 2, textTransform: 'uppercase' }}>
+                  Quick Action Links
+                </Typography>
+
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, justifyContent: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    href="https://wa.me/917032682089?text=Hi%20Pala%20Pitta%20Ruchulu,%20I%20want%20to%20place%20an%20order"
+                    target="_blank"
+                    startIcon={<WhatsApp />}
+                    sx={{ borderRadius: '20px', borderColor: '#25D366', color: '#2E7D32', textTransform: 'none', fontWeight: 600 }}
+                  >
+                    🍲 Place Food Order
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    href="https://wa.me/917032682089?text=Hi%20Pala%20Pitta%20Ruchulu,%20I%20want%20to%20reserve%20a%20table"
+                    target="_blank"
+                    startIcon={<WhatsApp />}
+                    sx={{ borderRadius: '20px', borderColor: '#25D366', color: '#2E7D32', textTransform: 'none', fontWeight: 600 }}
+                  >
+                    🪑 Book Table
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    href="https://wa.me/917032682089?text=Hi%20Pala%20Pitta%20Ruchulu,%20I%20have%20a%20catering%20inquiry"
+                    target="_blank"
+                    startIcon={<WhatsApp />}
+                    sx={{ borderRadius: '20px', borderColor: '#25D366', color: '#2E7D32', textTransform: 'none', fontWeight: 600 }}
+                  >
+                    🎉 Party / Catering Inquiry
+                  </Button>
+                </Box>
               </Paper>
             </Grid>
           </Grid>

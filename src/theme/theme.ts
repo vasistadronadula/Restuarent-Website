@@ -65,7 +65,76 @@ const themeOptions: ThemeOptions = {
     },
     MuiTextField: {
       styleOverrides: {
-        root: { '& .MuiOutlinedInput-root': { borderRadius: 12 } },
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: 12,
+            alignItems: 'center',
+            backgroundColor: '#FFFFFF',
+          },
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          alignItems: 'center',
+          backgroundColor: '#FFFFFF',
+          '& fieldset': {
+            borderColor: '#E2E8F0',
+            transition: 'all 0.2s ease',
+          },
+          '&:hover fieldset': {
+            borderColor: '#C62828',
+          },
+          '&.Mui-focused fieldset': {
+            borderColor: '#C62828',
+            borderWidth: '2px',
+          },
+          '& .MuiInputBase-input': {
+            backgroundColor: 'transparent !important',
+            colorScheme: 'light !important',
+            color: '#212121 !important',
+          },
+          '& input:-webkit-autofill': {
+            WebkitBoxShadow: '0 0 0 1000px #FFFFFF inset !important',
+            WebkitTextFillColor: '#212121 !important',
+            caretColor: '#212121 !important',
+            backgroundColor: 'transparent !important',
+            transition: 'background-color 50000s ease-in-out 0s !important',
+          },
+          '& .MuiInputAdornment-root': {
+            maxHeight: '100%',
+            height: '100%',
+            alignSelf: 'center',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginTop: 0,
+            marginBottom: 0,
+          },
+          '& .MuiSvgIcon-root': {
+            verticalAlign: 'middle',
+          },
+        },
+      },
+    },
+    MuiInputAdornment: {
+      styleOverrides: {
+        root: {
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          alignSelf: 'center',
+          maxHeight: '100%',
+          marginTop: 0,
+          marginBottom: 0,
+          '& .MuiSvgIcon-root': {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+        },
       },
     },
     MuiPaper: {

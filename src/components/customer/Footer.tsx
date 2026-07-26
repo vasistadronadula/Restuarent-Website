@@ -1,13 +1,14 @@
 'use client';
 import React from 'react';
 import {
-  Box, Container, Grid, Typography, Button, IconButton, Divider, Chip,
+  Box, Container, Grid, Typography, IconButton, Divider, Chip,
 } from '@mui/material';
 import {
-  Restaurant, Phone, Email, LocationOn, Facebook, Instagram,
-  YouTube, Twitter, WhatsApp, ArrowUpward,
+  Phone, Email, LocationOn, Facebook, Instagram,
+  YouTube, Twitter, WhatsApp,
 } from '@mui/icons-material';
 import Link from 'next/link';
+import PalaPittaLogo from './PalaPittaLogo';
 
 const quickLinks = [
   { label: 'Home', href: '/' },
@@ -42,22 +43,8 @@ export default function Footer() {
         <Grid container spacing={5}>
           {/* Brand */}
           <Grid size={{ xs: 12, md: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-              <Box sx={{
-                width: 48, height: 48, borderRadius: '12px',
-                background: 'linear-gradient(135deg, #C62828, #FF9800)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Restaurant sx={{ color: 'white', fontSize: 26 }} />
-              </Box>
-              <Box>
-                <Typography variant="h5" sx={{ color: 'white', lineHeight: 1, fontWeight: 800 }}>
-                  Pala Pitta Ruchulu
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', letterSpacing: 1 }}>
-                  RESTAURANT
-                </Typography>
-              </Box>
+            <Box sx={{ mb: 2.5 }}>
+              <PalaPittaLogo variant="dark" size="medium" />
             </Box>
             <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', lineHeight: 1.8, mb: 3, maxWidth: 300 }}>
               Authentic Indian Taste Since 1998. Savour the rich heritage of Indian cuisine crafted
@@ -132,10 +119,10 @@ export default function Footer() {
               Contact Us
             </Typography>
             {[
-              { icon: <LocationOn fontSize="small" />, text: '12-3-456, Royal Complex, Banjara Hills,\nHyderabad, Telangana – 500034' },
-              { icon: <Phone fontSize="small" />, text: '+91 98765 43210\n+91 40-2345-6789' },
-              { icon: <Email fontSize="small" />, text: 'info@palapittaruchulu.in\nreservations@palapittaruchulu.in' },
-              { icon: <WhatsApp fontSize="small" />, text: 'WhatsApp: +91 98765 43210' },
+              { icon: <LocationOn fontSize="small" />, text: 'Madhapur, Hyderabad, TS – 500081' },
+              { icon: <Phone fontSize="small" />, text: '+91 70326 82089 (Orders & Complaints)' },
+              { icon: <Email fontSize="small" />, text: 'palapittaruchulu@gmail.com\nwww.palapittaruchulu.com' },
+              { icon: <WhatsApp fontSize="small" />, text: 'Available on Swiggy & Zomato' },
             ].map((c, i) => (
               <Box key={i} sx={{ display: 'flex', gap: 1.5, mb: 2, alignItems: 'flex-start' }}>
                 <Box sx={{ color: '#FF9800', mt: 0.2 }}>{c.icon}</Box>
@@ -170,11 +157,19 @@ export default function Footer() {
             © 2026 Pala Pitta Ruchulu. All rights reserved. | GSTIN: 36AAACR1234F1Z5 | FSSAI: 10020011003457
           </Typography>
           <Box sx={{ display: 'flex', gap: 2 }}>
-            {['Privacy Policy', 'Terms', 'Refund Policy'].map((t) => (
-              <Typography key={t} variant="caption"
-                sx={{ color: 'rgba(255,255,255,0.4)', cursor: 'pointer', '&:hover': { color: '#FF9800' } }}>
-                {t}
-              </Typography>
+            {[
+              { label: 'Privacy Policy', href: '/privacy-policy' },
+              { label: 'Terms', href: '/terms' },
+              { label: 'Refund Policy', href: '/refund-policy' },
+            ].map((policy) => (
+              <Link key={policy.label} href={policy.href} style={{ textDecoration: 'none' }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: 'rgba(255,255,255,0.4)', cursor: 'pointer', '&:hover': { color: '#FF9800' } }}
+                >
+                  {policy.label}
+                </Typography>
+              </Link>
             ))}
           </Box>
         </Box>

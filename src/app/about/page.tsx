@@ -1,26 +1,26 @@
 'use client';
 import React from 'react';
 import {
-  Box, Container, Grid, Typography, Chip, Paper, Divider, Avatar,
+  Box, Container, Grid, Typography, Chip, Paper,
 } from '@mui/material';
-import { EmojiEvents, Timeline, Favorite, People, Star } from '@mui/icons-material';
+import { EmojiEvents, Star } from '@mui/icons-material';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 
 const timeline = [
-  { year: '1998', event: 'Pala Pitta Ruchulu opens its first outlet in Banjara Hills, Hyderabad.' },
-  { year: '2003', event: 'Expanded to a 200-seat restaurant with authentic tandoor kitchen.' },
-  { year: '2008', event: 'Won "Best Indian Restaurant in Hyderabad" for the first time.' },
-  { year: '2012', event: 'Launched home delivery services across Hyderabad.' },
-  { year: '2016', event: 'Introduced live kitchen experience and Chef\'s Table concept.' },
-  { year: '2020', event: 'Adapted to online ordering; served 50K+ orders during pandemic.' },
-  { year: '2024', event: 'Won 5-star rating on Google with 10,000+ reviews.' },
-  { year: '2026', event: 'Celebrating 28 years of authentic Indian cuisine excellence.' },
+  { year: '1998', event: 'Pala Pitta Ruchulu opens in Madhapur, Hyderabad, serving traditional rustic flavours.' },
+  { year: '2003', event: 'Expanded to a 200-seat restaurant featuring authentic Telangana and Andhra kitchens.' },
+  { year: '2008', event: 'Won "Best Traditional South Indian Restaurant in Hyderabad" award.' },
+  { year: '2012', event: 'Introduced signature items: Kamju Pitta Fry & Gongura Biryani.' },
+  { year: '2016', event: 'Expanded online delivery services across Madhapur, Gachibowli, and HITEC City.' },
+  { year: '2020', event: 'Served over 100,000 satisfied foodies across Hyderabad during pandemic.' },
+  { year: '2024', event: 'Achieved 4.9-star rating on Google Reviews with over 10,000+ reviews.' },
+  { year: '2026', event: 'Celebrating 28 years of culinary excellence in authentic Telugu gastronomy.' },
 ];
 
 const awards = [
   { title: 'Best Biryani in Hyderabad', org: 'Zomato Gold Award', year: '2024' },
-  { title: 'Top Indian Restaurant', org: 'Times Food Award', year: '2023' },
+  { title: 'Top South Indian Restaurant', org: 'Times Food Award', year: '2023' },
   { title: 'Hygiene Excellence Award', org: 'FSSAI', year: '2023' },
   { title: 'Customer Choice Award', org: 'Google Reviews', year: '2022' },
 ];
@@ -57,7 +57,7 @@ export default function AboutPage() {
             Our Story
           </Typography>
           <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.85)', maxWidth: 600, fontWeight: 400, lineHeight: 1.8 }}>
-            From a humble dream to Hyderabad's most-loved restaurant — Pala Pitta Ruchulu has been serving authentic Indian flavours since 1998.
+            From a humble dream to Hyderabad&apos;s most-loved restaurant — Pala Pitta Ruchulu has been serving authentic Indian flavours since 1998.
           </Typography>
         </Container>
       </Box>
@@ -72,7 +72,7 @@ export default function AboutPage() {
                 A Legacy of <span className="gradient-text">Authentic Flavours</span>
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.9, mb: 2 }}>
-                Pala Pitta Ruchulu was born in 1998 from the passion of founder Rajan Sharma, who wanted to bring the authentic flavours of his grandmother's kitchen to the streets of Hyderabad. Starting with just 20 tables and a small tandoor, the restaurant quickly became a neighbourhood favourite.
+                Pala Pitta Ruchulu was established in Madhapur with a passionate mission to bring authentic, uncompromised Telangana, Andhra, and Rayalaseema home-style culinary traditions to Hyderabad. Starting as a cozy dining destination, it quickly earned acclaim for its signature Kamju Pitta Fry, Gongura Biryanis, and Ragi Sangati with Natukodi Pulusu.
               </Typography>
               <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.9, mb: 3 }}>
                 Over 25 years, we have served over 500,000 happy customers, won multiple awards, and maintained our commitment to using only the freshest ingredients and time-honoured recipes. Today, Pala Pitta Ruchulu stands as a landmark of Indian culinary excellence in Hyderabad.
