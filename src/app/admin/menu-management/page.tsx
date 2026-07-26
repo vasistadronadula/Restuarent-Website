@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import {
-  Box, Paper, Typography, Button, TextField, Select, MenuItem as MuiMenuItem,
+  Box, Button, TextField, Select, MenuItem as MuiMenuItem,
   FormControl, InputLabel, Table, TableBody, TableCell, TableHead, TableRow,
   IconButton, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-  Grid, Switch, InputAdornment, Tooltip, Avatar, useMediaQuery, useTheme,
+  Grid, Switch, InputAdornment, Tooltip, Avatar, Stack, Typography,
+  useMediaQuery, useTheme,
 } from '@mui/material';
 import {
   Add, Edit, Delete, Search, UploadFile, Close,
@@ -16,6 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { MenuItem as MenuItemType, Category, VegStatus } from '@/types';
 import { categoryLabels } from '@/data/menuData';
 import toast from 'react-hot-toast';
+import { PageHeader, StatCard, SectionCard, EmptyState, adminColors } from '@/components/admin/ui';
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
 
@@ -23,6 +25,7 @@ export default function MenuManagementPage() {
   const { menuItems, addMenuItem, updateMenuItem, deleteMenuItem } = useAdmin();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -142,169 +145,189 @@ export default function MenuManagementPage() {
     return matchCat && matchSearch;
   });
 
+  const availableCount = menuItems.filter((i) => i.isAvailable).length;
+  const popularCount = menuItems.filter((i) => i.isPopular).length;
+
   return (
     <AdminLayout title="Menu Catalog & Pricing Management">
-      {/* Action Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          Live Menu Items ({menuItems.length})
-        </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<Add />}
-          onClick={openAdd}
-          sx={{ borderRadius: '12px', fontWeight: 700, px: 2.5 }}
-        >
-          Add New Dish
-        </Button>
-      </Box>
+      <PageHeader
+        title="Menu Catalog"
+        subtitle="Every dish, its portion pricing, and live availability."
+        action={
+          <Button variant="contained" startIcon={<Add />} onClick={openAdd}
+            sx={{ borderRadius: '12px', fontWeight: 700, px: 2.5, bgcolor: adminColors.accentRed, '&:hover': { bgcolor: adminColors.accentRedDark } }}>
+            Add New Dish
+          </Button>
+        }
+      />
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="🍽️" label="Total Dishes" value={menuItems.length} accent={adminColors.info} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="✅" label="Available" value={availableCount} accent={adminColors.success} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="🔥" label="Popular" value={popularCount} accent={adminColors.accentOrange} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="📁" label="Categories" value={Object.keys(categoryLabels).length} accent={adminColors.accentRed} />
+        </Grid>
+      </Grid>
 
       {/* Filter & Search Bar */}
-      <Paper sx={{ p: 2, mb: 3, borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.05)' }}>
+      <SectionCard sx={{ mb: 3 }}>
         <Grid container spacing={2} sx={{ alignItems: 'center' }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField
-              fullWidth
-              size="small"
-              placeholder="Search dishes by name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search sx={{ color: '#9E9E9E' }} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
+              fullWidth size="small" placeholder="Search dishes by name..."
+              value={search} onChange={(e) => setSearch(e.target.value)}
+              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ color: '#9E9E9E' }} /></InputAdornment> } }}
             />
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
             <FormControl fullWidth size="small">
               <InputLabel>Filter Category</InputLabel>
-              <Select
-                value={categoryFilter}
-                label="Filter Category"
-                onChange={(e) => setCategoryFilter(e.target.value)}
-              >
+              <Select value={categoryFilter} label="Filter Category" onChange={(e) => setCategoryFilter(e.target.value)}>
                 <MuiMenuItem value="all">All Categories</MuiMenuItem>
                 {Object.entries(categoryLabels).map(([k, v]) => (
-                  <MuiMenuItem key={k} value={k}>
-                    {v}
-                  </MuiMenuItem>
+                  <MuiMenuItem key={k} value={k}>{v}</MuiMenuItem>
                 ))}
               </Select>
             </FormControl>
           </Grid>
         </Grid>
-      </Paper>
+      </SectionCard>
 
-      {/* Items Table */}
-      <Paper sx={{ borderRadius: '20px', boxShadow: '0 2px 16px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-        <Box sx={{ overflowX: 'auto' }}>
-          <Table sx={{ minWidth: 750 }}>
-            <TableHead sx={{ bgcolor: '#FAFAFA' }}>
-              <TableRow>
-                {['Item Name', 'Category', 'Portion Prices (S/F/L)', 'Status', 'Availability', 'Actions'].map((h) => (
-                  <TableCell key={h} sx={{ fontWeight: 700, fontSize: '12px', color: '#616161', py: 1.5 }}>
-                    {h}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
+      {/* Items */}
+      <SectionCard noPadding>
+        {filtered.length === 0 ? (
+          <EmptyState emoji="🍽️" title="No dishes found" subtitle="Try a different search or category." />
+        ) : isTablet ? (
+          <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
+            <Stack spacing={1.5}>
               {filtered.map((item) => (
-                <TableRow key={item.id} hover>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      <Avatar
-                        src={item.image}
-                        variant="rounded"
-                        sx={{ width: 44, height: 44, borderRadius: '8px' }}
-                      />
-                      <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                          <Box className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'} />
-                          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                            {item.name}
-                          </Typography>
-                        </Box>
-                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', maxWidth: 220 }}>
-                          {item.description}
-                        </Typography>
+                <Box key={item.id} sx={{ p: 1.75, borderRadius: adminColors.radiusMd, border: `1px solid ${adminColors.borderSubtle}`, bgcolor: adminColors.bgSubtle }}>
+                  <Box sx={{ display: 'flex', gap: 1.5 }}>
+                    <Avatar src={item.image} variant="rounded" sx={{ width: 52, height: 52, borderRadius: '10px', flexShrink: 0 }} />
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
+                        <Box className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'} />
+                        <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>{item.name}</Typography>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>{item.description}</Typography>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                        {item.portionPrices?.full ? (
+                          <Chip label={`₹${item.portionPrices.full}`} size="small" sx={{ bgcolor: adminColors.accentRed, color: 'white', fontWeight: 700, fontSize: '10px', height: 20 }} />
+                        ) : (
+                          <Typography variant="body2" sx={{ fontWeight: 800, color: adminColors.accentRed }}>₹{item.price}</Typography>
+                        )}
+                        {item.isPopular && <Chip label="Popular" size="small" sx={{ bgcolor: adminColors.accentRed, color: 'white', fontWeight: 700, fontSize: '9px', height: 20 }} />}
+                        {item.isSpecial && <Chip label="Special" size="small" sx={{ bgcolor: adminColors.accentOrange, color: 'white', fontWeight: 700, fontSize: '9px', height: 20 }} />}
                       </Box>
                     </Box>
-                  </TableCell>
-
-                  <TableCell>
-                    <Chip
-                      label={categoryLabels[item.category] || item.category}
-                      size="small"
-                      sx={{ bgcolor: 'rgba(0,0,0,0.06)', fontWeight: 600, fontSize: '11px' }}
-                    />
-                  </TableCell>
-
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {item.portionPrices?.single && (
-                        <Chip label={`Single: ₹${item.portionPrices.single}`} size="small" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
-                      )}
-                      {item.portionPrices?.full && (
-                        <Chip label={`Full: ₹${item.portionPrices.full}`} size="small" color="error" sx={{ fontWeight: 700 }} />
-                      )}
-                      {item.portionPrices?.large && (
-                        <Chip label={`Large: ₹${item.portionPrices.large}`} size="small" color="secondary" variant="outlined" sx={{ fontWeight: 700 }} />
-                      )}
-                      {!item.portionPrices && (
-                        <Typography variant="body2" sx={{ fontWeight: 800, color: '#C62828' }}>
-                          ₹{item.price}
-                        </Typography>
-                      )}
-                    </Box>
-                  </TableCell>
-
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      {item.isSpecial && <Chip label="Special" size="small" sx={{ bgcolor: '#FF9800', color: 'white', fontWeight: 700, fontSize: '10px' }} />}
-                      {item.isPopular && <Chip label="Popular" size="small" sx={{ bgcolor: '#C62828', color: 'white', fontWeight: 700, fontSize: '10px' }} />}
-                    </Box>
-                  </TableCell>
-
-                  <TableCell>
-                    <Switch
-                      checked={item.isAvailable}
-                      onChange={(e) => updateMenuItem({ ...item, isAvailable: e.target.checked })}
-                      color="success"
-                      size="small"
-                    />
-                  </TableCell>
-
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Tooltip title="Edit Dish">
-                        <IconButton size="small" onClick={() => openEdit(item)}>
-                          <Edit sx={{ fontSize: 18, color: '#1565C0' }} />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete Dish">
-                        <IconButton size="small" onClick={() => { if (confirm(`Delete ${item.name}?`)) deleteMenuItem(item.id); }}>
-                          <Delete sx={{ fontSize: 18, color: '#C62828' }} />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </TableCell>
-                </TableRow>
+                    <Switch checked={item.isAvailable} onChange={(e) => updateMenuItem({ ...item, isAvailable: e.target.checked })} color="success" size="small" />
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1, mt: 1.25 }}>
+                    <Button size="small" startIcon={<Edit sx={{ fontSize: 16 }} />} onClick={() => openEdit(item)}
+                      sx={{ flex: 1, borderRadius: adminColors.radiusSm, fontSize: '11px', bgcolor: 'white', border: `1px solid ${adminColors.border}` }}>
+                      Edit
+                    </Button>
+                    <IconButton size="small" onClick={() => { if (confirm(`Delete ${item.name}?`)) deleteMenuItem(item.id); }}
+                      sx={{ bgcolor: 'white', border: `1px solid ${adminColors.border}`, color: adminColors.accentRed }}>
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Box>
               ))}
-            </TableBody>
-          </Table>
-        </Box>
-      </Paper>
+            </Stack>
+          </Box>
+        ) : (
+          <Box sx={{ overflowX: 'auto' }}>
+            <Table sx={{ minWidth: 750 }}>
+              <TableHead sx={{ bgcolor: adminColors.bgSubtle }}>
+                <TableRow>
+                  {['Item Name', 'Category', 'Portion Prices (S/F/L)', 'Status', 'Availability', 'Actions'].map((h) => (
+                    <TableCell key={h} sx={{ fontWeight: 700, fontSize: '12px', color: '#616161', py: 1.5 }}>{h}</TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filtered.map((item) => (
+                  <TableRow key={item.id} hover>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Avatar src={item.image} variant="rounded" sx={{ width: 44, height: 44, borderRadius: '8px' }} />
+                        <Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
+                            <Box className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'} />
+                            <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.name}</Typography>
+                          </Box>
+                          <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', maxWidth: 220 }}>
+                            {item.description}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </TableCell>
+
+                    <TableCell>
+                      <Chip label={categoryLabels[item.category] || item.category} size="small" sx={{ bgcolor: adminColors.bgSubtle, fontWeight: 600, fontSize: '11px' }} />
+                    </TableCell>
+
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        {item.portionPrices?.single && (
+                          <Chip label={`Single: ₹${item.portionPrices.single}`} size="small" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
+                        )}
+                        {item.portionPrices?.full && (
+                          <Chip label={`Full: ₹${item.portionPrices.full}`} size="small" color="error" sx={{ fontWeight: 700 }} />
+                        )}
+                        {item.portionPrices?.large && (
+                          <Chip label={`Large: ₹${item.portionPrices.large}`} size="small" color="secondary" variant="outlined" sx={{ fontWeight: 700 }} />
+                        )}
+                        {!item.portionPrices && (
+                          <Typography variant="body2" sx={{ fontWeight: 800, color: adminColors.accentRed }}>₹{item.price}</Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        {item.isSpecial && <Chip label="Special" size="small" sx={{ bgcolor: adminColors.accentOrange, color: 'white', fontWeight: 700, fontSize: '10px' }} />}
+                        {item.isPopular && <Chip label="Popular" size="small" sx={{ bgcolor: adminColors.accentRed, color: 'white', fontWeight: 700, fontSize: '10px' }} />}
+                      </Box>
+                    </TableCell>
+
+                    <TableCell>
+                      <Switch checked={item.isAvailable} onChange={(e) => updateMenuItem({ ...item, isAvailable: e.target.checked })} color="success" size="small" />
+                    </TableCell>
+
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <Tooltip title="Edit Dish">
+                          <IconButton size="small" onClick={() => openEdit(item)}>
+                            <Edit sx={{ fontSize: 18, color: '#1565C0' }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete Dish">
+                          <IconButton size="small" onClick={() => { if (confirm(`Delete ${item.name}?`)) deleteMenuItem(item.id); }}>
+                            <Delete sx={{ fontSize: 18, color: adminColors.accentRed }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+        )}
+      </SectionCard>
 
       {/* Add / Edit Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}>
-        <DialogTitle sx={{ fontWeight: 800, bgcolor: '#FAF5EF', color: '#C62828', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <DialogTitle sx={{ fontWeight: 800, bgcolor: '#FAF5EF', color: adminColors.accentRed, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {isEdit ? '✏️ Edit Menu Dish & Pricing' : '➕ Add New Dish to Menu'}
           {isMobile && (
             <IconButton size="small" onClick={() => setDialogOpen(false)} aria-label="Close">
@@ -350,7 +373,7 @@ export default function MenuManagementPage() {
 
             {/* Portion Prices (S / F / L) */}
             <Grid size={{ xs: 12 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#C62828', mb: 1 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: adminColors.accentRed, mb: 1 }}>
                 🍽️ Portion Sizing & Pricing (Single S / Full F / Large L):
               </Typography>
               <Grid container spacing={2}>

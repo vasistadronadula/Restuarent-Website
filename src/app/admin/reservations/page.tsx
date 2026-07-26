@@ -1,11 +1,11 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import {
-  Box, Paper, Typography, Chip, Button, TextField, Avatar, Grid,
+  Box, Typography, Chip, Button, TextField, Avatar, Grid,
   Table, TableBody, TableCell, TableHead, TableRow, IconButton,
   Dialog, DialogTitle, DialogContent, DialogActions, Divider,
   InputAdornment, Tooltip, Card, CardContent, CardActions,
-  CircularProgress, Alert, useMediaQuery, useTheme,
+  CircularProgress, Alert, Stack, useMediaQuery, useTheme,
 } from '@mui/material';
 import {
   Search, CheckCircle, Cancel, People, Close,
@@ -24,13 +24,7 @@ import {
 } from '@/store/supabaseApi';
 import { generateTableId } from '@/lib/idGenerator';
 import toast from 'react-hot-toast';
-
-const statusConfig = {
-  pending:   { label: 'Pending',   color: '#FF9800', bg: 'rgba(255,152,0,0.1)'  },
-  confirmed: { label: 'Confirmed', color: '#2E7D32', bg: 'rgba(46,125,50,0.1)' },
-  completed: { label: 'Completed', color: '#616161', bg: 'rgba(97,97,97,0.1)'  },
-  cancelled: { label: 'Cancelled', color: '#C62828', bg: 'rgba(198,40,40,0.1)' },
-};
+import { PageHeader, StatCard, SectionCard, StatusChip, EmptyState, adminColors, reservationStatusColors } from '@/components/admin/ui';
 
 // ─── Add / Edit Table Dialog ──────────────────────────────────────────────────
 
@@ -51,7 +45,6 @@ function TableDialog({ open, editing, onClose }: TableDialogProps) {
   const [capacity, setCapacity] = useState(editing?.capacity ?? 4);
   const [description, setDescription] = useState(editing?.description ?? '');
   const [errors, setErrors] = useState<Record<string, string>>({});
-
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -84,8 +77,8 @@ function TableDialog({ open, editing, onClose }: TableDialogProps) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth fullScreen={isMobile} slotProps={{ paper: { sx: { borderRadius: isMobile ? 0 : '20px' } } }}>
-      <DialogTitle sx={{ fontWeight: 800, color: '#C62828', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth fullScreen={isMobile} slotProps={{ paper: { sx: { borderRadius: isMobile ? 0 : adminColors.radiusLg } } }}>
+      <DialogTitle sx={{ fontWeight: 800, color: adminColors.accentRed, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         {editing ? `Edit Table ${editing.tableNumber}` : '+ Add New Table'}
         {isMobile && (
           <IconButton size="small" onClick={onClose} aria-label="Close">
@@ -126,7 +119,7 @@ function TableDialog({ open, editing, onClose }: TableDialogProps) {
         <Button
           variant="contained" onClick={handleSave}
           disabled={adding || updating}
-          sx={{ bgcolor: '#C62828', '&:hover': { bgcolor: '#B71C1C' }, borderRadius: '10px', fontWeight: 700 }}
+          sx={{ bgcolor: adminColors.accentRed, '&:hover': { bgcolor: adminColors.accentRedDark }, borderRadius: '10px', fontWeight: 700 }}
         >
           {(adding || updating) ? <CircularProgress size={20} color="inherit" /> : editing ? 'Update Table' : 'Add Table'}
         </Button>
@@ -142,6 +135,7 @@ export default function ReservationsPage() {
   const { data: tables = [], isLoading: tablesLoading } = useGetTablesQuery();
   const [deleteTable] = useDeleteTableMutation();
   const [releaseTableSlot] = useReleaseTableSlotMutation();
+  const isTablet = useMediaQuery(useTheme().breakpoints.down('md'));
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<ReservationStatus | 'all'>('all');
@@ -159,6 +153,11 @@ export default function ReservationsPage() {
     reservations.forEach((r) => { c[r.status] = (c[r.status] || 0) + 1; });
     return c;
   }, [reservations]);
+
+  const totalGuestsToday = useMemo(
+    () => reservations.filter((r) => r.status !== 'cancelled').reduce((s, r) => s + (Number(r.guests) || 0), 0),
+    [reservations]
+  );
 
   const handleDeleteTable = async (table: RestaurantTable) => {
     if (!confirm(`Delete Table ${table.tableNumber}? All future slot bookings for this table will be removed.`)) return;
@@ -184,24 +183,38 @@ export default function ReservationsPage() {
 
   return (
     <AdminLayout title="Reservations & Tables">
+      <PageHeader title="Reservations & Tables" subtitle="Book, confirm, and manage every dining table in real time." />
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="📅" label="Pending" value={counts.pending || 0} accent={reservationStatusColors.pending.color} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="✅" label="Confirmed" value={counts.confirmed || 0} accent={reservationStatusColors.confirmed.color} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="🪑" label="Active Tables" value={tables.filter((t) => t.isActive).length} accent={adminColors.info} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="👥" label="Guests Booked" value={totalGuestsToday} accent={adminColors.accentOrange} />
+        </Grid>
+      </Grid>
 
       {/* ── TABLE MANAGEMENT PANEL ──────────────────────────────────────────── */}
       <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Box>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>🪑 Table Management</Typography>
-            <Typography variant="body2" color="text.secondary">
-              Add, edit or remove dining tables. Customers see real-time availability.
-            </Typography>
-          </Box>
-          <Button
-            variant="contained" startIcon={<Add />}
-            onClick={() => { setEditingTable(null); setTableDialogOpen(true); }}
-            sx={{ bgcolor: '#C62828', '&:hover': { bgcolor: '#B71C1C' }, borderRadius: '12px', fontWeight: 700 }}
-          >
-            Add Table
-          </Button>
-        </Box>
+        <PageHeader
+          title="🪑 Table Management"
+          subtitle="Add, edit or remove dining tables. Customers see real-time availability."
+          action={
+            <Button
+              variant="contained" startIcon={<Add />}
+              onClick={() => { setEditingTable(null); setTableDialogOpen(true); }}
+              sx={{ bgcolor: adminColors.accentRed, '&:hover': { bgcolor: adminColors.accentRedDark }, borderRadius: '12px', fontWeight: 700 }}
+            >
+              Add Table
+            </Button>
+          }
+        />
 
         {tablesLoading ? (
           <Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress color="primary" /></Box>
@@ -213,16 +226,16 @@ export default function ReservationsPage() {
           <Grid container spacing={2}>
             {tables.map((table) => (
               <Grid key={table.id} size={{ xs: 6, sm: 4, md: 3 }}>
-                <Card sx={{ borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', height: '100%' }}>
+                <Card sx={{ borderRadius: adminColors.radiusMd, border: `1px solid ${adminColors.borderSubtle}`, boxShadow: adminColors.shadowSm, height: '100%' }}>
                   <CardContent sx={{ pb: 1 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <TableRestaurant sx={{ color: '#C62828', fontSize: 32 }} />
+                      <TableRestaurant sx={{ color: adminColors.accentRed, fontSize: 32 }} />
                       <Chip
                         label={table.isActive ? 'Active' : 'Inactive'}
                         size="small"
                         sx={{
-                          bgcolor: table.isActive ? 'rgba(46,125,50,0.1)' : 'rgba(0,0,0,0.06)',
-                          color: table.isActive ? '#2E7D32' : '#9E9E9E',
+                          bgcolor: table.isActive ? adminColors.successBg : adminColors.neutralBg,
+                          color: table.isActive ? adminColors.success : adminColors.neutral,
                           fontWeight: 700, fontSize: '10px',
                         }}
                       />
@@ -244,7 +257,7 @@ export default function ReservationsPage() {
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete Table">
-                      <IconButton size="small" onClick={() => handleDeleteTable(table)} sx={{ color: '#C62828' }}>
+                      <IconButton size="small" onClick={() => handleDeleteTable(table)} sx={{ color: adminColors.accentRed }}>
                         <Delete sx={{ fontSize: 18 }} />
                       </IconButton>
                     </Tooltip>
@@ -261,25 +274,24 @@ export default function ReservationsPage() {
       {/* ── RESERVATION LIST ────────────────────────────────────────────────── */}
       <Typography variant="h6" sx={{ fontWeight: 800, mb: 2 }}>📅 Reservations</Typography>
 
-      {/* Status Chips */}
       <Box sx={{ display: 'flex', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
         {(['all', 'pending', 'confirmed', 'completed', 'cancelled'] as const).map((s) => (
           <Chip
             key={s}
-            label={`${s === 'all' ? 'All' : statusConfig[s as ReservationStatus]?.label} (${counts[s] || 0})`}
+            label={`${s === 'all' ? 'All' : reservationStatusColors[s]?.label} (${counts[s] || 0})`}
             onClick={() => setFilterStatus(s)}
             sx={{
               fontWeight: filterStatus === s ? 700 : 500, cursor: 'pointer',
-              bgcolor: filterStatus === s ? (s === 'all' ? '#C62828' : statusConfig[s as ReservationStatus]?.color) : 'white',
+              bgcolor: filterStatus === s ? (s === 'all' ? adminColors.accentRed : reservationStatusColors[s]?.color) : adminColors.bgPanel,
               color: filterStatus === s ? 'white' : '#424242',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)', transition: 'all 0.2s',
+              boxShadow: adminColors.shadowSm, transition: 'all 0.2s',
             }}
           />
         ))}
       </Box>
 
-      <Paper sx={{ borderRadius: '20px', boxShadow: '0 2px 16px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-        <Box sx={{ p: 2.5, borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+      <SectionCard noPadding>
+        <Box sx={{ p: 2.5, borderBottom: `1px solid ${adminColors.divider}` }}>
           <TextField
             size="small" placeholder="Search by name or phone..."
             value={search} onChange={(e) => setSearch(e.target.value)} sx={{ width: { xs: '100%', sm: 300 } }}
@@ -287,28 +299,93 @@ export default function ReservationsPage() {
           />
         </Box>
 
-        <Box sx={{ overflowX: 'auto' }}>
-          <Table sx={{ minWidth: 900 }}>
-            <TableHead sx={{ bgcolor: '#FAFAFA' }}>
-              <TableRow>
-                {['ID', 'Customer', 'Contact', 'Guests', 'Date & Time', 'Table', 'Status', 'Request', 'Actions'].map((h) => (
-                  <TableCell key={h} sx={{ fontWeight: 700, fontSize: '12px', color: '#616161', py: 1.5, whiteSpace: 'nowrap' }}>{h}</TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filtered.map((r) => {
-                const sc = statusConfig[r.status];
-                return (
+        {filtered.length === 0 ? (
+          <EmptyState emoji="📅" title="No reservations found" subtitle="Try a different search or filter." />
+        ) : isTablet ? (
+          /* ── Mobile / tablet: card list ─────────────────────────────── */
+          <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
+            <Stack spacing={1.5}>
+              {filtered.map((r) => (
+                <Box key={r.id} sx={{ p: 1.75, borderRadius: adminColors.radiusMd, border: `1px solid ${adminColors.borderSubtle}`, bgcolor: adminColors.bgSubtle }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: 0 }}>
+                      <Avatar sx={{ width: 34, height: 34, bgcolor: adminColors.accentRed, fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>
+                        {r.customerName.split(' ').map((n) => n[0]).join('')}
+                      </Avatar>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>{r.customerName}</Typography>
+                        <Typography variant="caption" color="text.secondary">{r.customerPhone}</Typography>
+                      </Box>
+                    </Box>
+                    <StatusChip status={r.status} palette={reservationStatusColors} />
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1.5, flexWrap: 'wrap' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600 }}>📅 {r.date} · {r.time}</Typography>
+                    <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 0.4 }}>
+                      <People sx={{ fontSize: 14, color: '#616161' }} /> {r.guests}
+                    </Typography>
+                    {r.tableNumber && (
+                      <Chip label={`Table ${r.tableNumber}`} size="small" icon={<TableRestaurant sx={{ fontSize: '13px !important' }} />}
+                        sx={{ bgcolor: 'rgba(198,40,40,0.08)', color: adminColors.accentRed, fontWeight: 700, fontSize: '10px', height: 22 }} />
+                    )}
+                  </Box>
+
+                  {r.specialRequest && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75, fontStyle: 'italic' }}>
+                      “{r.specialRequest}”
+                    </Typography>
+                  )}
+
+                  {(r.status === 'pending' || r.status === 'confirmed') && (
+                    <Box sx={{ display: 'flex', gap: 1, mt: 1.5 }}>
+                      {r.status === 'pending' && (
+                        <Button size="small" variant="contained" color="success" startIcon={<CheckCircle sx={{ fontSize: 16 }} />}
+                          onClick={() => updateReservationStatus(r.id, 'confirmed')}
+                          sx={{ borderRadius: adminColors.radiusSm, fontSize: '11px', flex: 1 }}>
+                          Confirm
+                        </Button>
+                      )}
+                      {r.status === 'confirmed' && (
+                        <Button size="small" variant="contained" color="success"
+                          onClick={() => handleCompleteReservation(r.id)}
+                          sx={{ borderRadius: adminColors.radiusSm, fontSize: '11px', flex: 1 }}>
+                          Complete
+                        </Button>
+                      )}
+                      <Button size="small" variant="outlined" color="error" startIcon={<Cancel sx={{ fontSize: 16 }} />}
+                        onClick={() => handleCancelReservation(r.id)}
+                        sx={{ borderRadius: adminColors.radiusSm, fontSize: '11px', flex: 1 }}>
+                        Cancel
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          </Box>
+        ) : (
+          /* ── Desktop: table ──────────────────────────────────────────── */
+          <Box sx={{ overflowX: 'auto' }}>
+            <Table sx={{ minWidth: 900 }}>
+              <TableHead sx={{ bgcolor: adminColors.bgSubtle }}>
+                <TableRow>
+                  {['ID', 'Customer', 'Contact', 'Guests', 'Date & Time', 'Table', 'Status', 'Request', 'Actions'].map((h) => (
+                    <TableCell key={h} sx={{ fontWeight: 700, fontSize: '12px', color: '#616161', py: 1.5, whiteSpace: 'nowrap' }}>{h}</TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filtered.map((r) => (
                   <TableRow key={r.id} hover sx={{ '&:last-child td': { border: 0 } }}>
                     <TableCell>
-                      <Typography variant="caption" sx={{ fontFamily: 'monospace', fontWeight: 600, color: '#C62828', fontSize: '10px' }}>
+                      <Typography variant="caption" sx={{ fontFamily: 'monospace', fontWeight: 600, color: adminColors.accentRed, fontSize: '10px' }}>
                         {r.id}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Avatar sx={{ width: 32, height: 32, bgcolor: '#C62828', fontSize: '11px', fontWeight: 700 }}>
+                        <Avatar sx={{ width: 32, height: 32, bgcolor: adminColors.accentRed, fontSize: '11px', fontWeight: 700 }}>
                           {r.customerName.split(' ').map((n) => n[0]).join('')}
                         </Avatar>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>{r.customerName}</Typography>
@@ -334,14 +411,14 @@ export default function ReservationsPage() {
                           label={`Table ${r.tableNumber}`}
                           size="small"
                           icon={<TableRestaurant sx={{ fontSize: '14px !important' }} />}
-                          sx={{ bgcolor: 'rgba(198,40,40,0.08)', color: '#C62828', fontWeight: 700, fontSize: '11px' }}
+                          sx={{ bgcolor: 'rgba(198,40,40,0.08)', color: adminColors.accentRed, fontWeight: 700, fontSize: '11px' }}
                         />
                       ) : (
                         <Typography variant="caption" color="text.secondary">–</Typography>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Chip label={sc.label} size="small" sx={{ bgcolor: sc.bg, color: sc.color, fontWeight: 600, fontSize: '11px' }} />
+                      <StatusChip status={r.status} palette={reservationStatusColors} />
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 120, display: 'block' }}>
@@ -354,12 +431,12 @@ export default function ReservationsPage() {
                           <>
                             <Tooltip title="Confirm">
                               <IconButton size="small" onClick={() => updateReservationStatus(r.id, 'confirmed')}>
-                                <CheckCircle sx={{ color: '#2E7D32', fontSize: 20 }} />
+                                <CheckCircle sx={{ color: adminColors.success, fontSize: 20 }} />
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Cancel & free table">
                               <IconButton size="small" onClick={() => handleCancelReservation(r.id)}>
-                                <Cancel sx={{ color: '#C62828', fontSize: 20 }} />
+                                <Cancel sx={{ color: adminColors.accentRed, fontSize: 20 }} />
                               </IconButton>
                             </Tooltip>
                           </>
@@ -375,7 +452,7 @@ export default function ReservationsPage() {
                             </Button>
                             <Tooltip title="Cancel & free table">
                               <IconButton size="small" onClick={() => handleCancelReservation(r.id)}>
-                                <Cancel sx={{ color: '#C62828', fontSize: 20 }} />
+                                <Cancel sx={{ color: adminColors.accentRed, fontSize: 20 }} />
                               </IconButton>
                             </Tooltip>
                           </>
@@ -383,19 +460,12 @@ export default function ReservationsPage() {
                       </Box>
                     </TableCell>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Box>
-
-        {filtered.length === 0 && (
-          <Box sx={{ textAlign: 'center', py: 6 }}>
-            <Typography variant="h2" sx={{ fontSize: '2.5rem', mb: 1 }}>📅</Typography>
-            <Typography color="text.secondary">No reservations found</Typography>
+                ))}
+              </TableBody>
+            </Table>
           </Box>
         )}
-      </Paper>
+      </SectionCard>
 
       {/* Table Add/Edit Dialog */}
       <TableDialog

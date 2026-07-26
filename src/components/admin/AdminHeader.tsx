@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
+import { ROLE_LABELS } from '@/lib/roleAccess';
 import MobileAppInstallModal from './MobileAppInstallModal';
 
 interface Props {
@@ -446,7 +447,7 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
                     <div>
                       <div className="profile-name">{adminName}</div>
                       <div className="profile-email">{adminEmail}</div>
-                      <div className="profile-role">{userRole || 'Admin'}</div>
+                      <div className="profile-role">{userRole ? ROLE_LABELS[userRole] : 'Admin'}</div>
                     </div>
                   </div>
 

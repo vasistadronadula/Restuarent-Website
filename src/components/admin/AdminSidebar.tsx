@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
+import { canAccess, ROLE_LABELS } from '@/lib/roleAccess';
+import { roleColors } from '@/theme/adminColors';
 
 const SIDEBAR_WIDTH = 260;
 const COLLAPSED_WIDTH = 68;
@@ -32,7 +34,7 @@ interface Props {
 export default function AdminSidebar({ collapsed = false, onToggle, onItemClick }: Props) {
   const pathname = usePathname();
   const { orders, reservations, inventory } = useAdmin();
-  const { user, signOutUser } = useAuth();
+  const { user, userRole, signOutUser } = useAuth();
 
   const pendingOrdersCount = orders.filter((o) => o.status === 'pending' || o.status === 'preparing').length;
   const activeReservationsCount = reservations.filter((r) => r.status === 'confirmed' || r.status === 'pending').length;
@@ -200,6 +202,17 @@ export default function AdminSidebar({ collapsed = false, onToggle, onItemClick 
     },
   ];
 
+  // Filter to only what this role is actually allowed to open — same source
+  // of truth (roleAccess.ts) the RLS policies and AdminGuard's redirects use,
+  // so a chef never sees a Reservations link they'd immediately get bounced
+  // out of.
+  const visibleNavGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canAccess(userRole, item.href)),
+    }))
+    .filter((group) => group.items.length > 0);
+
   const isActive = (href: string) =>
     href === '/admin' ? pathname === '/admin' : pathname.startsWith(href);
 
@@ -343,9 +356,15 @@ export default function AdminSidebar({ collapsed = false, onToggle, onItemClick 
           flex-shrink: 0; border: 1.5px solid rgba(0,0,0,0.06);
         }
         .sidebar-user-info { flex: 1; overflow: hidden; }
+        .sidebar-user-name-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
         .sidebar-user-name {
           font-size: 12px; font-weight: 700; color: #212121;
           white-space: nowrap; text-overflow: ellipsis; overflow: hidden;
+        }
+        .sidebar-role-pill {
+          font-size: 8.5px; font-weight: 800; letter-spacing: 0.4px;
+          text-transform: uppercase; padding: 2px 6px; border-radius: 6px;
+          flex-shrink: 0;
         }
         .sidebar-user-email {
           font-size: 10px; color: rgba(33,33,33,0.55);
@@ -376,7 +395,9 @@ export default function AdminSidebar({ collapsed = false, onToggle, onItemClick 
           {!collapsed && (
             <div className="sidebar-logo-text">
               <div className="sidebar-logo-name">Pala Pitta</div>
-              <div className="sidebar-logo-tagline">Admin Dashboard</div>
+              <div className="sidebar-logo-tagline">
+                {userRole && userRole !== 'customer' ? ROLE_LABELS[userRole] : 'Admin'} Workspace
+              </div>
             </div>
           )}
           {onToggle && (
@@ -394,7 +415,7 @@ export default function AdminSidebar({ collapsed = false, onToggle, onItemClick 
 
         {/* Navigation */}
         <nav className="sidebar-nav">
-          {navGroups.map((group) => (
+          {visibleNavGroups.map((group) => (
             <div key={group.label} className="nav-group">
               <div className="nav-group-label">{group.label}</div>
               {group.items.map((item) => {
@@ -441,10 +462,27 @@ export default function AdminSidebar({ collapsed = false, onToggle, onItemClick 
         )}
         <div className="sidebar-footer">
           <div className="sidebar-user">
-            <div className="sidebar-avatar">{initials}</div>
+            <div
+              className="sidebar-avatar"
+              style={userRole && userRole !== 'customer' ? {
+                background: `linear-gradient(135deg, ${roleColors[userRole].color}, ${roleColors[userRole].color}CC)`,
+              } : undefined}
+            >
+              {initials}
+            </div>
             {!collapsed && (
               <div className="sidebar-user-info">
-                <div className="sidebar-user-name">{adminName}</div>
+                <div className="sidebar-user-name-row">
+                  <div className="sidebar-user-name">{adminName}</div>
+                  {userRole && userRole !== 'customer' && (
+                    <span
+                      className="sidebar-role-pill"
+                      style={{ color: roleColors[userRole].color, background: roleColors[userRole].bg }}
+                    >
+                      {ROLE_LABELS[userRole]}
+                    </span>
+                  )}
+                </div>
                 <div className="sidebar-user-email">{adminEmail}</div>
               </div>
             )}

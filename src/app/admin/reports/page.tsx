@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
+import { PageHeader, StatCard, adminColors } from '@/components/admin/ui';
 
 const COLORS = ['#C62828', '#FF9800', '#2E7D32', '#1565C0', '#7B1FA2', '#F57C00', '#00838F'];
 
@@ -112,14 +113,16 @@ export default function ReportsPage() {
   }, [orders, customers]);
 
   const summaryStats = [
-    { label: 'Total Sales Revenue', value: `₹${totalRevenue.toLocaleString()}`, change: 'Live Operational', up: true },
-    { label: 'Avg. Daily Revenue', value: `₹${avgDailyRevenue.toLocaleString()}`, change: 'Live Operational', up: true },
-    { label: 'Total Orders Placed', value: `${totalOrderCount}`, change: 'Live Stream', up: true },
-    { label: 'Avg. Order Value', value: `₹${avgOrderValue.toLocaleString()}`, change: 'Live Stream', up: true },
+    { label: 'Total Sales Revenue', value: `₹${totalRevenue.toLocaleString()}`, emoji: '💰', accent: adminColors.accentOrange },
+    { label: 'Avg. Daily Revenue', value: `₹${avgDailyRevenue.toLocaleString()}`, emoji: '📈', accent: adminColors.info },
+    { label: 'Total Orders Placed', value: `${totalOrderCount}`, emoji: '🧾', accent: adminColors.accentRed },
+    { label: 'Avg. Order Value', value: `₹${avgOrderValue.toLocaleString()}`, emoji: '🎯', accent: adminColors.success },
   ];
 
   return (
     <AdminLayout title="Reports & Real-Time Analytics">
+      <PageHeader title="Reports & Analytics" subtitle="Live revenue, order volume, and customer trends across the whole operation." />
+
       {orders.length === 0 && (
         <Alert severity="info" sx={{ mb: 3, borderRadius: '14px', fontWeight: 600 }}>
           📊 Connected live to system operations stream. Place orders via Customer Menu or Invoice POS to view real-time revenue analytics.
@@ -127,14 +130,10 @@ export default function ReportsPage() {
       )}
 
       {/* Summary Stats */}
-      <Grid container spacing={2.5} sx={{ mb: 3 }}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         {summaryStats.map((s) => (
           <Grid key={s.label} size={{ xs: 6, md: 3 }}>
-            <Paper sx={{ p: 2.5, borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>{s.label.toUpperCase()}</Typography>
-              <Typography variant="h5" sx={{ fontWeight: 800, mt: 0.5 }}>{s.value}</Typography>
-              <Chip label={s.change} size="small" sx={{ mt: 0.5, bgcolor: 'rgba(46,125,50,0.1)', color: '#2E7D32', fontWeight: 700, fontSize: '11px' }} />
-            </Paper>
+            <StatCard icon={s.emoji} label={s.label} value={s.value} accent={s.accent} trend={{ label: 'Live', up: true }} />
           </Grid>
         ))}
       </Grid>

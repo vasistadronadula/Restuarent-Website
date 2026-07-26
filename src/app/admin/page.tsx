@@ -1,9 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Select, MenuItem as MuiMenuItem,
-} from '@mui/material';
+import { Select, MenuItem as MuiMenuItem, Grid } from '@mui/material';
 import {
   AreaChart, Area, PieChart, Pie, Cell,
   ResponsiveContainer, XAxis, YAxis, Tooltip as RechartsTooltip,
@@ -13,16 +11,10 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import Link from 'next/link';
 import { Order } from '@/types';
+import { StatCard, adminColors, orderStatusColors, roleColors } from '@/components/admin/ui';
+import { ROLE_LABELS } from '@/lib/roleAccess';
 
 const PIE_COLORS = ['#f97316', '#ef4444', '#3b82f6', '#22c55e', '#a855f7'];
-
-const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  pending:   { label: 'Pending',   color: '#f59e0b', bg: 'rgba(245,158,11,0.15)' },
-  preparing: { label: 'Preparing', color: '#60a5fa', bg: 'rgba(96,165,250,0.15)' },
-  ready:     { label: 'Ready',     color: '#4ade80', bg: 'rgba(74,222,128,0.15)' },
-  delivered: { label: 'Delivered', color: '#94a3b8', bg: 'rgba(33,33,33,0.08)' },
-  cancelled: { label: 'Cancelled', color: '#f87171', bg: 'rgba(248,113,113,0.12)' },
-};
 
 /* ─── Small reusable components ─────────────────────────────── */
 
@@ -63,7 +55,7 @@ function Pill({ label, style }: { label: string; style?: React.CSSProperties }) 
 /* ─── Main Dashboard ─────────────────────────────────────────── */
 
 export default function AdminDashboard() {
-  const { orders, reservations, menuItems, inventory, updateOrderStatus } = useAdmin();
+  const { orders, reservations, inventory, employees, updateOrderStatus } = useAdmin();
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [chartMetric, setChartMetric] = useState<'revenue' | 'orders'>('revenue');
@@ -124,65 +116,46 @@ export default function AdminDashboard() {
     { name: 'Veg 🥗',     value: total > 0 ? Math.round((vegRev / total) * 100) : 35 },
   ];
 
+  /* ── Staff overview (ties the dashboard to the RBAC system) ──── */
+  const activeStaff = employees.filter((e) => e.isActive);
+  const staffByRole = (['admin', 'manager', 'chef', 'cashier', 'waiter'] as const).map((role) => ({
+    role,
+    count: activeStaff.filter((e) => e.role === role).length,
+  })).filter((r) => r.count > 0);
+
   /* ── KPI cards ────────────────────────────── */
   const kpis = [
     {
       label: "Today's Revenue",
       value: `₹${todayRevenue.toLocaleString()}`,
       sub: `${orders.length} total orders`,
-      trend: '+18.4%',
-      up: true,
-      progress: Math.min(100, Math.round((todayRevenue / 50000) * 100)),
-      accent: '#f97316',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.93V18h-2v-1.07C9.06 16.54 8 15.38 8 14h2c0 .55.45 1 1 1h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-1.66 0-3-1.34-3-3 0-1.38 1.06-2.54 2.5-2.93V6h2v1.07C13.94 7.46 15 8.62 15 10h-2c0-.55-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1h2c1.66 0 3 1.34 3 3 0 1.38-1.06 2.54-2.5 2.93z" fill="currentColor"/>
-        </svg>
-      ),
+      trend: { label: '+18.4%', up: true },
+      accent: adminColors.accentOrange,
+      icon: '💰',
     },
     {
       label: 'Active Orders',
       value: `${orders.length}`,
       sub: `${pendingCount} need attention`,
-      trend: pendingCount > 0 ? `${pendingCount} pending` : 'All clear',
-      up: true,
-      progress: Math.min(100, pendingCount * 15),
-      accent: '#3b82f6',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15M9 5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5V7H9V5ZM9 12H15M9 16H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-        </svg>
-      ),
+      trend: { label: pendingCount > 0 ? `${pendingCount} pending` : 'All clear', up: pendingCount === 0 },
+      accent: adminColors.info,
+      icon: '🧾',
     },
     {
       label: 'Table Bookings',
       value: `${reservations.length}`,
       sub: `${totalGuests} guests reserved`,
-      trend: `${activeReservations} active`,
-      up: true,
-      progress: Math.min(100, totalGuests * 4),
-      accent: '#22c55e',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="4" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.8"/>
-          <path d="M3 10H21M8 2V6M16 2V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-        </svg>
-      ),
+      trend: { label: `${activeReservations} active`, up: true },
+      accent: adminColors.success,
+      icon: '📅',
     },
     {
       label: 'Inventory',
       value: `${inventory.length} items`,
       sub: lowStockCount > 0 ? `${lowStockCount} low stock!` : 'All stocked',
-      trend: lowStockCount > 0 ? `${lowStockCount} alerts` : 'Optimal',
-      up: lowStockCount === 0,
-      progress: lowStockCount > 0 ? 30 : 94,
-      accent: lowStockCount > 0 ? '#ef4444' : '#22c55e',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-          <path d="M21 8L12 3L3 8V16L12 21L21 16V8Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
-          <path d="M12 3V21M3 8L12 13L21 8" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/>
-        </svg>
-      ),
+      trend: { label: lowStockCount > 0 ? `${lowStockCount} alerts` : 'Optimal', up: lowStockCount === 0 },
+      accent: lowStockCount > 0 ? adminColors.danger : adminColors.success,
+      icon: '📦',
     },
   ];
 
@@ -232,60 +205,6 @@ export default function AdminDashboard() {
           -webkit-tap-highlight-color: transparent;
         }
         .action-btn:active { transform: scale(0.95); }
-
-        /* KPI Grid */
-        .kpi-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-        }
-        @media (min-width: 900px) {
-          .kpi-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
-        }
-        .kpi-card {
-          background: rgba(0,0,0,0.03);
-          border: 1px solid rgba(0,0,0,0.05);
-          border-radius: 18px;
-          padding: 16px;
-          transition: all 0.2s ease;
-          cursor: default;
-        }
-        .kpi-card:hover {
-          background: rgba(0,0,0,0.04);
-          transform: translateY(-2px);
-          border-color: rgba(0,0,0,0.08);
-        }
-        .kpi-icon-wrap {
-          width: 40px; height: 40px; border-radius: 12px;
-          display: flex; align-items: center; justify-content: center;
-          margin-bottom: 12px;
-        }
-        .kpi-value {
-          font-size: 22px; font-weight: 900;
-          color: #212121; letter-spacing: -0.8px;
-          line-height: 1.1;
-        }
-        @media (min-width: 900px) { .kpi-value { font-size: 26px; } }
-        .kpi-label {
-          font-size: 10px; font-weight: 700; letter-spacing: 0.6px;
-          text-transform: uppercase; color: rgba(33,33,33,0.5);
-          margin-bottom: 6px;
-        }
-        .kpi-sub { font-size: 11px; color: rgba(33,33,33,0.55); margin-top: 4px; }
-        .kpi-trend {
-          display: inline-flex; align-items: center; gap: 3px;
-          font-size: 10px; font-weight: 700; margin-top: 8px;
-          padding: 2px 8px; border-radius: 20px;
-        }
-        .kpi-progress-bg {
-          height: 4px; border-radius: 2px;
-          background: rgba(0,0,0,0.05);
-          margin-top: 12px; overflow: hidden;
-        }
-        .kpi-progress-fill {
-          height: 100%; border-radius: 2px;
-          transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-        }
 
         /* Chart area */
         .chart-grid {
@@ -399,6 +318,13 @@ export default function AdminDashboard() {
           display: flex; align-items: center; gap: 3px;
         }
         .view-all:hover { color: #fb923c; }
+
+        /* Staff role row */
+        .staff-role-row {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 9px 0; border-bottom: 1px solid rgba(0,0,0,0.04);
+        }
+        .staff-role-row:last-child { border-bottom: none; }
       `}</style>
 
       <div className="dashboard-root">
@@ -420,7 +346,7 @@ export default function AdminDashboard() {
                   Operations Overview
                 </div>
                 <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 6, maxWidth: 480 }}>
-                  Real-time analytics for Pala Pitta Ruchulu — orders, kitchen, inventory & more.
+                  Real-time analytics for Pala Pitta Ruchulu — orders, kitchen, inventory & the whole team.
                 </div>
               </div>
 
@@ -436,7 +362,7 @@ export default function AdminDashboard() {
 
             {/* Quick actions */}
             <div className="hero-actions">
-              <Link href="/admin/bills" className="action-btn" style={{ background: 'linear-gradient(135deg, #FF9800, #F57C00)', color: 'white', boxShadow: '0 4px 14px rgba(255,152,0,0.35)' }}>
+              <Link href="/admin/pos" className="action-btn" style={{ background: 'linear-gradient(135deg, #FF9800, #F57C00)', color: 'white', boxShadow: '0 4px 14px rgba(255,152,0,0.35)' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
                 New POS Bill
               </Link>
@@ -448,42 +374,22 @@ export default function AdminDashboard() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 5H7C5.89543 5 5 5.89543 5 7V19C5 20.1046 5.89543 21 7 21H17C18.1046 21 19 20.1046 19 19V7C19 5.89543 18.1046 5 17 5H15M9 5C9 3.89543 9.89543 3 11 3H13C14.1046 3 15 3.89543 15 5V7H9V5ZM9 12H15M9 16H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
                 All Orders ({orders.length})
               </Link>
-              <Link href="/admin/menu-management" className="action-btn" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.15)' }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M15 8C15 8 14.5 11 12 11C9.5 11 9 8 9 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="M17 3L19 5L22 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                Menu ({menuItems.length})
+              <Link href="/admin/employees" className="action-btn" style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.85)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.8"/><path d="M4 21C4 17.134 7.58172 14 12 14C16.4183 14 20 17.134 20 21" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                Team ({activeStaff.length})
               </Link>
             </div>
           </div>
         </div>
 
         {/* ─── KPI Cards ──────────────────────────────────── */}
-        <div className="kpi-grid">
+        <Grid container spacing={2}>
           {kpis.map((k) => (
-            <div key={k.label} className="kpi-card">
-              <div className="kpi-icon-wrap" style={{ background: `${k.accent}18`, color: k.accent }}>
-                {k.icon}
-              </div>
-              <div className="kpi-label">{k.label}</div>
-              <div className="kpi-value">{k.value}</div>
-              <div className="kpi-sub">{k.sub}</div>
-              <div
-                className="kpi-trend"
-                style={{
-                  background: k.up ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
-                  color: k.up ? '#4ade80' : '#f87171',
-                }}
-              >
-                {k.up ? '↑' : '↓'} {k.trend}
-              </div>
-              <div className="kpi-progress-bg">
-                <div
-                  className="kpi-progress-fill"
-                  style={{ width: `${k.progress}%`, background: k.accent }}
-                />
-              </div>
-            </div>
+            <Grid key={k.label} size={{ xs: 6, md: 3 }}>
+              <StatCard icon={k.icon} label={k.label} value={k.value} sub={k.sub} accent={k.accent} trend={k.trend} />
+            </Grid>
           ))}
-        </div>
+        </Grid>
 
         {/* ─── Charts ─────────────────────────────────────── */}
         <div className="chart-grid">
@@ -576,7 +482,7 @@ export default function AdminDashboard() {
                 <div key={cat.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div style={{ width: 8, height: 8, borderRadius: 3, background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1' }}>{cat.name}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>{cat.name}</span>
                   </div>
                   <span style={{ fontSize: 13, fontWeight: 800, color: '#212121' }}>{cat.value}%</span>
                 </div>
@@ -610,17 +516,17 @@ export default function AdminDashboard() {
                       onClick={() => setStatusFilter(s)}
                       style={{
                         background: statusFilter === s
-                          ? s === 'all' ? 'rgba(249,115,22,0.2)' : STATUS_META[s]?.bg || 'rgba(249,115,22,0.2)'
+                          ? s === 'all' ? 'rgba(249,115,22,0.2)' : orderStatusColors[s]?.bg || 'rgba(249,115,22,0.2)'
                           : 'rgba(0,0,0,0.03)',
                         color: statusFilter === s
-                          ? s === 'all' ? '#f97316' : STATUS_META[s]?.color || '#f97316'
+                          ? s === 'all' ? '#f97316' : orderStatusColors[s]?.color || '#f97316'
                           : 'rgba(33,33,33,0.55)',
                         borderColor: statusFilter === s
-                          ? s === 'all' ? 'rgba(249,115,22,0.3)' : `${STATUS_META[s]?.color}44` || 'rgba(249,115,22,0.3)'
+                          ? s === 'all' ? 'rgba(249,115,22,0.3)' : `${orderStatusColors[s]?.color}44` || 'rgba(249,115,22,0.3)'
                           : 'rgba(0,0,0,0.04)',
                       }}
                     >
-                      {s === 'all' ? `All (${orders.length})` : (STATUS_META[s]?.label || s)}
+                      {s === 'all' ? `All (${orders.length})` : (orderStatusColors[s]?.label || s)}
                     </button>
                   ))}
                 </div>
@@ -661,7 +567,7 @@ export default function AdminDashboard() {
                     </tr>
                   ) : (
                     filteredOrders.slice(0, 7).map((order) => {
-                      const sm = STATUS_META[order.status] || STATUS_META.pending;
+                      const sm = orderStatusColors[order.status] || orderStatusColors.pending;
                       return (
                         <tr key={order.id}>
                           <td>
@@ -730,7 +636,7 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 filteredOrders.slice(0, 6).map((order) => {
-                  const sm = STATUS_META[order.status] || STATUS_META.pending;
+                  const sm = orderStatusColors[order.status] || orderStatusColors.pending;
                   return (
                     <div key={order.id} className="mobile-order-card">
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -774,7 +680,7 @@ export default function AdminDashboard() {
             </div>
           </Card>
 
-          {/* Right column: Top Dishes + Inventory */}
+          {/* Right column: Top Dishes + Inventory + Team */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
             {/* Top Dishes */}
@@ -800,7 +706,7 @@ export default function AdminDashboard() {
                         }}>
                           {i + 1}
                         </div>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#cbd5e1', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: '#475569', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {dish.name}
                         </span>
                       </div>
@@ -817,6 +723,35 @@ export default function AdminDashboard() {
                         }}
                       />
                     </div>
+                  </div>
+                ))
+              )}
+            </Card>
+
+            {/* Team & Access — surfaces the RBAC roster right on the dashboard */}
+            <Card style={{ padding: 20 }}>
+              <SectionTitle
+                title="👥 Team & Access"
+                subtitle={`${activeStaff.length} active staff accounts`}
+                action={<Link href="/admin/employees" className="view-all">Manage →</Link>}
+              />
+              {staffByRole.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'rgba(33,33,33,0.45)', textAlign: 'center', padding: '16px 0' }}>
+                  No staff accounts yet — add one from Employees.
+                </div>
+              ) : (
+                staffByRole.map(({ role, count }) => (
+                  <div key={role} className="staff-role-row">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 4, background: roleColors[role].color }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>{ROLE_LABELS[role]}</span>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 20,
+                      background: roleColors[role].bg, color: roleColors[role].color,
+                    }}>
+                      {count} active
+                    </span>
                   </div>
                 ))
               )}
@@ -844,7 +779,7 @@ export default function AdminDashboard() {
                       padding: '9px 0', borderBottom: '1px solid rgba(0,0,0,0.04)',
                     }}>
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#cbd5e1' }}>{inv.name}</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>{inv.name}</div>
                         <div style={{ fontSize: 10, color: 'rgba(33,33,33,0.45)', marginTop: 1 }}>
                           Min: {inv.minQuantity} {inv.unit}
                         </div>

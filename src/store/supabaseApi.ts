@@ -11,7 +11,7 @@ import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
 import { supabase } from '@/lib/supabase';
 import { menuItems as fallbackMenuItems } from '@/data/menuData';
 import {
-  Order, Reservation, MenuItem, InventoryItem, Employee, OrderStatus, ReservationStatus,
+  Order, Reservation, MenuItem, InventoryItem, Employee, OrderStatus, ReservationStatus, StaffRole,
 } from '@/types';
 import { generateOrderId, generateReservationId } from '@/lib/idGenerator';
 
@@ -517,6 +517,78 @@ export const supabaseApi = createApi({
       keepUnusedDataFor: 300,
     }),
 
+    // Employee create/update/delete are the first mutations in this file that
+    // can't go straight to `supabase.from(...)` under RLS — creating a login
+    // requires the service-role key, which only exists server-side. These
+    // call the /api/admin/employees route(s) instead, forwarding the current
+    // session's access token so the server can verify the caller is actually
+    // an admin (see src/lib/auth/requireAdmin.ts).
+    addEmployee: builder.mutation<boolean, {
+      id: string; name: string; email: string; phone?: string; role: StaffRole;
+      shift?: string; salary?: number; password: string;
+    }>({
+      queryFn: async (payload) => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) return { error: { status: 'CUSTOM_ERROR', error: 'Not signed in' } };
+          const res = await fetch('/api/admin/employees', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify(payload),
+          });
+          const json = await res.json();
+          if (!res.ok) return { error: { status: 'CUSTOM_ERROR', error: json.error || 'Failed to add employee' } };
+          return { data: true };
+        } catch (err: any) {
+          return { error: { status: 'FETCH_ERROR', error: err.message } };
+        }
+      },
+      invalidatesTags: ['Employees'],
+    }),
+
+    // Also used for the Active/Inactive toggle — pass just `{ id, status }`.
+    updateEmployee: builder.mutation<boolean, { id: string } & Partial<{
+      name: string; phone: string; role: StaffRole; shift: string; salary: number;
+      status: 'Active' | 'Inactive';
+    }>>({
+      queryFn: async ({ id, ...rest }) => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) return { error: { status: 'CUSTOM_ERROR', error: 'Not signed in' } };
+          const res = await fetch(`/api/admin/employees/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify(rest),
+          });
+          const json = await res.json();
+          if (!res.ok) return { error: { status: 'CUSTOM_ERROR', error: json.error || 'Failed to update employee' } };
+          return { data: true };
+        } catch (err: any) {
+          return { error: { status: 'FETCH_ERROR', error: err.message } };
+        }
+      },
+      invalidatesTags: ['Employees'],
+    }),
+
+    deleteEmployee: builder.mutation<boolean, string>({
+      queryFn: async (id) => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) return { error: { status: 'CUSTOM_ERROR', error: 'Not signed in' } };
+          const res = await fetch(`/api/admin/employees/${id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+          const json = await res.json();
+          if (!res.ok) return { error: { status: 'CUSTOM_ERROR', error: json.error || 'Failed to delete employee' } };
+          return { data: true };
+        } catch (err: any) {
+          return { error: { status: 'FETCH_ERROR', error: err.message } };
+        }
+      },
+      invalidatesTags: ['Employees'],
+    }),
+
     // ── Restaurant Tables ─────────────────────────────────────────────────────
 
     getTables: builder.query<RestaurantTable[], void>({
@@ -735,6 +807,9 @@ export const {
   useGetMenuItemsQuery,
   useGetInventoryQuery,
   useGetEmployeesQuery,
+  useAddEmployeeMutation,
+  useUpdateEmployeeMutation,
+  useDeleteEmployeeMutation,
   useUpdateOrderStatusMutation,
   useUpdateReservationStatusMutation,
   useCreateOrderMutation,

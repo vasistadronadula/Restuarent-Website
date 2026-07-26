@@ -15,6 +15,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { InventoryItem } from '@/types';
 import toast from 'react-hot-toast';
+import { PageHeader, StatCard, adminColors } from '@/components/admin/ui';
 
 const CATEGORIES = ['All', 'Poultry & Meat', 'Rice & Grains', 'Spices & Condiments', 'Dairy & Milk', 'Vegetables', 'Beverages'];
 const UNITS = ['Kg', 'Grams', 'Liters', 'Packs', 'Units', 'Bags', 'Tins'];
@@ -125,10 +126,12 @@ export default function InventoryPage() {
 
   return (
     <AdminLayout title="Raw Inventory & Stock Control">
+      <PageHeader title="Inventory" subtitle="Raw materials, safety thresholds, and stock valuation — updated in real time." />
+
       {/* Low Stock Banner Alert */}
       {lowStock.length > 0 && (
         <Alert severity="error" sx={{ mb: 3, borderRadius: '16px', border: '1px solid rgba(198,40,40,0.3)', bgcolor: '#FEF2F2' }}>
-          <Typography sx={{ fontWeight: 800, color: '#C62828' }}>
+          <Typography sx={{ fontWeight: 800, color: adminColors.accentRed }}>
             ⚠️ Urgent Action Needed: {lowStock.length} Raw Inventory Items Below Minimum Safety Threshold!
           </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
@@ -138,32 +141,25 @@ export default function InventoryPage() {
       )}
 
       {/* Stats Cards Header */}
-      <Grid container spacing={2.5} sx={{ mb: 3 }}>
-        {[
-          { label: 'Total Stocked Items', value: inventory.length, color: '#0284C7', emoji: '📦', sub: 'Active inventory list' },
-          { label: 'Low Stock Alerts', value: lowStock.length, color: '#C62828', emoji: '⚠️', sub: 'Refill needed' },
-          { label: 'Sufficient Stock', value: goodStock.length, color: '#16A34A', emoji: '✅', sub: 'Optimal inventory levels' },
-          {
-            label: 'Total Inventory Value',
-            value: `₹${inventory.reduce((s, i) => s + i.quantity * i.costPerUnit, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`,
-            color: '#F57C00',
-            emoji: '💰',
-            sub: 'Capital invested in raw materials',
-          },
-        ].map((stat) => (
-          <Grid key={stat.label} size={{ xs: 6, md: 3 }}>
-            <Paper elevation={0} sx={{ p: 2.5, borderRadius: '20px', border: '1px solid #E2E8F0', bgcolor: 'white', display: 'flex', alignItems: 'center', gap: 2, boxShadow: '0 2px 10px rgba(0,0,0,0.03)' }}>
-              <Box sx={{ width: 48, height: 48, borderRadius: '14px', bgcolor: `${stat.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', flexShrink: 0 }}>
-                {stat.emoji}
-              </Box>
-              <Box>
-                <Typography variant="h5" sx={{ fontWeight: 900, color: '#0F172A' }}>{stat.value}</Typography>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748B', display: 'block' }}>{stat.label}</Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '10px' }}>{stat.sub}</Typography>
-              </Box>
-            </Paper>
-          </Grid>
-        ))}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="📦" label="Total Stocked Items" value={inventory.length} sub="Active inventory list" accent={adminColors.info} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="⚠️" label="Low Stock Alerts" value={lowStock.length} sub="Refill needed" accent={adminColors.danger} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="✅" label="Sufficient Stock" value={goodStock.length} sub="Optimal inventory levels" accent={adminColors.success} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard
+            icon="💰"
+            label="Total Inventory Value"
+            value={`₹${inventory.reduce((s, i) => s + i.quantity * i.costPerUnit, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
+            sub="Capital invested in raw materials"
+            accent={adminColors.accentOrange}
+          />
+        </Grid>
       </Grid>
 
       {/* Main Content Table & Control Toolbar */}

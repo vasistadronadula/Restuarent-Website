@@ -1,0 +1,59 @@
+/**
+ * roleAccess.ts — single source of truth for "who can see what" in /admin.
+ *
+ * AdminGuard, AdminSidebar, and AdminMobileBottomNav all import from here
+ * instead of each hardcoding their own copy of the role → page mapping,
+ * so the three can never drift out of sync with each other.
+ */
+
+import type { UserRole } from '@/types';
+
+// Where a role lands right after login, and where it's redirected back to if
+// it tries to reach a page outside its permitted set.
+export const ROLE_HOME: Record<UserRole, string> = {
+  admin: '/admin',
+  manager: '/admin',
+  chef: '/admin/kitchen',
+  cashier: '/admin/pos',
+  waiter: '/admin/reservations',
+  customer: '/',
+};
+
+// 'all' = every /admin/* route. Anything else is an explicit allow-list of
+// path prefixes. This is a UX convenience layer only — the real security
+// boundary is the RLS policies in supabase_schema.sql (can_access_orders(),
+// can_access_reservations(), is_admin()); a role hidden from a nav item here
+// must also be unable to read/write the underlying data via the API.
+export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[] | 'all'> = {
+  admin: 'all',
+  manager: 'all',
+  chef: ['/admin/kitchen'],
+  cashier: ['/admin/orders', '/admin/pos', '/admin/bills'],
+  waiter: ['/admin/reservations'],
+  customer: [],
+};
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  admin: 'Admin',
+  manager: 'Manager',
+  chef: 'Kitchen Chef',
+  cashier: 'Cashier',
+  waiter: 'Server',
+  customer: 'Customer',
+};
+
+export function canAccess(role: UserRole | null | undefined, pathname: string): boolean {
+  if (!role) return false;
+  const allowed = ROLE_ALLOWED_PREFIXES[role];
+  if (allowed === 'all') return true;
+  return allowed.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+export function getRoleHome(role: UserRole | null | undefined): string {
+  if (!role) return '/';
+  return ROLE_HOME[role];
+}
+
+export function isStaffRole(role: UserRole | null | undefined): boolean {
+  return !!role && role !== 'customer';
+}

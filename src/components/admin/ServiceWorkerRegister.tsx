@@ -31,7 +31,7 @@ export default function ServiceWorkerRegister() {
 
     navigator.serviceWorker.register('/sw.js', { scope: '/admin/' }).then(async (registration) => {
       if (cancelled) return;
-      if (!user || userRole !== 'admin') return;
+      if (!user || (userRole !== 'admin' && userRole !== 'manager')) return;
 
       const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!vapidPublicKey || !('PushManager' in window)) return;

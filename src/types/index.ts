@@ -7,7 +7,13 @@ export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'can
 export type PaymentMode = 'cash' | 'upi' | 'card' | 'cod' | 'razorpay' | 'online';
 export type PaymentStatus = 'paid' | 'unpaid' | 'partial';
 export type ReservationStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
-export type EmployeeRole = 'admin' | 'manager' | 'cashier' | 'chef' | 'waiter';
+
+// Staff roles are shared between the auth layer (who can log in and access
+// what) and the HR/Employees layer (who's on payroll) — kept as one type so
+// the two can never drift out of sync.
+export type StaffRole = 'admin' | 'manager' | 'chef' | 'cashier' | 'waiter';
+export type EmployeeRole = StaffRole;
+export type UserRole = 'customer' | StaffRole;
 export type Category =
   | 'starters'
   | 'south-indian'

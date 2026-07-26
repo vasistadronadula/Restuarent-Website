@@ -7,6 +7,7 @@
  *   Reservations: PPR-RES-20260725-3914
  *   Invoices:     PPR-INV-20260725-4821  (derived from order ID)
  *   Tables:       T-001, T-002 ...
+ *   Employees:    PPR-EMP-20260725-4821
  */
 
 const getDateStamp = (): string => {
@@ -48,3 +49,7 @@ export const generateInvoiceNo = (orderId?: string): string => {
 /** Generates a Table ID — T-001, T-002 ... */
 export const generateTableId = (tableNumber: number): string =>
   `T-${String(tableNumber).padStart(3, '0')}`;
+
+/** Generates a unique Employee ID — PPR-EMP-20260725-4821 */
+export const generateEmployeeId = (): string =>
+  `PPR-EMP-${getDateStamp()}-${rand4()}`;

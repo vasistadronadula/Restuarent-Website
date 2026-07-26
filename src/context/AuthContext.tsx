@@ -13,20 +13,29 @@ import { User } from '@supabase/supabase-js';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import type { AppDispatch } from '@/store';
 import { getErrorMessage } from '@/lib/errors';
+import { ROLE_HOME } from '@/lib/roleAccess';
+import type { UserRole } from '@/types';
 import {
   setUser, setSession, setUserRole, setLoading, openAuthModal, closeAuthModal, signOut,
   selectUser, selectSession, selectUserRole, selectAuthLoading,
   selectIsAuthModalOpen, selectAuthModalTab,
 } from '@/store/authSlice';
 
-export type UserRole = 'customer' | 'admin';
+export type { UserRole };
 
-// Admin email whitelist
+// Owner-account bootstrap: these emails are always forced to 'admin' even if
+// their `profiles.role` row says otherwise. Mirrors the same whitelist used
+// in the one-time `UPDATE profiles SET role = 'admin' WHERE email IN (...)`
+// at the bottom of supabase_schema.sql.
 const ADMIN_EMAILS = [
   'vasistadronadula@gmail.com',
   'pathaniroshini@gmail.com',
   'palapittaruchulu@gmail.com',
 ];
+
+const KNOWN_ROLES: UserRole[] = ['customer', 'admin', 'manager', 'chef', 'cashier', 'waiter'];
+const isKnownRole = (value: unknown): value is UserRole =>
+  typeof value === 'string' && (KNOWN_ROLES as string[]).includes(value);
 
 interface AuthContextType {
   user: User | null;
@@ -47,11 +56,18 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // ─── fetchUserRole helper ──────────────────────────────────────────────────
+// SECURITY: `u.user_metadata` is client-writable (any signed-in user can call
+// `supabase.auth.updateUser({ data: { role: 'admin' } })` from the browser
+// console), so it must NEVER be trusted for authorization — that was a live
+// privilege-escalation hole. `profiles.role` (server-side, RLS-protected,
+// with a trigger blocking self-escalation) is the only source of truth here.
+// `u.app_metadata` is safe (only settable server-side) but isn't populated
+// by anything in this app, so it's not read either — one source of truth.
 async function fetchAndSetUserRole(u: User, dispatch: AppDispatch): Promise<UserRole> {
   try {
     const email = (u.email || '').toLowerCase().trim();
 
-    if (ADMIN_EMAILS.includes(email) || u.user_metadata?.role === 'admin' || u.app_metadata?.role === 'admin') {
+    if (ADMIN_EMAILS.includes(email)) {
       dispatch(setUserRole('admin'));
       return 'admin';
     }
@@ -67,7 +83,8 @@ async function fetchAndSetUserRole(u: User, dispatch: AppDispatch): Promise<User
     }
 
     if (data?.role) {
-      const role: UserRole = data.role.toString().toLowerCase().trim() === 'admin' ? 'admin' : 'customer';
+      const raw = data.role.toString().toLowerCase().trim();
+      const role: UserRole = isKnownRole(raw) ? raw : 'customer';
       dispatch(setUserRole(role));
       return role;
     }
@@ -84,7 +101,7 @@ async function fetchAndSetUserRole(u: User, dispatch: AppDispatch): Promise<User
   } catch (err) {
     console.error('Error fetching user role:', err);
     const email = (u.email || '').toLowerCase().trim();
-    if (ADMIN_EMAILS.includes(email) || u.user_metadata?.role === 'admin' || u.app_metadata?.role === 'admin') {
+    if (ADMIN_EMAILS.includes(email)) {
       dispatch(setUserRole('admin'));
       return 'admin';
     }
@@ -120,10 +137,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       dispatch(setUser(session?.user ?? null));
       if (session?.user) {
         const role = await fetchAndSetUserRole(session.user, dispatch);
-        if (role === 'admin' && typeof window !== 'undefined') {
+        if (role !== 'customer' && typeof window !== 'undefined') {
           const path = window.location.pathname;
           if (path === '/login' || path === '/signup') {
-            window.location.href = '/admin';
+            window.location.href = ROLE_HOME[role];
           }
         }
       } else {
@@ -143,10 +160,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (currentUser) {
         const role = await fetchAndSetUserRole(currentUser, dispatch);
-        if (event === 'SIGNED_IN' && role === 'admin' && typeof window !== 'undefined') {
+        if (event === 'SIGNED_IN' && role !== 'customer' && typeof window !== 'undefined') {
           const path = window.location.pathname;
           if (path === '/' || path === '/login' || path === '/signup') {
-            window.location.href = '/admin';
+            window.location.href = ROLE_HOME[role];
           }
         }
       } else {
@@ -172,7 +189,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (u) role = await fetchAndSetUserRole(u, dispatch);
       toast.success(`Welcome back, ${u?.email || 'User'}! 👋`);
       dispatch(closeAuthModal());
-      if (role === 'admin' && typeof window !== 'undefined') window.location.href = '/admin';
+      if (role !== 'customer' && typeof window !== 'undefined') window.location.href = ROLE_HOME[role];
       return { success: true, role };
     } catch (err) {
       toast.error(getErrorMessage(err) || 'Login error');

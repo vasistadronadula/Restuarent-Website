@@ -1,8 +1,9 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { User, Session } from '@supabase/supabase-js';
 import type { RootState } from './index';
+import type { UserRole } from '@/types';
 
-export type UserRole = 'customer' | 'admin';
+export type { UserRole };
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -81,5 +82,6 @@ export const selectUserRole = (state: RootState) => state.auth.userRole;
 export const selectAuthLoading = (state: RootState) => state.auth.loading;
 export const selectIsAuthModalOpen = (state: RootState) => state.auth.isAuthModalOpen;
 export const selectAuthModalTab = (state: RootState) => state.auth.authModalTab;
-export const selectIsAdmin = (state: RootState) => state.auth.userRole === 'admin';
+export const selectIsAdmin = (state: RootState) =>
+  state.auth.userRole === 'admin' || state.auth.userRole === 'manager';
 export const selectIsAuthenticated = (state: RootState) => !!state.auth.user;

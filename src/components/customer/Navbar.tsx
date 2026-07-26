@@ -16,6 +16,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { selectTotalItems, openCart } from '@/store/cartSlice';
 import { selectUser, selectUserRole, openAuthModal } from '@/store/authSlice';
 import { useAuth } from '@/context/AuthContext';
+import { ROLE_LABELS, getRoleHome } from '@/lib/roleAccess';
 import CartDrawer from './CartDrawer';
 import PalaPittaLogo from './PalaPittaLogo';
 
@@ -175,7 +176,7 @@ export default function Navbar() {
                 >
                   <Box sx={{ px: 1.8, py: 1 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '13px' }}>
-                      {user.user_metadata?.full_name || (userRole === 'admin' ? 'Administrator' : 'Customer')}
+                      {user.user_metadata?.full_name || (userRole ? ROLE_LABELS[userRole] : 'Customer')}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-all', fontSize: '11px' }}>
                       {user.email}
@@ -187,10 +188,10 @@ export default function Navbar() {
                       <Receipt fontSize="small" sx={{ mr: 1.2, color: '#C62828' }} /> My Orders History
                     </MenuItem>
                   </Link>
-                  {userRole === 'admin' && (
-                    <Link href="/admin" style={{ textDecoration: 'none', color: 'inherit' }} onClick={handleMenuClose}>
+                  {userRole && userRole !== 'customer' && (
+                    <Link href={getRoleHome(userRole)} style={{ textDecoration: 'none', color: 'inherit' }} onClick={handleMenuClose}>
                       <MenuItem sx={{ borderRadius: '8px', my: 0.5, color: '#FF9800', fontWeight: 700, fontSize: '13px' }}>
-                        <Dashboard fontSize="small" sx={{ mr: 1.2 }} /> Admin Dashboard
+                        <Dashboard fontSize="small" sx={{ mr: 1.2 }} /> {userRole === 'admin' || userRole === 'manager' ? 'Admin Dashboard' : 'Staff Workspace'}
                       </MenuItem>
                     </Link>
                   )}

@@ -1,28 +1,36 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { Box, CircularProgress, Typography, Paper, Button } from '@mui/material';
 import { Lock, Home } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { adminColors } from '@/theme/adminColors';
+import { canAccess, getRoleHome, isStaffRole, ROLE_LABELS } from '@/lib/roleAccess';
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
   const { user, userRole, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+
+  const isStaff = isStaffRole(userRole);
+  const hasSectionAccess = isStaff && canAccess(userRole, pathname);
 
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        toast.error('Please log in with your Admin account to access the Admin Panel.', { id: 'admin-denied' });
-        router.replace('/');
-      } else if (userRole !== 'admin') {
-        toast.error('403 Access Denied: You do not have administrator permissions.', { id: 'admin-denied' });
-        router.replace('/');
-      }
+    if (loading) return;
+
+    if (!user || !isStaff) {
+      toast.error('Please log in with your staff account to access the Admin Panel.', { id: 'admin-denied' });
+      router.replace('/');
+      return;
     }
-  }, [user, userRole, loading, router]);
+
+    if (!canAccess(userRole, pathname)) {
+      toast.error("Your role doesn't have access to this section.", { id: 'admin-section-denied' });
+      router.replace(getRoleHome(userRole));
+    }
+  }, [user, userRole, loading, pathname, isStaff, router]);
 
   // Loading state
   if (loading) {
@@ -47,8 +55,8 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
     );
   }
 
-  // Access Denied state (while redirecting)
-  if (!user || userRole !== 'admin') {
+  // Not logged in, or a customer account — no staff access at all
+  if (!user || !isStaff) {
     return (
       <Box
         sx={{
@@ -92,8 +100,8 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
             403 - Access Denied
           </Typography>
           <Typography variant="body2" sx={{ color: adminColors.textMuted, mb: 3.5, lineHeight: 1.6 }}>
-            This section is restricted strictly to authorized website administrators.
-            Your account role is <strong>{userRole || 'Guest'}</strong>.
+            This section is restricted to authorized staff accounts.
+            Your account role is <strong>{userRole ? ROLE_LABELS[userRole] : 'Guest'}</strong>.
           </Typography>
           <Button
             variant="contained"
@@ -114,6 +122,30 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
     );
   }
 
-  // Access Granted for Admin
+  // Logged in staff, but this page is outside their role's section — brief
+  // transitional state while the effect above redirects to their home page.
+  if (!hasSectionAccess) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          bgcolor: adminColors.bgPanel,
+          color: adminColors.textPrimary,
+          gap: 2,
+        }}
+      >
+        <CircularProgress size={40} sx={{ color: adminColors.accentOrange }} />
+        <Typography variant="body2" sx={{ fontWeight: 600, color: adminColors.textMuted }}>
+          Redirecting to your workspace...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Access granted
   return <>{children}</>;
 }

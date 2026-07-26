@@ -1,158 +1,184 @@
 'use client';
-import React from 'react';
-import { Box, Paper, Typography, Grid, Chip, Alert } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Box, Grid, Typography, Chip } from '@mui/material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
+import { StatCard, SectionCard, EmptyState, adminColors } from '@/components/admin/ui';
+import { Order, OrderStatus } from '@/types';
 
-const statusColors: Record<string, string> = {
-  pending: '#9E9E9E',
-  preparing: '#FF9800',
-  ready: '#2E7D32',
-  delivered: '#1565C0',
-  cancelled: '#C62828',
-};
+const LANES: { status: OrderStatus; label: string; emoji: string; accent: string; cta: string; next: OrderStatus | null }[] = [
+  { status: 'pending', label: 'Queue', emoji: '⏳', accent: '#9E9E9E', cta: '🔥 Start Cooking', next: 'preparing' },
+  { status: 'preparing', label: 'Cooking Now', emoji: '🔥', accent: '#FF9800', cta: '🛎️ Mark Ready', next: 'ready' },
+  { status: 'ready', label: 'Ready for Pickup', emoji: '🛎️', accent: '#2E7D32', cta: '✅ Mark Delivered', next: 'delivered' },
+];
 
+// Live "Xm ago" ticker so tickets visibly age without a page refresh — a
+// kitchen's whole job is knowing what's been sitting too long.
+function useNow(intervalMs = 15000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(t);
+  }, [intervalMs]);
+  return now;
+}
+
+function ticketAgeMinutes(order: Order, now: number): number {
+  if (!order.orderTime) return 0;
+  const parsed = Date.parse(`${order.orderDate || ''} ${order.orderTime}`);
+  if (Number.isNaN(parsed)) return 0;
+  return Math.max(0, Math.round((now - parsed) / 60000));
+}
+
+function KitchenTicket({ order, lane, onAdvance, now }: {
+  order: Order; lane: typeof LANES[number]; onAdvance: (id: string, status: OrderStatus) => void; now: number;
+}) {
+  const age = ticketAgeMinutes(order, now);
+  const isStale = lane.status !== 'pending' ? false : age >= 10;
+  const isVeryStale = age >= 20;
+
+  return (
+    <Box
+      sx={{
+        borderRadius: adminColors.radiusMd,
+        border: `2px solid ${isVeryStale ? adminColors.danger : isStale ? adminColors.warning : 'transparent'}`,
+        bgcolor: adminColors.bgPanel,
+        boxShadow: adminColors.shadowSm,
+        overflow: 'hidden',
+        mb: 2,
+      }}
+    >
+      <Box sx={{ p: 1.75, bgcolor: adminColors.bgSubtle, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+            <Typography sx={{ fontWeight: 800, color: adminColors.accentRed, fontSize: '14px' }}>
+              {order.orderId || order.id}
+            </Typography>
+            {order.orderSource === 'swiggy' && (
+              <Chip label="SWIGGY" size="small" sx={{ bgcolor: '#FFF3E0', color: '#E65100', fontSize: '9px', fontWeight: 800, height: 18 }} />
+            )}
+            {order.orderSource === 'zomato' && (
+              <Chip label="ZOMATO" size="small" sx={{ bgcolor: '#FFEBEE', color: '#C62828', fontSize: '9px', fontWeight: 800, height: 18 }} />
+            )}
+            {order.tableNumber && (
+              <Chip label={`Table ${order.tableNumber}`} size="small" sx={{ bgcolor: adminColors.accentRed, color: 'white', fontSize: '9px', fontWeight: 700, height: 18 }} />
+            )}
+          </Box>
+          <Typography variant="caption" sx={{ color: adminColors.textSecondary, display: 'block', mt: 0.3 }}>
+            {order.customerName || 'Diner'}
+          </Typography>
+        </Box>
+        <Chip
+          label={age <= 0 ? 'Just in' : `${age}m ago`}
+          size="small"
+          sx={{
+            bgcolor: isVeryStale ? adminColors.dangerBg : isStale ? adminColors.warningBg : adminColors.neutralBg,
+            color: isVeryStale ? adminColors.danger : isStale ? adminColors.warning : adminColors.neutral,
+            fontWeight: 800, fontSize: '10px', flexShrink: 0,
+          }}
+        />
+      </Box>
+
+      <Box sx={{ p: 1.75 }}>
+        {(order.items || []).map((item, i) => (
+          <Box
+            key={i}
+            sx={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.8,
+              borderBottom: i < order.items.length - 1 ? `1px solid ${adminColors.divider}` : 'none',
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600, color: adminColors.textPrimary }}>{item.name}</Typography>
+            <Chip label={`×${item.quantity || 1}`} size="small" sx={{ bgcolor: adminColors.bgSubtle, fontSize: '11px', fontWeight: 800, height: 22 }} />
+          </Box>
+        ))}
+
+        {lane.next ? (
+          <Box
+            component="button"
+            onClick={() => onAdvance(order.id, lane.next as OrderStatus)}
+            sx={{
+              mt: 1.5, width: '100%', border: 'none', cursor: 'pointer',
+              borderRadius: adminColors.radiusSm, py: 1.4, fontSize: '13px', fontWeight: 800,
+              color: 'white', bgcolor: lane.accent,
+              transition: 'transform 0.1s ease', '&:active': { transform: 'scale(0.97)' },
+            }}
+          >
+            {lane.cta}
+          </Box>
+        ) : (
+          <Box sx={{ mt: 1.5, textAlign: 'center', py: 1, borderRadius: adminColors.radiusSm, bgcolor: adminColors.successBg }}>
+            <Typography variant="caption" sx={{ fontWeight: 800, color: adminColors.success }}>🎉 Delivered</Typography>
+          </Box>
+        )}
+      </Box>
+    </Box>
+  );
+}
 
 export default function KitchenPage() {
   const { orders, updateOrderStatus } = useAdmin();
+  const now = useNow();
 
-  // Filter Active Kitchen Orders (Pending, Preparing, Ready)
   const activeOrders = orders.filter((o) => o.status !== 'cancelled');
-
-  const pendingCount = activeOrders.filter((o) => o.status === 'pending').length;
-  const preparingCount = activeOrders.filter((o) => o.status === 'preparing').length;
-  const readyCount = activeOrders.filter((o) => o.status === 'ready').length;
   const deliveredCount = activeOrders.filter((o) => o.status === 'delivered').length;
+  const laneOrders = (status: OrderStatus) => activeOrders.filter((o) => o.status === status);
 
   return (
-    <AdminLayout title="Kitchen Display System (KDS)">
-      {/* Header Stats */}
-      <Grid container spacing={2.5} sx={{ mb: 3 }}>
-        {[
-          { label: 'In Queue', value: pendingCount, color: '#9E9E9E', emoji: '⏳' },
-          { label: 'Cooking Now', value: preparingCount, color: '#FF9800', emoji: '🔥' },
-          { label: 'Ready for Pickup', value: readyCount, color: '#2E7D32', emoji: '🛎️' },
-          { label: 'Delivered Today', value: deliveredCount, color: '#1565C0', emoji: '✅' },
-        ].map((stat) => (
-          <Grid key={stat.label} size={{ xs: 6, md: 3 }}>
-            <Paper sx={{ p: 2.5, borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography sx={{ fontSize: '2rem' }}>{stat.emoji}</Typography>
-              <Box>
-                <Typography variant="h4" sx={{ fontWeight: 800, color: stat.color }}>{stat.value}</Typography>
-                <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
-              </Box>
-            </Paper>
+    <AdminLayout title="Kitchen Display System">
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {LANES.map((lane) => (
+          <Grid key={lane.status} size={{ xs: 6, md: 3 }}>
+            <StatCard
+              icon={lane.emoji}
+              label={lane.label}
+              value={laneOrders(lane.status).length}
+              accent={lane.accent}
+            />
           </Grid>
         ))}
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="✅" label="Delivered Today" value={deliveredCount} accent={adminColors.info} />
+        </Grid>
       </Grid>
 
       {activeOrders.length === 0 ? (
-        <Alert severity="info" sx={{ p: 4, borderRadius: '16px', textAlign: 'center', fontWeight: 600 }}>
-          👨‍🍳 Kitchen tickets queue is currently empty. New live customer orders from website & POS will appear here instantly!
-        </Alert>
+        <SectionCard>
+          <EmptyState
+            emoji="👨‍🍳"
+            title="Kitchen queue is empty"
+            subtitle="New orders from the website & POS will appear here instantly."
+          />
+        </SectionCard>
       ) : (
-        <Grid container spacing={3}>
-          {activeOrders.map((order) => (
-            <Grid key={order.id} size={{ xs: 12, md: 6 }}>
-              <Paper
-                sx={{
-                  borderRadius: '20px',
-                  overflow: 'hidden',
-                  boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
-                  border: `2px solid ${order.status === 'preparing' ? '#FF9800' : 'transparent'}`,
-                }}
-              >
-                {/* Ticket Header */}
-                <Box
-                  sx={{
-                    p: 2,
-                    bgcolor: order.status === 'ready' ? 'rgba(46,125,50,0.08)' : order.status === 'preparing' ? 'rgba(255,152,0,0.08)' : '#FAFAFA',
-                    display: 'flex',
-                    justify: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#C62828' }}>{order.orderId || order.id}</Typography>
-                      {order.orderSource === 'swiggy' && (
-                        <Chip label="🟠 SWIGGY" size="small" sx={{ bgcolor: '#FFF3E0', color: '#E65100', fontSize: '10px', fontWeight: 800 }} />
-                      )}
-                      {order.orderSource === 'zomato' && (
-                        <Chip label="🔴 ZOMATO" size="small" sx={{ bgcolor: '#FFEBEE', color: '#C62828', fontSize: '10px', fontWeight: 800 }} />
-                      )}
-                      {order.tableNumber && (
-                        <Chip label={`Table #${order.tableNumber}`} size="small" sx={{ bgcolor: '#C62828', color: 'white', fontSize: '10px', fontWeight: 700 }} />
-                      )}
-                    </Box>
-                    <Typography variant="body2" color="text.secondary">
-                      {order.customerName || 'Diner'} • {order.orderTime || 'Live'}
+        <Grid container spacing={2}>
+          {LANES.map((lane) => {
+            const laneItems = laneOrders(lane.status);
+            return (
+              <Grid key={lane.status} size={{ xs: 12, md: 4 }}>
+                <Box sx={{
+                  borderRadius: adminColors.radiusLg, bgcolor: adminColors.bgSubtle,
+                  border: `1px solid ${adminColors.borderSubtle}`, p: 1.5, minHeight: 200,
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 0.5, mb: 1.5 }}>
+                    <Typography sx={{ fontWeight: 800, fontSize: '13px', color: adminColors.textPrimary }}>
+                      {lane.emoji} {lane.label}
                     </Typography>
+                    <Chip label={laneItems.length} size="small" sx={{ bgcolor: `${lane.accent}22`, color: lane.accent, fontWeight: 800, height: 20 }} />
                   </Box>
-                  <Box sx={{ textAlign: 'right' }}>
-                    <Chip
-                      label={(order.status || 'pending').toUpperCase()}
-                      size="small"
-                      sx={{
-                        bgcolor: (statusColors[order.status] || '#9E9E9E') + '22',
-                        color: statusColors[order.status] || '#9E9E9E',
-                        fontWeight: 700,
-                      }}
-                    />
-                  </Box>
+                  {laneItems.length === 0 ? (
+                    <Typography variant="caption" sx={{ color: adminColors.textMuted, display: 'block', textAlign: 'center', py: 3 }}>
+                      Nothing here
+                    </Typography>
+                  ) : (
+                    laneItems.map((order) => (
+                      <KitchenTicket key={order.id} order={order} lane={lane} onAdvance={updateOrderStatus} now={now} />
+                    ))
+                  )}
                 </Box>
-
-                {/* Items List */}
-                <Box sx={{ p: 2 }}>
-                  {(order.items || []).map((item, i) => (
-                    <Box
-                      key={i}
-                      sx={{
-                        display: 'flex',
-                        justify: 'space-between',
-                        alignItems: 'center',
-                        py: 1,
-                        borderBottom: i < order.items.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.name}</Typography>
-                      </Box>
-                      <Chip label={`×${item.quantity || 1}`} size="small" sx={{ bgcolor: '#F5F5F5', fontSize: '11px', fontWeight: 700 }} />
-                    </Box>
-                  ))}
-
-                  {/* Real-time Status Actions */}
-                  <Box sx={{ display: 'flex', gap: 1, mt: 2, justifyContent: 'flex-end' }}>
-                    {order.status === 'pending' && (
-                      <Chip
-                        label="🔥 Start Cooking"
-                        onClick={() => updateOrderStatus(order.id, 'preparing')}
-                        sx={{ bgcolor: '#FF9800', color: 'white', fontWeight: 700, cursor: 'pointer', '&:hover': { bgcolor: '#E65100' } }}
-                      />
-                    )}
-                    {order.status === 'preparing' && (
-                      <Chip
-                        label="🛎️ Mark Ready"
-                        onClick={() => updateOrderStatus(order.id, 'ready')}
-                        sx={{ bgcolor: '#2E7D32', color: 'white', fontWeight: 700, cursor: 'pointer', '&:hover': { bgcolor: '#1B5E20' } }}
-                      />
-                    )}
-                    {order.status === 'ready' && (
-                      <Chip
-                        label="✅ Mark Delivered"
-                        onClick={() => updateOrderStatus(order.id, 'delivered')}
-                        sx={{ bgcolor: '#1565C0', color: 'white', fontWeight: 700, cursor: 'pointer' }}
-                      />
-                    )}
-                    {order.status === 'delivered' && (
-                      <Chip label="🎉 Completed" sx={{ bgcolor: '#616161', color: 'white', fontWeight: 700 }} />
-                    )}
-                  </Box>
-                </Box>
-              </Paper>
-            </Grid>
-          ))}
+              </Grid>
+            );
+          })}
         </Grid>
       )}
     </AdminLayout>

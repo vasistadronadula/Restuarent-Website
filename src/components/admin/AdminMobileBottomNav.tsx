@@ -3,13 +3,15 @@
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAdmin } from '@/context/AdminContext';
+import { useAuth } from '@/context/AuthContext';
+import { canAccess } from '@/lib/roleAccess';
 
 interface Props {
   onOpenMenuDrawer: () => void;
   hidden?: boolean;
 }
 
-const NAV_ITEMS = [
+const ALL_NAV_ITEMS = [
   {
     key: 'dashboard',
     label: 'Home',
@@ -97,27 +99,58 @@ const NAV_ITEMS = [
     ),
   },
   {
-    key: 'more',
-    label: 'More',
-    href: null,
-    icon: () => (
+    key: 'pos',
+    label: 'POS',
+    href: '/admin/pos',
+    icon: (active: boolean) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-        <circle cx="5" cy="12" r="1.5" fill="currentColor" />
-        <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-        <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+        <rect x="2" y="5" width="20" height="14" rx="3"
+          fill={active ? 'url(#grad5)' : 'none'}
+          stroke={active ? 'none' : 'currentColor'}
+          strokeWidth="1.8"
+        />
+        <path d="M6 14H10M14 14H18" stroke={active ? 'white' : 'currentColor'} strokeWidth="1.8" strokeLinecap="round" />
+        <defs>
+          <linearGradient id="grad5" x1="2" y1="5" x2="22" y2="19" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#f97316" />
+            <stop offset="1" stopColor="#ef4444" />
+          </linearGradient>
+        </defs>
       </svg>
     ),
   },
 ];
 
+const MORE_ITEM = {
+  key: 'more',
+  label: 'More',
+  href: null as string | null,
+  icon: () => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <circle cx="5" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.5" fill="currentColor" />
+    </svg>
+  ),
+};
+
 export default function AdminMobileBottomNav({ onOpenMenuDrawer, hidden = false }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const { orders, reservations } = useAdmin();
+  const { userRole } = useAuth();
 
   const pendingOrders = orders.filter((o) => o.status === 'pending' || o.status === 'preparing').length;
   const pendingReservations = reservations.filter((r) => r.status === 'pending' || r.status === 'confirmed').length;
   const kitchenCount = orders.filter((o) => o.status === 'preparing').length;
+
+  // Role-filtered quick shortcuts, plus "More" (always present — it opens
+  // the full role-filtered drawer menu, which also holds profile/logout,
+  // so even a single-page role like chef/waiter can reach those).
+  const NAV_ITEMS = [
+    ...ALL_NAV_ITEMS.filter((item) => canAccess(userRole, item.href)),
+    MORE_ITEM,
+  ];
 
   const getBadge = (key: string): number => {
     if (key === 'orders') return pendingOrders;

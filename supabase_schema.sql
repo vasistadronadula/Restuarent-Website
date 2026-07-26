@@ -472,3 +472,131 @@ WHERE LOWER(email) IN (
 );
 
 SELECT id, email, role FROM public.profiles;
+
+-- ============================================================
+-- 11. STAFF ROLES — real logins for employees (chef / cashier / waiter /
+--     manager), each confined to their own section of /admin, plus manager
+--     folded into full admin-equivalent access. Safe & idempotent, same as
+--     the rest of this file.
+-- ============================================================
+
+-- ── Link an HR record to a real Supabase Auth login ─────────────────────
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS auth_user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_employees_auth_user_id ON employees(auth_user_id);
+
+-- ── Lock profiles.role / employees.role down to the known role set ──────
+-- (employees table historically documented free-text labels like "Head
+-- Chef" in a comment, but the app has always written/read the lowercase
+-- enum values below — this constraint just makes that explicit and enforced.)
+ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
+  CHECK (role IN ('customer', 'admin', 'manager', 'chef', 'cashier', 'waiter'));
+
+ALTER TABLE employees DROP CONSTRAINT IF EXISTS employees_role_check;
+ALTER TABLE employees ADD CONSTRAINT employees_role_check
+  CHECK (role IN ('admin', 'manager', 'chef', 'cashier', 'waiter'));
+
+-- ── Fold 'manager' into the existing admin check ─────────────────────────
+-- Every policy already gated on is_admin() automatically extends to
+-- managers too, instead of duplicating "role IN ('admin','manager')" across
+-- every policy in this file.
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('admin', 'manager')
+  );
+$$;
+
+-- ── Narrow, per-role helpers for the two tables staff actually operate ──
+-- Deliberately NOT one broad is_staff() — a waiter session should not be
+-- able to touch orders, nor a chef/cashier touch reservations, even though
+-- the frontend nav already hides those pages. RLS is the real boundary.
+CREATE OR REPLACE FUNCTION public.can_access_orders()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT public.is_admin() OR EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role IN ('cashier', 'chef')
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.can_access_reservations()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT public.is_admin() OR EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'waiter'
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.can_access_orders() TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.can_access_reservations() TO authenticated, anon;
+
+-- ── Widen orders/reservations RLS from admin-only to admin + relevant staff
+DROP POLICY IF EXISTS "orders_select" ON orders;
+DROP POLICY IF EXISTS "orders_update" ON orders;
+CREATE POLICY "orders_select" ON orders FOR SELECT
+  USING (public.can_access_orders() OR (auth.uid() IS NOT NULL AND user_id = auth.uid()));
+CREATE POLICY "orders_update" ON orders FOR UPDATE
+  USING (public.can_access_orders()) WITH CHECK (public.can_access_orders());
+
+DROP POLICY IF EXISTS "reservations_select" ON reservations;
+DROP POLICY IF EXISTS "reservations_update" ON reservations;
+CREATE POLICY "reservations_select" ON reservations FOR SELECT
+  USING (public.can_access_reservations() OR (auth.uid() IS NOT NULL AND user_id = auth.uid()));
+CREATE POLICY "reservations_update" ON reservations FOR UPDATE
+  USING (public.can_access_reservations()) WITH CHECK (public.can_access_reservations());
+
+-- ── Atomic staff account creation ────────────────────────────────────────
+-- Called via the service-role client's .rpc() from a trusted server route
+-- (src/app/api/admin/employees/route.ts) AFTER auth.admin.createUser()
+-- succeeds, so the profiles + employees rows are written in one transaction
+-- instead of two separate client calls that could partially fail.
+--
+-- Safe under the privilege-escalation triggers defined earlier: a
+-- service-role JWT carries no `auth.uid()`, so
+-- `auth.uid() IS NOT NULL AND NOT is_admin()` is false for both
+-- trg_enforce_default_role and trg_prevent_role_escalation — they no-op
+-- for this caller (triggers still run under service role; only RLS
+-- *policies* are bypassed). REVOKE/GRANT below means this function is only
+-- callable with the service-role key — never from a browser session, even
+-- an admin's — so the bearer-token check in the API route is the sole gate.
+CREATE OR REPLACE FUNCTION public.admin_upsert_staff(
+  p_auth_user_id uuid,
+  p_email text,
+  p_full_name text,
+  p_phone text,
+  p_role text,
+  p_employee_id text,
+  p_shift text,
+  p_salary numeric,
+  p_joining_date text
+) RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO profiles (id, email, full_name, phone, role)
+  VALUES (p_auth_user_id, p_email, p_full_name, p_phone, p_role)
+  ON CONFLICT (id) DO UPDATE SET
+    role = EXCLUDED.role, full_name = EXCLUDED.full_name, phone = EXCLUDED.phone;
+
+  INSERT INTO employees (id, name, role, phone, email, shift, salary, joining_date, status, auth_user_id)
+  VALUES (p_employee_id, p_full_name, p_role, p_phone, p_email, p_shift, p_salary, p_joining_date, 'Active', p_auth_user_id);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.admin_upsert_staff FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.admin_upsert_staff TO service_role;

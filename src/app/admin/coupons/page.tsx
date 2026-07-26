@@ -12,6 +12,7 @@ import {
   useGetCouponsQuery, useAddCouponMutation, useUpdateCouponMutation, useDeleteCouponMutation, Coupon,
 } from '@/store/supabaseApi';
 import toast from 'react-hot-toast';
+import { PageHeader, StatCard, adminColors } from '@/components/admin/ui';
 
 const emptyForm: Coupon = { code: '', discount: 10, maxDiscount: 100, minOrder: 0, description: '', isActive: true };
 
@@ -82,20 +83,16 @@ export default function CouponsPage() {
 
   return (
     <AdminLayout title="Coupons & Discounts">
-      <Grid container spacing={2.5} sx={{ mb: 3 }}>
+      <PageHeader title="Coupons & Discounts" subtitle="Create and manage promo codes customers can apply at checkout." />
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: 'Total Coupons', value: coupons.length, emoji: '🎟️', color: '#1565C0' },
-          { label: 'Active', value: activeCount, emoji: '✅', color: '#2E7D32' },
-          { label: 'Inactive', value: coupons.length - activeCount, emoji: '⏸️', color: '#9E9E9E' },
+          { label: 'Total Coupons', value: coupons.length, emoji: '🎟️', accent: adminColors.info },
+          { label: 'Active', value: activeCount, emoji: '✅', accent: adminColors.success },
+          { label: 'Inactive', value: coupons.length - activeCount, emoji: '⏸️', accent: adminColors.neutral },
         ].map((stat) => (
           <Grid key={stat.label} size={{ xs: 6, md: 4 }}>
-            <Paper sx={{ p: 2.5, borderRadius: '16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography sx={{ fontSize: '2rem' }}>{stat.emoji}</Typography>
-              <Box>
-                <Typography variant="h5" sx={{ fontWeight: 800, color: stat.color }}>{stat.value}</Typography>
-                <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
-              </Box>
-            </Paper>
+            <StatCard icon={stat.emoji} label={stat.label} value={stat.value} accent={stat.accent} />
           </Grid>
         ))}
       </Grid>
