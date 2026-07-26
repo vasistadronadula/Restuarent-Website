@@ -81,6 +81,7 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
   const adminName = user?.user_metadata?.full_name || user?.user_metadata?.name || 'Admin';
   const adminEmail = user?.email || '';
   const initials = adminName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'AD';
+  const avatarUrl = user?.user_metadata?.avatar_url || '';
   const dateStr = new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 
   return (
@@ -407,20 +408,36 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
                 className="avatar-btn"
                 onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }}
                 aria-label="Profile menu"
+                style={avatarUrl ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}
               >
-                {initials}
+                {avatarUrl ? '' : initials}
               </button>
 
               {profileOpen && (
                 <div className="dropdown-panel">
                   <div className="profile-header">
-                    <div className="profile-avatar-lg">{initials}</div>
+                    <div
+                      className="profile-avatar-lg"
+                      style={avatarUrl ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}
+                    >
+                      {avatarUrl ? '' : initials}
+                    </div>
                     <div>
                       <div className="profile-name">{adminName}</div>
                       <div className="profile-email">{adminEmail}</div>
                       <div className="profile-role">{userRole ? ROLE_LABELS[userRole] : 'Admin'}</div>
                     </div>
                   </div>
+
+                  <Link href="/admin/profile" className="menu-item" onClick={() => setProfileOpen(false)}>
+                    <span className="menu-item-icon">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="8" r="4" stroke="currentColor" strokeWidth="2" />
+                        <path d="M4 21C4 17.6863 7.58172 15 12 15C16.4183 15 20 17.6863 20 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    My Profile
+                  </Link>
 
                   <button className="menu-item" style={{ width: '100%', background: 'none', border: 'none', textAlign: 'left' }}
                     onClick={() => { setInstallOpen(true); setProfileOpen(false); }}>

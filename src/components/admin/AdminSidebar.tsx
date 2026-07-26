@@ -40,6 +40,7 @@ export default function AdminSidebar({ collapsed = false, onToggle, onItemClick 
   const activeReservationsCount = reservations.filter((r) => r.status === 'confirmed' || r.status === 'pending').length;
   const lowStockCount = inventory.filter((i) => i.quantity <= i.minQuantity).length;
 
+  const avatarUrl = user?.user_metadata?.avatar_url || '';
   const adminName = user?.user_metadata?.full_name || user?.user_metadata?.name || 'Admin';
   const adminEmail = user?.email || '';
   const initials = adminName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'AD';
@@ -220,7 +221,12 @@ export default function AdminSidebar({ collapsed = false, onToggle, onItemClick 
     <>
       <style>{`
         .admin-sidebar {
-          width: ${collapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH}px;
+          /* Fluid, not a hardcoded 260px. The parent controls the width — the
+             desktop <nav> wrapper or the mobile Drawer paper (capped at 85vw).
+             A fixed width here overflowed that cap on narrow phones and the
+             rightmost element, the unread badge, got clipped at the edge. */
+          width: 100%;
+          max-width: ${collapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH}px;
           height: 100%;
           min-height: 100vh;
           display: flex;
@@ -333,6 +339,7 @@ export default function AdminSidebar({ collapsed = false, onToggle, onItemClick 
           display: flex; align-items: center; justify-content: center;
           padding: 0 5px;
           box-shadow: 0 2px 6px rgba(220,38,38,0.4);
+          flex-shrink: 0;
         }
         .nav-badge.collapsed-pos {
           position: absolute; top: 4px; right: 4px;
@@ -354,7 +361,10 @@ export default function AdminSidebar({ collapsed = false, onToggle, onItemClick 
           display: flex; align-items: center; justify-content: center;
           color: white; font-size: 12px; font-weight: 800;
           flex-shrink: 0; border: 1.5px solid rgba(0,0,0,0.06);
+          text-decoration: none; cursor: pointer;
+          transition: transform 0.15s ease;
         }
+        .sidebar-avatar:hover { transform: scale(1.05); }
         .sidebar-user-info { flex: 1; overflow: hidden; }
         .sidebar-user-name-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
         .sidebar-user-name {
@@ -462,14 +472,21 @@ export default function AdminSidebar({ collapsed = false, onToggle, onItemClick 
         )}
         <div className="sidebar-footer">
           <div className="sidebar-user">
-            <div
+            <Link
+              href="/admin/profile"
               className="sidebar-avatar"
-              style={userRole && userRole !== 'customer' ? {
-                background: `linear-gradient(135deg, ${roleColors[userRole].color}, ${roleColors[userRole].color}CC)`,
-              } : undefined}
+              title="My profile"
+              onClick={onItemClick}
+              style={
+                avatarUrl
+                  ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' }
+                  : userRole && userRole !== 'customer'
+                    ? { background: `linear-gradient(135deg, ${roleColors[userRole].color}, ${roleColors[userRole].color}CC)` }
+                    : undefined
+              }
             >
-              {initials}
-            </div>
+              {avatarUrl ? '' : initials}
+            </Link>
             {!collapsed && (
               <div className="sidebar-user-info">
                 <div className="sidebar-user-name-row">

@@ -128,15 +128,16 @@ export default function AdminLayout({ children, title }: Props) {
         {/* PWA service worker + push notification registration */}
         <ServiceWorkerRegister />
 
-        {/* Global Toast Notification — anchored top-right on desktop, but
-            bottom-center on mobile (clearing the fixed bottom nav) so it
-            never overlaps the header or gets clipped on narrow screens. */}
+        {/* Global toast — top-right on phones (clear of the thumb and the
+            fixed bottom nav), bottom-right on desktop. Matches the
+            react-hot-toast placement in providers.tsx so alerts from either
+            system always appear in the same corner. */}
         <Snackbar
           open={!!notification}
-          anchorOrigin={isMobile ? { vertical: 'bottom', horizontal: 'center' } : { vertical: 'top', horizontal: 'right' }}
+          anchorOrigin={isMobile ? { vertical: 'top', horizontal: 'right' } : { vertical: 'bottom', horizontal: 'right' }}
           sx={isMobile
-            ? { mb: 'calc(78px + env(safe-area-inset-bottom, 0px))', mx: 2 }
-            : { mt: 8 }}
+            ? { top: 'calc(70px + env(safe-area-inset-top, 0px)) !important', left: 12, right: 12 }
+            : { mb: 2, mr: 2 }}
         >
           <Alert
             severity={notification?.type || 'success'}

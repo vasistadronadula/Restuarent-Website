@@ -33,6 +33,10 @@ export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[] | 'all'> = {
   customer: [],
 };
 
+// Reachable by every signed-in staff member regardless of role — managing
+// your own name, phone and photo isn't a privileged action.
+const SHARED_STAFF_PREFIXES = ['/admin/profile'];
+
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Admin',
   manager: 'Manager',
@@ -66,10 +70,11 @@ export const ROLE_ICONS: Record<UserRole, string> = {
 export const STAFF_ROLES = ['admin', 'manager', 'chef', 'cashier', 'waiter'] as const;
 
 export function canAccess(role: UserRole | null | undefined, pathname: string): boolean {
-  if (!role) return false;
+  if (!role || role === 'customer') return false;
   const allowed = ROLE_ALLOWED_PREFIXES[role];
   if (allowed === 'all') return true;
-  return allowed.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  const matches = (prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
+  return allowed.some(matches) || SHARED_STAFF_PREFIXES.some(matches);
 }
 
 export function getRoleHome(role: UserRole | null | undefined): string {

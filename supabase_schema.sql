@@ -600,3 +600,45 @@ $$;
 
 REVOKE ALL ON FUNCTION public.admin_upsert_staff FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.admin_upsert_staff TO service_role;
+
+-- ============================================================
+-- 12. PROFILE AVATARS — every signed-in user manages their own
+--     display name, phone and profile photo from /admin/profile.
+--     Safe & idempotent, same as the rest of this file.
+-- ============================================================
+
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+
+-- Public bucket: avatars are shown in the admin shell and need to load
+-- without a signed URL round-trip on every page render.
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', true)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "avatars_public_read" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_own_insert" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_own_update" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_own_delete" ON storage.objects;
+
+-- Files are stored as "<auth.uid()>/<filename>", so the first path segment
+-- scopes writes to the owner — one user can never overwrite another's photo.
+CREATE POLICY "avatars_public_read" ON storage.objects FOR SELECT
+  USING (bucket_id = 'avatars');
+CREATE POLICY "avatars_own_insert" ON storage.objects FOR INSERT
+  WITH CHECK (
+    bucket_id = 'avatars'
+    AND auth.uid() IS NOT NULL
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+CREATE POLICY "avatars_own_update" ON storage.objects FOR UPDATE
+  USING (
+    bucket_id = 'avatars'
+    AND auth.uid() IS NOT NULL
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+CREATE POLICY "avatars_own_delete" ON storage.objects FOR DELETE
+  USING (
+    bucket_id = 'avatars'
+    AND auth.uid() IS NOT NULL
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
