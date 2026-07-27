@@ -642,7 +642,7 @@ export const supabaseApi = createApi({
     // Also used for the Active/Inactive toggle — pass just `{ id, status }`.
     updateEmployee: builder.mutation<boolean, { id: string } & Partial<{
       name: string; phone: string; role: StaffRole; shift: string; salary: number;
-      status: 'Active' | 'Inactive';
+      status: 'Active' | 'Inactive'; password: string;
     }>>({
       queryFn: async ({ id, ...rest }) => {
         try {

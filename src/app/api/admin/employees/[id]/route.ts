@@ -17,6 +17,7 @@ interface UpdateEmployeeBody {
   shift?: string;
   salary?: number;
   status?: 'Active' | 'Inactive';
+  password?: string;
 }
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -77,6 +78,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     }
 
     if (employee.auth_user_id) {
+      if (body.password && body.password.trim().length >= 6) {
+        const { error: pwdError } = await admin.auth.admin.updateUserById(employee.auth_user_id, {
+          password: body.password.trim(),
+        });
+        if (pwdError) return NextResponse.json({ error: pwdError.message }, { status: 500 });
+      }
       if (body.role) {
         const { error: roleError } = await admin
           .from('profiles').update({ role: body.role }).eq('id', employee.auth_user_id);

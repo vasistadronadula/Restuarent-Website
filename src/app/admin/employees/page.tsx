@@ -115,21 +115,37 @@ function EmployeeDialog({
     if (!form.name.trim()) e.name = 'Name is required';
     if (!isEdit) {
       if (!form.email.trim() || !form.email.includes('@')) e.email = 'Valid email is required';
-      if (!form.password || form.password.length < 6) e.password = 'Min 6 characters';
+      if (!form.password || form.password.length < 6) e.password = 'Min 6 characters required';
+    } else if (form.password && form.password.length < 6) {
+      e.password = 'New password must be at least 6 characters';
     }
+
     setErrors(e);
     if (Object.keys(e).length > 0) return;
 
     if (isEdit && editing) {
-      const result = await updateEmployee({
-        id: editing.id, name: form.name.trim(), phone: form.phone.trim(),
-        role: form.role, shift: form.shift, salary: Number(form.salary) || 0,
-      });
+      const payload: Parameters<typeof updateEmployee>[0] = {
+        id: editing.id,
+        name: form.name.trim(),
+        phone: form.phone.trim(),
+        role: form.role,
+        shift: form.shift,
+        salary: Number(form.salary) || 0,
+      };
+      if (form.password.trim()) {
+        payload.password = form.password.trim();
+      }
+
+      const result = await updateEmployee(payload);
       if ('error' in result && result.error) {
         toast.error((result.error as { error?: string }).error || 'Failed to update');
         return;
       }
-      toast.success(`${form.name.trim()} updated`);
+      toast.success(
+        form.password.trim()
+          ? `${form.name.trim()} & password updated successfully!`
+          : `${form.name.trim()} updated successfully`
+      );
       onClose();
       return;
     }
@@ -191,32 +207,46 @@ function EmployeeDialog({
             />
           </Grid>
 
-          {!isEdit && (
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth size="small" label="Initial password *" type={showPassword ? 'text' : 'password'}
-                value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })}
-                error={!!errors.password}
-                helperText={errors.password || 'Share this with them directly — no email is sent.'}
-                slotProps={{
-                  input: {
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <Tooltip title="Generate">
-                          <IconButton size="small" onClick={() => { setForm({ ...form, password: generateTempPassword() }); setShowPassword(true); }}>
-                            <Casino fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <IconButton size="small" onClick={() => setShowPassword((v) => !v)}>
-                          {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+          {/* Password field: visible for BOTH Add and Edit */}
+          <Grid size={{ xs: 12 }}>
+            <TextField
+              fullWidth size="small"
+              label={isEdit ? 'Set New Password (optional)' : 'Initial Password *'}
+              type={showPassword ? 'text' : 'password'}
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              error={!!errors.password}
+              helperText={
+                errors.password ||
+                (isEdit
+                  ? 'Leave blank to keep existing password, or enter/generate a new password to reset it.'
+                  : 'Share this password with them directly — no email is sent.')
+              }
+              placeholder={isEdit ? 'Enter new password or click 🎲' : 'Min 6 characters'}
+              slotProps={{
+                input: {
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <Tooltip title="Generate Random Password">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setForm({ ...form, password: generateTempPassword() });
+                            setShowPassword(true);
+                          }}
+                        >
+                          <Casino fontSize="small" />
                         </IconButton>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-            </Grid>
-          )}
+                      </Tooltip>
+                      <IconButton size="small" onClick={() => setShowPassword((v) => !v)}>
+                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          </Grid>
 
           <Grid size={{ xs: 12 }}>
             <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: adminColors.textSecondary, mb: 1 }}>

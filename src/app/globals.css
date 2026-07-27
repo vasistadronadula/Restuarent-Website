@@ -2,11 +2,19 @@
   --background: #ffffff;
   --foreground: #171717;
   color-scheme: light;
+
+  /* Height the fixed FloatingCartBar occupies at the bottom of the viewport,
+     including its own offset from the edge. FloatingCartBar keeps this in
+     sync — 0px whenever the bar is hidden — and the storefront footer adds it
+     to its bottom padding so the bar never sits on top of the legal links.
+     A fixed element can't push page content, so the content has to make room. */
+  --ppr-floating-cart-h: 0px;
 }
 
 html {
   height: 100%;
   color-scheme: light;
+  scroll-behavior: smooth;
 }
 
 html,
@@ -35,6 +43,81 @@ body {
 a {
   color: inherit;
   text-decoration: none;
+}
+
+/* ============================================================ */
+/* Customer-site motion primitives                              */
+/*                                                              */
+/* Named keyframes shared by the storefront. They live here     */
+/* rather than in each component's `sx` because several of them */
+/* are referenced from more than one place, and because an `sx` */
+/* keyframe is scoped to the element that declares it — the     */
+/* home page's offer ticker used to ask for `spin 4s linear`    */
+/* with no such keyframe defined anywhere, so it never span.    */
+/* Prefixed `ppr-` so nothing collides with MUI's own.          */
+/* ============================================================ */
+
+@keyframes ppr-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ppr-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+@keyframes ppr-fade-up {
+  from { opacity: 0; transform: translate3d(0, 26px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes ppr-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* The track holds two identical copies of the content, so translating it by
+   exactly half its width lands back on a pixel-identical frame — the loop is
+   seamless at any speed and for any content length. */
+@keyframes ppr-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* Slow push-in on the active hero slide. Kept under 8% so the crop never
+   drifts far enough to cut a subject out of frame. */
+@keyframes ppr-ken-burns {
+  from { transform: scale(1.06); }
+  to   { transform: scale(1); }
+}
+
+/* Drives the countdown fill inside a carousel's active dot. */
+@keyframes ppr-progress {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* ============================================================ */
+/* Reduced motion                                               */
+/*                                                              */
+/* Everything above is decoration. Users who ask their OS for   */
+/* less movement get the same layout with the movement removed  */
+/* — collapsed rather than disabled, so animation-driven end    */
+/* states (a revealed section's opacity: 1) still get applied.  */
+/* ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* ============================================================ */
