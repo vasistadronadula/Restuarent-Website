@@ -45,11 +45,15 @@ export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[] | 'all'> = {
 };
 
 // Carved out of an otherwise-full-access role. Taking payment is the
-// cashier's job: the admin oversees the money through Reports and the orders
-// list rather than operating the till, so the POS and Bills screens stay out
-// of the admin workspace even though admin is 'all' everywhere else.
+// cashier's job, so the till itself stays out of the admin workspace even
+// though admin is 'all' everywhere else — an admin who needs to ring up a
+// sale signs in as a cashier.
+//
+// Bills is deliberately NOT denied: it is a read-only record of what the
+// till took, which is exactly the oversight an owner needs. Operating the
+// till and auditing it are different privileges.
 export const ROLE_DENIED_PREFIXES: Partial<Record<UserRole, string[]>> = {
-  admin: ['/admin/pos', '/admin/bills', '/cashier'],
+  admin: ['/admin/pos', '/cashier'],
 };
 
 // Reachable by every signed-in staff member regardless of role — managing
@@ -69,7 +73,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 // assigned, so picking a role visibly means picking permissions rather than
 // choosing an opaque label from a dropdown.
 export const ROLE_ACCESS_SUMMARY: Record<UserRole, string> = {
-  admin: 'Full access — every page, report and setting except the till',
+  admin: 'Full access — every page, report and setting; bills are read-only and the till is cashier-only',
   manager: 'Customers, team, menu, inventory & coupons',
   chef: 'Kitchen Display only — receives order notifications',
   cashier: 'Orders, POS billing & bills — receives order notifications',

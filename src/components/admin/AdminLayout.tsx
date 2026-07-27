@@ -3,7 +3,6 @@ import React, { useState, ReactNode } from 'react';
 import { Drawer, Snackbar, Alert, useMediaQuery, useTheme } from '@mui/material';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
-import AdminGuard from './AdminGuard';
 import AdminMobileBottomNav from './AdminMobileBottomNav';
 import AutoOrderPrinter from './AutoOrderPrinter';
 import ServiceWorkerRegister from './ServiceWorkerRegister';
@@ -30,8 +29,11 @@ export default function AdminLayout({ children, title }: Props) {
 
   const currentWidth = sidebarCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH;
 
+  // Authorization is NOT re-checked here: `app/admin/layout.tsx` already
+  // wraps this whole segment in <AdminGuard>. Mounting a second guard inside
+  // every page ran the redirect effect twice on each navigation.
   return (
-    <AdminGuard>
+    <>
       <div style={{ display: 'flex', minHeight: '100vh', background: '#FFF8F2' }}>
 
         {/* Mobile Drawer */}
@@ -167,6 +169,6 @@ export default function AdminLayout({ children, title }: Props) {
           </Alert>
         </Snackbar>
       </div>
-    </AdminGuard>
+    </>
   );
 }
