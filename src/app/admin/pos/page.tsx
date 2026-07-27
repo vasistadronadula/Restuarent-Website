@@ -5,17 +5,23 @@ import {
   Box, Button, Chip, Drawer, IconButton, InputAdornment, Paper,
   TextField, Typography, useMediaQuery,
 } from '@mui/material';
-import { Clear, Fastfood, ReceiptLong, Search } from '@mui/icons-material';
+import {
+  Clear, Fastfood, ReceiptLong, Search,
+  NotificationsActive, BluetoothConnected, Print,
+} from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import DishCard from '@/components/pos/DishCard';
 import BillPanel, { type PosOrderType, type PosPaymentMode } from '@/components/pos/BillPanel';
 import OrderPlacedDialog from '@/components/pos/OrderPlacedDialog';
 import { useAdmin } from '@/context/AdminContext';
+import { useAuth } from '@/context/AuthContext';
 import { useGetMenuItemsQuery, useGetTablesQuery } from '@/store/supabaseApi';
 import { usePosCart, type Portion } from '@/hooks/usePosCart';
 import { computeBillTotals, rupees } from '@/lib/billing';
 import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
 import { triggerNewOrderPush } from '@/lib/triggerPush';
+import { enablePushNotifications, getPushState, type PushState } from '@/lib/pushClient';
+import { connectPrinter, isPrinterConnected, isPrinterSupported, savedPrinterName } from '@/lib/thermalPrinter';
 import { pos } from '@/theme/posColors';
 import type { Category, MenuItem, Order } from '@/types';
 import toast from 'react-hot-toast';
@@ -49,6 +55,7 @@ type VegFilter = (typeof VEG_FILTERS)[number]['value'];
  */
 export default function CounterBillingPage() {
   const { addOrderLocallyAndDB } = useAdmin();
+  const { user } = useAuth();
   const { data: menuItems = [], isLoading: menuLoading } = useGetMenuItemsQuery();
   const { data: tables = [] } = useGetTablesQuery();
 
@@ -72,7 +79,46 @@ export default function CounterBillingPage() {
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
   const [placedInvoiceNo, setPlacedInvoiceNo] = useState('');
 
+  /* Notification & Printer setup state */
+  const [pushState, setPushState] = useState<PushState>(() => getPushState());
+  const [printerName, setPrinterName] = useState<string | null>(() => savedPrinterName());
+  const [printerConnected, setPrinterConnected] = useState<boolean>(() => isPrinterConnected());
+
   const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setPrinterConnected(isPrinterConnected());
+    setPrinterName(savedPrinterName());
+  }, []);
+
+  const handleEnablePush = async () => {
+    if (!user?.id) {
+      toast.error('Sign in required to enable notifications');
+      return;
+    }
+    const result = await enablePushNotifications(user.id);
+    setPushState(result);
+    if (result === 'granted') {
+      toast.success('🔔 Order notifications enabled for Cashier!');
+    } else if (result === 'denied') {
+      toast.error('Notification permission was blocked in browser settings');
+    }
+  };
+
+  const handleConnectPrinter = async () => {
+    if (!isPrinterSupported()) {
+      toast.error('Web Bluetooth is not supported in this browser. Use Chrome/Edge.');
+      return;
+    }
+    const name = await connectPrinter();
+    if (name) {
+      setPrinterName(name);
+      setPrinterConnected(true);
+      toast.success(`🖨️ Connected printer: ${name}`);
+    } else {
+      toast.error('Could not connect printer or connection was cancelled');
+    }
+  };
 
   const activeTables = useMemo(() => tables.filter((t) => t.isActive), [tables]);
   const totals = useMemo(
@@ -290,6 +336,43 @@ export default function CounterBillingPage() {
               boxShadow: pos.shadowSm,
             }}
           >
+            {/* Cashier Setup Bar: Enable Notifications & Connect Bluetooth Printer */}
+            <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', mb: 0.75, flexWrap: 'wrap' }}>
+              {pushState !== 'granted' && (
+                <Button
+                  size="small"
+                  onClick={handleEnablePush}
+                  startIcon={<NotificationsActive sx={{ fontSize: 15 }} />}
+                  sx={{
+                    borderRadius: '8px', textTransform: 'none', fontWeight: 800, fontSize: 11,
+                    bgcolor: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D',
+                    py: 0.3, px: 1,
+                    '&:hover': { bgcolor: '#FDE68A' },
+                  }}
+                >
+                  Enable Order Notifications 🔔
+                </Button>
+              )}
+
+              <Button
+                size="small"
+                onClick={handleConnectPrinter}
+                startIcon={printerConnected ? <Print sx={{ fontSize: 15 }} /> : <BluetoothConnected sx={{ fontSize: 15 }} />}
+                sx={{
+                  borderRadius: '8px', textTransform: 'none', fontWeight: 800, fontSize: 11,
+                  bgcolor: printerConnected ? '#F0FDF4' : '#EFF6FF',
+                  color: printerConnected ? '#15803D' : '#1D4ED8',
+                  border: `1px solid ${printerConnected ? '#BBF7D0' : '#BFDBFE'}`,
+                  py: 0.3, px: 1,
+                  '&:hover': { bgcolor: printerConnected ? '#DCFCE7' : '#DBEAFE' },
+                }}
+              >
+                {printerConnected
+                  ? `Printer: ${printerName || 'Connected'} ✅`
+                  : 'Connect Thermal Printer 🔌'}
+              </Button>
+            </Box>
+
             {/* Search row */}
             <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', mb: 0.75 }}>
               <TextField
