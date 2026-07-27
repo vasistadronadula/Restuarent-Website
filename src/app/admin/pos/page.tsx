@@ -177,6 +177,11 @@ export default function CounterBillingPage() {
     };
 
     try {
+      if (typeof window !== 'undefined') {
+        const w = window as unknown as { __ppr_seen_pos_orders?: Set<string> };
+        w.__ppr_seen_pos_orders = w.__ppr_seen_pos_orders || new Set();
+        w.__ppr_seen_pos_orders.add(orderId);
+      }
       await addOrderLocallyAndDB(order);
       triggerNewOrderPush(orderId);
       setPlacedOrder(order);

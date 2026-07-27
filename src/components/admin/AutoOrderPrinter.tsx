@@ -97,6 +97,12 @@ export default function AutoOrderPrinter() {
     if (newOrder) {
       seenOrdersRef.current.add(newOrder.id);
 
+      // If this order was placed right here by the POS page on this device,
+      // OrderPlacedDialog is already handling the print/receipt confirmation.
+      // Do not trigger a second print modal/window.print call!
+      const posSeen = typeof window !== 'undefined' && (window as unknown as { __ppr_seen_pos_orders?: Set<string> }).__ppr_seen_pos_orders?.has(newOrder.id);
+      if (posSeen) return;
+
       if (isAutoPrintEnabled) {
         // Play notification audio alert
         playOrderAlertChime();
