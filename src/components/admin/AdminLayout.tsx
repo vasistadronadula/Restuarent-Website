@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, ReactNode } from 'react';
 import { Drawer, Snackbar, Alert, useMediaQuery, useTheme } from '@mui/material';
+import { usePathname } from 'next/navigation';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
 import AdminMobileBottomNav from './AdminMobileBottomNav';
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function AdminLayout({ children, title }: Props) {
+  const pathname = usePathname();
   const dispatch = useAppDispatch();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -27,6 +29,7 @@ export default function AdminLayout({ children, title }: Props) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  const isPosPage = pathname === '/admin/pos' || pathname === '/cashier';
   const currentWidth = sidebarCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH;
 
   // Authorization is NOT re-checked here: `app/admin/layout.tsx` already
@@ -132,7 +135,7 @@ export default function AdminLayout({ children, title }: Props) {
             two nav surfaces never fight for the same tap targets. */}
         <AdminMobileBottomNav
           onOpenMenuDrawer={() => setMobileOpen(!mobileOpen)}
-          hidden={isMobile && mobileOpen}
+          hidden={isMobile && (mobileOpen || isPosPage)}
         />
 
         {/* Auto Thermal Printer */}

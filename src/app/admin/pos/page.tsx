@@ -290,16 +290,42 @@ export default function CounterBillingPage() {
           overflow: 'hidden',
         }}
       >
-        {/* ── Dishes ───────────────────────────────────────────────────── */}
+        {/* ── Dishes Panel ─────────────────────────────────────────────── */}
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
           <Paper
             elevation={0}
             sx={{
               flexShrink: 0,
-              p: 1.25, borderRadius: '14px', bgcolor: '#FFFFFF',
+              p: 1.25, borderRadius: '16px', bgcolor: '#FFFFFF',
               border: `1px solid ${adminColors.border}`,
+              boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
             }}
           >
+            {/* Quick Order Type Bar (visible at top on mobile/tablet) */}
+            <Box sx={{ display: 'flex', gap: 0.75, mb: 1 }}>
+              {[
+                { type: 'counter' as PosOrderType, label: '⚡ Counter' },
+                { type: 'takeaway' as PosOrderType, label: '🛍️ Takeaway' },
+                { type: 'dine-in' as PosOrderType, label: '🍽️ Dine-in' },
+              ].map((t) => (
+                <Button
+                  key={t.type}
+                  size="small"
+                  onClick={() => setOrderType(t.type)}
+                  sx={{
+                    flex: 1, minHeight: 36, borderRadius: '10px', textTransform: 'none',
+                    fontWeight: 800, fontSize: 12,
+                    bgcolor: orderType === t.type ? adminColors.brand : adminColors.bgSubtle,
+                    color: orderType === t.type ? '#FFFFFF' : adminColors.textSecondary,
+                    border: `1px solid ${orderType === t.type ? adminColors.brand : adminColors.border}`,
+                    '&:hover': { bgcolor: orderType === t.type ? adminColors.brandDark : adminColors.bgSubtle },
+                  }}
+                >
+                  {t.label}
+                </Button>
+              ))}
+            </Box>
+
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
               <TextField
                 inputRef={searchRef}
@@ -351,8 +377,6 @@ export default function CounterBillingPage() {
               sx={{
                 display: 'flex', gap: 0.75, mt: 1, pb: 0.5,
                 overflowX: 'auto',
-                // A category strip is dragged with a thumb far more often
-                // than it is clicked with a scrollbar.
                 WebkitOverflowScrolling: 'touch',
                 scrollbarWidth: 'thin',
                 '&::-webkit-scrollbar': { height: 4 },
@@ -425,33 +449,38 @@ export default function CounterBillingPage() {
             )}
           </Box>
 
-          {/* ── Phone: running total, opens the bill sheet ──────────────
-              A flex child, not a fixed bar: it sits directly above the
-              bottom nav by construction on every phone, notch or not. */}
+          {/* ── Phone: floating running total, opens the bill sheet ── */}
           {isPhone && (
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={() => setSheetOpen(true)}
-              startIcon={<ReceiptLong />}
+            <Box
               sx={{
                 flexShrink: 0,
-                minHeight: 54, borderRadius: '14px', textTransform: 'none',
-                fontSize: 15, fontWeight: 900,
-                display: 'flex', justifyContent: 'space-between', px: 2.25,
-                background: cart.totalUnits > 0
-                  ? `linear-gradient(135deg, ${adminColors.brand}, ${adminColors.accent})`
-                  : `linear-gradient(135deg, #57534E, #44403C)`,
-                boxShadow: '0 8px 22px rgba(0,0,0,0.22)',
+                pt: 0.75,
+                pb: 'calc(6px + env(safe-area-inset-bottom, 0px))',
               }}
             >
-              <Box component="span" sx={{ flex: 1, textAlign: 'left', ml: 1 }}>
-                {cart.totalUnits > 0
-                  ? `View bill · ${cart.totalUnits} item${cart.totalUnits === 1 ? '' : 's'}`
-                  : 'Bill empty'}
-              </Box>
-              <Box component="span">{rupees(totals.grandTotal)}</Box>
-            </Button>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => setSheetOpen(true)}
+                startIcon={<ReceiptLong />}
+                sx={{
+                  minHeight: 52, borderRadius: '16px', textTransform: 'none',
+                  fontSize: 15, fontWeight: 900,
+                  display: 'flex', justifyContent: 'space-between', px: 2.25,
+                  background: cart.totalUnits > 0
+                    ? `linear-gradient(135deg, ${adminColors.brand}, ${adminColors.accent})`
+                    : `linear-gradient(135deg, #57534E, #44403C)`,
+                  boxShadow: '0 8px 25px rgba(198,40,40,0.3)',
+                }}
+              >
+                <Box component="span" sx={{ flex: 1, textAlign: 'left', ml: 1 }}>
+                  {cart.totalUnits > 0
+                    ? `View Bill & Pay · ${cart.totalUnits} item${cart.totalUnits === 1 ? '' : 's'}`
+                    : 'Bill Empty'}
+                </Box>
+                <Box component="span" sx={{ fontSize: 16 }}>{rupees(totals.grandTotal)}</Box>
+              </Button>
+            </Box>
           )}
         </Box>
 
