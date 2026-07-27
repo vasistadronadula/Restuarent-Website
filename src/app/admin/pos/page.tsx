@@ -161,7 +161,7 @@ export default function CounterBillingPage() {
       customerId: customerPhone.trim() || 'WALK-IN',
       customerName: customerName.trim() || 'Walk-in Customer',
       customerPhone: customerPhone.trim(),
-      customerAddress: orderType === 'dine-in' ? `Dine-in · Table ${tableNumber}` : orderType === 'takeaway' ? 'Takeaway (Parcel)' : 'Counter sale',
+      customerAddress: orderType === 'dine-in' ? `Dine-in · Table ${tableNumber}` : 'Counter sale',
       orderType,
       items: cart.lines.map((l) => ({
         id: l.key,
@@ -305,7 +305,6 @@ export default function CounterBillingPage() {
             <Box sx={{ display: 'flex', gap: 0.75, mb: 1 }}>
               {[
                 { type: 'counter' as PosOrderType, label: '⚡ Counter' },
-                { type: 'takeaway' as PosOrderType, label: '🛍️ Takeaway' },
                 { type: 'dine-in' as PosOrderType, label: '🍽️ Dine-in' },
               ].map((t) => (
                 <Button

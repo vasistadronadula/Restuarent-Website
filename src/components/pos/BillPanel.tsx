@@ -3,27 +3,23 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import {
-  Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
-  Divider, FormControl, IconButton, InputAdornment, InputLabel,
+  Box, Button, Chip, Divider, FormControl, IconButton, InputAdornment, InputLabel,
   MenuItem as MuiMenuItem, Select, Stack, TextField, Typography,
 } from '@mui/material';
 import {
-  Add, Close, DeleteOutlined, Fastfood, PointOfSale, QrCode2, Remove,
+  Add, Close, DeleteOutlined, Fastfood, PointOfSale, Remove,
 } from '@mui/icons-material';
-import { QRCodeSVG } from 'qrcode.react';
 import { MAX_LINE_QTY, type PosLine } from '@/hooks/usePosCart';
 import type { BillTotals } from '@/lib/billing';
 import { rupees, rupeesExact } from '@/lib/billing';
 import { adminColors } from '@/theme/adminColors';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80';
-const DEFAULT_UPI_ID = process.env.NEXT_PUBLIC_UPI_ID || '8179238137@paytm';
 
-export type PosOrderType = 'dine-in' | 'counter' | 'takeaway';
+export type PosOrderType = 'dine-in' | 'counter';
 
 export const ORDER_TYPES: { type: PosOrderType; label: string }[] = [
   { type: 'counter', label: '⚡ Counter' },
-  { type: 'takeaway', label: '🛍️ Takeaway' },
   { type: 'dine-in', label: '🍽️ Dine-in' },
 ];
 
@@ -88,8 +84,6 @@ export default function BillPanel({
   onIncrement, onDecrement, onSetQuantity, onRemove, onClear,
   onPlace, isPlacing, onClose,
 }: BillPanelProps) {
-  const [qrOpen, setQrOpen] = useState(false);
-  const upiUri = `upi://pay?pa=${DEFAULT_UPI_ID}&pn=Pala%20Pitta%20Ruchulu&am=${totals.grandTotal}&cu=INR`;
   const empty = lines.length === 0;
   const needsTable = orderType === 'dine-in' && tableNumber === '';
   const blocked = empty || needsTable;
@@ -285,7 +279,7 @@ export default function BillPanel({
               )}
             </Stack>
 
-            <Box sx={{ display: 'flex', gap: 0.75, mb: 0.75 }}>
+            <Box sx={{ display: 'flex', gap: 0.75, mb: 1.25 }}>
               {PAYMENT_MODES.map((p) => (
                 <Button
                   key={p.mode}
@@ -303,66 +297,8 @@ export default function BillPanel({
                 </Button>
               ))}
             </Box>
-
-            {paymentMode === 'upi' && totals.grandTotal > 0 && (
-              <Button
-                fullWidth
-                variant="outlined"
-                startIcon={<QrCode2 />}
-                onClick={() => setQrOpen(true)}
-                sx={{
-                  mb: 1.25, py: 0.8, borderRadius: '10px', textTransform: 'none',
-                  fontWeight: 800, fontSize: 12.5, color: adminColors.brand,
-                  borderColor: adminColors.brand,
-                  '&:hover': { bgcolor: adminColors.brandSoft, borderColor: adminColors.brand },
-                }}
-              >
-                Show UPI QR Code ({rupees(totals.grandTotal)})
-              </Button>
-            )}
           </>
         )}
-
-        {/* Dynamic UPI QR Modal */}
-        <Dialog open={qrOpen} onClose={() => setQrOpen(false)} maxWidth="xs" fullWidth>
-          <DialogTitle sx={{ fontWeight: 900, textAlign: 'center', pb: 0 }}>
-            Scan & Pay via UPI
-          </DialogTitle>
-          <DialogContent sx={{ textAlign: 'center', py: 2 }}>
-            <Typography variant="body2" sx={{ color: adminColors.textMuted, mb: 2 }}>
-              Ask customer to scan with GPay, PhonePe, Paytm, or BHIM
-            </Typography>
-            <Box
-              sx={{
-                p: 2, bgcolor: '#FFFFFF', borderRadius: '16px', display: 'inline-block',
-                boxShadow: '0 8px 30px rgba(0,0,0,0.12)', border: '1px solid #E5E7EB',
-              }}
-            >
-              <QRCodeSVG value={upiUri} size={210} level="M" includeMargin />
-            </Box>
-            <Typography variant="h5" sx={{ fontWeight: 900, color: adminColors.brand, mt: 2 }}>
-              {rupees(totals.grandTotal)}
-            </Typography>
-            <Typography variant="caption" sx={{ color: adminColors.textMuted, display: 'block', mt: 0.5 }}>
-              UPI ID: {DEFAULT_UPI_ID}
-            </Typography>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, justifyContent: 'center' }}>
-            <Button
-              variant="contained"
-              onClick={() => {
-                setQrOpen(false);
-                onPlace();
-              }}
-              sx={{
-                borderRadius: '12px', fontWeight: 800, px: 3, py: 1,
-                bgcolor: adminColors.brand,
-              }}
-            >
-              Confirm Paid & Place Order
-            </Button>
-          </DialogActions>
-        </Dialog>
 
         {/* Always mounted, disabled when there's nothing to charge — a
             cashier should never have to wonder where the button went. The

@@ -38,12 +38,22 @@ export default function PrintBillPortal(props: ThermalBillProps) {
     if (!host.isConnected) document.body.appendChild(host);
 
     return () => {
-      // Leave the node alone if another bill is still rendering into it —
-      // an auto-print and a manual reprint can overlap.
-      if (host.isConnected && host.childElementCount === 0) host.remove();
+      if (host) {
+        host.innerHTML = '';
+        if (host.isConnected && host.childElementCount === 0) {
+          host.remove();
+        }
+      }
     };
   }, [host]);
 
   if (!host) return null;
+  // Ensure host container is cleared before portaling so no duplicate bills stack
+  if (typeof window !== 'undefined') {
+    const existing = document.getElementById(PRINT_ROOT_ID);
+    if (existing && existing !== host) {
+      existing.innerHTML = '';
+    }
+  }
   return createPortal(<ThermalBill {...props} />, host);
 }
