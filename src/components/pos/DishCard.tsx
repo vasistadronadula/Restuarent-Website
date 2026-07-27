@@ -27,13 +27,13 @@ function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
 
   const vegColor = isVeg ? pos.veg : isEgg ? pos.egg : pos.nonVeg;
 
-  /* ── Card body: image + dish details ────────────────────────── */
+  /* ── Card Body: Image + Title + Price ───────────────────────── */
   const body = (
     <>
       <Box
         sx={{
           position: 'relative', width: '100%',
-          height: { xs: 80, sm: 94, lg: 104 },
+          height: { xs: 66, sm: 84, lg: 96 },
           bgcolor: pos.bg, overflow: 'hidden',
         }}
       >
@@ -41,33 +41,33 @@ function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
           src={item.image || FALLBACK_IMAGE}
           alt={item.name}
           fill
-          sizes="(max-width:600px) 33vw, (max-width:1200px) 20vw, 160px"
+          sizes="(max-width:600px) 50vw, (max-width:1200px) 25vw, 160px"
           style={{ objectFit: 'cover' }}
         />
 
-        {/* Veg / Non-veg dot indicator */}
+        {/* Veg/Non-veg dot badge */}
         <Box
           sx={{
-            position: 'absolute', top: 5, left: 5,
-            width: 14, height: 14, borderRadius: '3px',
-            bgcolor: '#FFFFFF', border: `2px solid ${vegColor}`,
+            position: 'absolute', top: 4, left: 4,
+            width: 12, height: 12, borderRadius: '2px',
+            bgcolor: '#FFFFFF', border: `1.5px solid ${vegColor}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
           }}
         >
-          <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: vegColor }} />
+          <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: vegColor }} />
         </Box>
 
         {/* In-bill count badge (top right) */}
         {active && (
           <Box
             sx={{
-              position: 'absolute', top: 5, right: 5,
-              minWidth: 22, height: 22, px: 0.6,
-              borderRadius: '11px', bgcolor: pos.brand, color: '#FFFFFF',
+              position: 'absolute', top: 4, right: 4,
+              minWidth: 20, height: 20, px: 0.5,
+              borderRadius: '10px', bgcolor: pos.brand, color: '#FFFFFF',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11, fontWeight: 900,
-              boxShadow: '0 2px 6px rgba(198,40,40,0.35)',
+              fontSize: 10.5, fontWeight: 900,
+              boxShadow: '0 2px 6px rgba(198,40,40,0.4)',
             }}
           >
             {inBill}
@@ -75,13 +75,13 @@ function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
         )}
       </Box>
 
-      {/* Title & Price / Portions */}
-      <Box sx={{ p: 0.8, display: 'flex', flexDirection: 'column', gap: 0.3, flex: 1, minWidth: 0 }}>
+      {/* Info section */}
+      <Box sx={{ p: { xs: 0.6, sm: 0.75 }, display: 'flex', flexDirection: 'column', gap: 0.2, flex: 1, minWidth: 0 }}>
         <Typography
           sx={{
-            fontSize: { xs: 11.5, sm: 12.5, lg: 13 },
+            fontSize: { xs: 11, sm: 12, lg: 12.5 },
             fontWeight: 700, color: pos.text,
-            lineHeight: 1.25, textAlign: 'left',
+            lineHeight: 1.2, textAlign: 'left',
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
           }}
@@ -92,23 +92,23 @@ function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
         {single ? (
           <Typography
             sx={{
-              mt: 'auto', fontSize: { xs: 13, sm: 14 },
+              mt: 'auto', fontSize: { xs: 12, sm: 13.5 },
               fontWeight: 900, color: pos.brand, textAlign: 'left',
             }}
           >
             ₹{item.price}
           </Typography>
         ) : (
-          <Box sx={{ mt: 'auto', display: 'flex', gap: 0.4, flexWrap: 'wrap' }}>
+          <Box sx={{ mt: 'auto', display: 'flex', gap: 0.3, flexWrap: 'wrap' }}>
             {portions.map(({ portion, price }) => (
               <Button
                 key={portion}
                 size="small"
                 onClick={(e) => { e.stopPropagation(); onAdd(item, portion); }}
                 sx={{
-                  flex: '1 1 auto', minWidth: 0, px: 0.5, py: 0.3, minHeight: 28,
-                  borderRadius: '6px', textTransform: 'none', fontWeight: 800,
-                  fontSize: { xs: 9.5, sm: 10.5 },
+                  flex: '1 1 auto', minWidth: 0, px: 0.4, py: 0.2, minHeight: 26,
+                  borderRadius: '5px', textTransform: 'none', fontWeight: 800,
+                  fontSize: { xs: 9, sm: 10 },
                   bgcolor: portion === 'full' ? pos.brand : pos.brandSoft,
                   color: portion === 'full' ? '#FFFFFF' : pos.brand,
                   border: `1px solid ${portion === 'full' ? pos.brand : '#FECACA'}`,
@@ -127,19 +127,19 @@ function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
   );
 
   const surface = {
-    borderRadius: '12px',
+    borderRadius: '10px',
     border: `1.5px solid ${active ? pos.brand : pos.border}`,
-    boxShadow: active ? '0 3px 12px rgba(198,40,40,0.18)' : pos.shadowSm,
+    boxShadow: active ? '0 2px 8px rgba(198,40,40,0.15)' : pos.shadowSm,
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
     bgcolor: pos.surface,
     textAlign: 'left' as const,
-    transition: 'transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease',
+    transition: 'transform 0.1s ease, box-shadow 0.1s ease, border-color 0.1s ease',
   };
 
-  /* ── When item is selected (inBill > 0): Show - QTY + Stepper at bottom ── */
+  /* ── When item is selected (inBill > 0): - QTY + Stepper at bottom ── */
   if (active) {
     return (
       <Paper elevation={0} sx={surface}>
@@ -147,26 +147,26 @@ function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
         <Box
           sx={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            py: 0.5, px: 0.6, bgcolor: pos.brandSoft, borderTop: `1px solid #FECACA`,
+            py: 0.4, px: 0.5, bgcolor: pos.brandSoft, borderTop: `1px solid #FECACA`,
           }}
         >
           <Button
             size="small"
             onClick={(e) => { e.stopPropagation(); onDecrement?.(item); }}
             sx={{
-              minWidth: 32, height: 32, borderRadius: '8px', p: 0,
+              minWidth: 28, height: 28, borderRadius: '7px', p: 0,
               color: pos.brand, bgcolor: '#FFFFFF',
               border: `1px solid #FECACA`,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
               '&:hover': { bgcolor: '#FEE2E2' },
               '&:active': { transform: 'scale(0.92)' },
             }}
             aria-label={`Decrease ${item.name}`}
           >
-            <Remove sx={{ fontSize: 17, fontWeight: 900 }} />
+            <Remove sx={{ fontSize: 16, fontWeight: 900 }} />
           </Button>
 
-          <Typography sx={{ fontSize: 13, fontWeight: 900, color: pos.brand, px: 0.5 }}>
+          <Typography sx={{ fontSize: 12.5, fontWeight: 900, color: pos.brand, px: 0.25 }}>
             {inBill}
           </Typography>
 
@@ -174,22 +174,22 @@ function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
             size="small"
             onClick={(e) => { e.stopPropagation(); onAdd(item); }}
             sx={{
-              minWidth: 32, height: 32, borderRadius: '8px', p: 0,
+              minWidth: 28, height: 28, borderRadius: '7px', p: 0,
               color: '#FFFFFF', bgcolor: pos.brand,
-              boxShadow: '0 2px 6px rgba(198,40,40,0.3)',
+              boxShadow: '0 2px 5px rgba(198,40,40,0.3)',
               '&:hover': { bgcolor: pos.brandDark },
               '&:active': { transform: 'scale(0.92)' },
             }}
             aria-label={`Increase ${item.name}`}
           >
-            <Add sx={{ fontSize: 17, fontWeight: 900 }} />
+            <Add sx={{ fontSize: 16, fontWeight: 900 }} />
           </Button>
         </Box>
       </Paper>
     );
   }
 
-  /* ── Single-price dish, not yet in bill: tap card or + Add button ── */
+  /* ── Single portion dish, not in bill ── */
   if (single) {
     return (
       <Paper
@@ -203,7 +203,6 @@ function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
           p: 0, cursor: 'pointer', font: 'inherit', width: '100%',
           '&:hover': {
             boxShadow: pos.shadowMd,
-            transform: 'translateY(-1px)',
             borderColor: pos.brand,
           },
           '&:active': { transform: 'scale(0.97)' },
@@ -212,18 +211,18 @@ function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
         {body}
         <Box
           sx={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.3,
-            py: 0.6, bgcolor: pos.brandSoft, color: pos.brand,
-            fontSize: 11.5, fontWeight: 800, borderTop: `1px solid ${pos.borderSubtle}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.2,
+            py: 0.5, bgcolor: pos.brandSoft, color: pos.brand,
+            fontSize: 11, fontWeight: 800, borderTop: `1px solid ${pos.borderSubtle}`,
           }}
         >
-          <Add sx={{ fontSize: 15 }} /> Add
+          <Add sx={{ fontSize: 14 }} /> Add
         </Box>
       </Paper>
     );
   }
 
-  /* Multi-portion dish — portion buttons are inside the card body */
+  /* Multi-portion dish */
   return <Paper elevation={0} sx={surface}>{body}</Paper>;
 }
 

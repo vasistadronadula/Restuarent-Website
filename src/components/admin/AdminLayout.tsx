@@ -116,8 +116,9 @@ export default function AdminLayout({ children, title }: Props) {
               // On desktop --admin-bottom-nav-h and the safe inset are both 0,
               // so this collapses to plain --admin-main-pad. One expression,
               // and it stays in step with --admin-content-h.
-              paddingBottom:
-                'calc(var(--admin-bottom-nav-h) + var(--admin-safe-bottom) + var(--admin-main-pad))',
+              paddingBottom: isPosPage
+                ? 'calc(var(--admin-main-pad) + var(--admin-safe-bottom))'
+                : 'calc(var(--admin-bottom-nav-h) + var(--admin-safe-bottom) + var(--admin-main-pad))',
               paddingLeft: 'max(var(--admin-main-pad), env(safe-area-inset-left, 0px))',
               paddingRight: 'max(var(--admin-main-pad), env(safe-area-inset-right, 0px))',
               overflowX: 'hidden',

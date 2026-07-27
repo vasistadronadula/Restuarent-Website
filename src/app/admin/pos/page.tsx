@@ -265,8 +265,11 @@ export default function CounterBillingPage() {
         sx={{
           display: 'flex',
           gap: 1.25,
-          height: 'var(--admin-content-h)',
-          minHeight: 420,
+          height: {
+            xs: 'calc(100dvh - var(--admin-header-h) - (var(--admin-main-pad) * 2) - env(safe-area-inset-bottom, 0px))',
+            md: 'var(--admin-content-h)',
+          },
+          minHeight: { xs: 'auto', md: 420 },
           overflow: 'hidden',
           bgcolor: pos.bg,
         }}
