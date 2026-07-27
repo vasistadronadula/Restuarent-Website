@@ -7,7 +7,7 @@ import {
   CircularProgress, InputAdornment, useMediaQuery, useTheme,
 } from '@mui/material';
 import {
-  Edit, Add, Close, Delete, Visibility, VisibilityOff, Casino, ContentCopy, Check, VpnKey,
+  Edit, Add, Close, Delete, Visibility, VisibilityOff, ContentCopy, Check, VpnKey,
 } from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
@@ -223,26 +223,14 @@ function EmployeeDialog({
                 helperText={
                   errors.password ||
                   (isEdit
-                    ? 'Leave blank to keep existing password, or type / click 🎲 to set a new password.'
+                    ? 'Leave blank to keep existing password, or type a new password.'
                     : 'Share this password with them directly — no email is sent.')
                 }
-                placeholder={isEdit ? 'Enter new password or click 🎲' : 'Min 6 characters'}
+                placeholder={isEdit ? 'Enter new password (min 6 chars)' : 'Min 6 characters'}
                 slotProps={{
                   input: {
                     endAdornment: (
                       <InputAdornment position="end">
-                        <Tooltip title="Generate Random Password">
-                          <IconButton
-                            size="small"
-                            onClick={() => {
-                              setForm({ ...form, password: generateTempPassword() });
-                              setShowPassword(true);
-                            }}
-                            sx={{ color: '#D97706' }}
-                          >
-                            <Casino fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
                         <IconButton size="small" onClick={() => setShowPassword((v) => !v)}>
                           {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                         </IconButton>
@@ -363,7 +351,7 @@ function ResetPasswordDialog({
 
   React.useEffect(() => {
     if (emp) {
-      setNewPassword(generateTempPassword());
+      setNewPassword('');
       setShowPassword(true);
     }
   }, [emp]);
@@ -410,22 +398,11 @@ function ResetPasswordDialog({
           type={showPassword ? 'text' : 'password'}
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="Min 6 characters"
+          placeholder="Enter new password (min 6 characters)"
           slotProps={{
             input: {
               endAdornment: (
                 <InputAdornment position="end">
-                  <Tooltip title="Generate Random Password">
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setNewPassword(generateTempPassword());
-                        setShowPassword(true);
-                      }}
-                    >
-                      <Casino fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
                   <IconButton size="small" onClick={() => setShowPassword((v) => !v)}>
                     {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                   </IconButton>
@@ -457,15 +434,20 @@ function ResetPasswordDialog({
 
 // ─── Employee card ──────────────────────────────────────────────────────────
 function EmployeeCard({
-  emp, isSelf, manageable, onEdit, onResetPassword, onToggle, onDelete,
+  emp, isSelf, lockedReason, onEdit, onResetPassword, onToggle, onDelete,
 }: {
-  emp: Employee; isSelf: boolean; manageable: boolean;
+  emp: Employee; isSelf: boolean;
+  /**
+   * Why this card's actions are locked, or null when they're available.
+   * Passed in rather than derived here: only the page knows whether the
+   * caller is still loading, lacks the role outright, or is a manager
+   * looking at an admin account — and each needs a different explanation.
+   */
+  lockedReason: string | null;
   onEdit: () => void; onResetPassword: () => void; onToggle: () => void; onDelete: () => void;
 }) {
   const c = roleColors[emp.role] || roleColors.waiter;
-  // A manager sees admin accounts (they're part of the team) but can't act on
-  // them — same rule the API enforces, surfaced here instead of failing later.
-  const lockedReason = !manageable ? 'Only an admin can change an admin account' : null;
+  const manageable = !lockedReason;
   return (
     <SectionCard sx={{ height: '100%', opacity: emp.isActive ? 1 : 0.65 }}>
       <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
@@ -563,9 +545,29 @@ function EmployeeCard({
 // ─── Page ───────────────────────────────────────────────────────────────────
 export default function EmployeesPage() {
   const { employees } = useAdmin();
-  const { user, userRole: authRole } = useAuth();
-  const userRole = authRole || 'admin';
+  const { user, userRole, loading: authLoading } = useAuth();
+
+  // Managing the team — creating logins, editing details, resetting a
+  // forgotten password, disabling an account — is admin/manager only. The API
+  // is the real gate (requireAdmin + canManageStaffRole); this mirrors it so
+  // the UI never offers a button that would come back 403.
+  //
+  // Note there is deliberately no `userRole || 'admin'` fallback here. Assuming
+  // admin while the profile is still loading briefly hands a manager the full
+  // admin control set — including actions on admin accounts they may never
+  // touch — and offers the Admin role in the picker. Unknown means locked.
+  const canManageTeam = userRole === 'admin' || userRole === 'manager';
   const roles = useMemo(() => assignableRoles(userRole), [userRole]);
+
+  const lockReasonFor = (target: Employee): string | null => {
+    if (authLoading || !userRole) return 'Checking your permissions…';
+    if (!canManageTeam) return 'Only an admin or manager can manage the team';
+    // A manager sees admin accounts (they're part of the team) but can't act
+    // on them — same rule the API enforces, surfaced here instead of failing
+    // after the click.
+    if (!canManageStaffRole(userRole, target.role)) return 'Only an admin can change an admin account';
+    return null;
+  };
   const [updateEmployee] = useUpdateEmployeeMutation();
   const [deleteEmployee] = useDeleteEmployeeMutation();
 
@@ -605,16 +607,23 @@ export default function EmployeesPage() {
     toast.success(`${emp.name} removed`);
   };
 
+  // Creating a login is a management action too, so it follows the same rule
+  // as edit and reset rather than being open to anyone who reaches the page.
   const addButton = (
-    <Button
-      variant="contained" startIcon={<Add />} onClick={openAdd}
-      sx={{
-        bgcolor: adminColors.brand, '&:hover': { bgcolor: adminColors.brandDark },
-        borderRadius: adminColors.radiusMd, fontWeight: 700, textTransform: 'none', px: 2.25, boxShadow: 'none',
-      }}
-    >
-      Add team member
-    </Button>
+    <Tooltip title={canManageTeam ? '' : 'Only an admin or manager can add team members'}>
+      <span>
+        <Button
+          variant="contained" startIcon={<Add />} onClick={openAdd}
+          disabled={!canManageTeam}
+          sx={{
+            bgcolor: adminColors.brand, '&:hover': { bgcolor: adminColors.brandDark },
+            borderRadius: adminColors.radiusMd, fontWeight: 700, textTransform: 'none', px: 2.25, boxShadow: 'none',
+          }}
+        >
+          Add team member
+        </Button>
+      </span>
+    </Tooltip>
   );
 
   return (
@@ -677,7 +686,7 @@ export default function EmployeesPage() {
                 <EmployeeCard
                   emp={emp}
                   isSelf={!!currentEmail && emp.email.toLowerCase() === currentEmail}
-                  manageable={canManageStaffRole(userRole, emp.role)}
+                  lockedReason={lockReasonFor(emp)}
                   onEdit={() => openEdit(emp)}
                   onResetPassword={() => setResettingEmp(emp)}
                   onToggle={() => handleToggle(emp)}
