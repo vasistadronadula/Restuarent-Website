@@ -35,7 +35,7 @@ export interface ThermalBillProps {
 
 const styles: Record<string, React.CSSProperties> = {
   sheet: {
-    width: '76mm',
+    width: '72mm',
     margin: '0 auto',
     padding: '2mm 0 4mm',
     background: '#FFFFFF',
@@ -186,15 +186,6 @@ export default function ThermalBill({ order, invoiceNo, copyLabel }: ThermalBill
         <span style={styles.rowLabel}>SGST 2.5%</span>
         <span style={styles.rowValue}>{money(sgst)}</span>
       </div>
-      {Math.abs(roundOff) >= 0.01 && (
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Round off</span>
-          <span style={styles.rowValue}>
-            {roundOff > 0 ? '+' : '-'}
-            {money(Math.abs(roundOff))}
-          </span>
-        </div>
-      )}
 
       <div style={styles.ruleSolid} />
       <div style={styles.totalRow}>

@@ -5,7 +5,7 @@ import {
   Box, Button, Chip, Drawer, IconButton, InputAdornment, Paper,
   TextField, Typography, useMediaQuery,
 } from '@mui/material';
-import { Clear, Fastfood, ReceiptLong, Search } from '@mui/icons-material';
+import { Clear, Fastfood, Search, ShoppingCart } from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import DishCard from '@/components/pos/DishCard';
 import BillPanel, { type PosOrderType, type PosPaymentMode } from '@/components/pos/BillPanel';
@@ -16,54 +16,40 @@ import { usePosCart, type Portion } from '@/hooks/usePosCart';
 import { computeBillTotals, rupees } from '@/lib/billing';
 import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
 import { triggerNewOrderPush } from '@/lib/triggerPush';
-import { adminColors } from '@/theme/adminColors';
+import { pos } from '@/theme/posColors';
 import type { Category, MenuItem, Order } from '@/types';
 import toast from 'react-hot-toast';
 
-const CATEGORIES: { label: string; value: Category | 'all' }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Combos', value: 'combos' },
-  { label: 'Starters', value: 'starters' },
-  { label: 'Tandoori', value: 'tandoori' },
-  { label: 'Biryani', value: 'biryani' },
-  { label: 'South Indian', value: 'south-indian' },
-  { label: 'North Indian', value: 'north-indian' },
-  { label: 'Chinese', value: 'chinese' },
-  { label: 'Rice', value: 'rice' },
-  { label: 'Breads', value: 'breads' },
-  { label: 'Desserts', value: 'desserts' },
-  { label: 'Beverages', value: 'beverages' },
+const CATEGORIES: { label: string; value: Category | 'all'; icon: string }[] = [
+  { label: 'All', value: 'all', icon: '🍱' },
+  { label: 'Combos', value: 'combos', icon: '🎁' },
+  { label: 'Starters', value: 'starters', icon: '🍗' },
+  { label: 'Tandoori', value: 'tandoori', icon: '🔥' },
+  { label: 'Biryani', value: 'biryani', icon: '🍚' },
+  { label: 'South Indian', value: 'south-indian', icon: '🥘' },
+  { label: 'North Indian', value: 'north-indian', icon: '🍛' },
+  { label: 'Chinese', value: 'chinese', icon: '🥡' },
+  { label: 'Rice', value: 'rice', icon: '🍙' },
+  { label: 'Breads', value: 'breads', icon: '🫓' },
+  { label: 'Desserts', value: 'desserts', icon: '🍮' },
+  { label: 'Beverages', value: 'beverages', icon: '🥤' },
 ];
 
 const VEG_FILTERS = [
-  { value: 'all', label: 'All' },
-  { value: 'veg', label: '🟢 Veg' },
-  { value: 'non-veg', label: '🔴 Non-veg' },
+  { value: 'all', label: 'All', color: pos.textMuted },
+  { value: 'veg', label: '🟢 Veg', color: pos.veg },
+  { value: 'non-veg', label: '🔴 Non-veg', color: pos.nonVeg },
 ] as const;
 
 type VegFilter = (typeof VEG_FILTERS)[number]['value'];
 
 /**
- * Counter billing.
+ * Counter billing — dark-themed POS.
  *
- * Three layouts from one set of components, because the same person uses all
- * three: a phone in hand at a busy counter, a tablet on the till, a laptop in
- * the back office.
- *
- *   phone   (< 768px)      dishes fill the screen, the bill is a sheet behind
- *                          a persistent total bar — no room to show both
- *   tablet  (768–1199px)   dishes + a 320px bill pane, always visible
- *   laptop  (≥ 1200px)     same, wider pane, plus keyboard shortcuts
- *
- * The breakpoints are explicit pixel queries rather than the MUI theme's,
- * because the theme's `md` is 900px — which put every 768–899px tablet
- * (iPad portrait, most Android tablets) into the *phone* layout and hid the
- * bill behind a sheet on a screen with room to show it.
- *
- * Layout rule: the page is exactly one viewport tall (--admin-content-h) and
- * every region inside it is a flex child. Nothing is absolutely positioned
- * against a hand-measured offset, so the pay button and the running total
- * cannot end up under the bottom nav or below the fold on any device.
+ * Three layouts:
+ *   phone   (< 768px)      3-column dish grid, floating cart bar, bottom sheet
+ *   tablet  (768–1199px)    dish grid + 320px bill pane
+ *   laptop  (≥ 1200px)     dish grid + 396px bill pane, keyboard shortcuts
  */
 export default function CounterBillingPage() {
   const { addOrderLocallyAndDB } = useAdmin();
@@ -199,9 +185,6 @@ export default function CounterBillingPage() {
     try {
       await addOrderLocallyAndDB(order);
       triggerNewOrderPush(orderId);
-
-      // Bill first, housekeeping second: the cashier sees the receipt (and
-      // the printer fires) before the screen resets for the next customer.
       setPlacedOrder(order);
       setPlacedInvoiceNo(invoiceNo);
       setSheetOpen(false);
@@ -217,8 +200,7 @@ export default function CounterBillingPage() {
     paymentMode, addOrderLocallyAndDB, resetBill,
   ]);
 
-  // ── Keyboard: the fastest input device on a counter that has one ───────
-  // "/" jumps to search, Enter rings up top match, Esc clears it, F2 places order.
+  // ── Keyboard shortcuts ───────────────────────────────────────
   useEffect(() => {
     if (isPhone) return;
     const onKey = (e: KeyboardEvent) => {
@@ -247,8 +229,6 @@ export default function CounterBillingPage() {
     if (e.key !== 'Enter') return;
     const [first] = dishes;
     if (!first) return;
-    // A dish with portions needs a deliberate choice — ringing up the wrong
-    // size is worse than one extra tap.
     if (first.portionPrices) {
       toast(`${first.name} — pick a portion`, { icon: '👆' });
       return;
@@ -288,54 +268,36 @@ export default function CounterBillingPage() {
 
   return (
     <AdminLayout title="Counter Billing">
-      {/* Exactly one viewport tall. Everything below is a flex child of this
-          box, which is what keeps the running total and the pay button on
-          screen without a single fixed-position offset. */}
+      {/* Dark POS container — overrides admin cream background */}
       <Box
         sx={{
           display: 'flex',
-          gap: 1.5,
+          gap: 1,
           height: 'var(--admin-content-h)',
           minHeight: 420,
           overflow: 'hidden',
+          bgcolor: pos.bg,
+          mx: { xs: -1.75, sm: -2.5 },
+          mt: { xs: -1.75, sm: -2.5 },
+          mb: { xs: -1.75, sm: -2.5 },
+          px: { xs: 1, sm: 1.5 },
+          pt: { xs: 1, sm: 1.25 },
+          pb: { xs: 0.5, sm: 1.25 },
+          borderRadius: 0,
         }}
       >
-        {/* ── Dishes Panel ─────────────────────────────────────────────── */}
-        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+        {/* ── Dishes Panel ──────────────────────────────────────── */}
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+          {/* Search + filters bar */}
           <Paper
             elevation={0}
             sx={{
-              flexShrink: 0,
-              p: 1.25, borderRadius: '16px', bgcolor: '#FFFFFF',
-              border: `1px solid ${adminColors.border}`,
-              boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
+              flexShrink: 0, p: 1, borderRadius: '12px',
+              bgcolor: pos.surface, border: `1px solid ${pos.border}`,
             }}
           >
-            {/* Quick Order Type Bar (visible at top on mobile/tablet) */}
-            <Box sx={{ display: 'flex', gap: 0.75, mb: 1 }}>
-              {[
-                { type: 'counter' as PosOrderType, label: '⚡ Counter' },
-                { type: 'dine-in' as PosOrderType, label: '🍽️ Dine-in' },
-              ].map((t) => (
-                <Button
-                  key={t.type}
-                  size="small"
-                  onClick={() => setOrderType(t.type)}
-                  sx={{
-                    flex: 1, minHeight: 36, borderRadius: '10px', textTransform: 'none',
-                    fontWeight: 800, fontSize: 12,
-                    bgcolor: orderType === t.type ? adminColors.brand : adminColors.bgSubtle,
-                    color: orderType === t.type ? '#FFFFFF' : adminColors.textSecondary,
-                    border: `1px solid ${orderType === t.type ? adminColors.brand : adminColors.border}`,
-                    '&:hover': { bgcolor: orderType === t.type ? adminColors.brandDark : adminColors.bgSubtle },
-                  }}
-                >
-                  {t.label}
-                </Button>
-              ))}
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {/* Search row */}
+            <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', mb: 0.75 }}>
               <TextField
                 inputRef={searchRef}
                 fullWidth
@@ -343,38 +305,48 @@ export default function CounterBillingPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={handleSearchEnter}
-                placeholder={isPhone ? 'Search dishes…' : 'Search dishes…  ( / to focus, Enter to add )'}
+                placeholder={isPhone ? 'Search…' : 'Search dishes…  ( / to focus )'}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: pos.bg, color: pos.text, borderRadius: '10px',
+                    '& fieldset': { borderColor: pos.border },
+                    '&:hover fieldset': { borderColor: pos.surfaceHover },
+                    '&.Mui-focused fieldset': { borderColor: pos.borderFocus },
+                  },
+                  '& .MuiOutlinedInput-input::placeholder': { color: pos.textFaint, opacity: 1 },
+                }}
                 slotProps={{
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Search sx={{ fontSize: 20, color: adminColors.textFaint }} />
+                        <Search sx={{ fontSize: 18, color: pos.textFaint }} />
                       </InputAdornment>
                     ),
                     endAdornment: search ? (
                       <InputAdornment position="end">
                         <IconButton size="small" onClick={() => setSearch('')} aria-label="Clear search">
-                          <Clear fontSize="small" />
+                          <Clear sx={{ fontSize: 16, color: pos.textMuted }} />
                         </IconButton>
                       </InputAdornment>
                     ) : null,
                   },
                 }}
               />
-              <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+
+              {/* Veg filter pills */}
+              <Box sx={{ display: 'flex', gap: 0.4, flexShrink: 0 }}>
                 {VEG_FILTERS.map((v) => (
                   <Chip
                     key={v.value}
-                    label={v.label}
+                    label={isPhone ? (v.value === 'all' ? 'All' : v.value === 'veg' ? '🟢' : '🔴') : v.label}
                     onClick={() => setVegFilter(v.value)}
                     sx={{
-                      fontWeight: 800, fontSize: 11.5, cursor: 'pointer', height: 34,
-                      bgcolor: vegFilter === v.value
-                        ? v.value === 'veg' ? adminColors.success
-                          : v.value === 'non-veg' ? adminColors.brand
-                            : adminColors.textPrimary
-                        : adminColors.neutralBg,
-                      color: vegFilter === v.value ? '#FFFFFF' : adminColors.textMuted,
+                      fontWeight: 800, fontSize: 11, cursor: 'pointer',
+                      height: { xs: 30, sm: 32 },
+                      bgcolor: vegFilter === v.value ? v.color : pos.bg,
+                      color: vegFilter === v.value ? '#FFFFFF' : pos.textMuted,
+                      border: `1px solid ${vegFilter === v.value ? v.color : pos.border}`,
+                      '& .MuiChip-label': { px: { xs: 0.5, sm: 1 } },
                       '&:hover': { opacity: 0.9 },
                     }}
                   />
@@ -382,66 +354,101 @@ export default function CounterBillingPage() {
               </Box>
             </Box>
 
+            {/* Category strip */}
             <Box
               sx={{
-                display: 'flex', gap: 0.75, mt: 1, pb: 0.5,
+                display: 'flex', gap: 0.5,
                 overflowX: 'auto',
                 WebkitOverflowScrolling: 'touch',
-                scrollbarWidth: 'thin',
-                '&::-webkit-scrollbar': { height: 4 },
-                '&::-webkit-scrollbar-thumb': { background: adminColors.border, borderRadius: 4 },
+                scrollbarWidth: 'none',
+                '&::-webkit-scrollbar': { display: 'none' },
               }}
             >
-              {CATEGORIES.map((c) => (
-                <Chip
-                  key={c.value}
-                  label={`${c.label} (${categoryCounts[c.value] || 0})`}
-                  onClick={() => setCategory(c.value)}
-                  sx={{
-                    flexShrink: 0, cursor: 'pointer', height: 32,
-                    fontWeight: category === c.value ? 800 : 600, fontSize: 12.5,
-                    bgcolor: category === c.value ? adminColors.brand : adminColors.bgSubtle,
-                    color: category === c.value ? '#FFFFFF' : adminColors.textSecondary,
-                    border: `1px solid ${category === c.value ? adminColors.brand : adminColors.border}`,
-                  }}
-                />
-              ))}
+              {CATEGORIES.map((c) => {
+                const count = categoryCounts[c.value] || 0;
+                const active = category === c.value;
+                return (
+                  <Chip
+                    key={c.value}
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                        <span>{c.icon}</span>
+                        <span>{c.label}</span>
+                        <Box
+                          component="span"
+                          sx={{
+                            fontSize: 9.5, fontWeight: 900,
+                            bgcolor: active ? 'rgba(255,255,255,0.25)' : pos.surfaceHover,
+                            color: active ? '#FFFFFF' : pos.textFaint,
+                            borderRadius: '6px', px: 0.5, py: 0.05,
+                            ml: 0.2,
+                          }}
+                        >
+                          {count}
+                        </Box>
+                      </Box>
+                    }
+                    onClick={() => setCategory(c.value)}
+                    sx={{
+                      flexShrink: 0, cursor: 'pointer',
+                      height: { xs: 30, sm: 32 },
+                      fontWeight: active ? 800 : 600,
+                      fontSize: { xs: 11, sm: 12 },
+                      bgcolor: active ? pos.categoryActive : pos.bg,
+                      color: active ? '#FFFFFF' : pos.textMuted,
+                      border: `1px solid ${active ? pos.categoryActive : pos.border}`,
+                      '& .MuiChip-label': { px: 0.75 },
+                      '&:hover': {
+                        bgcolor: active ? pos.categoryActive : pos.surfaceHover,
+                      },
+                    }}
+                  />
+                );
+              })}
             </Box>
           </Paper>
 
-          {/* The only scrolling region on the dish side. */}
+          {/* Dish grid — the only scrolling region */}
           <Box
             sx={{
               flex: 1, minHeight: 0,
               overflowY: 'auto',
               overscrollBehavior: 'contain',
               WebkitOverflowScrolling: 'touch',
-              pr: 0.5,
-              pb: 0.5,
+              pr: 0.25,
+              /* Custom scrollbar for dark theme */
+              scrollbarWidth: 'thin',
+              scrollbarColor: `${pos.surfaceHover} transparent`,
+              '&::-webkit-scrollbar': { width: 5 },
+              '&::-webkit-scrollbar-track': { background: 'transparent' },
+              '&::-webkit-scrollbar-thumb': {
+                background: pos.surfaceHover, borderRadius: 4,
+              },
             }}
           >
             {menuLoading ? (
-              <Box sx={{ textAlign: 'center', py: 8, color: adminColors.textMuted }}>Loading menu…</Box>
+              <Box sx={{ textAlign: 'center', py: 8, color: pos.textMuted }}>Loading menu…</Box>
             ) : dishes.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 8, color: adminColors.textFaint }}>
+              <Box sx={{ textAlign: 'center', py: 8, color: pos.textFaint }}>
                 <Fastfood sx={{ fontSize: 44, opacity: 0.35, mb: 1 }} />
-                <Typography sx={{ fontWeight: 700, color: adminColors.textMuted }}>No dishes match</Typography>
-                <Typography sx={{ fontSize: 12.5 }}>Try another category or clear the search</Typography>
+                <Typography sx={{ fontWeight: 700, color: pos.textMuted }}>No dishes match</Typography>
+                <Typography sx={{ fontSize: 12.5, color: pos.textFaint }}>
+                  Try another category or clear the search
+                </Typography>
               </Box>
             ) : (
               <Box
                 sx={{
                   display: 'grid',
-                  // Tile width is what decides how fast a dish can be hit.
-                  // Phones get two columns so the target stays thumb-sized;
-                  // everything above fills the row with ~150-170px tiles.
                   gridTemplateColumns: {
-                    xs: 'repeat(2, minmax(0, 1fr))',
-                    sm: 'repeat(auto-fill, minmax(150px, 1fr))',
-                    lg: 'repeat(auto-fill, minmax(165px, 1fr))',
+                    xs: 'repeat(3, minmax(0, 1fr))',
+                    sm: 'repeat(auto-fill, minmax(130px, 1fr))',
+                    md: 'repeat(auto-fill, minmax(140px, 1fr))',
+                    lg: 'repeat(auto-fill, minmax(150px, 1fr))',
                   },
-                  gap: 1.25,
+                  gap: { xs: 0.75, sm: 1 },
                   alignItems: 'stretch',
+                  pb: 1,
                 }}
               >
                 {dishes.map((item) => (
@@ -449,7 +456,6 @@ export default function CounterBillingPage() {
                     key={item.id}
                     item={item}
                     inBill={cart.quantityByMenuItem[item.id] || 0}
-                    dense={isPhone}
                     onAdd={handleAdd}
                     onDecrement={handleDecrement}
                   />
@@ -458,42 +464,46 @@ export default function CounterBillingPage() {
             )}
           </Box>
 
-          {/* ── Phone: floating running total, opens the bill sheet ── */}
+          {/* ── Phone: floating cart bar ──────────────────────────── */}
           {isPhone && (
             <Box
               sx={{
                 flexShrink: 0,
-                pt: 0.75,
-                pb: 'calc(6px + env(safe-area-inset-bottom, 0px))',
+                pt: 0.5,
+                pb: 'calc(4px + env(safe-area-inset-bottom, 0px))',
               }}
             >
               <Button
                 fullWidth
                 variant="contained"
                 onClick={() => setSheetOpen(true)}
-                startIcon={<ReceiptLong />}
+                startIcon={<ShoppingCart />}
                 sx={{
-                  minHeight: 52, borderRadius: '16px', textTransform: 'none',
-                  fontSize: 15, fontWeight: 900,
-                  display: 'flex', justifyContent: 'space-between', px: 2.25,
-                  background: cart.totalUnits > 0
-                    ? `linear-gradient(135deg, ${adminColors.brand}, ${adminColors.accent})`
-                    : `linear-gradient(135deg, #57534E, #44403C)`,
-                  boxShadow: '0 8px 25px rgba(198,40,40,0.3)',
+                  minHeight: 48, borderRadius: '12px', textTransform: 'none',
+                  fontSize: 14, fontWeight: 900,
+                  display: 'flex', justifyContent: 'space-between', px: 2,
+                  bgcolor: cart.totalUnits > 0 ? pos.charge : pos.surfaceActive,
+                  color: '#FFFFFF',
+                  boxShadow: cart.totalUnits > 0
+                    ? '0 6px 24px rgba(16,185,129,0.4)'
+                    : 'none',
+                  '&:hover': {
+                    bgcolor: cart.totalUnits > 0 ? pos.chargeDark : pos.surfaceActive,
+                  },
                 }}
               >
-                <Box component="span" sx={{ flex: 1, textAlign: 'left', ml: 1 }}>
+                <Box component="span" sx={{ flex: 1, textAlign: 'left', ml: 0.5 }}>
                   {cart.totalUnits > 0
-                    ? `View Bill & Pay · ${cart.totalUnits} item${cart.totalUnits === 1 ? '' : 's'}`
-                    : 'Bill Empty'}
+                    ? `View Cart · ${cart.totalUnits} item${cart.totalUnits === 1 ? '' : 's'}`
+                    : 'Cart Empty'}
                 </Box>
-                <Box component="span" sx={{ fontSize: 16 }}>{rupees(totals.grandTotal)}</Box>
+                <Box component="span" sx={{ fontSize: 15 }}>{rupees(totals.grandTotal)}</Box>
               </Button>
             </Box>
           )}
         </Box>
 
-        {/* ── Bill pane: tablet and laptop ──────────────────────────────── */}
+        {/* ── Bill pane: tablet and laptop ────────────────────────── */}
         {!isPhone && (
           <Paper
             elevation={0}
@@ -501,10 +511,10 @@ export default function CounterBillingPage() {
               width: isDesktop ? 396 : 320,
               flexShrink: 0,
               height: '100%',
-              borderRadius: '16px',
-              border: `1px solid ${adminColors.border}`,
+              borderRadius: '12px',
+              border: `1px solid ${pos.border}`,
               overflow: 'hidden',
-              boxShadow: adminColors.shadowMd,
+              boxShadow: pos.shadowMd,
             }}
           >
             {billPanel()}
@@ -512,7 +522,7 @@ export default function CounterBillingPage() {
         )}
       </Box>
 
-      {/* ── Bill sheet: phone ───────────────────────────────────────────── */}
+      {/* ── Bill sheet: phone ─────────────────────────────────────── */}
       {isPhone && (
         <Drawer
           anchor="bottom"
@@ -521,13 +531,11 @@ export default function CounterBillingPage() {
           slotProps={{
             paper: {
               sx: {
-                // dvh for the same reason as --admin-content-h: vh would put
-                // the sheet's footer, and the pay button in it, under the
-                // browser's address bar.
                 height: '92dvh',
                 borderTopLeftRadius: 20,
                 borderTopRightRadius: 20,
                 overflow: 'hidden',
+                bgcolor: pos.surface,
               },
             },
           }}

@@ -6,7 +6,7 @@ import { Box, Button, Paper, Typography } from '@mui/material';
 import { Add, Remove } from '@mui/icons-material';
 import type { MenuItem } from '@/types';
 import { PORTION_LABEL, sellablePortions, type Portion } from '@/hooks/usePosCart';
-import { adminColors } from '@/theme/adminColors';
+import { pos } from '@/theme/posColors';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80';
 
@@ -14,62 +14,59 @@ interface Props {
   item: MenuItem;
   /** How many of this dish are already on the bill. */
   inBill: number;
-  dense: boolean;
   onAdd: (item: MenuItem, portion?: Portion) => void;
   onDecrement?: (item: MenuItem) => void;
 }
 
-function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
+function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
   const isVeg = item.vegStatus === 'veg';
   const isEgg = item.vegStatus === 'egg';
   const portions = sellablePortions(item);
   const single = portions.length === 0;
+  const active = inBill > 0;
 
-  const spiceText = item.spiceLevel ? '🌶️'.repeat(item.spiceLevel) : '';
+  const vegColor = isVeg ? pos.veg : isEgg ? pos.egg : pos.nonVeg;
 
+  /* ── Card body: image + info ────────────────────────────────── */
   const body = (
     <>
-      <Box sx={{ position: 'relative', width: '100%', height: dense ? 82 : 108, bgcolor: '#1E293B', overflow: 'hidden' }}>
+      <Box
+        sx={{
+          position: 'relative', width: '100%',
+          height: { xs: 76, sm: 90, lg: 100 },
+          bgcolor: '#0F172A', overflow: 'hidden',
+        }}
+      >
         <Image
           src={item.image || FALLBACK_IMAGE}
           alt={item.name}
           fill
-          sizes="(max-width: 600px) 45vw, (max-width: 1200px) 30vw, 200px"
-          style={{ objectFit: 'cover' }}
+          sizes="(max-width:600px) 30vw, (max-width:1200px) 20vw, 160px"
+          style={{ objectFit: 'cover', opacity: active ? 0.8 : 1 }}
         />
-        {/* Veg/non-veg/egg indicator badge */}
+
+        {/* Veg/Non-veg badge */}
         <Box
           sx={{
-            position: 'absolute', top: 6, left: 6,
-            width: 16, height: 16, borderRadius: '4px', bgcolor: '#FFFFFF',
-            border: `2px solid ${isVeg ? '#10B981' : isEgg ? '#F59E0B' : '#EF4444'}`,
+            position: 'absolute', top: 5, left: 5,
+            width: 14, height: 14, borderRadius: '3px',
+            bgcolor: '#FFFFFF', border: `2px solid ${vegColor}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
           }}
         >
-          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: isVeg ? '#10B981' : isEgg ? '#F59E0B' : '#EF4444' }} />
+          <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: vegColor }} />
         </Box>
 
-        {spiceText && (
+        {/* In-bill count badge */}
+        {active && (
           <Box
             sx={{
-              position: 'absolute', bottom: 6, left: 6,
-              px: 0.6, py: 0.1, borderRadius: '6px',
-              bgcolor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
-              fontSize: 10, lineHeight: 1,
-            }}
-          >
-            {spiceText}
-          </Box>
-        )}
-
-        {inBill > 0 && (
-          <Box
-            sx={{
-              position: 'absolute', top: 6, right: 6, minWidth: 24, height: 24, px: 0.6,
-              borderRadius: '12px', bgcolor: adminColors.brand, color: '#FFFFFF',
+              position: 'absolute', top: 5, right: 5,
+              minWidth: 22, height: 22, px: 0.5,
+              borderRadius: '11px', bgcolor: pos.charge, color: '#FFFFFF',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 12, fontWeight: 900, boxShadow: '0 4px 10px rgba(198,40,40,0.4)',
+              fontSize: 11, fontWeight: 900,
+              boxShadow: '0 2px 8px rgba(16,185,129,0.5)',
             }}
           >
             {inBill}
@@ -77,35 +74,44 @@ function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
         )}
       </Box>
 
-      <Box sx={{ p: 1.1, display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1, minWidth: 0 }}>
+      <Box sx={{ p: 0.8, display: 'flex', flexDirection: 'column', gap: 0.3, flex: 1, minWidth: 0 }}>
         <Typography
           sx={{
-            fontSize: dense ? 12.5 : 13.5, fontWeight: 700, color: adminColors.textPrimary,
+            fontSize: { xs: 11, sm: 12, lg: 12.5 },
+            fontWeight: 700, color: pos.text,
             lineHeight: 1.25, textAlign: 'left',
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
           }}
         >
           {item.name}
         </Typography>
 
         {single ? (
-          <Typography sx={{ mt: 'auto', fontSize: dense ? 14 : 15, fontWeight: 900, color: adminColors.brand, textAlign: 'left' }}>
+          <Typography
+            sx={{
+              mt: 'auto', fontSize: { xs: 12.5, sm: 13.5 },
+              fontWeight: 900, color: pos.charge, textAlign: 'left',
+            }}
+          >
             ₹{item.price}
           </Typography>
         ) : (
-          <Box sx={{ mt: 'auto', display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+          <Box sx={{ mt: 'auto', display: 'flex', gap: 0.4, flexWrap: 'wrap' }}>
             {portions.map(({ portion, price }) => (
               <Button
                 key={portion}
                 size="small"
                 onClick={(e) => { e.stopPropagation(); onAdd(item, portion); }}
                 sx={{
-                  flex: '1 1 auto', minWidth: 0, px: 0.7, py: 0.5, minHeight: 38,
-                  borderRadius: '10px', textTransform: 'none', fontWeight: 800, fontSize: 11.5,
-                  bgcolor: portion === 'full' ? adminColors.brand : adminColors.brandSoft,
-                  color: portion === 'full' ? '#FFFFFF' : adminColors.brand,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                  '&:hover': { bgcolor: portion === 'full' ? adminColors.brandDark : '#FBE4E4' },
+                  flex: '1 1 auto', minWidth: 0, px: 0.5, py: 0.3, minHeight: 30,
+                  borderRadius: '8px', textTransform: 'none', fontWeight: 800,
+                  fontSize: { xs: 9.5, sm: 10.5 },
+                  bgcolor: portion === 'full' ? pos.charge : pos.chargeSoft,
+                  color: portion === 'full' ? '#FFFFFF' : pos.charge,
+                  '&:hover': {
+                    bgcolor: portion === 'full' ? pos.chargeDark : 'rgba(16,185,129,0.2)',
+                  },
                 }}
               >
                 {PORTION_LABEL[portion]} ₹{price}
@@ -118,63 +124,63 @@ function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
   );
 
   const surface = {
-    borderRadius: '16px',
-    border: `1.5px solid ${inBill > 0 ? adminColors.brand : adminColors.border}`,
-    boxShadow: inBill > 0 ? `0 4px 16px rgba(198,40,40,0.18)` : '0 2px 8px rgba(0,0,0,0.04)',
+    borderRadius: '12px',
+    border: `1.5px solid ${active ? pos.charge : pos.border}`,
+    boxShadow: active ? '0 0 12px rgba(16,185,129,0.2)' : pos.shadowSm,
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
-    bgcolor: '#FFFFFF',
+    bgcolor: pos.surface,
     textAlign: 'left' as const,
-    transition: 'transform 0.15s ease, boxShadow 0.15s ease, borderColor 0.15s ease',
+    transition: 'transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease',
   };
 
-  if (single) {
-    if (inBill > 0) {
-      return (
-        <Paper elevation={0} sx={surface}>
-          {body}
-          <Box
+  /* Single-price dish that is already in the bill: show −/count/+ stepper */
+  if (single && active) {
+    return (
+      <Paper elevation={0} sx={surface}>
+        {body}
+        <Box
+          sx={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            py: 0.5, px: 0.6, bgcolor: pos.chargeSoft,
+          }}
+        >
+          <Button
+            size="small"
+            onClick={(e) => { e.stopPropagation(); onDecrement?.(item); }}
             sx={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              py: 0.6, px: 0.85, bgcolor: adminColors.brandSoft, color: adminColors.brand,
+              minWidth: 28, height: 28, borderRadius: '7px', p: 0,
+              color: pos.danger, bgcolor: pos.surface,
+              '&:hover': { bgcolor: pos.dangerSoft },
             }}
           >
-            <Button
-              size="small"
-              onClick={(e) => { e.stopPropagation(); onDecrement?.(item); }}
-              sx={{
-                minWidth: 32, height: 32, borderRadius: '9px', p: 0,
-                color: adminColors.brand, bgcolor: '#FFFFFF',
-                boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
-                '&:hover': { bgcolor: '#FEE2E2' },
-              }}
-            >
-              <Remove sx={{ fontSize: 17 }} />
-            </Button>
+            <Remove sx={{ fontSize: 15 }} />
+          </Button>
 
-            <Typography sx={{ fontSize: 12.5, fontWeight: 900, color: adminColors.brand }}>
-              {inBill} in bill
-            </Typography>
+          <Typography sx={{ fontSize: 11.5, fontWeight: 900, color: pos.charge }}>
+            {inBill} in bill
+          </Typography>
 
-            <Button
-              size="small"
-              onClick={(e) => { e.stopPropagation(); onAdd(item); }}
-              sx={{
-                minWidth: 32, height: 32, borderRadius: '9px', p: 0,
-                color: '#FFFFFF', bgcolor: adminColors.brand,
-                boxShadow: '0 2px 6px rgba(198,40,40,0.3)',
-                '&:hover': { bgcolor: adminColors.brandDark },
-              }}
-            >
-              <Add sx={{ fontSize: 17 }} />
-            </Button>
-          </Box>
-        </Paper>
-      );
-    }
+          <Button
+            size="small"
+            onClick={(e) => { e.stopPropagation(); onAdd(item); }}
+            sx={{
+              minWidth: 28, height: 28, borderRadius: '7px', p: 0,
+              color: '#FFFFFF', bgcolor: pos.charge,
+              '&:hover': { bgcolor: pos.chargeDark },
+            }}
+          >
+            <Add sx={{ fontSize: 15 }} />
+          </Button>
+        </Box>
+      </Paper>
+    );
+  }
 
+  /* Single-price dish, not in bill: tappable card */
+  if (single) {
     return (
       <Paper
         elevation={0}
@@ -185,24 +191,29 @@ function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
         sx={{
           ...surface,
           p: 0, cursor: 'pointer', font: 'inherit', width: '100%',
-          '&:hover': { boxShadow: '0 8px 20px rgba(28,25,23,0.12)', transform: 'translateY(-2px)' },
+          '&:hover': {
+            boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+            transform: 'translateY(-1px)',
+            borderColor: pos.surfaceHover,
+          },
           '&:active': { transform: 'scale(0.97)' },
         }}
       >
         {body}
         <Box
           sx={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.4,
-            py: 0.9, bgcolor: adminColors.brandSoft, color: adminColors.brand,
-            fontSize: 12.5, fontWeight: 800,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.3,
+            py: 0.6, bgcolor: pos.chargeSoft, color: pos.charge,
+            fontSize: 11, fontWeight: 800,
           }}
         >
-          <Add sx={{ fontSize: 16 }} /> Add
+          <Add sx={{ fontSize: 14 }} /> Add
         </Box>
       </Paper>
     );
   }
 
+  /* Multi-portion dish — buttons are inside the body */
   return <Paper elevation={0} sx={surface}>{body}</Paper>;
 }
 

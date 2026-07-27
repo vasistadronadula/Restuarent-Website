@@ -10,7 +10,7 @@ import ThermalBill from '@/components/bill/ThermalBill';
 import PrintBillPortal from '@/components/bill/PrintBillPortal';
 import { isPrinterConnected, printOrder, savedPrinterName } from '@/lib/thermalPrinter';
 import { rupees } from '@/lib/billing';
-import { adminColors } from '@/theme/adminColors';
+import { pos } from '@/theme/posColors';
 import type { Order } from '@/types';
 
 type PrintState = 'idle' | 'printing' | 'printed' | 'failed';
@@ -23,19 +23,11 @@ interface Props {
 }
 
 /**
- * What the cashier sees the instant an order is saved: confirmation, the
- * exact bill that is being printed, and one button to start the next order.
- *
- * If a Bluetooth printer is paired the ticket goes out immediately, before
- * the cashier does anything — the dialog just reports that it happened.
- * Otherwise it offers the browser print dialog. Either way the bill is on
- * screen, so a counter with no printer at all can still read the total back
- * to the customer.
+ * Dark-themed order confirmation dialog — matches the POS palette.
+ * Shows confirmation, the bill, and print/new-order actions.
  */
 export default function OrderPlacedDialog({ order, invoiceNo, open, onNewOrder }: Props) {
   if (!order) return null;
-  // Keyed by order id so each order gets a fresh print state — the initial
-  // value is read at mount rather than pushed in from an effect.
   return (
     <PlacedDialog
       key={order.id}
@@ -57,8 +49,7 @@ function PlacedDialog({
   );
   const [browserPrinting, setBrowserPrinting] = useState(false);
 
-  // Fire the thermal print once, as soon as the bill appears. The cashier
-  // does nothing — the ticket is already coming out of the printer.
+  // Auto-print on Bluetooth if connected
   useEffect(() => {
     if (!isPrinterConnected()) return;
     let cancelled = false;
@@ -77,8 +68,6 @@ function PlacedDialog({
       setPrintState(ok ? 'printed' : 'failed');
       return;
     }
-    // No paired printer — hand it to the browser, which is where a USB or
-    // network printer is reachable from.
     setBrowserPrinting(true);
     requestAnimationFrame(() => {
       window.print();
@@ -89,32 +78,30 @@ function PlacedDialog({
   const status = (() => {
     switch (printState) {
       case 'printing':
-        return { icon: <CircularProgress size={15} />, text: 'Sending to printer…', color: adminColors.textMuted };
+        return { icon: <CircularProgress size={15} sx={{ color: pos.charge }} />, text: 'Sending to printer…', color: pos.textMuted };
       case 'printed':
         return {
-          icon: <Bluetooth sx={{ fontSize: 16, color: adminColors.success }} />,
+          icon: <Bluetooth sx={{ fontSize: 16, color: pos.charge }} />,
           text: `Printed on ${savedPrinterName() || 'the counter printer'}`,
-          color: adminColors.success,
+          color: pos.charge,
         };
       case 'failed':
         return {
-          icon: <ErrorOutlined sx={{ fontSize: 16, color: adminColors.danger }} />,
+          icon: <ErrorOutlined sx={{ fontSize: 16, color: pos.danger }} />,
           text: 'Printer did not respond — print again or use the dialog',
-          color: adminColors.danger,
+          color: pos.danger,
         };
       default:
         return {
-          icon: <ReceiptLong sx={{ fontSize: 16, color: adminColors.textMuted }} />,
+          icon: <ReceiptLong sx={{ fontSize: 16, color: pos.textMuted }} />,
           text: 'No printer paired — use Print bill',
-          color: adminColors.textMuted,
+          color: pos.textMuted,
         };
     }
   })();
 
   return (
     <>
-      {/* Mounted while the dialog is open so Print (and Ctrl+P) hit the
-          80mm bill rather than a screenshot of the app. */}
       {open && <PrintBillPortal order={order} invoiceNo={invoiceNo} />}
 
       <Dialog
@@ -122,9 +109,18 @@ function PlacedDialog({
         fullScreen={fullScreen}
         maxWidth="xs"
         fullWidth
-        slotProps={{ paper: { sx: { borderRadius: fullScreen ? 0 : '20px', overflow: 'hidden' } } }}
+        slotProps={{
+          paper: {
+            sx: {
+              borderRadius: fullScreen ? 0 : '16px',
+              overflow: 'hidden',
+              bgcolor: pos.surface,
+            },
+          },
+        }}
       >
-        <Box sx={{ px: 2.5, py: 2, bgcolor: adminColors.success, color: '#FFFFFF' }}>
+        {/* Success header */}
+        <Box sx={{ px: 2.5, py: 2, bgcolor: pos.charge, color: '#FFFFFF' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CheckCircle sx={{ fontSize: 26 }} />
             <Box sx={{ minWidth: 0 }}>
@@ -138,10 +134,11 @@ function PlacedDialog({
           </Box>
         </Box>
 
+        {/* Printer status bar */}
         <Box
           sx={{
             px: 2.5, py: 1, display: 'flex', alignItems: 'center', gap: 0.75,
-            bgcolor: adminColors.bgSubtle, borderBottom: `1px solid ${adminColors.border}`,
+            bgcolor: pos.elevated, borderBottom: `1px solid ${pos.border}`,
           }}
         >
           {status.icon}
@@ -150,17 +147,25 @@ function PlacedDialog({
           </Typography>
         </Box>
 
-        <DialogContent sx={{ p: 2, bgcolor: '#F5F5F4' }}>
-          <Box sx={{ bgcolor: '#FFFFFF', border: '1px dashed #CBD5E1', borderRadius: '10px', py: 1, overflowX: 'auto' }}>
+        {/* Bill preview */}
+        <DialogContent sx={{ p: 2, bgcolor: pos.bg }}>
+          <Box
+            sx={{
+              bgcolor: '#FFFFFF', border: `1px dashed ${pos.border}`,
+              borderRadius: '10px', py: 1, overflowX: 'auto',
+            }}
+          >
             <ThermalBill order={order} invoiceNo={invoiceNo} />
           </Box>
         </DialogContent>
 
+        {/* Actions */}
         <DialogActions
           sx={{
             px: 2, py: 1.5,
             pb: fullScreen ? 'calc(14px + env(safe-area-inset-bottom, 0px))' : 1.5,
-            gap: 1, borderTop: `1px solid ${adminColors.border}`,
+            gap: 1, borderTop: `1px solid ${pos.border}`,
+            bgcolor: pos.elevated,
           }}
         >
           <Button
@@ -169,7 +174,8 @@ function PlacedDialog({
             startIcon={<Print />}
             sx={{
               flex: 1, minHeight: 46, borderRadius: '12px', textTransform: 'none', fontWeight: 800,
-              color: adminColors.textSecondary, border: `1px solid ${adminColors.border}`,
+              color: pos.textSecondary, border: `1px solid ${pos.border}`,
+              '&:hover': { bgcolor: pos.surfaceHover },
             }}
           >
             {printState === 'printed' ? 'Print again' : 'Print bill'}
@@ -180,8 +186,9 @@ function PlacedDialog({
             autoFocus
             sx={{
               flex: 1, minHeight: 46, borderRadius: '12px', textTransform: 'none', fontWeight: 900,
-              background: `linear-gradient(135deg, ${adminColors.brand}, ${adminColors.accent})`,
-              boxShadow: 'none',
+              bgcolor: pos.charge, color: '#FFFFFF',
+              boxShadow: '0 4px 16px rgba(16,185,129,0.3)',
+              '&:hover': { bgcolor: pos.chargeDark },
             }}
           >
             New order

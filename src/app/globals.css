@@ -234,6 +234,16 @@ select:-webkit-autofill:focus {
     padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
+    overflow: visible !important;
+  }
+
+  /* The receipt itself centers within the 80mm page */
+  #ppr-print-root .thermal-bill {
+    width: 72mm !important;
+    margin: 0 auto !important;
+    padding: 2mm 0 4mm !important;
+    overflow: visible !important;
+    max-height: none !important;
   }
 
   /* Keep a dish's name, quantity and amount on the same sheet, but let the
