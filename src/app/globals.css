@@ -201,8 +201,13 @@ select:-webkit-autofill:focus {
 /* ============================================================ */
 @media print {
   @page {
-    size: 80mm auto;
-    margin: 0;
+    size: 80mm auto !important;
+    margin: 0 !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   html, body {
@@ -215,8 +220,6 @@ select:-webkit-autofill:focus {
     padding: 0 !important;
     overflow: visible !important;
     background: #ffffff !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
   }
 
   /* Hide the app, keep the bill. Everything the app renders at body level
@@ -236,6 +239,8 @@ select:-webkit-autofill:focus {
     top: 0 !important;
     left: 0 !important;
     width: 80mm !important;
+    min-width: 80mm !important;
+    max-width: 80mm !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
@@ -247,6 +252,7 @@ select:-webkit-autofill:focus {
   /* The receipt itself centers within the 80mm page */
   #ppr-print-root .thermal-bill {
     width: 72mm !important;
+    max-width: 72mm !important;
     margin: 0 auto !important;
     padding: 2mm 0 4mm !important;
     overflow: visible !important;
