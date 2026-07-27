@@ -99,6 +99,16 @@ export default function CounterBillingPage() {
     [cart.subtotal, discountPercent]
   );
 
+  const categoryCounts = useMemo(() => {
+    const map: Record<string, number> = { all: 0 };
+    menuItems.forEach((item) => {
+      if (!item.isAvailable) return;
+      map.all = (map.all || 0) + 1;
+      map[item.category] = (map[item.category] || 0) + 1;
+    });
+    return map;
+  }, [menuItems]);
+
   const dishes = useMemo(() => {
     const q = search.trim().toLowerCase();
     return menuItems.filter((item) => {
@@ -385,7 +395,7 @@ export default function CounterBillingPage() {
               {CATEGORIES.map((c) => (
                 <Chip
                   key={c.value}
-                  label={c.label}
+                  label={`${c.label} (${categoryCounts[c.value] || 0})`}
                   onClick={() => setCategory(c.value)}
                   sx={{
                     flexShrink: 0, cursor: 'pointer', height: 32,

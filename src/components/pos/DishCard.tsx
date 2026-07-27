@@ -19,45 +19,57 @@ interface Props {
   onDecrement?: (item: MenuItem) => void;
 }
 
-/**
- * A dish tile built for one thing: being hit accurately, once, by a thumb
- * moving fast. The whole tile is the add button for a single-price dish;
- * dishes with portions get one button per portion, sized to the same target.
- * Nothing here opens a dialog — a counter can't afford a modal per item.
- */
 function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
   const isVeg = item.vegStatus === 'veg';
+  const isEgg = item.vegStatus === 'egg';
   const portions = sellablePortions(item);
   const single = portions.length === 0;
 
+  const spiceText = item.spiceLevel ? '🌶️'.repeat(item.spiceLevel) : '';
+
   const body = (
     <>
-      <Box sx={{ position: 'relative', width: '100%', height: dense ? 76 : 104, bgcolor: '#F1EFED' }}>
+      <Box sx={{ position: 'relative', width: '100%', height: dense ? 82 : 108, bgcolor: '#1E293B', overflow: 'hidden' }}>
         <Image
           src={item.image || FALLBACK_IMAGE}
-          alt=""
+          alt={item.name}
           fill
           sizes="(max-width: 600px) 45vw, (max-width: 1200px) 30vw, 200px"
           style={{ objectFit: 'cover' }}
         />
-        {/* Veg/non-veg mark, the way an Indian menu is read at a glance. */}
+        {/* Veg/non-veg/egg indicator badge */}
         <Box
           sx={{
-            position: 'absolute', top: 5, left: 5,
-            width: 15, height: 15, borderRadius: '3px', bgcolor: 'white',
-            border: `2px solid ${isVeg ? adminColors.success : adminColors.brand}`,
+            position: 'absolute', top: 6, left: 6,
+            width: 16, height: 16, borderRadius: '4px', bgcolor: '#FFFFFF',
+            border: `2px solid ${isVeg ? '#10B981' : isEgg ? '#F59E0B' : '#EF4444'}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
           }}
         >
-          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: isVeg ? adminColors.success : adminColors.brand }} />
+          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: isVeg ? '#10B981' : isEgg ? '#F59E0B' : '#EF4444' }} />
         </Box>
+
+        {spiceText && (
+          <Box
+            sx={{
+              position: 'absolute', bottom: 6, left: 6,
+              px: 0.6, py: 0.1, borderRadius: '6px',
+              bgcolor: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)',
+              fontSize: 10, lineHeight: 1,
+            }}
+          >
+            {spiceText}
+          </Box>
+        )}
+
         {inBill > 0 && (
           <Box
             sx={{
-              position: 'absolute', top: 5, right: 5, minWidth: 22, height: 22, px: 0.5,
-              borderRadius: '11px', bgcolor: adminColors.brand, color: 'white',
+              position: 'absolute', top: 6, right: 6, minWidth: 24, height: 24, px: 0.6,
+              borderRadius: '12px', bgcolor: adminColors.brand, color: '#FFFFFF',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11.5, fontWeight: 900,
+              fontSize: 12, fontWeight: 900, boxShadow: '0 4px 10px rgba(198,40,40,0.4)',
             }}
           >
             {inBill}
@@ -65,10 +77,10 @@ function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
         )}
       </Box>
 
-      <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', gap: 0.6, flex: 1, minWidth: 0 }}>
+      <Box sx={{ p: 1.1, display: 'flex', flexDirection: 'column', gap: 0.5, flex: 1, minWidth: 0 }}>
         <Typography
           sx={{
-            fontSize: dense ? 12 : 13, fontWeight: 700, color: adminColors.textPrimary,
+            fontSize: dense ? 12.5 : 13.5, fontWeight: 700, color: adminColors.textPrimary,
             lineHeight: 1.25, textAlign: 'left',
             display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
           }}
@@ -77,7 +89,7 @@ function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
         </Typography>
 
         {single ? (
-          <Typography sx={{ mt: 'auto', fontSize: dense ? 13 : 14.5, fontWeight: 900, color: adminColors.brand, textAlign: 'left' }}>
+          <Typography sx={{ mt: 'auto', fontSize: dense ? 14 : 15, fontWeight: 900, color: adminColors.brand, textAlign: 'left' }}>
             ₹{item.price}
           </Typography>
         ) : (
@@ -88,12 +100,11 @@ function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
                 size="small"
                 onClick={(e) => { e.stopPropagation(); onAdd(item, portion); }}
                 sx={{
-                  // 38px: a portion button is the only way to ring up a dish
-                  // that has sizes, so it has to survive a fast thumb.
-                  flex: '1 1 auto', minWidth: 0, px: 0.6, py: 0.4, minHeight: 38,
-                  borderRadius: '9px', textTransform: 'none', fontWeight: 800, fontSize: 11.5,
+                  flex: '1 1 auto', minWidth: 0, px: 0.7, py: 0.5, minHeight: 38,
+                  borderRadius: '10px', textTransform: 'none', fontWeight: 800, fontSize: 11.5,
                   bgcolor: portion === 'full' ? adminColors.brand : adminColors.brandSoft,
                   color: portion === 'full' ? '#FFFFFF' : adminColors.brand,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                   '&:hover': { bgcolor: portion === 'full' ? adminColors.brandDark : '#FBE4E4' },
                 }}
               >
@@ -107,19 +118,18 @@ function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
   );
 
   const surface = {
-    borderRadius: '14px',
-    border: `1px solid ${inBill > 0 ? adminColors.brand : adminColors.border}`,
-    boxShadow: inBill > 0 ? `0 0 0 1px ${adminColors.brand}` : 'none',
+    borderRadius: '16px',
+    border: `1.5px solid ${inBill > 0 ? adminColors.brand : adminColors.border}`,
+    boxShadow: inBill > 0 ? `0 4px 16px rgba(198,40,40,0.18)` : '0 2px 8px rgba(0,0,0,0.04)',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column',
     height: '100%',
     bgcolor: '#FFFFFF',
     textAlign: 'left' as const,
-    transition: 'box-shadow .12s ease, border-color .12s ease',
+    transition: 'transform 0.15s ease, boxShadow 0.15s ease, borderColor 0.15s ease',
   };
 
-  // Single-price dishes: clicking when inBill === 0 adds 1; when inBill > 0 shows quick stepper
   if (single) {
     if (inBill > 0) {
       return (
@@ -128,20 +138,20 @@ function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
           <Box
             sx={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              py: 0.5, px: 0.75, bgcolor: adminColors.brandSoft, color: adminColors.brand,
+              py: 0.6, px: 0.85, bgcolor: adminColors.brandSoft, color: adminColors.brand,
             }}
           >
             <Button
               size="small"
               onClick={(e) => { e.stopPropagation(); onDecrement?.(item); }}
               sx={{
-                minWidth: 30, height: 30, borderRadius: '8px', p: 0,
+                minWidth: 32, height: 32, borderRadius: '9px', p: 0,
                 color: adminColors.brand, bgcolor: '#FFFFFF',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
                 '&:hover': { bgcolor: '#FEE2E2' },
               }}
             >
-              <Remove sx={{ fontSize: 16 }} />
+              <Remove sx={{ fontSize: 17 }} />
             </Button>
 
             <Typography sx={{ fontSize: 12.5, fontWeight: 900, color: adminColors.brand }}>
@@ -152,13 +162,13 @@ function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
               size="small"
               onClick={(e) => { e.stopPropagation(); onAdd(item); }}
               sx={{
-                minWidth: 30, height: 30, borderRadius: '8px', p: 0,
+                minWidth: 32, height: 32, borderRadius: '9px', p: 0,
                 color: '#FFFFFF', bgcolor: adminColors.brand,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                boxShadow: '0 2px 6px rgba(198,40,40,0.3)',
                 '&:hover': { bgcolor: adminColors.brandDark },
               }}
             >
-              <Add sx={{ fontSize: 16 }} />
+              <Add sx={{ fontSize: 17 }} />
             </Button>
           </Box>
         </Paper>
@@ -175,19 +185,19 @@ function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
         sx={{
           ...surface,
           p: 0, cursor: 'pointer', font: 'inherit', width: '100%',
-          '&:hover': { boxShadow: '0 6px 16px rgba(28,25,23,0.10)' },
-          '&:active': { transform: 'scale(0.98)' },
+          '&:hover': { boxShadow: '0 8px 20px rgba(28,25,23,0.12)', transform: 'translateY(-2px)' },
+          '&:active': { transform: 'scale(0.97)' },
         }}
       >
         {body}
         <Box
           sx={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.4,
-            py: 0.85, bgcolor: adminColors.brandSoft, color: adminColors.brand,
-            fontSize: 12, fontWeight: 800,
+            py: 0.9, bgcolor: adminColors.brandSoft, color: adminColors.brand,
+            fontSize: 12.5, fontWeight: 800,
           }}
         >
-          <Add sx={{ fontSize: 15 }} /> Add
+          <Add sx={{ fontSize: 16 }} /> Add
         </Box>
       </Paper>
     );
@@ -196,6 +206,4 @@ function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
   return <Paper elevation={0} sx={surface}>{body}</Paper>;
 }
 
-// The grid re-renders on every cart change; without this every tile in a
-// 100-dish menu would re-render each time a quantity ticks up.
 export default React.memo(DishCard);
