@@ -201,7 +201,7 @@ select:-webkit-autofill:focus {
 /* ============================================================ */
 @media print {
   @page {
-    size: 80mm auto !important;
+    size: auto;
     margin: 0 !important;
   }
 
@@ -211,9 +211,9 @@ select:-webkit-autofill:focus {
   }
 
   html, body {
-    width: 80mm !important;
-    min-width: 80mm !important;
-    max-width: 80mm !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
     height: auto !important;
     max-height: none !important;
     margin: 0 !important;
@@ -235,13 +235,10 @@ select:-webkit-autofill:focus {
 
   #ppr-print-root {
     display: block !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 80mm !important;
-    min-width: 80mm !important;
-    max-width: 80mm !important;
-    margin: 0 !important;
+    position: relative !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
@@ -249,12 +246,12 @@ select:-webkit-autofill:focus {
     visibility: visible !important;
   }
 
-  /* The receipt itself centers within the 80mm page */
+  /* The receipt centers horizontally on A4 sheets and spans edge-to-edge on 80mm thermal rolls */
   #ppr-print-root .thermal-bill {
-    width: 72mm !important;
-    max-width: 72mm !important;
+    width: 80mm !important;
+    max-width: 100% !important;
     margin: 0 auto !important;
-    padding: 2mm 0 4mm !important;
+    padding: 4mm 2mm !important;
     overflow: visible !important;
     max-height: none !important;
     box-sizing: border-box !important;
