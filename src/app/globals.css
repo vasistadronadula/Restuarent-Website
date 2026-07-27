@@ -245,3 +245,46 @@ select:-webkit-autofill:focus {
     break-inside: avoid;
   }
 }
+
+/* ============================================================ */
+/* Admin shell metrics                                          */
+/* ------------------------------------------------------------ */
+/* The admin chrome (sticky header, mobile bottom nav, main      */
+/* padding) has fixed heights that full-height pages such as the */
+/* POS need in order to size their own scroll regions. These were */
+/* previously copied as magic numbers into each page — a 108px    */
+/* here, a 150px there — which drifted the moment the header      */
+/* changed height. Declared once, consumed with calc().          */
+/*                                                               */
+/* Breakpoint matches AdminHeader and AdminMobileBottomNav: at    */
+/* 900px the header grows and the bottom nav disappears.          */
+:root {
+  --admin-header-h: 58px;
+  --admin-bottom-nav-h: 65px;
+  --admin-main-pad: 14px;
+  --admin-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (min-width: 900px) {
+  :root {
+    --admin-header-h: 64px;
+    --admin-bottom-nav-h: 0px;
+    --admin-main-pad: 20px;
+  }
+}
+
+/* Usable height inside <main> once the header, the bottom nav and the page's
+   own padding are taken out — i.e. exactly the space a full-height page may
+   occupy without anything being pushed under the chrome.
+   dvh, not vh: on mobile browsers vh is measured against the viewport with
+   the address bar retracted, so a 100vh child overflows by the height of the
+   bar and pushes its footer — the pay button — off screen. */
+:root {
+  --admin-content-h: calc(
+    100dvh
+    - var(--admin-header-h)
+    - var(--admin-bottom-nav-h)
+    - var(--admin-safe-bottom)
+    - (var(--admin-main-pad) * 2)
+  );
+}

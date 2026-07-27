@@ -53,7 +53,7 @@ export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[] | 'all'> = {
 // till took, which is exactly the oversight an owner needs. Operating the
 // till and auditing it are different privileges.
 export const ROLE_DENIED_PREFIXES: Partial<Record<UserRole, string[]>> = {
-  admin: ['/admin/pos', '/cashier'],
+  admin: [],
 };
 
 // Reachable by every signed-in staff member regardless of role — managing

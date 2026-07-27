@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { Box, Button, Paper, Typography } from '@mui/material';
-import { Add } from '@mui/icons-material';
+import { Add, Remove } from '@mui/icons-material';
 import type { MenuItem } from '@/types';
 import { PORTION_LABEL, sellablePortions, type Portion } from '@/hooks/usePosCart';
 import { adminColors } from '@/theme/adminColors';
@@ -16,6 +16,7 @@ interface Props {
   inBill: number;
   dense: boolean;
   onAdd: (item: MenuItem, portion?: Portion) => void;
+  onDecrement?: (item: MenuItem) => void;
 }
 
 /**
@@ -24,7 +25,7 @@ interface Props {
  * dishes with portions get one button per portion, sized to the same target.
  * Nothing here opens a dialog — a counter can't afford a modal per item.
  */
-function DishCard({ item, inBill, dense, onAdd }: Props) {
+function DishCard({ item, inBill, dense, onAdd, onDecrement }: Props) {
   const isVeg = item.vegStatus === 'veg';
   const portions = sellablePortions(item);
   const single = portions.length === 0;
@@ -87,8 +88,10 @@ function DishCard({ item, inBill, dense, onAdd }: Props) {
                 size="small"
                 onClick={(e) => { e.stopPropagation(); onAdd(item, portion); }}
                 sx={{
-                  flex: '1 1 auto', minWidth: 0, px: 0.6, py: 0.4, minHeight: 32,
-                  borderRadius: '9px', textTransform: 'none', fontWeight: 800, fontSize: 11,
+                  // 38px: a portion button is the only way to ring up a dish
+                  // that has sizes, so it has to survive a fast thumb.
+                  flex: '1 1 auto', minWidth: 0, px: 0.6, py: 0.4, minHeight: 38,
+                  borderRadius: '9px', textTransform: 'none', fontWeight: 800, fontSize: 11.5,
                   bgcolor: portion === 'full' ? adminColors.brand : adminColors.brandSoft,
                   color: portion === 'full' ? '#FFFFFF' : adminColors.brand,
                   '&:hover': { bgcolor: portion === 'full' ? adminColors.brandDark : '#FBE4E4' },
@@ -116,9 +119,52 @@ function DishCard({ item, inBill, dense, onAdd }: Props) {
     transition: 'box-shadow .12s ease, border-color .12s ease',
   };
 
-  // Single-price dishes: the entire tile is the tap target, so adding one is
-  // a single hit anywhere rather than a hunt for a small "+" button.
+  // Single-price dishes: clicking when inBill === 0 adds 1; when inBill > 0 shows quick stepper
   if (single) {
+    if (inBill > 0) {
+      return (
+        <Paper elevation={0} sx={surface}>
+          {body}
+          <Box
+            sx={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              py: 0.5, px: 0.75, bgcolor: adminColors.brandSoft, color: adminColors.brand,
+            }}
+          >
+            <Button
+              size="small"
+              onClick={(e) => { e.stopPropagation(); onDecrement?.(item); }}
+              sx={{
+                minWidth: 30, height: 30, borderRadius: '8px', p: 0,
+                color: adminColors.brand, bgcolor: '#FFFFFF',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                '&:hover': { bgcolor: '#FEE2E2' },
+              }}
+            >
+              <Remove sx={{ fontSize: 16 }} />
+            </Button>
+
+            <Typography sx={{ fontSize: 12.5, fontWeight: 900, color: adminColors.brand }}>
+              {inBill} in bill
+            </Typography>
+
+            <Button
+              size="small"
+              onClick={(e) => { e.stopPropagation(); onAdd(item); }}
+              sx={{
+                minWidth: 30, height: 30, borderRadius: '8px', p: 0,
+                color: '#FFFFFF', bgcolor: adminColors.brand,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                '&:hover': { bgcolor: adminColors.brandDark },
+              }}
+            >
+              <Add sx={{ fontSize: 16 }} />
+            </Button>
+          </Box>
+        </Paper>
+      );
+    }
+
     return (
       <Paper
         elevation={0}
@@ -137,8 +183,8 @@ function DishCard({ item, inBill, dense, onAdd }: Props) {
         <Box
           sx={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.4,
-            py: 0.6, bgcolor: adminColors.brandSoft, color: adminColors.brand,
-            fontSize: 11.5, fontWeight: 800,
+            py: 0.85, bgcolor: adminColors.brandSoft, color: adminColors.brand,
+            fontSize: 12, fontWeight: 800,
           }}
         >
           <Add sx={{ fontSize: 15 }} /> Add

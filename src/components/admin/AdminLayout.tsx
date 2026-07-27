@@ -103,13 +103,20 @@ export default function AdminLayout({ children, title }: Props) {
             onMobileDrawerToggle={() => setMobileOpen(!mobileOpen)}
           />
 
+          {/* Padding comes from the shared --admin-* metrics in globals.css so
+              a full-height page (the POS) can subtract exactly what the shell
+              took, instead of guessing at it. */}
           <main
             style={{
               flex: 1,
-              padding: isMobile ? '14px 12px' : '20px',
-              paddingBottom: isMobile ? 'calc(84px + env(safe-area-inset-bottom, 0px))' : '20px',
-              paddingLeft: isMobile ? 'max(12px, env(safe-area-inset-left, 0px))' : 20,
-              paddingRight: isMobile ? 'max(12px, env(safe-area-inset-right, 0px))' : 20,
+              padding: 'var(--admin-main-pad)',
+              // On desktop --admin-bottom-nav-h and the safe inset are both 0,
+              // so this collapses to plain --admin-main-pad. One expression,
+              // and it stays in step with --admin-content-h.
+              paddingBottom:
+                'calc(var(--admin-bottom-nav-h) + var(--admin-safe-bottom) + var(--admin-main-pad))',
+              paddingLeft: 'max(var(--admin-main-pad), env(safe-area-inset-left, 0px))',
+              paddingRight: 'max(var(--admin-main-pad), env(safe-area-inset-right, 0px))',
               overflowX: 'hidden',
               overflowY: 'auto',
               width: '100%',

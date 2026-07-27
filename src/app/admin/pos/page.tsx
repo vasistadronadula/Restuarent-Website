@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Box, Button, Chip, Drawer, IconButton, InputAdornment, Paper,
-  TextField, Typography, useMediaQuery, useTheme,
+  TextField, Typography, useMediaQuery,
 } from '@mui/material';
 import { Clear, Fastfood, ReceiptLong, Search } from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -46,28 +46,32 @@ type VegFilter = (typeof VEG_FILTERS)[number]['value'];
 /**
  * Counter billing.
  *
- * Three layouts from one set of components, because the same person uses
- * all three: a phone in hand at a busy counter, a tablet on the till, a
- * desktop in the back office.
+ * Three layouts from one set of components, because the same person uses all
+ * three: a phone in hand at a busy counter, a tablet on the till, a laptop in
+ * the back office.
  *
- *   phone   — dishes fill the screen, the bill is a sheet behind a
- *             persistent total bar (no room to show both at once)
- *   tablet  — dishes + a 340px bill pane
- *   desktop — same, wider pane, plus keyboard shortcuts
+ *   phone   (< 768px)      dishes fill the screen, the bill is a sheet behind
+ *                          a persistent total bar — no room to show both
+ *   tablet  (768–1199px)   dishes + a 320px bill pane, always visible
+ *   laptop  (≥ 1200px)     same, wider pane, plus keyboard shortcuts
  *
- * The bill is never more than one tap away and the pay button is always on
- * screen. Everything money-related routes through lib/billing.ts, and every
- * change to the bill goes through the reducer in usePosCart, so what the
- * cashier sees, what gets saved, and what prints cannot disagree.
+ * The breakpoints are explicit pixel queries rather than the MUI theme's,
+ * because the theme's `md` is 900px — which put every 768–899px tablet
+ * (iPad portrait, most Android tablets) into the *phone* layout and hid the
+ * bill behind a sheet on a screen with room to show it.
+ *
+ * Layout rule: the page is exactly one viewport tall (--admin-content-h) and
+ * every region inside it is a flex child. Nothing is absolutely positioned
+ * against a hand-measured offset, so the pay button and the running total
+ * cannot end up under the bottom nav or below the fold on any device.
  */
 export default function CounterBillingPage() {
   const { addOrderLocallyAndDB } = useAdmin();
   const { data: menuItems = [], isLoading: menuLoading } = useGetMenuItemsQuery();
   const { data: tables = [] } = useGetTablesQuery();
 
-  const theme = useTheme();
-  const isPhone = useMediaQuery(theme.breakpoints.down('md'));   // < 900px
-  const isDesktop = useMediaQuery(theme.breakpoints.up('lg'));   // ≥ 1200px
+  const isPhone = useMediaQuery('(max-width:767.95px)');
+  const isDesktop = useMediaQuery('(min-width:1200px)');
 
   const cart = usePosCart();
 
@@ -117,41 +121,12 @@ export default function CounterBillingPage() {
     [cart]
   );
 
-  // ── Keyboard: the fastest input device on a counter that has one ───────
-  // "/" jumps to search, Enter rings up the top match, Esc clears it.
-  useEffect(() => {
-    if (isPhone) return;
-    const onKey = (e: KeyboardEvent) => {
-      const typingElsewhere =
-        e.target instanceof HTMLElement &&
-        ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
-
-      if (e.key === '/' && !typingElsewhere) {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-      if (e.key === 'Escape' && document.activeElement === searchRef.current) {
-        setSearch('');
-        searchRef.current?.blur();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isPhone]);
-
-  const handleSearchEnter = (e: React.KeyboardEvent) => {
-    if (e.key !== 'Enter') return;
-    const [first] = dishes;
-    if (!first) return;
-    // A dish with portions needs a deliberate choice — ringing up the wrong
-    // size is worse than one extra tap.
-    if (first.portionPrices) {
-      toast(`${first.name} — pick a portion`, { icon: '👆' });
-      return;
-    }
-    handleAdd(first);
-    setSearch('');
-  };
+  const handleDecrement = useCallback(
+    (item: MenuItem) => {
+      cart.decrement(item.id);
+    },
+    [cart]
+  );
 
   const resetBill = useCallback(() => {
     cart.clear();
@@ -163,7 +138,7 @@ export default function CounterBillingPage() {
     setOrderType('counter');
   }, [cart]);
 
-  const handlePlaceOrder = async () => {
+  const handlePlaceOrder = useCallback(async () => {
     if (isPlacing) return;
     if (cart.lines.length === 0) {
       toast.error('Add at least one item to the bill.');
@@ -186,7 +161,7 @@ export default function CounterBillingPage() {
       customerId: customerPhone.trim() || 'WALK-IN',
       customerName: customerName.trim() || 'Walk-in Customer',
       customerPhone: customerPhone.trim(),
-      customerAddress: orderType === 'dine-in' ? `Dine-in · Table ${tableNumber}` : 'Counter sale',
+      customerAddress: orderType === 'dine-in' ? `Dine-in · Table ${tableNumber}` : orderType === 'takeaway' ? 'Takeaway (Parcel)' : 'Counter sale',
       orderType,
       items: cart.lines.map((l) => ({
         id: l.key,
@@ -226,6 +201,50 @@ export default function CounterBillingPage() {
     } finally {
       setIsPlacing(false);
     }
+  }, [
+    isPlacing, cart.lines, orderType, tableNumber, customerPhone, customerName,
+    totals.subtotal, totals.cgst, totals.sgst, totals.discountAmount, totals.grandTotal,
+    paymentMode, addOrderLocallyAndDB, resetBill,
+  ]);
+
+  // ── Keyboard: the fastest input device on a counter that has one ───────
+  // "/" jumps to search, Enter rings up top match, Esc clears it, F2 places order.
+  useEffect(() => {
+    if (isPhone) return;
+    const onKey = (e: KeyboardEvent) => {
+      const typingElsewhere =
+        e.target instanceof HTMLElement &&
+        ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
+
+      if (e.key === '/' && !typingElsewhere) {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+      if (e.key === 'Escape' && document.activeElement === searchRef.current) {
+        setSearch('');
+        searchRef.current?.blur();
+      }
+      if (e.key === 'F2') {
+        e.preventDefault();
+        void handlePlaceOrder();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isPhone, handlePlaceOrder]);
+
+  const handleSearchEnter = (e: React.KeyboardEvent) => {
+    if (e.key !== 'Enter') return;
+    const [first] = dishes;
+    if (!first) return;
+    // A dish with portions needs a deliberate choice — ringing up the wrong
+    // size is worse than one extra tap.
+    if (first.portionPrices) {
+      toast(`${first.name} — pick a portion`, { icon: '👆' });
+      return;
+    }
+    handleAdd(first);
+    setSearch('');
   };
 
   const billPanel = (onClose?: () => void) => (
@@ -259,12 +278,16 @@ export default function CounterBillingPage() {
 
   return (
     <AdminLayout title="Counter Billing">
+      {/* Exactly one viewport tall. Everything below is a flex child of this
+          box, which is what keeps the running total and the pay button on
+          screen without a single fixed-position offset. */}
       <Box
         sx={{
           display: 'flex',
-          gap: 2,
-          height: { xs: 'auto', md: 'calc(100vh - 108px)' },
-          overflow: { xs: 'visible', md: 'hidden' },
+          gap: 1.5,
+          height: 'var(--admin-content-h)',
+          minHeight: 420,
+          overflow: 'hidden',
         }}
       >
         {/* ── Dishes ───────────────────────────────────────────────────── */}
@@ -272,9 +295,9 @@ export default function CounterBillingPage() {
           <Paper
             elevation={0}
             sx={{
+              flexShrink: 0,
               p: 1.25, borderRadius: '14px', bgcolor: '#FFFFFF',
               border: `1px solid ${adminColors.border}`,
-              position: { xs: 'sticky', md: 'static' }, top: 0, zIndex: 3,
             }}
           >
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -310,7 +333,7 @@ export default function CounterBillingPage() {
                     label={v.label}
                     onClick={() => setVegFilter(v.value)}
                     sx={{
-                      fontWeight: 800, fontSize: 11.5, cursor: 'pointer', height: 32,
+                      fontWeight: 800, fontSize: 11.5, cursor: 'pointer', height: 34,
                       bgcolor: vegFilter === v.value
                         ? v.value === 'veg' ? adminColors.success
                           : v.value === 'non-veg' ? adminColors.brand
@@ -328,6 +351,10 @@ export default function CounterBillingPage() {
               sx={{
                 display: 'flex', gap: 0.75, mt: 1, pb: 0.5,
                 overflowX: 'auto',
+                // A category strip is dragged with a thumb far more often
+                // than it is clicked with a scrollbar.
+                WebkitOverflowScrolling: 'touch',
+                scrollbarWidth: 'thin',
                 '&::-webkit-scrollbar': { height: 4 },
                 '&::-webkit-scrollbar-thumb': { background: adminColors.border, borderRadius: 4 },
               }}
@@ -336,11 +363,10 @@ export default function CounterBillingPage() {
                 <Chip
                   key={c.value}
                   label={c.label}
-                  size="small"
                   onClick={() => setCategory(c.value)}
                   sx={{
-                    flexShrink: 0, cursor: 'pointer', height: 28,
-                    fontWeight: category === c.value ? 800 : 600, fontSize: 12,
+                    flexShrink: 0, cursor: 'pointer', height: 32,
+                    fontWeight: category === c.value ? 800 : 600, fontSize: 12.5,
                     bgcolor: category === c.value ? adminColors.brand : adminColors.bgSubtle,
                     color: category === c.value ? '#FFFFFF' : adminColors.textSecondary,
                     border: `1px solid ${category === c.value ? adminColors.brand : adminColors.border}`,
@@ -350,13 +376,15 @@ export default function CounterBillingPage() {
             </Box>
           </Paper>
 
+          {/* The only scrolling region on the dish side. */}
           <Box
             sx={{
               flex: 1, minHeight: 0,
-              overflowY: { xs: 'visible', md: 'auto' },
-              pr: { md: 0.5 },
-              // Clearance for the phone's total bar and the admin bottom nav.
-              pb: { xs: '150px', md: 0 },
+              overflowY: 'auto',
+              overscrollBehavior: 'contain',
+              WebkitOverflowScrolling: 'touch',
+              pr: 0.5,
+              pb: 0.5,
             }}
           >
             {menuLoading ? (
@@ -371,10 +399,12 @@ export default function CounterBillingPage() {
               <Box
                 sx={{
                   display: 'grid',
+                  // Tile width is what decides how fast a dish can be hit.
+                  // Phones get two columns so the target stays thumb-sized;
+                  // everything above fills the row with ~150-170px tiles.
                   gridTemplateColumns: {
                     xs: 'repeat(2, minmax(0, 1fr))',
-                    sm: 'repeat(3, minmax(0, 1fr))',
-                    md: 'repeat(auto-fill, minmax(150px, 1fr))',
+                    sm: 'repeat(auto-fill, minmax(150px, 1fr))',
                     lg: 'repeat(auto-fill, minmax(165px, 1fr))',
                   },
                   gap: 1.25,
@@ -388,19 +418,49 @@ export default function CounterBillingPage() {
                     inBill={cart.quantityByMenuItem[item.id] || 0}
                     dense={isPhone}
                     onAdd={handleAdd}
+                    onDecrement={handleDecrement}
                   />
                 ))}
               </Box>
             )}
           </Box>
+
+          {/* ── Phone: running total, opens the bill sheet ──────────────
+              A flex child, not a fixed bar: it sits directly above the
+              bottom nav by construction on every phone, notch or not. */}
+          {isPhone && (
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={() => setSheetOpen(true)}
+              startIcon={<ReceiptLong />}
+              sx={{
+                flexShrink: 0,
+                minHeight: 54, borderRadius: '14px', textTransform: 'none',
+                fontSize: 15, fontWeight: 900,
+                display: 'flex', justifyContent: 'space-between', px: 2.25,
+                background: cart.totalUnits > 0
+                  ? `linear-gradient(135deg, ${adminColors.brand}, ${adminColors.accent})`
+                  : `linear-gradient(135deg, #57534E, #44403C)`,
+                boxShadow: '0 8px 22px rgba(0,0,0,0.22)',
+              }}
+            >
+              <Box component="span" sx={{ flex: 1, textAlign: 'left', ml: 1 }}>
+                {cart.totalUnits > 0
+                  ? `View bill · ${cart.totalUnits} item${cart.totalUnits === 1 ? '' : 's'}`
+                  : 'Bill empty'}
+              </Box>
+              <Box component="span">{rupees(totals.grandTotal)}</Box>
+            </Button>
+          )}
         </Box>
 
-        {/* ── Bill pane: tablet and desktop ─────────────────────────────── */}
+        {/* ── Bill pane: tablet and laptop ──────────────────────────────── */}
         {!isPhone && (
           <Paper
             elevation={0}
             sx={{
-              width: isDesktop ? 396 : 340,
+              width: isDesktop ? 396 : 320,
               flexShrink: 0,
               height: '100%',
               borderRadius: '16px',
@@ -414,60 +474,28 @@ export default function CounterBillingPage() {
         )}
       </Box>
 
-      {/* ── Bill: phone ─────────────────────────────────────────────────── */}
+      {/* ── Bill sheet: phone ───────────────────────────────────────────── */}
       {isPhone && (
-        <>
-          <Box
-            sx={{
-              position: 'fixed', left: 12, right: 12,
-              bottom: 'calc(72px + env(safe-area-inset-bottom, 0px))',
-              zIndex: 1240,
-            }}
-          >
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={() => setSheetOpen(true)}
-              startIcon={<ReceiptLong />}
-              sx={{
-                minHeight: 52, borderRadius: '14px', textTransform: 'none',
-                fontSize: 15, fontWeight: 900,
-                display: 'flex', justifyContent: 'space-between', px: 2.25,
-                background: cart.totalUnits > 0
-                  ? `linear-gradient(135deg, ${adminColors.brand}, ${adminColors.accent})`
-                  : `linear-gradient(135deg, #57534E, #44403C)`,
-                boxShadow: '0 10px 26px rgba(0,0,0,0.28)',
-              }}
-            >
-              <Box component="span" sx={{ flex: 1, textAlign: 'left', ml: 1 }}>
-                {cart.totalUnits > 0 ? `View bill · ${cart.totalUnits} item${cart.totalUnits === 1 ? '' : 's'}` : 'Bill empty'}
-              </Box>
-              <Box component="span">{rupees(totals.grandTotal)}</Box>
-            </Button>
-          </Box>
-
-          <Drawer
-            anchor="bottom"
-            open={sheetOpen}
-            onClose={() => setSheetOpen(false)}
-            // dvh, not vh: mobile browsers measure vh against the viewport
-            // *without* the address bar, which pushes a tall sheet's footer —
-            // and the pay button with it — below the visible area.
-            slotProps={{
-              paper: {
-                sx: {
-                  height: '88vh',
-                  maxHeight: '88dvh',
-                  borderTopLeftRadius: 20,
-                  borderTopRightRadius: 20,
-                  overflow: 'hidden',
-                },
+        <Drawer
+          anchor="bottom"
+          open={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          slotProps={{
+            paper: {
+              sx: {
+                // dvh for the same reason as --admin-content-h: vh would put
+                // the sheet's footer, and the pay button in it, under the
+                // browser's address bar.
+                height: '92dvh',
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                overflow: 'hidden',
               },
-            }}
-          >
-            {billPanel(() => setSheetOpen(false))}
-          </Drawer>
-        </>
+            },
+          }}
+        >
+          {billPanel(() => setSheetOpen(false))}
+        </Drawer>
       )}
 
       <OrderPlacedDialog
