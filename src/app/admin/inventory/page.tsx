@@ -434,13 +434,37 @@ export default function InventoryPage() {
             </Grid>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField fullWidth label="Initial Quantity *" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+                <TextField
+                  fullWidth label="Initial Quantity *" type="number"
+                  value={form.quantity}
+                  onChange={(e) => {
+                    const val = Math.max(0, Number(e.target.value) || 0);
+                    setForm({ ...form, quantity: String(val) });
+                  }}
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField fullWidth label="Min Safety Threshold *" type="number" value={form.minQuantity} onChange={(e) => setForm({ ...form, minQuantity: e.target.value })} />
+                <TextField
+                  fullWidth label="Min Safety Threshold *" type="number"
+                  value={form.minQuantity}
+                  onChange={(e) => {
+                    const val = Math.max(0, Number(e.target.value) || 0);
+                    setForm({ ...form, minQuantity: String(val) });
+                  }}
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField fullWidth label="Unit Cost (₹) *" type="number" value={form.costPerUnit} onChange={(e) => setForm({ ...form, costPerUnit: e.target.value })} />
+                <TextField
+                  fullWidth label="Unit Cost (₹) *" type="number"
+                  value={form.costPerUnit}
+                  onChange={(e) => {
+                    const val = Math.max(0, Number(e.target.value) || 0);
+                    setForm({ ...form, costPerUnit: String(val) });
+                  }}
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
               </Grid>
             </Grid>
           </Box>
@@ -488,13 +512,37 @@ export default function InventoryPage() {
             </Grid>
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField fullWidth label="Quantity *" type="number" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+                <TextField
+                  fullWidth label="Quantity *" type="number"
+                  value={form.quantity}
+                  onChange={(e) => {
+                    const val = Math.max(0, Number(e.target.value) || 0);
+                    setForm({ ...form, quantity: String(val) });
+                  }}
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField fullWidth label="Min Safety Threshold *" type="number" value={form.minQuantity} onChange={(e) => setForm({ ...form, minQuantity: e.target.value })} />
+                <TextField
+                  fullWidth label="Min Safety Threshold *" type="number"
+                  value={form.minQuantity}
+                  onChange={(e) => {
+                    const val = Math.max(0, Number(e.target.value) || 0);
+                    setForm({ ...form, minQuantity: String(val) });
+                  }}
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
               </Grid>
               <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField fullWidth label="Unit Cost (₹) *" type="number" value={form.costPerUnit} onChange={(e) => setForm({ ...form, costPerUnit: e.target.value })} />
+                <TextField
+                  fullWidth label="Unit Cost (₹) *" type="number"
+                  value={form.costPerUnit}
+                  onChange={(e) => {
+                    const val = Math.max(0, Number(e.target.value) || 0);
+                    setForm({ ...form, costPerUnit: String(val) });
+                  }}
+                  slotProps={{ htmlInput: { min: 0 } }}
+                />
               </Grid>
             </Grid>
           </Box>

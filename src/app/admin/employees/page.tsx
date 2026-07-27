@@ -176,7 +176,8 @@ function EmployeeDialog({
           <Grid size={{ xs: 12, sm: 5 }}>
             <TextField
               fullWidth size="small" label="Phone" value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+              slotProps={{ htmlInput: { maxLength: 10 } }}
             />
           </Grid>
 
@@ -237,7 +238,11 @@ function EmployeeDialog({
           <Grid size={{ xs: 6 }}>
             <TextField
               fullWidth size="small" label="Salary (₹/month)" type="number" value={form.salary}
-              onChange={(e) => setForm({ ...form, salary: e.target.value })}
+              onChange={(e) => {
+                const val = Math.max(0, Number(e.target.value) || 0);
+                setForm({ ...form, salary: String(val) });
+              }}
+              slotProps={{ htmlInput: { min: 0 } }}
             />
           </Grid>
         </Grid>

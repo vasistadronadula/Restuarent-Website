@@ -201,18 +201,30 @@ export default function CouponsPage() {
             />
             <TextField
               label="Discount (%)" type="number" value={form.discount}
-              onChange={(e) => setForm({ ...form, discount: Number(e.target.value) })}
+              onChange={(e) => {
+                const val = Math.max(0, Math.min(100, Number(e.target.value) || 0));
+                setForm({ ...form, discount: val });
+              }}
               fullWidth
+              slotProps={{ htmlInput: { min: 0, max: 100 } }}
             />
             <TextField
               label="Max Discount (₹)" type="number" value={form.maxDiscount}
-              onChange={(e) => setForm({ ...form, maxDiscount: Number(e.target.value) })}
+              onChange={(e) => {
+                const val = Math.max(0, Number(e.target.value) || 0);
+                setForm({ ...form, maxDiscount: val });
+              }}
               fullWidth
+              slotProps={{ htmlInput: { min: 0 } }}
             />
             <TextField
               label="Minimum Order (₹)" type="number" value={form.minOrder}
-              onChange={(e) => setForm({ ...form, minOrder: Number(e.target.value) })}
+              onChange={(e) => {
+                const val = Math.max(0, Number(e.target.value) || 0);
+                setForm({ ...form, minOrder: val });
+              }}
               fullWidth
+              slotProps={{ htmlInput: { min: 0 } }}
             />
             <TextField
               label="Description" value={form.description}

@@ -476,7 +476,8 @@ export default function CheckoutPage() {
                   <Grid size={{ xs: 12 }}>
                     <TextField
                       fullWidth label="Mobile Number *"
-                      value={effectivePhone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                      value={effectivePhone}
+                      onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                       error={!!errors.phone} helperText={errors.phone}
                       placeholder="10-digit mobile number"
                       slotProps={{
@@ -488,6 +489,7 @@ export default function CheckoutPage() {
                             </InputAdornment>
                           ),
                         },
+                        htmlInput: { maxLength: 10 },
                       }}
                     />
                   </Grid>

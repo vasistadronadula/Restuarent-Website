@@ -201,8 +201,10 @@ export default function BillPanel({
             />
             <TextField
               size="small" label="Phone" inputMode="tel"
-              value={customerPhone} onChange={(e) => onCustomerPhone(e.target.value)}
+              value={customerPhone}
+              onChange={(e) => onCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
               sx={{ flex: '1 1 120px', minWidth: 0, ...lightInputSx }}
+              slotProps={{ htmlInput: { maxLength: 10 } }}
             />
           </Box>
         </Box>

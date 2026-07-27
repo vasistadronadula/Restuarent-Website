@@ -504,13 +504,15 @@ export default function MenuManagementPage() {
                     label="Single (S) Price (₹)"
                     type="number"
                     value={editItem.portionPrices?.single || ''}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const val = Math.max(0, Number(e.target.value) || 0);
                       setEditItem({
                         ...editItem,
-                        portionPrices: { ...editItem.portionPrices, single: Number(e.target.value) },
-                      })
-                    }
+                        portionPrices: { ...editItem.portionPrices, single: val },
+                      });
+                    }}
                     disabled={saving}
+                    slotProps={{ htmlInput: { min: 0 } }}
                   />
                 </Grid>
                 <Grid size={{ xs: 6, sm: 4 }}>
@@ -520,7 +522,7 @@ export default function MenuManagementPage() {
                     type="number"
                     value={editItem.portionPrices?.full || editItem.price || ''}
                     onChange={(e) => {
-                      const val = Number(e.target.value);
+                      const val = Math.max(0, Number(e.target.value) || 0);
                       setEditItem({
                         ...editItem,
                         price: val,
@@ -528,6 +530,7 @@ export default function MenuManagementPage() {
                       });
                     }}
                     disabled={saving}
+                    slotProps={{ htmlInput: { min: 0 } }}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, sm: 4 }}>
@@ -536,13 +539,15 @@ export default function MenuManagementPage() {
                     label="Large (L) Price (₹)"
                     type="number"
                     value={editItem.portionPrices?.large || ''}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const val = Math.max(0, Number(e.target.value) || 0);
                       setEditItem({
                         ...editItem,
-                        portionPrices: { ...editItem.portionPrices, large: Number(e.target.value) },
-                      })
-                    }
+                        portionPrices: { ...editItem.portionPrices, large: val },
+                      });
+                    }}
                     disabled={saving}
+                    slotProps={{ htmlInput: { min: 0 } }}
                   />
                 </Grid>
               </Grid>
@@ -572,8 +577,12 @@ export default function MenuManagementPage() {
                 label="Prep Time (min)"
                 type="number"
                 value={editItem.prepTime || 20}
-                onChange={(e) => setEditItem({ ...editItem, prepTime: Number(e.target.value) })}
+                onChange={(e) => {
+                  const val = Math.max(1, Number(e.target.value) || 15);
+                  setEditItem({ ...editItem, prepTime: val });
+                }}
                 disabled={saving}
+                slotProps={{ htmlInput: { min: 1 } }}
               />
             </Grid>
 
