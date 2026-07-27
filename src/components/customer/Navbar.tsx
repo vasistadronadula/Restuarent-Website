@@ -16,7 +16,7 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { selectTotalItems, openCart } from '@/store/cartSlice';
 import { selectUser, selectUserRole, openAuthModal } from '@/store/authSlice';
 import { useAuth } from '@/context/AuthContext';
-import { ROLE_LABELS, getRoleHome } from '@/lib/roleAccess';
+import { ROLE_LABELS, ROLE_ICONS, getRoleHome, isStaffRole, getRoleDashboardLabel } from '@/lib/roleAccess';
 import CartDrawer from './CartDrawer';
 import PalaPittaLogo from './PalaPittaLogo';
 
@@ -41,6 +41,7 @@ export default function Navbar() {
   const user = useAppSelector(selectUser);
   const userRole = useAppSelector(selectUserRole);
   const { signOutUser } = useAuth();
+  const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || (user?.email ? user.email.split('@')[0] : '');
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
@@ -103,8 +104,8 @@ export default function Navbar() {
 
           {/* Desktop Nav Links */}
           <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.3, alignItems: 'center' }}>
-            {user && (
-              <Link href="/admin" style={{ textDecoration: 'none' }}>
+            {user && isStaffRole(userRole) && (
+              <Link href={getRoleHome(userRole)} style={{ textDecoration: 'none' }}>
                 <Button
                   size="small"
                   startIcon={<Dashboard fontSize="small" />}
@@ -116,7 +117,7 @@ export default function Navbar() {
                     transition: 'all 0.2s',
                   }}
                 >
-                  Admin Dashboard
+                  {getRoleDashboardLabel(userRole, userName)}
                 </Button>
               </Link>
             )}
@@ -172,13 +173,16 @@ export default function Navbar() {
                   anchorEl={anchorEl}
                   open={Boolean(anchorEl)}
                   onClose={handleMenuClose}
-                  slotProps={{ paper: { sx: { mt: 1, borderRadius: '14px', minWidth: 190, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', p: 0.5 } } }}
+                  slotProps={{ paper: { sx: { mt: 1, borderRadius: '14px', minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', p: 0.5 } } }}
                 >
                   <Box sx={{ px: 1.8, py: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: '13px' }}>
-                      {user.user_metadata?.full_name || (userRole ? ROLE_LABELS[userRole] : 'Customer')}
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: '13.5px' }}>
+                      {userName || 'User'}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-all', fontSize: '11px' }}>
+                    <Typography variant="caption" sx={{ display: 'block', color: '#C62828', fontWeight: 700, fontSize: '11px', mb: 0.2 }}>
+                      {userRole ? `${ROLE_ICONS[userRole] || ''} ${ROLE_LABELS[userRole]}` : 'Customer'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-all', fontSize: '10.5px' }}>
                       {user.email}
                     </Typography>
                   </Box>
@@ -188,10 +192,10 @@ export default function Navbar() {
                       <Receipt fontSize="small" sx={{ mr: 1.2, color: '#C62828' }} /> My Orders History
                     </MenuItem>
                   </Link>
-                  {userRole && userRole !== 'customer' && (
+                  {isStaffRole(userRole) && (
                     <Link href={getRoleHome(userRole)} style={{ textDecoration: 'none', color: 'inherit' }} onClick={handleMenuClose}>
-                      <MenuItem sx={{ borderRadius: '8px', my: 0.5, color: '#FF9800', fontWeight: 700, fontSize: '13px' }}>
-                        <Dashboard fontSize="small" sx={{ mr: 1.2 }} /> {userRole === 'admin' || userRole === 'manager' ? 'Admin Dashboard' : 'Staff Workspace'}
+                      <MenuItem sx={{ borderRadius: '8px', my: 0.5, color: '#C62828', fontWeight: 800, fontSize: '13px' }}>
+                        <Dashboard fontSize="small" sx={{ mr: 1.2 }} /> {getRoleDashboardLabel(userRole, userName)}
                       </MenuItem>
                     </Link>
                   )}
@@ -251,12 +255,12 @@ export default function Navbar() {
           </Box>
           <Divider sx={{ mb: 2 }} />
           <List disablePadding>
-            {user && (
+            {user && isStaffRole(userRole) && (
               <ListItem disablePadding>
-                <Link href="/admin" style={{ textDecoration: 'none', width: '100%' }} onClick={() => setMobileOpen(false)}>
+                <Link href={getRoleHome(userRole)} style={{ textDecoration: 'none', width: '100%' }} onClick={() => setMobileOpen(false)}>
                   <ListItemButton sx={{ borderRadius: '12px', mb: 0.5, bgcolor: 'rgba(198,40,40,0.12)', color: '#C62828', border: '1px solid rgba(198,40,40,0.2)' }}>
                     <Box sx={{ mr: 1.5, color: '#C62828' }}><Dashboard fontSize="small" /></Box>
-                    <ListItemText primary="Admin Dashboard" slotProps={{ primary: { sx: { fontWeight: 800, fontSize: '14px' } } }} />
+                    <ListItemText primary={getRoleDashboardLabel(userRole, userName)} slotProps={{ primary: { sx: { fontWeight: 800, fontSize: '14px' } } }} />
                   </ListItemButton>
                 </Link>
               </ListItem>

@@ -158,3 +158,16 @@ export function getRoleHome(role: UserRole | null | undefined): string {
 export function isStaffRole(role: UserRole | null | undefined): boolean {
   return !!role && role !== 'customer';
 }
+
+export function getRoleDashboardLabel(role: UserRole | null | undefined, userName?: string): string {
+  if (!role || role === 'customer') return 'My Orders';
+  const namePart = userName?.trim().split(' ')[0];
+  const labelBase = role === 'admin' ? 'Admin Dashboard'
+    : role === 'manager' ? 'Manager Console'
+    : role === 'cashier' ? 'Cashier POS'
+    : role === 'chef' ? 'Kitchen KDS'
+    : role === 'waiter' ? 'Server Console'
+    : 'Staff Dashboard';
+  
+  return namePart ? `${labelBase} · ${namePart}` : labelBase;
+}
