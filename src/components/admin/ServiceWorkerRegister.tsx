@@ -42,7 +42,8 @@ export default function ServiceWorkerRegister() {
             .map((reg) => reg.unregister())
         );
 
-        await navigator.serviceWorker.register('/sw.js', { scope: '/admin' });
+        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/admin' });
+        await reg.update();
         if (cancelled || !user || !receivesNotifications(userRole)) return;
         await syncExistingSubscription(user.id);
       } catch (err) {
