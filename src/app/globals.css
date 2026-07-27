@@ -1,17 +1,12 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: light;
 }
 
 html {
   height: 100%;
+  color-scheme: light;
 }
 
 html,
@@ -26,7 +21,7 @@ body {
   flex-direction: column;
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -170,17 +165,10 @@ select:-webkit-autofill:focus {
   border-bottom: 7px solid #C62828;
 }
 
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
-}
-
 /* ============================================================ */
-/* Admin Dark Theme — MUI Override                              */
+/* Light-mode Select overrides (admin)                          */
 /* ============================================================ */
 
-/* Override white background for admin dark UI Select components */
 .status-select-wrap .MuiInputBase-root,
 .status-select-wrap .MuiSelect-root,
 .admin-dark-select .MuiInputBase-root {
@@ -191,50 +179,69 @@ select:-webkit-autofill:focus {
 .status-select-wrap .MuiSelect-select,
 .admin-dark-select .MuiSelect-select {
   color: inherit !important;
-  color-scheme: dark !important;
+  color-scheme: light !important;
   background-color: transparent !important;
 }
 
 /* ============================================================ */
-/* Thermal Receipt POS Print Styling                            */
+/* 80mm thermal bill printing                                   */
+/*                                                              */
+/* Every bill — counter receipt, auto-print, and the customer's  */
+/* own copy — prints through #ppr-print-root, a plain block that */
+/* PrintBillPortal mounts directly on <body>.                   */
+/*                                                              */
+/* Two rules matter and both were wrong before:                 */
+/*  · `size: 80mm auto` — a roll has no page length. Pinning it  */
+/*    to 297mm made the browser lay the bill out on an A4-tall   */
+/*    sheet, so "Save as PDF" produced an A4-shaped page with a  */
+/*    receipt stranded at the top.                               */
+/*  · no height cap, no overflow:hidden, no page-break:avoid —   */
+/*    those three together silently cut off any bill longer than */
+/*    one page instead of letting it continue onto more paper.   */
 /* ============================================================ */
 @media print {
   @page {
-    size: 80mm 297mm;
+    size: 80mm auto;
     margin: 0;
   }
+
   html, body {
     width: 80mm !important;
+    min-width: 80mm !important;
     max-width: 80mm !important;
-    height: 297mm !important;
-    max-height: 297mm !important;
+    height: auto !important;
+    max-height: none !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
-  body * {
-    visibility: hidden !important;
+
+  /* Hide the app, keep the bill. Everything the app renders at body level
+     — MUI dialogs and toasts, the Next.js dev overlay — is a sibling of
+     the print root, so one rule covers all of it. */
+  body > *:not(#ppr-print-root) {
+    display: none !important;
   }
-  #invoice-thermal-receipt,
-  #invoice-thermal-receipt * {
-    visibility: visible !important;
-  }
-  #invoice-thermal-receipt {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
+
+  #ppr-print-root {
+    display: block !important;
+    position: static !important;
     width: 80mm !important;
-    max-width: 80mm !important;
     margin: 0 !important;
-    padding: 4mm 2mm 15mm 2mm !important;
-    box-shadow: none !important;
-    border: none !important;
+    padding: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
-    page-break-inside: avoid !important;
-    page-break-after: avoid !important;
-    page-break-before: avoid !important;
+  }
+
+  /* Keep a dish's name, quantity and amount on the same sheet, but let the
+     bill itself flow onto as much paper as it needs. */
+  .thermal-bill {
+    break-inside: auto;
+  }
+  .thermal-bill > div {
+    break-inside: avoid;
   }
 }
-

@@ -10,7 +10,7 @@
 
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { selectActiveRole, setActiveRole, showNotification, selectAdminNotification } from '@/store/adminSlice';
+import { selectActiveRole, setActiveRole, showNotification, clearNotification, selectAdminNotification } from '@/store/adminSlice';
 import {
   useGetOrdersQuery, useGetReservationsQuery, useGetMenuItemsQuery,
   useGetInventoryQuery, useGetEmployeesQuery,
@@ -31,16 +31,20 @@ interface AdminContextType {
   inventory: InventoryItem[];
   addOrderLocallyAndDB: (newOrder: Order) => Promise<void>;
   addReservationLocallyAndDB: (newRes: Reservation) => Promise<void>;
-  updateOrderStatus: (id: string, status: Order['status']) => Promise<void>;
-  updateReservationStatus: (id: string, status: Reservation['status']) => Promise<void>;
-  addMenuItem: (item: MenuItem) => void;
-  updateMenuItem: (item: MenuItem) => void;
-  deleteMenuItem: (id: string) => void;
-  toggleMenuItemAvailability: (id: string) => void;
-  addInventoryItem: (item: InventoryItem) => void;
-  updateInventoryItem: (item: InventoryItem) => void;
-  deleteInventoryItem: (id: string) => void;
-  adjustInventoryQuantity: (id: string, delta: number) => void;
+  // Resolve to false instead of rejecting — they're bound directly to click
+  // handlers, so a rejection would surface as an unhandled promise.
+  updateOrderStatus: (id: string, status: Order['status']) => Promise<boolean>;
+  updateReservationStatus: (id: string, status: Reservation['status']) => Promise<boolean>;
+  // Each rejects with the server's own message when the write fails, so the
+  // caller can await it and report the real outcome instead of assuming one.
+  addMenuItem: (item: MenuItem) => Promise<void>;
+  updateMenuItem: (item: MenuItem) => Promise<void>;
+  deleteMenuItem: (id: string) => Promise<void>;
+  toggleMenuItemAvailability: (id: string) => Promise<void>;
+  addInventoryItem: (item: InventoryItem) => Promise<void>;
+  updateInventoryItem: (item: InventoryItem) => Promise<void>;
+  deleteInventoryItem: (id: string) => Promise<void>;
+  adjustInventoryQuantity: (id: string, delta: number) => Promise<void>;
   activeRole: 'admin' | 'manager' | 'cashier';
   setActiveRole: (role: 'admin' | 'manager' | 'cashier') => void;
   notification: { message: string; type: 'success' | 'error' | 'info' } | null;
@@ -108,7 +112,9 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const notifyDispatch = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     dispatch(showNotification({ message, type }));
-    setTimeout(() => {}, 3500); // notification auto-clears via RTK
+    setTimeout(() => {
+      dispatch(clearNotification());
+    }, 2500);
   };
 
   // ─── Adapter methods ──────────────────────────────────────────────────────
@@ -135,68 +141,89 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     notifyDispatch(`📅 Reservation ${newRes.id} confirmed!`, 'success');
   };
 
-  const updateOrderStatus = async (id: string, status: Order['status']) => {
+  // These two report their own outcome (they're wired to bare onClick
+  // handlers all over the admin, so they must never reject) and also return
+  // whether the write landed, for callers that chain further work off it.
+  const updateOrderStatus = async (id: string, status: Order['status']): Promise<boolean> => {
     const result = await updateOrderStatusMutation({ id, status });
     if ('error' in result && result.error) {
       notifyDispatch(`❌ Failed to update order ${id}`, 'error');
-      return;
+      return false;
     }
     notifyDispatch(`Order ${id} updated to ${status}`);
+    return true;
   };
 
-  const updateReservationStatus = async (id: string, status: Reservation['status']) => {
+  const updateReservationStatus = async (id: string, status: Reservation['status']): Promise<boolean> => {
     const result = await updateReservationStatusMutation({ id, status });
     if ('error' in result && result.error) {
       notifyDispatch(`❌ Failed to update reservation ${id}`, 'error');
-      return;
+      return false;
     }
     notifyDispatch(`Reservation ${id} set to ${status}`);
+    return true;
   };
 
-  const addMenuItem = (item: MenuItem) => {
-    addMenuItemMutation(item);
-    notifyDispatch('Menu item added successfully!');
+  // ── CRUD adapters ─────────────────────────────────────────────────────────
+  // Every one of these awaits the write and throws the server's own message
+  // on failure. The page that triggered the action owns the messaging — that
+  // way a failed save can't be announced as a success, which is exactly what
+  // the fire-and-forget versions below used to do: they dispatched "Added
+  // to inventory!" in the same tick the request left the browser, so an RLS
+  // rejection or a dropped connection still read as a win.
+  const runWrite = async (
+    result: { error?: unknown },
+    fallbackMessage: string
+  ): Promise<void> => {
+    if ('error' in result && result.error) {
+      throw new Error((result.error as { error?: string })?.error || fallbackMessage);
+    }
   };
 
-  const updateMenuItem = (item: MenuItem) => {
-    updateMenuItemMutation(item);
-    notifyDispatch('Menu item updated!');
-  };
+  const addMenuItem = async (item: MenuItem) =>
+    runWrite(await addMenuItemMutation(item), 'Failed to add menu item');
 
-  const deleteMenuItem = (id: string) => {
-    deleteMenuItemMutation(id);
-    notifyDispatch('Menu item deleted.', 'info');
-  };
+  const updateMenuItem = async (item: MenuItem) =>
+    runWrite(await updateMenuItemMutation(item), 'Failed to update menu item');
 
-  const toggleMenuItemAvailability = (id: string) => {
+  const deleteMenuItem = async (id: string) =>
+    runWrite(await deleteMenuItemMutation(id), 'Failed to delete menu item');
+
+  const toggleMenuItemAvailability = async (id: string) => {
     const target = menuItems.find((m) => m.id === id);
     if (!target) return;
-    updateMenuItemMutation({ ...target, isAvailable: !target.isAvailable });
+    await runWrite(
+      await updateMenuItemMutation({ ...target, isAvailable: !target.isAvailable }),
+      'Failed to update availability'
+    );
   };
 
-  const addInventoryItem = (item: InventoryItem) => {
-    addInventoryItemMutation(item);
-    notifyDispatch(`📦 Added ${item.name} to inventory!`, 'success');
-  };
+  const addInventoryItem = async (item: InventoryItem) =>
+    runWrite(await addInventoryItemMutation(item), `Failed to add ${item.name}`);
 
-  const updateInventoryItem = (item: InventoryItem) => {
-    updateInventoryItemMutation(item);
-    notifyDispatch(`📦 Updated ${item.name}!`, 'success');
-  };
+  const updateInventoryItem = async (item: InventoryItem) =>
+    runWrite(await updateInventoryItemMutation(item), `Failed to update ${item.name}`);
 
-  const deleteInventoryItem = (id: string) => {
+  const deleteInventoryItem = async (id: string) => {
     const item = inventory.find((i) => i.id === id);
-    deleteInventoryItemMutation(id);
-    notifyDispatch(`Removed ${item?.name || 'item'} from inventory.`, 'info');
+    await runWrite(await deleteInventoryItemMutation(id), `Failed to remove ${item?.name || 'item'}`);
   };
 
-  const adjustInventoryQuantity = (id: string, delta: number) => {
+  const adjustInventoryQuantity = async (id: string, delta: number) => {
     const target = inventory.find((i) => i.id === id);
     if (!target) return;
     const newQty = Math.max(0, target.quantity + delta);
     const updated = { ...target, quantity: newQty, lastUpdated: new Date().toISOString().split('T')[0] };
-    toast.success(`Updated ${target.name}: ${newQty} ${target.unit}`);
-    updateInventoryItemMutation(updated);
+
+    // The cache patch already moved the number on screen; this only reports
+    // the outcome, and only once it's known. It used to celebrate the new
+    // quantity before the request had even been sent.
+    try {
+      await runWrite(await updateInventoryItemMutation(updated), `Failed to update ${target.name}`);
+      toast.success(`${target.name}: ${newQty} ${target.unit}`, { id: `stock-${id}` });
+    } catch (err) {
+      toast.error((err as Error).message, { id: `stock-${id}` });
+    }
   };
 
   const notification = notificationState

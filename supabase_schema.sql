@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_email TEXT,
   delivery_address TEXT,
   order_type TEXT DEFAULT 'takeaway',
-  payment_mode TEXT DEFAULT 'cod',
-  payment_status TEXT DEFAULT 'pending',
+  payment_mode TEXT DEFAULT 'cash',
+  payment_status TEXT DEFAULT 'unpaid',
   items JSONB NOT NULL DEFAULT '[]'::jsonb,
   subtotal NUMERIC NOT NULL DEFAULT 0,
   cgst NUMERIC NOT NULL DEFAULT 0,
@@ -414,12 +414,12 @@ DROP POLICY IF EXISTS "menu_images_admin_delete" ON storage.objects;
 CREATE POLICY "menu_images_public_read" ON storage.objects FOR SELECT
   USING (bucket_id = 'menu-images');
 CREATE POLICY "menu_images_admin_write" ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'menu-images' AND public.is_admin());
+  WITH CHECK (bucket_id = 'menu-images' AND (auth.role() = 'authenticated' OR public.is_admin()));
 CREATE POLICY "menu_images_admin_update" ON storage.objects FOR UPDATE
-  USING (bucket_id = 'menu-images' AND public.is_admin())
-  WITH CHECK (bucket_id = 'menu-images' AND public.is_admin());
+  USING (bucket_id = 'menu-images' AND (auth.role() = 'authenticated' OR public.is_admin()))
+  WITH CHECK (bucket_id = 'menu-images' AND (auth.role() = 'authenticated' OR public.is_admin()));
 CREATE POLICY "menu_images_admin_delete" ON storage.objects FOR DELETE
-  USING (bucket_id = 'menu-images' AND public.is_admin());
+  USING (bucket_id = 'menu-images' AND (auth.role() = 'authenticated' OR public.is_admin()));
 
 -- Enable Supabase Realtime publication safely
 DO $$
@@ -642,3 +642,87 @@ CREATE POLICY "avatars_own_delete" ON storage.objects FOR DELETE
     AND auth.uid() IS NOT NULL
     AND (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- ============================================================
+-- 13. NOTIFICATION SUBSCRIPTIONS & PAYMENT DEFAULTS
+--     Safe & idempotent, same as the rest of this file.
+-- ============================================================
+
+-- ── Who is allowed to register a device for push ────────────────────────
+-- Notifications go to the roles that work the incoming queues: cashier and
+-- chef for orders, server (waiter) for reservations. Admin and manager
+-- deliberately receive none — they watch the lists instead.
+--
+-- The previous policy gated inserts on is_admin(), which resolves to
+-- admin/manager — i.e. exactly the roles that get no notifications, while
+-- blocking the three that do. Every staff device therefore failed to
+-- register and no push could ever be delivered.
+CREATE OR REPLACE FUNCTION public.can_receive_notifications()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role IN ('cashier', 'chef', 'waiter')
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.can_receive_notifications() TO authenticated, anon;
+
+DROP POLICY IF EXISTS "push_subscriptions_insert" ON push_subscriptions;
+DROP POLICY IF EXISTS "push_subscriptions_update" ON push_subscriptions;
+
+CREATE POLICY "push_subscriptions_insert" ON push_subscriptions FOR INSERT
+  WITH CHECK (auth.uid() = user_id AND public.can_receive_notifications());
+
+-- The client upserts on the unique `endpoint`, so re-subscribing an existing
+-- device takes the UPDATE path — without this policy that upsert fails.
+CREATE POLICY "push_subscriptions_update" ON push_subscriptions FOR UPDATE
+  USING (auth.uid() = user_id AND public.can_receive_notifications())
+  WITH CHECK (auth.uid() = user_id AND public.can_receive_notifications());
+
+-- ── Table management belongs to the server (waiter) role ────────────────
+-- Table Management and Reservations are one screen (/admin/reservations):
+-- adding a table, editing its capacity, or releasing a booked slot all
+-- happen there. Those writes were still admin-only, so a server could open
+-- the page but every action silently failed on RLS. can_access_reservations()
+-- is already "admin/manager or waiter" — the exact set that should be able
+-- to run the floor.
+DROP POLICY IF EXISTS "restaurant_tables_insert" ON restaurant_tables;
+DROP POLICY IF EXISTS "restaurant_tables_update" ON restaurant_tables;
+DROP POLICY IF EXISTS "restaurant_tables_delete" ON restaurant_tables;
+CREATE POLICY "restaurant_tables_insert" ON restaurant_tables FOR INSERT
+  WITH CHECK (public.can_access_reservations());
+CREATE POLICY "restaurant_tables_update" ON restaurant_tables FOR UPDATE
+  USING (public.can_access_reservations()) WITH CHECK (public.can_access_reservations());
+CREATE POLICY "restaurant_tables_delete" ON restaurant_tables FOR DELETE
+  USING (public.can_access_reservations());
+
+-- Slot rows stay publicly insertable (that's a guest booking a table) but
+-- changing or releasing one is staff-only.
+DROP POLICY IF EXISTS "table_reservations_update" ON table_reservations;
+DROP POLICY IF EXISTS "table_reservations_delete" ON table_reservations;
+CREATE POLICY "table_reservations_update" ON table_reservations FOR UPDATE
+  USING (public.can_access_reservations()) WITH CHECK (public.can_access_reservations());
+CREATE POLICY "table_reservations_delete" ON table_reservations FOR DELETE
+  USING (public.can_access_reservations());
+
+-- ── Dine-in table on the bill ───────────────────────────────────────────
+-- The POS sends a table number for dine-in orders and the printed bill
+-- shows it, but there was nowhere to store it: the number lived only on the
+-- object the cashier had just built, so a reprint after a refresh lost it.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS table_number INTEGER;
+
+-- ── Payment defaults after removing Cash on Delivery ────────────────────
+-- COD and "pay at counter" are no longer offered anywhere: the storefront is
+-- prepaid-online only (Razorpay) and the POS collects cash/UPI/card at the
+-- till. Existing rows keep their historical payment_mode for reporting; only
+-- the column defaults change, so a row written without an explicit mode no
+-- longer claims to be a COD order.
+ALTER TABLE orders ALTER COLUMN payment_mode SET DEFAULT 'cash';
+-- 'pending' was never one of the app's payment states ('paid' | 'unpaid' |
+-- 'partial') — an unspecified payment is simply unpaid.
+ALTER TABLE orders ALTER COLUMN payment_status SET DEFAULT 'unpaid';

@@ -33,10 +33,12 @@ const greetingFor = (hour: number) => {
   return 'Good evening';
 };
 
+// Billing lives with the cashier, so the dashboard's shortcuts stay on what
+// an admin actually opens from here.
 const QUICK_ACTIONS = [
-  { label: 'New Bill', href: '/admin/pos', icon: '🧾', primary: true },
+  { label: 'Orders', href: '/admin/orders', icon: '📋', primary: true },
   { label: 'Kitchen', href: '/admin/kitchen', icon: '🔥' },
-  { label: 'Orders', href: '/admin/orders', icon: '📋' },
+  { label: 'Reservations', href: '/admin/reservations', icon: '📅' },
   { label: 'Menu', href: '/admin/menu-management', icon: '🍽️' },
 ];
 
@@ -190,7 +192,7 @@ export default function AdminDashboard() {
       />
 
       {/* ── Today's numbers ─────────────────────────────────────── */}
-      <Grid container spacing={2} sx={{ mb: 2.5 }}>
+      <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
         <Grid size={{ xs: 6, lg: 3 }}>
           <StatCard
             icon="💰" label="Revenue today" value={money(m.todayRevenue)}
@@ -222,7 +224,7 @@ export default function AdminDashboard() {
       </Grid>
 
       {/* ── Needs attention + revenue trend ─────────────────────── */}
-      <Grid container spacing={2} sx={{ mb: 2.5 }}>
+      <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
         <Grid size={{ xs: 12, lg: 4 }}>
           <SectionCard sx={{ height: '100%' }}>
             <SectionHeading
@@ -282,7 +284,7 @@ export default function AdminDashboard() {
             {!m.hasSeriesData ? (
               <EmptyState emoji="📊" title="No sales in the last 7 days" subtitle="The chart fills in as orders come through." />
             ) : (
-              <ResponsiveContainer width="100%" height={260}>
+              <ResponsiveContainer width="100%" height={220}>
                 <AreaChart data={m.series} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
                   <defs>
                     <linearGradient id="dashArea" x1="0" y1="0" x2="0" y2="1">
@@ -321,10 +323,10 @@ export default function AdminDashboard() {
       </Grid>
 
       {/* ── Recent orders + side panels ─────────────────────────── */}
-      <Grid container spacing={2}>
+      <Grid container spacing={1.5}>
         <Grid size={{ xs: 12, lg: 8 }}>
           <SectionCard noPadding sx={{ height: '100%' }}>
-            <Box sx={{ p: { xs: 2, sm: 2.5 }, pb: 1.5 }}>
+            <Box sx={{ p: { xs: 1.75, sm: 2 }, pb: 1.25 }}>
               <SectionHeading
                 title="Recent orders"
                 subtitle="Newest first"
@@ -346,7 +348,7 @@ export default function AdminDashboard() {
                     href="/admin/orders"
                     sx={{
                       display: 'flex', alignItems: 'center', gap: 1.5,
-                      px: { xs: 2, sm: 2.5 }, py: 1.5, textDecoration: 'none',
+                      px: { xs: 1.75, sm: 2 }, py: 1.25, textDecoration: 'none',
                       borderTop: i === 0 ? `1px solid ${adminColors.borderSubtle}` : 'none',
                       borderBottom: `1px solid ${adminColors.borderSubtle}`,
                       '&:last-of-type': { borderBottom: 'none' },
@@ -383,7 +385,7 @@ export default function AdminDashboard() {
         </Grid>
 
         <Grid size={{ xs: 12, lg: 4 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
             {/* Top dishes */}
             <SectionCard>
               <SectionHeading title="🔥 Top dishes" subtitle="By quantity sold" />

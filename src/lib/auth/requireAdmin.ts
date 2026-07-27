@@ -10,9 +10,18 @@ export class RequireAdminError extends Error {
   }
 }
 
+/** The caller's verified identity plus the role that authorized the request. */
+export interface AdminCaller {
+  user: User;
+  role: 'admin' | 'manager';
+}
+
 /**
  * Verifies the request's `Authorization: Bearer <access_token>` belongs to
- * an admin/manager and returns that user. This app uses `@supabase/supabase-js`
+ * an admin/manager and returns that user together with the role that let
+ * them through — callers need the role to apply the narrower limits that
+ * separate a manager from an admin (see canManageStaffRole in
+ * lib/roleAccess.ts). This app uses `@supabase/supabase-js`
  * (localStorage sessions, not cookies), so there's no server-readable session
  * for a route handler to pick up implicitly — the client must forward its
  * access token explicitly, which is validated here via the service-role
@@ -24,7 +33,7 @@ export class RequireAdminError extends Error {
  * to guard (creating logins, calling `admin_upsert_staff`) — never trust a
  * role sent in the request body itself.
  */
-export async function requireAdmin(request: Request): Promise<User> {
+export async function requireAdmin(request: Request): Promise<AdminCaller> {
   const authHeader = request.headers.get('authorization');
   const token = authHeader?.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : null;
   if (!token) throw new RequireAdminError('Missing Authorization header', 401);
@@ -47,5 +56,5 @@ export async function requireAdmin(request: Request): Promise<User> {
     throw new RequireAdminError('Admin privileges required', 403);
   }
 
-  return userData.user;
+  return { user: userData.user, role };
 }

@@ -9,6 +9,10 @@ import { supabase } from '@/lib/supabase';
 import { supabaseApi } from './supabaseApi';
 import { showNotification } from './adminSlice';
 import { playOrderChimeSound } from '@/lib/audio';
+import {
+  receivesOrderNotifications, receivesReservationNotifications,
+} from '@/lib/roleAccess';
+import type { RootState } from './index';
 import toast from 'react-hot-toast';
 
 // Action to trigger realtime setup (dispatched once from providers.tsx)
@@ -24,6 +28,14 @@ export const realtimeMiddleware: Middleware = (store) => (next) => (action: unkn
     channels.forEach((ch) => supabase.removeChannel(ch));
     channels = [];
 
+    // Live alerts follow the same routing as push (see roleAccess.ts): only
+    // the cashier/chef are alerted to orders and only the server to
+    // reservations. Admin and manager watch the lists without being
+    // interrupted, and a customer session is never alerted at all. The cache
+    // invalidation below stays unconditional — keeping data fresh is not a
+    // notification.
+    const currentRole = () => (store.getState() as RootState).auth.userRole;
+
     // ── Orders channel ────────────────────────────────────────────────────
     const ordersChannel = supabase
       .channel('redux_realtime_orders')
@@ -31,7 +43,7 @@ export const realtimeMiddleware: Middleware = (store) => (next) => (action: unkn
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
         (payload) => {
-          if (payload.eventType === 'INSERT') {
+          if (payload.eventType === 'INSERT' && receivesOrderNotifications(currentRole())) {
             playOrderChimeSound();
             toast.success(
               `🔔 NEW ORDER: ${payload.new?.customer_name || 'Customer'} (₹${payload.new?.grand_total || 0})`,
@@ -56,7 +68,7 @@ export const realtimeMiddleware: Middleware = (store) => (next) => (action: unkn
         'postgres_changes',
         { event: '*', schema: 'public', table: 'reservations' },
         (payload) => {
-          if (payload.eventType === 'INSERT') {
+          if (payload.eventType === 'INSERT' && receivesReservationNotifications(currentRole())) {
             playOrderChimeSound();
             toast.success(
               `📅 NEW RESERVATION: ${payload.new?.name || 'Diner'} booked a Table!`,

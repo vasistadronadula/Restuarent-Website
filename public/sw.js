@@ -5,8 +5,21 @@
  * integration required. Scope: admin app shell caching + push notifications.
  */
 
-const CACHE_VERSION = 'ppr-admin-v1';
-const APP_SHELL = ['/admin', '/manifest.json', '/logo.png', '/favicon.ico'];
+// Bumped when the shell list or push handling changes — activating a new
+// version wipes the previous cache.
+const CACHE_VERSION = 'ppr-admin-v2';
+// Each role's app starts on its own page, so all of them are pre-cached:
+// a chef opening Kitchen offline must not land on the dashboard's shell.
+const APP_SHELL = [
+  '/admin',
+  '/admin/orders',
+  '/admin/kitchen',
+  '/admin/pos',
+  '/admin/reservations',
+  '/admin/customers',
+  '/logo.png',
+  '/favicon.ico',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -71,8 +84,13 @@ self.addEventListener('push', (event) => {
       icon: '/logo.png',
       badge: '/logo.png',
       data: { url: payload.url || '/admin' },
-      tag: 'ppr-order',
+      // Distinct tags per stream: a table booking must not silently replace
+      // an unread order alert on the same phone.
+      tag: payload.tag || 'ppr-alert',
       renotify: true,
+      // A phone in an apron pocket in a loud kitchen needs more than a chime.
+      vibrate: [180, 80, 180],
+      requireInteraction: true,
     })
   );
 });

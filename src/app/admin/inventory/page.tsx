@@ -14,6 +14,7 @@ import {
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { InventoryItem } from '@/types';
+import { generateInventoryId } from '@/lib/idGenerator';
 import toast from 'react-hot-toast';
 import { PageHeader, StatCard, adminColors } from '@/components/admin/ui';
 
@@ -33,6 +34,8 @@ export default function InventoryPage() {
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  // Guards every dialog action against a double-tap creating two rows.
+  const [saving, setSaving] = useState(false);
 
   // Form State
   const [form, setForm] = useState({
@@ -86,42 +89,82 @@ export default function InventoryPage() {
     setOpenDeleteDialog(true);
   };
 
-  const handleAddSubmit = () => {
-    if (!form.name.trim()) { toast.error('Item name required'); return; }
-    const newItem: InventoryItem = {
-      id: `INV-${Date.now().toString().slice(-6)}`,
-      name: form.name.trim(),
-      category: form.category,
-      quantity: Number(form.quantity) || 0,
-      unit: form.unit,
-      minQuantity: Number(form.minQuantity) || 5,
-      costPerUnit: Number(form.costPerUnit) || 0,
-      lastUpdated: new Date().toISOString().split('T')[0],
-    };
-    addInventoryItem(newItem);
-    setOpenAddDialog(false);
+  // Shared validation — the quantity fields are free-text, so "abc" used to
+  // silently become 0 and a negative min-quantity was accepted outright.
+  const validateForm = (): string | null => {
+    if (!form.name.trim()) return 'Item name is required';
+    if (form.name.trim().length > 80) return 'Item name is too long';
+    const qty = Number(form.quantity);
+    const min = Number(form.minQuantity);
+    const cost = Number(form.costPerUnit);
+    if (!Number.isFinite(qty) || qty < 0) return 'Enter a valid quantity';
+    if (!Number.isFinite(min) || min < 0) return 'Enter a valid minimum quantity';
+    if (!Number.isFinite(cost) || cost < 0) return 'Enter a valid cost per unit';
+    return null;
   };
 
-  const handleEditSubmit = () => {
-    if (!selectedItem || !form.name.trim()) return;
-    const updated: InventoryItem = {
-      ...selectedItem,
-      name: form.name.trim(),
-      category: form.category,
-      quantity: Number(form.quantity) || 0,
-      unit: form.unit,
-      minQuantity: Number(form.minQuantity) || 5,
-      costPerUnit: Number(form.costPerUnit) || 0,
-      lastUpdated: new Date().toISOString().split('T')[0],
-    };
-    updateInventoryItem(updated);
-    setOpenEditDialog(false);
+  const buildItem = (base?: InventoryItem): InventoryItem => ({
+    ...(base ?? {}),
+    id: base?.id ?? generateInventoryId(),
+    name: form.name.trim(),
+    category: form.category,
+    quantity: Number(form.quantity),
+    unit: form.unit,
+    minQuantity: Number(form.minQuantity),
+    costPerUnit: Number(form.costPerUnit),
+    lastUpdated: new Date().toISOString().split('T')[0],
+  });
+
+  const handleAddSubmit = async () => {
+    const problem = validateForm();
+    if (problem) { toast.error(problem); return; }
+    if (saving) return;
+
+    const newItem = buildItem();
+    setSaving(true);
+    try {
+      await addInventoryItem(newItem);
+      toast.success(`${newItem.name} added to inventory`);
+      setOpenAddDialog(false);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDeleteConfirm = () => {
+  const handleEditSubmit = async () => {
     if (!selectedItem) return;
-    deleteInventoryItem(selectedItem.id);
-    setOpenDeleteDialog(false);
+    const problem = validateForm();
+    if (problem) { toast.error(problem); return; }
+    if (saving) return;
+
+    const updated = buildItem(selectedItem);
+    setSaving(true);
+    try {
+      await updateInventoryItem(updated);
+      toast.success(`${updated.name} updated`);
+      setOpenEditDialog(false);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedItem || saving) return;
+    const name = selectedItem.name;
+    setSaving(true);
+    try {
+      await deleteInventoryItem(selectedItem.id);
+      toast.success(`${name} removed from inventory`);
+      setOpenDeleteDialog(false);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -404,7 +447,7 @@ export default function InventoryPage() {
         </DialogContent>
         <DialogActions sx={{ p: 2.5, pb: isMobile ? 'max(20px, env(safe-area-inset-bottom, 0px))' : 2.5 }}>
           <Button onClick={() => setOpenAddDialog(false)} sx={{ color: '#78716C' }}>Cancel</Button>
-          <Button variant="contained" onClick={handleAddSubmit} sx={{ bgcolor: '#C62828', borderRadius: '10px', fontWeight: 800 }}>Save Item</Button>
+          <Button variant="contained" disabled={saving} onClick={handleAddSubmit} sx={{ bgcolor: '#C62828', borderRadius: '10px', fontWeight: 800 }}>{saving ? 'Saving…' : 'Save Item'}</Button>
         </DialogActions>
       </Dialog>
 
@@ -458,7 +501,7 @@ export default function InventoryPage() {
         </DialogContent>
         <DialogActions sx={{ p: 2.5, pb: isMobile ? 'max(20px, env(safe-area-inset-bottom, 0px))' : 2.5 }}>
           <Button onClick={() => setOpenEditDialog(false)} sx={{ color: '#78716C' }}>Cancel</Button>
-          <Button variant="contained" onClick={handleEditSubmit} sx={{ bgcolor: '#1C1917', borderRadius: '10px', fontWeight: 800 }}>Update Item</Button>
+          <Button variant="contained" disabled={saving} onClick={handleEditSubmit} sx={{ bgcolor: '#1C1917', borderRadius: '10px', fontWeight: 800 }}>{saving ? 'Saving…' : 'Update Item'}</Button>
         </DialogActions>
       </Dialog>
 
@@ -472,7 +515,7 @@ export default function InventoryPage() {
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setOpenDeleteDialog(false)}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleDeleteConfirm} sx={{ fontWeight: 800, borderRadius: '10px' }}>Delete</Button>
+          <Button variant="contained" color="error" disabled={saving} onClick={handleDeleteConfirm} sx={{ fontWeight: 800, borderRadius: '10px' }}>{saving ? 'Removing…' : 'Delete'}</Button>
         </DialogActions>
       </Dialog>
     </AdminLayout>

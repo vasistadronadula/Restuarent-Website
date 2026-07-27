@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin, RequireAdminError } from '@/lib/auth/requireAdmin';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { getErrorMessage } from '@/lib/errors';
+import { canManageStaffRole } from '@/lib/roleAccess';
 import type { StaffRole } from '@/types';
 
 const VALID_ROLES: StaffRole[] = ['admin', 'manager', 'chef', 'cashier', 'waiter'];
@@ -23,7 +24,7 @@ interface CreateEmployeeBody {
 // exists instead of two separate inserts here.
 export async function POST(request: Request) {
   try {
-    await requireAdmin(request);
+    const caller = await requireAdmin(request);
 
     const body = (await request.json()) as Partial<CreateEmployeeBody>;
     const name = body.name?.trim() || '';
@@ -40,6 +41,14 @@ export async function POST(request: Request) {
     }
     if (!role || !VALID_ROLES.includes(role)) {
       return NextResponse.json({ error: 'Invalid role.' }, { status: 400 });
+    }
+    // A manager runs the team page but must not be able to mint an admin
+    // account — that would turn manager into a route to full access.
+    if (!canManageStaffRole(caller.role, role)) {
+      return NextResponse.json(
+        { error: 'Only an admin can create an admin account.' },
+        { status: 403 }
+      );
     }
 
     const admin = getSupabaseAdmin();

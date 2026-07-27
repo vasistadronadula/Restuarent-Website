@@ -89,8 +89,8 @@ export default function RefundPolicyPage() {
                   Approved refunds are processed back to your original payment method:
                 </Typography>
                 <Box component="ul" sx={{ pl: 3, color: 'text.secondary', fontSize: '14px', lineHeight: 1.8 }}>
-                  <li><strong>UPI / Credit / Debit Cards:</strong> Refunded within <strong>3–5 business days</strong> depending on your bank.</li>
-                  <li><strong>Cash on Delivery (COD):</strong> Eligible refunds will be credited via UPI transfer or instant store voucher.</li>
+                  <li><strong>UPI / Credit / Debit Cards / Net Banking:</strong> Refunded within <strong>3–5 business days</strong> depending on your bank.</li>
+                  <li><strong>Counter payments (cash at the restaurant):</strong> Eligible refunds are returned as cash at the counter, or credited via UPI transfer or an instant store voucher if you have already left.</li>
                 </Box>
               </Box>
 

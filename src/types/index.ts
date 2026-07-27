@@ -4,6 +4,10 @@
 
 export type VegStatus = 'veg' | 'non-veg' | 'egg';
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+// 'cash' | 'upi' | 'card' are collected at the POS till, 'razorpay' online by
+// the customer, 'online' by an aggregator (Swiggy/Zomato). 'cod' is retained
+// only so historical orders placed before Cash on Delivery was withdrawn
+// still type-check when read back — nothing writes it any more.
 export type PaymentMode = 'cash' | 'upi' | 'card' | 'cod' | 'razorpay' | 'online';
 export type PaymentStatus = 'paid' | 'unpaid' | 'partial';
 export type ReservationStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';

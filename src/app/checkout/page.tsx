@@ -3,11 +3,11 @@
 import React, { useState } from 'react';
 import {
   Box, Container, Grid, Typography, Button, TextField, Paper, Divider, Chip,
-  CircularProgress, Stack, Alert, InputAdornment, Radio,
+  CircularProgress, Stack, Alert, InputAdornment,
 } from '@mui/material';
 import {
   Person, Phone, ShoppingCart, CheckCircle,
-  ContentCopy, WhatsApp, ArrowForward, Payment, LocalAtm, ShoppingBag, Lock, Login,
+  ContentCopy, WhatsApp, ArrowForward, Payment, ShoppingBag, Lock, Login,
 } from '@mui/icons-material';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
@@ -17,8 +17,9 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useAdmin } from '@/context/AdminContext';
 import { generateOrderId } from '@/lib/idGenerator';
-import { triggerNewOrderPush } from '@/lib/triggerOrderPush';
-import type { PaymentMode, PaymentStatus } from '@/types';
+import { triggerNewOrderPush } from '@/lib/triggerPush';
+import PrintBillButton from '@/components/bill/PrintBillButton';
+import type { Order, PaymentMode, PaymentStatus } from '@/types';
 
 interface RazorpayResponse {
   razorpay_order_id: string;
@@ -58,15 +59,6 @@ const loadRazorpayScript = (): Promise<boolean> => {
   });
 };
 
-interface CompletedOrderDetails {
-  orderId: string;
-  customerName: string;
-  customerPhone: string;
-  grandTotal: number;
-  paymentMode: string;
-  paymentStatus: string;
-  itemCount: number;
-}
 
 export default function CheckoutPage() {
   const { state, subtotal, cgst, sgst, discountAmount, clearCart } = useCart();
@@ -74,9 +66,8 @@ export default function CheckoutPage() {
   const { addOrderLocallyAndDB } = useAdmin();
 
   const [form, setForm] = useState({ name: '', phone: '' });
-  const [paymentMode, setPaymentMode] = useState<'razorpay' | 'cod'>('razorpay');
   const [placed, setPlaced] = useState(false);
-  const [completedOrder, setCompletedOrder] = useState<CompletedOrderDetails | null>(null);
+  const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -119,9 +110,10 @@ export default function CheckoutPage() {
       selectedPortion: i.selectedPortion,
     }));
 
-    const newOrderObj = {
+    const newOrderObj: Order = {
       id,
       orderId: id,
+      orderType: 'takeaway',
       customerId: user?.email || effectivePhone || 'GUEST',
       customerName: effectiveName,
       customerPhone: effectivePhone,
@@ -157,15 +149,10 @@ export default function CheckoutPage() {
 
     triggerNewOrderPush(id);
 
-    setCompletedOrder({
-      orderId: id,
-      customerName: effectiveName,
-      customerPhone: effectivePhone,
-      grandTotal,
-      paymentMode: mode,
-      paymentStatus: status,
-      itemCount: state.items.reduce((sum, i) => sum + i.quantity, 0),
-    });
+    // Keep the whole order, not a summary of it — the confirmation screen
+    // offers the customer the same 80mm bill the counter prints, and that
+    // needs the line items.
+    setCompletedOrder(newOrderObj);
 
     setPlaced(true);
     clearCart();
@@ -184,20 +171,7 @@ export default function CheckoutPage() {
 
     const activeOrderId = generateOrderId();
 
-    if (paymentMode === 'cod') {
-      toast.success('🥡 Takeaway order placed! Pay at counter when you collect.');
-      await finalizeOrder(activeOrderId, 'cod', 'unpaid');
-      return;
-    }
-
-    // Online payment via Razorpay. If anything about setting up the payment
-    // fails, fall back to pay-at-counter — never mark an order "paid"
-    // without a verified Razorpay signature.
-    const fallbackToPayAtCounter = async () => {
-      toast('Online payment is unavailable right now — placing your order for pay-at-counter instead.', { icon: 'ℹ️' });
-      await finalizeOrder(activeOrderId, 'cod', 'unpaid');
-    };
-
+    // Online payment via Razorpay
     let orderData: { id?: string; amount?: number; currency?: string } | undefined;
     try {
       const res = await fetch('/api/razorpay/create-order', {
@@ -212,11 +186,13 @@ export default function CheckoutPage() {
       });
       orderData = await res.json();
       if (!res.ok || !orderData?.id) {
-        await fallbackToPayAtCounter();
+        toast.error('Online payment is currently unavailable. Please try again later.');
+        setLoading(false);
         return;
       }
     } catch {
-      await fallbackToPayAtCounter();
+      toast.error('Online payment is currently unavailable. Please try again later.');
+      setLoading(false);
       return;
     }
 
@@ -224,7 +200,8 @@ export default function CheckoutPage() {
     const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
     if (!scriptLoaded || !razorpayKey) {
-      await fallbackToPayAtCounter();
+      toast.error('Payment gateway could not be loaded. Please try again.');
+      setLoading(false);
       return;
     }
 
@@ -287,7 +264,8 @@ export default function CheckoutPage() {
     };
 
     if (!window.Razorpay) {
-      await fallbackToPayAtCounter();
+      toast.error('Payment gateway could not be loaded. Please try again.');
+      setLoading(false);
       return;
     }
     const rzp = new window.Razorpay(options);
@@ -347,7 +325,7 @@ export default function CheckoutPage() {
               <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 1 }}>
                 <Typography variant="body2" color="text.secondary">Payment</Typography>
                 <Chip
-                  label={completedOrder.paymentStatus === 'paid' ? '✅ PAID ONLINE' : '💵 PAY AT COUNTER'}
+                  label={completedOrder.paymentStatus === 'paid' ? '✅ PAID ONLINE' : '⏳ PAYMENT PENDING'}
                   size="small"
                   color={completedOrder.paymentStatus === 'paid' ? 'success' : 'warning'}
                   sx={{ fontWeight: 800 }}
@@ -373,6 +351,15 @@ export default function CheckoutPage() {
             >
               Confirm on WhatsApp
             </Button>
+            {/* The real 80mm bill — printed, or saved as a receipt-sized PDF. */}
+            <PrintBillButton
+              order={completedOrder}
+              label="Print / save bill"
+              fullWidth
+              variant="outlined"
+              color="inherit"
+              sx={{ borderRadius: '14px', py: 1.5, fontWeight: 700, mb: 1.5, color: '#616161', borderColor: '#E0E0E0' }}
+            />
             <Link href="/" style={{ textDecoration: 'none' }}>
               <Button fullWidth variant="outlined" color="primary" sx={{ borderRadius: '14px', py: 1.5, fontWeight: 700 }}>
                 Back to Home
@@ -428,7 +415,7 @@ export default function CheckoutPage() {
                 🥡 Takeaway Only
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Order online → pay online or at the counter → collect from <strong>Pala Pitta Ruchulu, Madhapur</strong>. No delivery available.
+                Order online → pay securely via Razorpay → collect from <strong>Pala Pitta Ruchulu, Madhapur</strong>. No delivery available.
               </Typography>
             </Box>
           </Box>
@@ -503,7 +490,7 @@ export default function CheckoutPage() {
                 </Grid>
               </Paper>
 
-              {/* Payment Method */}
+              {/* Payment Method — Online Only */}
               <Paper sx={{ p: 3.5, borderRadius: '20px' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
                   <Box sx={{ width: 36, height: 36, bgcolor: 'rgba(198,40,40,0.1)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -512,51 +499,22 @@ export default function CheckoutPage() {
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>Payment Method</Typography>
                 </Box>
 
-                <Grid container spacing={2}>
-                  {/* Online Payment */}
-                  <Grid size={{ xs: 12 }}>
-                    <Box
-                      onClick={() => setPaymentMode('razorpay')}
-                      sx={{
-                        p: 2, borderRadius: '14px', cursor: 'pointer', transition: 'all 0.2s',
-                        border: paymentMode === 'razorpay' ? '2px solid #C62828' : '1.5px solid #E2E8F0',
-                        bgcolor: paymentMode === 'razorpay' ? 'rgba(198,40,40,0.04)' : '#FFFFFF',
-                        display: 'flex', alignItems: 'center', gap: 1.5,
-                      }}
-                    >
-                      <Radio checked={paymentMode === 'razorpay'} color="primary" size="small" />
-                      <Box sx={{ width: 36, height: 36, borderRadius: '8px', bgcolor: 'rgba(25,118,210,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Payment sx={{ color: '#1976D2', fontSize: 20 }} />
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>💳 Pay Online (Razorpay)</Typography>
-                        <Typography variant="caption" color="text.secondary">UPI, Cards, GPay, PhonePe, NetBanking — Pay now, collect from restaurant</Typography>
-                      </Box>
-                    </Box>
-                  </Grid>
-
-                  {/* Pay at Counter */}
-                  <Grid size={{ xs: 12 }}>
-                    <Box
-                      onClick={() => setPaymentMode('cod')}
-                      sx={{
-                        p: 2, borderRadius: '14px', cursor: 'pointer', transition: 'all 0.2s',
-                        border: paymentMode === 'cod' ? '2px solid #C62828' : '1.5px solid #E2E8F0',
-                        bgcolor: paymentMode === 'cod' ? 'rgba(198,40,40,0.04)' : '#FFFFFF',
-                        display: 'flex', alignItems: 'center', gap: 1.5,
-                      }}
-                    >
-                      <Radio checked={paymentMode === 'cod'} color="primary" size="small" />
-                      <Box sx={{ width: 36, height: 36, borderRadius: '8px', bgcolor: 'rgba(46,125,50,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <LocalAtm sx={{ color: '#2E7D32', fontSize: 20 }} />
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>💵 Pay at Counter</Typography>
-                        <Typography variant="caption" color="text.secondary">Place order now → pay cash when you collect your takeaway from the restaurant</Typography>
-                      </Box>
-                    </Box>
-                  </Grid>
-                </Grid>
+                <Box
+                  sx={{
+                    p: 2.5, borderRadius: '14px',
+                    border: '2px solid #C62828',
+                    bgcolor: 'rgba(198,40,40,0.04)',
+                    display: 'flex', alignItems: 'center', gap: 1.5,
+                  }}
+                >
+                  <Box sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: 'rgba(25,118,210,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Payment sx={{ color: '#1976D2', fontSize: 22 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>💳 Pay Online (Razorpay)</Typography>
+                    <Typography variant="caption" color="text.secondary">UPI, Cards, GPay, PhonePe, NetBanking — Pay now, collect from restaurant</Typography>
+                  </Box>
+                </Box>
               </Paper>
             </Grid>
 
@@ -642,11 +600,7 @@ export default function CheckoutPage() {
                       background: 'linear-gradient(135deg, #C62828, #EF5350)',
                     }}
                   >
-                    {loading
-                      ? 'Processing...'
-                      : paymentMode === 'cod'
-                        ? '🥡 Place Takeaway Order'
-                        : '💳 Pay & Place Takeaway Order'}
+                    {loading ? 'Processing...' : '💳 Pay & Place Takeaway Order'}
                   </Button>
                 )}
 

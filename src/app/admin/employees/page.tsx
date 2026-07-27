@@ -15,7 +15,10 @@ import { useAuth } from '@/context/AuthContext';
 import { useAddEmployeeMutation, useUpdateEmployeeMutation, useDeleteEmployeeMutation } from '@/store/supabaseApi';
 import { generateEmployeeId } from '@/lib/idGenerator';
 import { Employee, StaffRole } from '@/types';
-import { ROLE_LABELS, ROLE_ACCESS_SUMMARY, ROLE_ICONS, STAFF_ROLES } from '@/lib/roleAccess';
+import {
+  ROLE_LABELS, ROLE_ACCESS_SUMMARY, ROLE_ICONS, STAFF_ROLES,
+  assignableRoles, canManageStaffRole,
+} from '@/lib/roleAccess';
 import { PageHeader, SectionCard, EmptyState, adminColors, roleColors } from '@/components/admin/ui';
 import toast from 'react-hot-toast';
 
@@ -32,10 +35,14 @@ function generateTempPassword(): string {
 // ─── Role picker — the core UX idea of this page ────────────────────────────
 // Assigning a role IS assigning permissions, so the picker shows what each
 // role unlocks instead of hiding it behind a plain dropdown label.
-function RolePicker({ value, onChange }: { value: StaffRole; onChange: (r: StaffRole) => void }) {
+function RolePicker({
+  value, onChange, roles,
+}: {
+  value: StaffRole; onChange: (r: StaffRole) => void; roles: readonly StaffRole[];
+}) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {STAFF_ROLES.map((role) => {
+      {roles.map((role) => {
         const selected = value === role;
         const c = roleColors[role];
         return (
@@ -79,9 +86,10 @@ function RolePicker({ value, onChange }: { value: StaffRole; onChange: (r: Staff
 
 // ─── Add / Edit dialog (one component, two modes) ───────────────────────────
 function EmployeeDialog({
-  open, editing, onClose, onCreated,
+  open, editing, roles, onClose, onCreated,
 }: {
-  open: boolean; editing: Employee | null; onClose: () => void;
+  open: boolean; editing: Employee | null; roles: readonly StaffRole[];
+  onClose: () => void;
   onCreated: (email: string, password: string) => void;
 }) {
   const theme = useTheme();
@@ -213,7 +221,7 @@ function EmployeeDialog({
             <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: adminColors.textSecondary, mb: 1 }}>
               Role & access *
             </Typography>
-            <RolePicker value={form.role} onChange={(role) => setForm({ ...form, role })} />
+            <RolePicker roles={roles} value={form.role} onChange={(role) => setForm({ ...form, role })} />
           </Grid>
 
           <Grid size={{ xs: 6 }}>
@@ -290,21 +298,24 @@ function CredentialsDialog({ creds, onClose }: { creds: { email: string; passwor
 
 // ─── Employee card ──────────────────────────────────────────────────────────
 function EmployeeCard({
-  emp, isSelf, onEdit, onToggle, onDelete,
+  emp, isSelf, manageable, onEdit, onToggle, onDelete,
 }: {
-  emp: Employee; isSelf: boolean;
+  emp: Employee; isSelf: boolean; manageable: boolean;
   onEdit: () => void; onToggle: () => void; onDelete: () => void;
 }) {
   const c = roleColors[emp.role] || roleColors.waiter;
+  // A manager sees admin accounts (they're part of the team) but can't act on
+  // them — same rule the API enforces, surfaced here instead of failing later.
+  const lockedReason = !manageable ? 'Only an admin can change an admin account' : null;
   return (
     <SectionCard sx={{ height: '100%', opacity: emp.isActive ? 1 : 0.65 }}>
-      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
-        <Avatar sx={{ width: 44, height: 44, bgcolor: c.bg, color: c.color, fontWeight: 800, fontSize: 15, flexShrink: 0 }}>
+      <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
+        <Avatar sx={{ width: 36, height: 36, bgcolor: c.bg, color: c.color, fontWeight: 800, fontSize: 13, flexShrink: 0 }}>
           {initialsOf(emp.name)}
         </Avatar>
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-            <Typography sx={{ fontSize: 14.5, fontWeight: 700, color: adminColors.textPrimary }} noWrap>
+            <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: adminColors.textPrimary }} noWrap>
               {emp.name}
             </Typography>
             {isSelf && (
@@ -315,20 +326,20 @@ function EmployeeCard({
             {emp.email}
           </Typography>
         </Box>
-        <Tooltip title={isSelf ? "You can't disable your own account" : emp.isActive ? 'Active — can sign in' : 'Disabled — cannot sign in'}>
+        <Tooltip title={lockedReason || (isSelf ? "You can't disable your own account" : emp.isActive ? 'Active — can sign in' : 'Disabled — cannot sign in')}>
           <span>
-            <Switch size="small" checked={emp.isActive} onChange={onToggle} disabled={isSelf} color="success" />
+            <Switch size="small" checked={emp.isActive} onChange={onToggle} disabled={isSelf || !manageable} color="success" />
           </span>
         </Tooltip>
       </Box>
 
       <Box sx={{
-        mt: 1.75, p: 1.25, borderRadius: adminColors.radiusSm,
+        mt: 1.25, p: 1, borderRadius: adminColors.radiusSm,
         bgcolor: c.bg, border: `1px solid ${c.color}22`,
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-          <Box component="span" sx={{ fontSize: 13 }}>{ROLE_ICONS[emp.role]}</Box>
-          <Typography sx={{ fontSize: 12, fontWeight: 800, color: c.color, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Box component="span" sx={{ fontSize: 12 }}>{ROLE_ICONS[emp.role]}</Box>
+          <Typography sx={{ fontSize: 11, fontWeight: 800, color: c.color, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
             {ROLE_LABELS[emp.role]}
           </Typography>
         </Box>
@@ -337,7 +348,7 @@ function EmployeeCard({
         </Typography>
       </Box>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1.5, gap: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1.25, gap: 1 }}>
         <Box sx={{ display: 'flex', gap: 1.5, minWidth: 0 }}>
           <Typography sx={{ fontSize: 11.5, color: adminColors.textMuted, textTransform: 'capitalize' }}>
             {emp.shift} shift
@@ -349,14 +360,16 @@ function EmployeeCard({
           )}
         </Box>
         <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-          <Tooltip title="Edit">
-            <IconButton size="small" onClick={onEdit} sx={{ color: adminColors.textSecondary }}>
-              <Edit sx={{ fontSize: 17 }} />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title={isSelf ? "You can't remove your own account" : 'Remove — revokes login'}>
+          <Tooltip title={lockedReason || 'Edit'}>
             <span>
-              <IconButton size="small" onClick={onDelete} disabled={isSelf} sx={{ color: adminColors.danger }}>
+              <IconButton size="small" onClick={onEdit} disabled={!manageable} sx={{ color: adminColors.textSecondary }}>
+                <Edit sx={{ fontSize: 17 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={lockedReason || (isSelf ? "You can't remove your own account" : 'Remove — revokes login')}>
+            <span>
+              <IconButton size="small" onClick={onDelete} disabled={isSelf || !manageable} sx={{ color: adminColors.danger }}>
                 <Delete sx={{ fontSize: 17 }} />
               </IconButton>
             </span>
@@ -370,7 +383,8 @@ function EmployeeCard({
 // ─── Page ───────────────────────────────────────────────────────────────────
 export default function EmployeesPage() {
   const { employees } = useAdmin();
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  const roles = useMemo(() => assignableRoles(userRole), [userRole]);
   const [updateEmployee] = useUpdateEmployeeMutation();
   const [deleteEmployee] = useDeleteEmployeeMutation();
 
@@ -445,7 +459,7 @@ export default function EmployeesPage() {
       ) : (
         <>
           {/* Role filter — doubles as the access-model overview */}
-          <Box sx={{ display: 'flex', gap: 1, mb: 2.5, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
             <Chip
               label={`All · ${counts.all}`}
               onClick={() => setRoleFilter('all')}
@@ -475,12 +489,13 @@ export default function EmployeesPage() {
             })}
           </Box>
 
-          <Grid container spacing={2}>
+          <Grid container spacing={1.5}>
             {visible.map((emp) => (
               <Grid key={emp.id} size={{ xs: 12, sm: 6, lg: 4 }}>
                 <EmployeeCard
                   emp={emp}
                   isSelf={!!currentEmail && emp.email.toLowerCase() === currentEmail}
+                  manageable={canManageStaffRole(userRole, emp.role)}
                   onEdit={() => openEdit(emp)}
                   onToggle={() => handleToggle(emp)}
                   onDelete={() => handleDelete(emp)}
@@ -495,6 +510,7 @@ export default function EmployeesPage() {
         key={`emp-dialog-${dialogOpen}-${editing?.id ?? 'new'}`}
         open={dialogOpen}
         editing={editing}
+        roles={roles}
         onClose={() => setDialogOpen(false)}
         onCreated={(email, password) => setCreds({ email, password })}
       />

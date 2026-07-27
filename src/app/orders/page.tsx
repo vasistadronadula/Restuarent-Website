@@ -12,6 +12,7 @@ import {
 import Link from 'next/link';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
+import PrintBillButton from '@/components/bill/PrintBillButton';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
@@ -230,8 +231,13 @@ export default function OrderHistoryPage() {
                         ₹{order.grandTotal.toLocaleString()}
                       </Typography>
                       <Chip
-                        icon={order.paymentMode === 'cod' ? <LocalAtm sx={{ fontSize: '14px !important' }} /> : <Payment sx={{ fontSize: '14px !important' }} />}
-                        label={order.paymentMode === 'cod' ? 'CASH ON DELIVERY' : 'ONLINE PAID'}
+                        icon={order.paymentStatus === 'paid'
+                          ? <Payment sx={{ fontSize: '14px !important' }} />
+                          : <LocalAtm sx={{ fontSize: '14px !important' }} />}
+                        // Every order is prepaid online now, so the chip
+                        // reports whether the payment landed rather than
+                        // which method was chosen.
+                        label={order.paymentStatus === 'paid' ? 'PAID' : 'PAYMENT PENDING'}
                         size="small"
                         color={order.paymentStatus === 'paid' ? 'success' : 'warning'}
                         variant="outlined"
@@ -279,18 +285,31 @@ export default function OrderHistoryPage() {
                   {/* Actions Footer */}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
                     <Typography variant="caption" color="text.secondary">
-                      Table / Counter: {order.customerAddress}
+                      {order.customerAddress}
                     </Typography>
-                    <Button
-                      variant="outlined"
-                      color="primary"
-                      size="small"
-                      startIcon={<Replay />}
-                      onClick={() => handleReorder(order.items)}
-                      sx={{ borderRadius: '10px', fontWeight: 700 }}
-                    >
-                      Re-Order Dishes
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {/* Same 80mm bill the counter prints — "Save as PDF" in
+                          the print dialog gives a receipt-shaped PDF, not an
+                          A4 page with a receipt in the corner. */}
+                      <PrintBillButton
+                        order={order}
+                        variant="outlined"
+                        color="inherit"
+                        size="small"
+                        label="Bill"
+                        sx={{ borderRadius: '10px', fontWeight: 700, color: '#616161', borderColor: '#E0E0E0' }}
+                      />
+                      <Button
+                        variant="outlined"
+                        color="primary"
+                        size="small"
+                        startIcon={<Replay />}
+                        onClick={() => handleReorder(order.items)}
+                        sx={{ borderRadius: '10px', fontWeight: 700 }}
+                      >
+                        Re-Order Dishes
+                      </Button>
+                    </Box>
                   </Box>
                 </Paper>
               ))}

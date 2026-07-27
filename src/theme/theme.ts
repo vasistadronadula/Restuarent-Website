@@ -1,15 +1,16 @@
 'use client';
 import { createTheme, ThemeOptions } from '@mui/material/styles';
-import { Poppins } from 'next/font/google';
+import { Inter } from 'next/font/google';
 
-export const poppins = Poppins({
-  weight: ['300', '400', '500', '600', '700', '800'],
+export const inter = Inter({
+  weight: ['400', '500', '600', '700', '800', '900'],
   subsets: ['latin'],
   display: 'swap',
 });
 
 const themeOptions: ThemeOptions = {
   palette: {
+    mode: 'light',
     primary:   { main: '#C62828', light: '#EF5350', dark: '#8E0000', contrastText: '#ffffff' },
     secondary: { main: '#FF9800', light: '#FFB74D', dark: '#E65100', contrastText: '#ffffff' },
     success:   { main: '#2E7D32', light: '#4CAF50', dark: '#1B5E20', contrastText: '#ffffff' },
@@ -17,15 +18,20 @@ const themeOptions: ThemeOptions = {
     text:      { primary: '#212121', secondary: '#616161' },
     divider:   '#FFCCBC',
   },
+  colorSchemes: { light: true },
   typography: {
-    fontFamily: poppins.style?.fontFamily ?? 'Poppins, sans-serif',
-    h1: { fontWeight: 800 },
-    h2: { fontWeight: 700 },
-    h3: { fontWeight: 700 },
-    h4: { fontWeight: 600 },
-    h5: { fontWeight: 600 },
-    h6: { fontWeight: 600 },
-    button: { fontWeight: 600, textTransform: 'none' },
+    fontFamily: inter.style?.fontFamily ?? 'Inter, -apple-system, BlinkMacSystemFont, sans-serif',
+    h1: { fontWeight: 900 },
+    h2: { fontWeight: 800 },
+    h3: { fontWeight: 800 },
+    h4: { fontWeight: 700 },
+    h5: { fontWeight: 700 },
+    h6: { fontWeight: 700 },
+    subtitle1: { fontWeight: 600 },
+    subtitle2: { fontWeight: 600 },
+    body1: { fontWeight: 500 },
+    body2: { fontWeight: 500 },
+    button: { fontWeight: 700, textTransform: 'none' },
   },
   shape: { borderRadius: 16 },
   components: {
@@ -60,7 +66,7 @@ const themeOptions: ThemeOptions = {
     },
     MuiChip: {
       styleOverrides: {
-        root: { borderRadius: 8, fontWeight: 600 },
+        root: { borderRadius: 8, fontWeight: 700 },
       },
     },
     MuiTextField: {

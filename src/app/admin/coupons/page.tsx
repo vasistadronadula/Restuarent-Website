@@ -46,13 +46,31 @@ export default function CouponsPage() {
   const handleSave = async () => {
     const code = form.code.trim().toUpperCase();
     if (!code) { toast.error('Coupon code is required'); return; }
+    if (!/^[A-Z0-9]{3,20}$/.test(code)) {
+      toast.error('Use 3–20 letters and numbers, no spaces');
+      return;
+    }
     if (!editingCode && coupons.some((c) => c.code === code)) {
       toast.error('A coupon with this code already exists');
       return;
     }
+    // These go straight into the customer's bill total, so a typo here is a
+    // pricing bug on the storefront — not something to discover later.
+    if (!Number.isFinite(form.discount) || form.discount <= 0 || form.discount > 100) {
+      toast.error('Discount must be between 1 and 100%');
+      return;
+    }
+    if (!Number.isFinite(form.maxDiscount) || form.maxDiscount <= 0) {
+      toast.error('Set the maximum discount amount in ₹');
+      return;
+    }
+    if (!Number.isFinite(form.minOrder) || form.minOrder < 0) {
+      toast.error('Minimum order cannot be negative');
+      return;
+    }
     setSaving(true);
     try {
-      const payload = { ...form, code };
+      const payload = { ...form, code, description: form.description.trim() };
       const result = editingCode ? await updateCoupon(payload) : await addCoupon(payload);
       if ('error' in result && result.error) {
         toast.error((result.error as { error?: string }).error || 'Failed to save coupon');
@@ -66,9 +84,12 @@ export default function CouponsPage() {
   };
 
   const handleDelete = async (code: string) => {
+    // A live promo code vanishing from the storefront is not something to do
+    // on a single mis-tap.
+    if (!confirm(`Delete coupon ${code}? Customers will no longer be able to use it.`)) return;
     const result = await deleteCoupon(code);
     if ('error' in result && result.error) {
-      toast.error('Failed to delete coupon');
+      toast.error((result.error as { error?: string })?.error || 'Failed to delete coupon');
       return;
     }
     toast.success(`Coupon ${code} deleted`);

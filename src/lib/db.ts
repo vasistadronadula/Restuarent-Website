@@ -35,8 +35,11 @@ export async function createOrderInDB(orderData: Partial<Order>): Promise<Order>
     deliveryCharge: 0,
     grandTotal: orderData.grandTotal || 0,
     status: 'pending',
-    paymentMode: orderData.paymentMode || 'cod',
-    paymentStatus: orderData.paymentMode === 'cod' ? 'unpaid' : 'paid',
+    // Aggregator orders arrive already collected by the platform, but the
+    // caller states both explicitly — the fallbacks are only a safety net,
+    // and never assume money was taken.
+    paymentMode: orderData.paymentMode || 'online',
+    paymentStatus: orderData.paymentStatus || 'unpaid',
     orderDate: now.toISOString().split('T')[0],
     orderTime: timeStr,
     couponCode: orderData.couponCode,

@@ -2,8 +2,11 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { useAdmin } from '@/context/AdminContext';
+import { useAuth } from '@/context/AuthContext';
 import { Order } from '@/types';
 import ThermalReceiptModal from './ThermalReceiptModal';
+import { isPrinterConnected, printOrder, reconnectSavedPrinter } from '@/lib/thermalPrinter';
+import toast from 'react-hot-toast';
 
 // Audio chime generator using browser Web Audio API (zero external files required)
 const playOrderAlertChime = () => {
@@ -44,13 +47,29 @@ const playOrderAlertChime = () => {
 
 export default function AutoOrderPrinter() {
   const { orders, isLoadingDB } = useAdmin();
+  const { userRole } = useAuth();
   const seenOrdersRef = useRef<Set<string>>(new Set());
   const hasSeededRef = useRef<boolean>(false);
 
   const [activeAutoOrder, setActiveAutoOrder] = useState<Order | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
 
+  // Auto-print is restricted to cashier role only
+  const isCashier = userRole === 'cashier';
+
+  // Re-attach the printer paired on this device on a previous shift. Chrome
+  // remembers the grant, so this needs no picker and no user gesture — the
+  // cashier opens the app and printing just works. A failure here is silent
+  // by design: it only means the next ticket falls back to the dialog.
   useEffect(() => {
+    if (!isCashier) return;
+    void reconnectSavedPrinter();
+  }, [isCashier]);
+
+  useEffect(() => {
+    // Only cashiers get auto-print functionality
+    if (!isCashier) return;
+
     // Wait for the initial orders fetch to actually finish before touching
     // anything. Previously this seeded the "already seen" set on the very
     // first effect run, but that run happened while `orders` was still the
@@ -82,17 +101,29 @@ export default function AutoOrderPrinter() {
         // Play notification audio alert
         playOrderAlertChime();
 
-        // Trigger Auto-Print Receipt Modal
-        setActiveAutoOrder(newOrder);
-        setModalOpen(true);
+        // A paired Bluetooth printer prints the ticket outright — no dialog,
+        // no modal, nothing for the cashier to confirm mid-rush. Only when
+        // there's no printer (or the write fails) does the on-screen receipt
+        // and the browser print dialog take over, so an order can never be
+        // silently dropped.
+        void (async () => {
+          if (isPrinterConnected() && (await printOrder(newOrder))) {
+            toast.success(`🧾 Printed order ${newOrder.id}`, { id: `print-${newOrder.id}` });
+            return;
+          }
 
-        // Auto trigger print dialog after 400ms delay for modal animation
-        setTimeout(() => {
-          window.print();
-        }, 400);
+          setActiveAutoOrder(newOrder);
+          setModalOpen(true);
+          setTimeout(() => {
+            window.print();
+          }, 400);
+        })();
       }
     }
-  }, [orders, isLoadingDB]);
+  }, [orders, isLoadingDB, isCashier]);
+
+  // Don't render the modal at all for non-cashier roles
+  if (!isCashier) return null;
 
   return (
     <ThermalReceiptModal

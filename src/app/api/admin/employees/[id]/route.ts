@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin, RequireAdminError } from '@/lib/auth/requireAdmin';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { getErrorMessage } from '@/lib/errors';
+import { canManageStaffRole } from '@/lib/roleAccess';
 import type { StaffRole } from '@/types';
 
 const VALID_ROLES: StaffRole[] = ['admin', 'manager', 'chef', 'cashier', 'waiter'];
@@ -38,14 +39,23 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (!admin) return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
 
     const { data: employee, error: findError } = await admin
-      .from('employees').select('auth_user_id').eq('id', id).maybeSingle();
+      .from('employees').select('auth_user_id, role').eq('id', id).maybeSingle();
     if (findError || !employee) {
       return NextResponse.json({ error: 'Employee not found.' }, { status: 404 });
     }
 
+    // Managers may run the team page but not reach into admin accounts, and
+    // not promote anyone (including themselves) to admin.
+    if (!canManageStaffRole(caller.role, employee.role as StaffRole)) {
+      return NextResponse.json({ error: 'Only an admin can change an admin account.' }, { status: 403 });
+    }
+    if (body.role && !canManageStaffRole(caller.role, body.role)) {
+      return NextResponse.json({ error: 'Only an admin can grant the admin role.' }, { status: 403 });
+    }
+
     // Self-lockout guard: deactivating or demoting your own account would
     // immediately revoke your own admin access with no way back in from the UI.
-    const isSelf = employee.auth_user_id === caller.id;
+    const isSelf = employee.auth_user_id === caller.user.id;
     if (isSelf && body.status === 'Inactive') {
       return NextResponse.json({ error: 'You cannot deactivate your own account.' }, { status: 400 });
     }
@@ -104,12 +114,16 @@ export async function DELETE(request: Request, { params }: RouteContext) {
     if (!admin) return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
 
     const { data: employee, error: findError } = await admin
-      .from('employees').select('auth_user_id').eq('id', id).maybeSingle();
+      .from('employees').select('auth_user_id, role').eq('id', id).maybeSingle();
     if (findError || !employee) {
       return NextResponse.json({ error: 'Employee not found.' }, { status: 404 });
     }
 
-    if (employee.auth_user_id === caller.id) {
+    if (!canManageStaffRole(caller.role, employee.role as StaffRole)) {
+      return NextResponse.json({ error: 'Only an admin can remove an admin account.' }, { status: 403 });
+    }
+
+    if (employee.auth_user_id === caller.user.id) {
       return NextResponse.json({ error: 'You cannot remove your own account.' }, { status: 400 });
     }
 

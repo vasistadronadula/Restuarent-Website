@@ -40,7 +40,7 @@ export default function CartDrawer() {
       toast.error(`Min order ₹${coupon.minOrder} required for this coupon`);
       return;
     }
-    dispatch(applyCoupon({ code: coupon.code, discount: coupon.discount }));
+    dispatch(applyCoupon({ code: coupon.code, discount: coupon.discount, maxDiscount: coupon.maxDiscount }));
     toast.success(`Coupon applied! ${coupon.discount}% off`);
   };
 

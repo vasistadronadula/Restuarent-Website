@@ -8,8 +8,8 @@ import { useAuth } from '@/context/AuthContext';
 import { canAccess, ROLE_LABELS } from '@/lib/roleAccess';
 import { roleColors } from '@/theme/adminColors';
 
-const SIDEBAR_WIDTH = 260;
-const COLLAPSED_WIDTH = 68;
+const SIDEBAR_WIDTH = 240;
+const COLLAPSED_WIDTH = 56;
 
 interface NavItem {
   label: string;
@@ -221,117 +221,116 @@ export default function AdminSidebar({ collapsed = false, onToggle, onItemClick 
     <>
       <style>{`
         .admin-sidebar {
-          /* Fluid, not a hardcoded 260px. The parent controls the width — the
-             desktop <nav> wrapper or the mobile Drawer paper (capped at 85vw).
-             A fixed width here overflowed that cap on narrow phones and the
-             rightmost element, the unread badge, got clipped at the edge. */
           width: 100%;
           max-width: ${collapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH}px;
           height: 100%;
           min-height: 100vh;
           display: flex;
           flex-direction: column;
-          transition: width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: width 0.24s cubic-bezier(0.4, 0, 0.2, 1);
           overflow: hidden;
           background: #FFFFFF;
-          border-right: 1px solid rgba(0,0,0,0.06);
-          font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+          border-right: 1px solid #F0EDE8;
+          font-family: var(--font-inter), Inter, -apple-system, BlinkMacSystemFont, sans-serif;
           position: relative;
         }
         .sidebar-logo-area {
           display: flex;
           align-items: center;
           justify-content: ${collapsed ? 'center' : 'space-between'};
-          padding: ${collapsed ? '18px 14px' : '18px 20px'};
-          min-height: 70px;
-          border-bottom: 1px solid rgba(0,0,0,0.06);
+          padding: ${collapsed ? '14px 10px' : '14px 16px'};
+          min-height: 56px;
+          border-bottom: 1px solid #F0EDE8;
           flex-shrink: 0;
         }
         .sidebar-logo-icon {
-          width: 38px; height: 38px; border-radius: 12px;
+          width: 34px; height: 34px; border-radius: 10px;
           background: linear-gradient(135deg, #c62828, #e65100);
           display: flex; align-items: center; justify-content: center;
-          color: white; font-size: 12px; font-weight: 900; letter-spacing: -0.5px;
-          box-shadow: 0 4px 16px rgba(198,40,40,0.3);
+          color: white; font-size: 11px; font-weight: 900; letter-spacing: -0.5px;
           flex-shrink: 0;
         }
         .sidebar-logo-text {
           flex: 1;
-          padding-left: 12px;
+          padding-left: 10px;
           overflow: hidden;
         }
         .sidebar-logo-name {
           font-size: 14px; font-weight: 900;
-          color: #212121; letter-spacing: -0.3px;
+          color: #1C1917; letter-spacing: -0.4px;
           white-space: nowrap; text-overflow: ellipsis; overflow: hidden;
         }
         .sidebar-logo-tagline {
-          font-size: 10px; color: rgba(33,33,33,0.55);
-          font-weight: 500; margin-top: 1px;
+          font-size: 10px; color: #78716C;
+          font-weight: 600; margin-top: 0px;
         }
         .toggle-btn {
-          width: 28px; height: 28px; border-radius: 8px;
-          border: 1px solid rgba(0,0,0,0.08);
-          background: rgba(0,0,0,0.03);
+          width: 26px; height: 26px; border-radius: 7px;
+          border: 1px solid #E7E5E4;
+          background: #FAFAF9;
           cursor: pointer; display: flex; align-items: center; justify-content: center;
-          color: rgba(33,33,33,0.5); flex-shrink: 0;
+          color: #A8A29E; flex-shrink: 0;
           transition: all 0.15s ease;
         }
-        .toggle-btn:hover { background: rgba(198,40,40,0.08); color: #C62828; }
+        .toggle-btn:hover { background: rgba(198,40,40,0.08); color: #C62828; border-color: rgba(198,40,40,0.2); }
         .sidebar-nav {
           flex: 1; overflow-y: auto; overflow-x: hidden;
-          padding: 12px 10px; scrollbar-width: thin;
-          scrollbar-color: rgba(0,0,0,0.1) transparent;
+          padding: 8px 8px; scrollbar-width: thin;
+          scrollbar-color: rgba(0,0,0,0.08) transparent;
         }
-        .sidebar-nav::-webkit-scrollbar { width: 4px; }
-        .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 4px; }
-        .nav-group { margin-bottom: 6px; }
+        .sidebar-nav::-webkit-scrollbar { width: 3px; }
+        .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 3px; }
+        .nav-group { margin-bottom: 4px; }
         .nav-group-label {
-          font-size: 9.5px; font-weight: 700; letter-spacing: 1.4px;
-          color: rgba(33,33,33,0.4); text-transform: uppercase;
-          padding: ${collapsed ? '8px 0 4px' : '8px 10px 4px'};
+          font-size: 10px; font-weight: 800; letter-spacing: 1.2px;
+          color: #A8A29E; text-transform: uppercase;
+          padding: ${collapsed ? '6px 0 3px' : '6px 8px 3px'};
           display: ${collapsed ? 'none' : 'block'};
           white-space: nowrap;
         }
         .nav-item-link {
           display: flex; align-items: center;
-          gap: ${collapsed ? '0' : '11px'};
+          gap: ${collapsed ? '0' : '10px'};
           justify-content: ${collapsed ? 'center' : 'flex-start'};
-          padding: ${collapsed ? '10px 0' : '10px 12px'};
-          border-radius: 12px; margin-bottom: 2px;
+          padding: ${collapsed ? '9px 0' : '8px 10px'};
+          border-radius: 10px; margin-bottom: 1px;
           text-decoration: none; position: relative;
-          transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
           cursor: pointer;
           overflow: hidden;
         }
         .nav-item-link.active {
-          background: linear-gradient(135deg, rgba(198,40,40,0.1) 0%, rgba(230,81,0,0.07) 100%);
-          border: 1px solid rgba(198,40,40,0.16);
+          background: rgba(198,40,40,0.07);
+          border: 1px solid rgba(198,40,40,0.12);
+        }
+        .nav-item-link:not(.active) {
+          border: 1px solid transparent;
         }
         .nav-item-link:not(.active):hover {
-          background: rgba(0,0,0,0.035);
+          background: #FAFAF9;
+          border-color: #F0EDE8;
         }
         .nav-item-link.active::before {
           content: '';
-          position: absolute; left: 0; top: 25%; bottom: 25%;
-          width: 3px; border-radius: 0 2px 2px 0;
-          background: linear-gradient(180deg, #f97316, #ef4444);
+          position: absolute; left: 0; top: 20%; bottom: 20%;
+          width: 3.5px; border-radius: 0 3px 3px 0;
+          background: #C62828;
         }
         .nav-icon {
           display: flex; align-items: center; justify-content: center;
           flex-shrink: 0; position: relative;
         }
         .nav-icon.active { color: #C62828; }
-        .nav-icon.inactive { color: rgba(33,33,33,0.55); }
-        .nav-item-link:hover .nav-icon.inactive { color: rgba(33,33,33,0.85); }
+        .nav-icon.inactive { color: #78716C; }
+        .nav-item-link:hover .nav-icon.inactive { color: #44403C; }
         .nav-label {
-          font-size: 13px; font-weight: 500; white-space: nowrap;
+          font-size: 13px; font-weight: 600; white-space: nowrap;
           flex: 1; overflow: hidden; text-overflow: ellipsis;
           transition: color 0.15s;
         }
-        .nav-label.active { color: #C62828; font-weight: 700; }
-        .nav-label.inactive { color: rgba(33,33,33,0.7); }
-        .nav-item-link:hover .nav-label.inactive { color: rgba(33,33,33,0.9); }
+        .nav-label.active { color: #C62828; font-weight: 800; }
+        .nav-label.inactive { color: #44403C; }
+        .nav-item-link:hover .nav-label.inactive { color: #1C1917; }
         .nav-badge {
           background: linear-gradient(135deg, #ef4444, #dc2626);
           color: white; font-size: 9px; font-weight: 800;
@@ -342,60 +341,60 @@ export default function AdminSidebar({ collapsed = false, onToggle, onItemClick 
           flex-shrink: 0;
         }
         .nav-badge.collapsed-pos {
-          position: absolute; top: 4px; right: 4px;
+          position: absolute; top: 2px; right: 2px;
           min-width: 14px; height: 14px; font-size: 8px; border-radius: 7px;
         }
         .sidebar-footer {
-          padding: ${collapsed ? '14px 10px' : '16px 14px'};
-          border-top: 1px solid rgba(0,0,0,0.06);
-          background: #FFF8F2;
+          padding: ${collapsed ? '10px 8px' : '12px 12px'};
+          border-top: 1px solid #F0EDE8;
+          background: #FDFBF9;
         }
         .sidebar-user {
           display: flex; align-items: center;
-          gap: ${collapsed ? '0' : '12px'};
+          gap: ${collapsed ? '0' : '10px'};
           justify-content: ${collapsed ? 'center' : 'flex-start'};
         }
         .sidebar-avatar {
-          width: 36px; height: 36px; border-radius: 10px;
+          width: 32px; height: 32px; border-radius: 8px;
           background: linear-gradient(135deg, #c62828, #e65100);
           display: flex; align-items: center; justify-content: center;
-          color: white; font-size: 12px; font-weight: 800;
+          color: white; font-size: 11px; font-weight: 800;
           flex-shrink: 0; border: 1.5px solid rgba(0,0,0,0.06);
           text-decoration: none; cursor: pointer;
           transition: transform 0.15s ease;
         }
         .sidebar-avatar:hover { transform: scale(1.05); }
         .sidebar-user-info { flex: 1; overflow: hidden; }
-        .sidebar-user-name-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+        .sidebar-user-name-row { display: flex; align-items: center; gap: 5px; min-width: 0; }
         .sidebar-user-name {
-          font-size: 12px; font-weight: 700; color: #212121;
+          font-size: 12px; font-weight: 800; color: #1C1917;
           white-space: nowrap; text-overflow: ellipsis; overflow: hidden;
         }
         .sidebar-role-pill {
-          font-size: 8.5px; font-weight: 800; letter-spacing: 0.4px;
-          text-transform: uppercase; padding: 2px 6px; border-radius: 6px;
+          font-size: 8px; font-weight: 800; letter-spacing: 0.4px;
+          text-transform: uppercase; padding: 1px 5px; border-radius: 5px;
           flex-shrink: 0;
         }
         .sidebar-user-email {
-          font-size: 10px; color: rgba(33,33,33,0.55);
+          font-size: 10px; color: #78716C;
           white-space: nowrap; text-overflow: ellipsis; overflow: hidden;
         }
         .logout-btn {
-          width: 30px; height: 30px; border-radius: 8px;
+          width: 28px; height: 28px; border-radius: 7px;
           border: 1px solid rgba(239,68,68,0.2);
-          background: rgba(239,68,68,0.06); cursor: pointer;
+          background: rgba(239,68,68,0.05); cursor: pointer;
           display: flex; align-items: center; justify-content: center;
-          color: rgba(220,38,38,0.75); flex-shrink: 0;
+          color: rgba(220,38,38,0.7); flex-shrink: 0;
           transition: all 0.15s ease;
         }
         .logout-btn:hover { background: rgba(239,68,68,0.12); color: #ef4444; }
         .sidebar-bottom-link {
-          display: block; padding: 10px 14px 2px;
-          font-size: 11px; font-weight: 600;
-          color: rgba(33,33,33,0.5); text-decoration: none;
+          display: block; padding: 8px 12px 2px;
+          font-size: 11px; font-weight: 700;
+          color: #A8A29E; text-decoration: none;
           transition: color 0.15s;
         }
-        .sidebar-bottom-link:hover { color: #f97316; }
+        .sidebar-bottom-link:hover { color: #C62828; }
       `}</style>
 
       <div className="admin-sidebar">

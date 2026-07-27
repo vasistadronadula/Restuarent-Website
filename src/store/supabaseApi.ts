@@ -46,6 +46,11 @@ export interface Coupon {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// The coupon code is the primary key, so read and write have to agree on its
+// shape — a stray space or lowercase letter meant an update or delete quietly
+// matched no row and reported success.
+const normalizeCouponCode = (code: string) => code.toUpperCase().trim();
+
 function mapOrder(o: any): Order {
   return {
     id: o.id,
@@ -62,8 +67,10 @@ function mapOrder(o: any): Order {
     deliveryCharge: Number(o.delivery_charge) || 0,
     grandTotal: Number(o.grand_total) || 0,
     status: o.status || 'pending',
-    paymentMode: o.payment_mode || 'cod',
-    paymentStatus: o.payment_status || 'pending',
+    paymentMode: o.payment_mode || 'cash',
+    // 'unpaid', not 'pending' — 'pending' was never one of the app's
+    // PaymentStatus values, so it rendered as an unknown state downstream.
+    paymentStatus: o.payment_status || 'unpaid',
     orderDate: o.created_at
       ? new Date(o.created_at).toISOString().split('T')[0]
       : new Date().toISOString().split('T')[0],
@@ -74,6 +81,9 @@ function mapOrder(o: any): Order {
     razorpayPaymentId: o.razorpay_payment_id || undefined,
     userId: o.user_id || null,
     orderType: o.order_type || 'takeaway',
+    // Dine-in bills print the table number, so it has to survive a refetch
+    // — it used to exist only on the in-memory object the POS just built.
+    tableNumber: o.table_number ?? undefined,
   };
 }
 
@@ -223,16 +233,22 @@ export const supabaseApi = createApi({
           deliveryCharge: 0,   // Always 0 — takeaway only
           grandTotal: orderData.grandTotal || 0,
           status: 'pending',
-          paymentMode: orderData.paymentMode || 'cod',
-          paymentStatus: orderData.paymentMode === 'cod' ? 'unpaid' : 'paid',
+          paymentMode: orderData.paymentMode || 'cash',
+          // Trust the caller's payment status. This used to be derived from
+          // "is it COD?", which — now that every order is prepaid or taken at
+          // the till — marked everything 'paid', including the checkout case
+          // where a Razorpay charge could not be verified server-side and is
+          // deliberately saved as 'unpaid' for manual reconciliation.
+          paymentStatus: orderData.paymentStatus || 'unpaid',
           orderDate: now.toISOString().split('T')[0],
           orderTime: timeStr,
           couponCode: orderData.couponCode,
           orderSource: orderData.orderSource || 'direct',
           orderType: orderData.orderType || 'takeaway',
+          tableNumber: orderData.tableNumber,
         };
         try {
-          const { error } = await supabase.from('orders').insert([{
+          const row = {
             id: orderId,                          // PPR-ORD-20260725-4821
             customer_name: newOrder.customerName,
             customer_phone: newOrder.customerPhone,
@@ -254,7 +270,22 @@ export const supabaseApi = createApi({
             user_id: orderData.userId || null,
             razorpay_order_id: orderData.razorpayOrderId || null,
             razorpay_payment_id: orderData.razorpayPaymentId || null,
-          }]);
+          };
+
+          let { error } = await supabase
+            .from('orders')
+            .insert([{ ...row, table_number: newOrder.tableNumber ?? null }]);
+
+          // 42703 = undefined_column. orders.table_number arrives with the
+          // schema update in supabase_schema.sql section 13; until that has
+          // been run, saving the order matters far more than recording which
+          // table it came from, so retry without it rather than losing the
+          // sale. Once the column exists this branch never runs.
+          if (error?.code === '42703') {
+            console.warn('orders.table_number missing — run supabase_schema.sql to store dine-in table numbers');
+            ({ error } = await supabase.from('orders').insert([row]));
+          }
+
           if (error) return { error: { status: 'CUSTOM_ERROR', error: error.message } };
         } catch (e: any) {
           return { error: { status: 'FETCH_ERROR', error: e?.message || 'Failed to save order' } };
@@ -348,15 +379,27 @@ export const supabaseApi = createApi({
     getMenuItems: builder.query<MenuItem[], void>({
       queryFn: async () => {
         try {
-          const { data, error } = await supabase.from('menu_items').select('*');
-          if (error || !data || data.length === 0) return { data: fallbackMenuItems };
-          return { data: data.map(mapMenuItem) };
+          // Explicit ordering: without it Postgres may return rows in any
+          // order, and an UPDATE physically moves a row — so editing one dish
+          // reshuffled the whole menu list under the admin's cursor.
+          const { data, error } = await supabase
+            .from('menu_items')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          // The bundled demo menu is a last resort for the storefront when
+          // the database is unreachable — never a stand-in for an empty
+          // table. It used to fire on `data.length === 0` too, so deleting
+          // the last dish repopulated the menu with demo items that the
+          // admin could then neither edit nor delete.
+          if (error) return { data: fallbackMenuItems };
+          return { data: (data || []).map(mapMenuItem) };
         } catch {
           return { data: fallbackMenuItems };
         }
       },
       providesTags: ['MenuItems'],
-      keepUnusedDataFor: 300, // 5-min cache for menu — changes rarely
+      keepUnusedDataFor: 60, // 1-min cache — realtime handles instant admin updates
     }),
 
     addMenuItem: builder.mutation<boolean, MenuItem>({
@@ -376,6 +419,15 @@ export const supabaseApi = createApi({
           return { error: { status: 'FETCH_ERROR', error: err.message } };
         }
       },
+      onQueryStarted: async (item, { dispatch, queryFulfilled }) => {
+        const patch = dispatch(
+          supabaseApi.util.updateQueryData('getMenuItems', undefined, (draft) => {
+            const exists = draft.some((m) => m.id === item.id);
+            if (!exists) draft.unshift(item);
+          })
+        );
+        try { await queryFulfilled; } catch { patch.undo(); }
+      },
       invalidatesTags: ['MenuItems'],
     }),
 
@@ -383,10 +435,20 @@ export const supabaseApi = createApi({
       queryFn: async (item) => {
         try {
           const { error } = await supabase.from('menu_items').update({
-            name: item.name, price: item.price, is_available: item.isAvailable,
-            description: item.description, portion_prices: item.portionPrices,
-            is_popular: item.isPopular, is_special: item.isSpecial,
-            veg_status: item.vegStatus, rating: item.rating,
+            name: item.name,
+            category: item.category,
+            price: item.price,
+            image: item.image,
+            veg_status: item.vegStatus,
+            rating: item.rating,
+            review_count: item.reviewCount,
+            is_popular: item.isPopular,
+            is_special: item.isSpecial,
+            is_available: item.isAvailable,
+            description: item.description,
+            prep_time: item.prepTime,
+            tags: item.tags,
+            portion_prices: item.portionPrices,
           }).eq('id', item.id);
           if (error) return { error: { status: 'CUSTOM_ERROR', error: error.message } };
           return { data: true };
@@ -418,9 +480,10 @@ export const supabaseApi = createApi({
       },
       onQueryStarted: async (id, { dispatch, queryFulfilled }) => {
         const patch = dispatch(
-          supabaseApi.util.updateQueryData('getMenuItems', undefined, (draft) =>
-            draft.filter((m) => m.id !== id)
-          )
+          supabaseApi.util.updateQueryData('getMenuItems', undefined, (draft) => {
+            const idx = draft.findIndex((m) => m.id === id);
+            if (idx !== -1) draft.splice(idx, 1);
+          })
         );
         try { await queryFulfilled; } catch { patch.undo(); }
       },
@@ -432,11 +495,17 @@ export const supabaseApi = createApi({
     getInventory: builder.query<InventoryItem[], void>({
       queryFn: async () => {
         try {
-          const { data, error } = await supabase.from('inventory_items').select('*');
-          if (error || !data || data.length === 0) return { data: [] };
-          return { data: data.map(mapInventory) };
-        } catch {
-          return { data: [] };
+          const { data, error } = await supabase
+            .from('inventory_items')
+            .select('*')
+            .order('name', { ascending: true });
+          // Surface the failure instead of returning []. Swallowing it made a
+          // permission or network error look exactly like "you have no stock
+          // items", which is the one reading a manager must not be given.
+          if (error) return { error: { status: 'CUSTOM_ERROR', error: error.message } };
+          return { data: (data || []).map(mapInventory) };
+        } catch (err: any) {
+          return { error: { status: 'FETCH_ERROR', error: err?.message || 'Failed to load inventory' } };
         }
       },
       providesTags: ['Inventory'],
@@ -457,6 +526,16 @@ export const supabaseApi = createApi({
         } catch (err: any) {
           return { error: { status: 'FETCH_ERROR', error: err.message } };
         }
+      },
+      // Show the new item immediately and roll it back if the insert fails —
+      // the list previously sat unchanged until a full refetch came back.
+      onQueryStarted: async (item, { dispatch, queryFulfilled }) => {
+        const patch = dispatch(
+          supabaseApi.util.updateQueryData('getInventory', undefined, (draft) => {
+            if (!draft.some((i) => i.id === item.id)) draft.unshift(item);
+          })
+        );
+        try { await queryFulfilled; } catch { patch.undo(); }
       },
       invalidatesTags: ['Inventory'],
     }),
@@ -500,9 +579,10 @@ export const supabaseApi = createApi({
       },
       onQueryStarted: async (id, { dispatch, queryFulfilled }) => {
         const patch = dispatch(
-          supabaseApi.util.updateQueryData('getInventory', undefined, (draft) =>
-            draft.filter((i) => i.id !== id)
-          )
+          supabaseApi.util.updateQueryData('getInventory', undefined, (draft) => {
+            const idx = draft.findIndex((i) => i.id === id);
+            if (idx !== -1) draft.splice(idx, 1);
+          })
         );
         try { await queryFulfilled; } catch { patch.undo(); }
       },
@@ -514,11 +594,16 @@ export const supabaseApi = createApi({
     getEmployees: builder.query<Employee[], void>({
       queryFn: async () => {
         try {
-          const { data, error } = await supabase.from('employees').select('*');
-          if (error || !data || data.length === 0) return { data: [] };
-          return { data: data.map(mapEmployee) };
-        } catch {
-          return { data: [] };
+          const { data, error } = await supabase
+            .from('employees')
+            .select('*')
+            .order('name', { ascending: true });
+          // Same reasoning as inventory: an RLS or network failure must not
+          // render as an empty team.
+          if (error) return { error: { status: 'CUSTOM_ERROR', error: error.message } };
+          return { data: (data || []).map(mapEmployee) };
+        } catch (err: any) {
+          return { error: { status: 'FETCH_ERROR', error: err?.message || 'Failed to load team' } };
         }
       },
       providesTags: ['Employees'],
@@ -575,6 +660,29 @@ export const supabaseApi = createApi({
           return { error: { status: 'FETCH_ERROR', error: err.message } };
         }
       },
+      // The Active/Inactive switch runs through here, so it has to move the
+      // moment it's tapped rather than after a round trip to the API route
+      // and a refetch of the whole team.
+      onQueryStarted: async ({ id, ...rest }, { dispatch, queryFulfilled }) => {
+        const patch = dispatch(
+          supabaseApi.util.updateQueryData('getEmployees', undefined, (draft) => {
+            const emp = draft.find((e) => e.id === id);
+            if (!emp) return;
+            if (rest.name !== undefined) emp.name = rest.name;
+            if (rest.phone !== undefined) emp.phone = rest.phone;
+            if (rest.role !== undefined) emp.role = rest.role;
+            // Shift is a free-text field on the wire but a fixed set on the
+            // Employee model; only patch a value the model recognises and
+            // let the refetch reconcile anything unexpected.
+            if (rest.shift === 'morning' || rest.shift === 'evening' || rest.shift === 'night') {
+              emp.shift = rest.shift;
+            }
+            if (rest.salary !== undefined) emp.salary = rest.salary;
+            if (rest.status !== undefined) emp.isActive = rest.status === 'Active';
+          })
+        );
+        try { await queryFulfilled; } catch { patch.undo(); }
+      },
       invalidatesTags: ['Employees'],
     }),
 
@@ -593,6 +701,15 @@ export const supabaseApi = createApi({
         } catch (err: any) {
           return { error: { status: 'FETCH_ERROR', error: err.message } };
         }
+      },
+      onQueryStarted: async (id, { dispatch, queryFulfilled }) => {
+        const patch = dispatch(
+          supabaseApi.util.updateQueryData('getEmployees', undefined, (draft) => {
+            const idx = draft.findIndex((e) => e.id === id);
+            if (idx !== -1) draft.splice(idx, 1);
+          })
+        );
+        try { await queryFulfilled; } catch { patch.undo(); }
       },
       invalidatesTags: ['Employees'],
     }),
@@ -654,11 +771,26 @@ export const supabaseApi = createApi({
             description: t.description,
             is_active: true,
           }]);
-          if (error) return { error: { status: 'CUSTOM_ERROR', error: error.message } };
+          if (error) {
+            const message = error.code === '23505'
+              ? `Table ${t.tableNumber} already exists`
+              : error.message;
+            return { error: { status: 'CUSTOM_ERROR', error: message } };
+          }
           return { data: true };
         } catch (err: any) {
           return { error: { status: 'FETCH_ERROR', error: err.message } };
         }
+      },
+      onQueryStarted: async (t, { dispatch, queryFulfilled }) => {
+        const patch = dispatch(
+          supabaseApi.util.updateQueryData('getTables', undefined, (draft) => {
+            if (draft.some((x) => x.id === t.id)) return;
+            draft.push({ ...t, isActive: true, createdAt: new Date().toISOString() });
+            draft.sort((a, b) => a.tableNumber - b.tableNumber);
+          })
+        );
+        try { await queryFulfilled; } catch { patch.undo(); }
       },
       invalidatesTags: ['Tables'],
     }),
@@ -677,6 +809,15 @@ export const supabaseApi = createApi({
           return { error: { status: 'FETCH_ERROR', error: err.message } };
         }
       },
+      onQueryStarted: async (t, { dispatch, queryFulfilled }) => {
+        const patch = dispatch(
+          supabaseApi.util.updateQueryData('getTables', undefined, (draft) => {
+            const idx = draft.findIndex((x) => x.id === t.id);
+            if (idx !== -1) draft[idx] = t;
+          })
+        );
+        try { await queryFulfilled; } catch { patch.undo(); }
+      },
       invalidatesTags: ['Tables'],
     }),
 
@@ -684,11 +825,26 @@ export const supabaseApi = createApi({
       queryFn: async (id) => {
         try {
           const { error } = await supabase.from('restaurant_tables').delete().eq('id', id);
-          if (error) return { error: { status: 'CUSTOM_ERROR', error: error.message } };
+          if (error) {
+            // A table with bookings is referenced by table_reservations.
+            const message = error.code === '23503'
+              ? 'This table still has bookings — release or complete them first'
+              : error.message;
+            return { error: { status: 'CUSTOM_ERROR', error: message } };
+          }
           return { data: true };
         } catch (err: any) {
           return { error: { status: 'FETCH_ERROR', error: err.message } };
         }
+      },
+      onQueryStarted: async (id, { dispatch, queryFulfilled }) => {
+        const patch = dispatch(
+          supabaseApi.util.updateQueryData('getTables', undefined, (draft) => {
+            const idx = draft.findIndex((x) => x.id === id);
+            if (idx !== -1) draft.splice(idx, 1);
+          })
+        );
+        try { await queryFulfilled; } catch { patch.undo(); }
       },
       invalidatesTags: ['Tables'],
     }),
@@ -758,18 +914,34 @@ export const supabaseApi = createApi({
       queryFn: async (c) => {
         try {
           const { error } = await supabase.from('coupons').insert([{
-            code: c.code.toUpperCase().trim(),
+            code: normalizeCouponCode(c.code),
             discount: c.discount,
             max_discount: c.maxDiscount,
             min_order: c.minOrder,
             description: c.description,
             is_active: c.isActive,
           }]);
-          if (error) return { error: { status: 'CUSTOM_ERROR', error: error.message } };
+          if (error) {
+            // The primary key is the code itself, so a duplicate is the one
+            // failure a manager will actually hit — say so in their words.
+            const message = error.code === '23505'
+              ? `Coupon ${normalizeCouponCode(c.code)} already exists`
+              : error.message;
+            return { error: { status: 'CUSTOM_ERROR', error: message } };
+          }
           return { data: true };
         } catch (err: any) {
           return { error: { status: 'FETCH_ERROR', error: err.message } };
         }
+      },
+      onQueryStarted: async (c, { dispatch, queryFulfilled }) => {
+        const patch = dispatch(
+          supabaseApi.util.updateQueryData('getCoupons', undefined, (draft) => {
+            const code = normalizeCouponCode(c.code);
+            if (!draft.some((x) => x.code === code)) draft.push({ ...c, code });
+          })
+        );
+        try { await queryFulfilled; } catch { patch.undo(); }
       },
       invalidatesTags: ['Coupons'],
     }),
@@ -783,12 +955,23 @@ export const supabaseApi = createApi({
             min_order: c.minOrder,
             description: c.description,
             is_active: c.isActive,
-          }).eq('code', c.code);
+          }).eq('code', normalizeCouponCode(c.code));
           if (error) return { error: { status: 'CUSTOM_ERROR', error: error.message } };
           return { data: true };
         } catch (err: any) {
           return { error: { status: 'FETCH_ERROR', error: err.message } };
         }
+      },
+      // Drives the active/inactive switch too, which is why it has to feel
+      // instant: the toggle used to snap back until the refetch landed.
+      onQueryStarted: async (c, { dispatch, queryFulfilled }) => {
+        const patch = dispatch(
+          supabaseApi.util.updateQueryData('getCoupons', undefined, (draft) => {
+            const idx = draft.findIndex((x) => x.code === normalizeCouponCode(c.code));
+            if (idx !== -1) draft[idx] = { ...c, code: normalizeCouponCode(c.code) };
+          })
+        );
+        try { await queryFulfilled; } catch { patch.undo(); }
       },
       invalidatesTags: ['Coupons'],
     }),
@@ -796,12 +979,21 @@ export const supabaseApi = createApi({
     deleteCoupon: builder.mutation<boolean, string>({
       queryFn: async (code) => {
         try {
-          const { error } = await supabase.from('coupons').delete().eq('code', code);
+          const { error } = await supabase.from('coupons').delete().eq('code', normalizeCouponCode(code));
           if (error) return { error: { status: 'CUSTOM_ERROR', error: error.message } };
           return { data: true };
         } catch (err: any) {
           return { error: { status: 'FETCH_ERROR', error: err.message } };
         }
+      },
+      onQueryStarted: async (code, { dispatch, queryFulfilled }) => {
+        const patch = dispatch(
+          supabaseApi.util.updateQueryData('getCoupons', undefined, (draft) => {
+            const idx = draft.findIndex((x) => x.code === normalizeCouponCode(code));
+            if (idx !== -1) draft.splice(idx, 1);
+          })
+        );
+        try { await queryFulfilled; } catch { patch.undo(); }
       },
       invalidatesTags: ['Coupons'],
     }),

@@ -7,10 +7,13 @@ import AdminGuard from './AdminGuard';
 import AdminMobileBottomNav from './AdminMobileBottomNav';
 import AutoOrderPrinter from './AutoOrderPrinter';
 import ServiceWorkerRegister from './ServiceWorkerRegister';
+import RoleManifestLink from './RoleManifestLink';
 import { useAdmin } from '@/context/AdminContext';
+import { useAppDispatch } from '@/store/hooks';
+import { clearNotification } from '@/store/adminSlice';
 
-const SIDEBAR_WIDTH = 260;
-const COLLAPSED_WIDTH = 68;
+const SIDEBAR_WIDTH = 240;
+const COLLAPSED_WIDTH = 56;
 
 interface Props {
   children: ReactNode;
@@ -18,6 +21,7 @@ interface Props {
 }
 
 export default function AdminLayout({ children, title }: Props) {
+  const dispatch = useAppDispatch();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { notification } = useAdmin();
@@ -100,10 +104,10 @@ export default function AdminLayout({ children, title }: Props) {
           <main
             style={{
               flex: 1,
-              padding: isMobile ? '16px 14px' : '24px',
-              paddingBottom: isMobile ? 'calc(88px + env(safe-area-inset-bottom, 0px))' : '24px',
-              paddingLeft: isMobile ? 'max(14px, env(safe-area-inset-left, 0px))' : 24,
-              paddingRight: isMobile ? 'max(14px, env(safe-area-inset-right, 0px))' : 24,
+              padding: isMobile ? '14px 12px' : '20px',
+              paddingBottom: isMobile ? 'calc(84px + env(safe-area-inset-bottom, 0px))' : '20px',
+              paddingLeft: isMobile ? 'max(12px, env(safe-area-inset-left, 0px))' : 20,
+              paddingRight: isMobile ? 'max(12px, env(safe-area-inset-right, 0px))' : 20,
               overflowX: 'hidden',
               overflowY: 'auto',
               width: '100%',
@@ -128,18 +132,24 @@ export default function AdminLayout({ children, title }: Props) {
         {/* PWA service worker + push notification registration */}
         <ServiceWorkerRegister />
 
+        {/* Points the install prompt at this role's own app */}
+        <RoleManifestLink />
+
         {/* Global toast — top-right on phones (clear of the thumb and the
             fixed bottom nav), bottom-right on desktop. Matches the
             react-hot-toast placement in providers.tsx so alerts from either
             system always appear in the same corner. */}
         <Snackbar
           open={!!notification}
+          autoHideDuration={2500}
+          onClose={() => dispatch(clearNotification())}
           anchorOrigin={isMobile ? { vertical: 'top', horizontal: 'right' } : { vertical: 'bottom', horizontal: 'right' }}
           sx={isMobile
             ? { top: 'calc(70px + env(safe-area-inset-top, 0px)) !important', left: 12, right: 12 }
             : { mb: 2, mr: 2 }}
         >
           <Alert
+            onClose={() => dispatch(clearNotification())}
             severity={notification?.type || 'success'}
             sx={{
               borderRadius: '14px',

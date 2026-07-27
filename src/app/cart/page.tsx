@@ -87,7 +87,7 @@ export default function CartPage() {
       toast.error(`Minimum order ₹${coupon.minOrder} required for ${coupon.code}`);
       return;
     }
-    applyCoupon(coupon.code, coupon.discount);
+    applyCoupon(coupon.code, coupon.discount, coupon.maxDiscount);
     toast.success(`Coupon applied! ${coupon.discount}% off 🎉`);
     setCouponInput('');
   };

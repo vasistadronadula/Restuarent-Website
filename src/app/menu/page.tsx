@@ -29,6 +29,15 @@ const categoryEmojis: Record<string, string> = {
 
 type SortOption = 'popular' | 'price-asc' | 'price-desc' | 'rating';
 
+// Veg / Non-Veg is the filter customers reach for most, so it gets a
+// permanent shortcut above the dish grid instead of living only inside the
+// collapsible Filters panel. Both write the same `vegFilter` state, so the
+// two views can never disagree.
+const VEG_SHORTCUTS: { value: VegStatus; label: string; color: string; dot: string }[] = [
+  { value: 'veg', label: 'Veg', color: '#2E7D32', dot: '#2E7D32' },
+  { value: 'non-veg', label: 'Non-Veg', color: '#C62828', dot: '#C62828' },
+];
+
 export default function MenuPage() {
   const { menuItems: liveMenuItems } = useAdmin();
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,6 +151,75 @@ export default function MenuPage() {
           >
             Filters
           </Button>
+        </Box>
+
+        {/* Veg / Non-Veg quick filter — always visible, one tap away */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3, flexWrap: 'wrap' }}>
+          <Typography
+            variant="caption"
+            sx={{ fontWeight: 700, color: '#616161', letterSpacing: 0.5, mr: 0.5 }}
+          >
+            FOOD TYPE
+          </Typography>
+          <Chip
+            label="All"
+            onClick={() => setVegFilter('all')}
+            sx={{
+              fontWeight: vegFilter === 'all' ? 800 : 600,
+              bgcolor: vegFilter === 'all' ? '#C62828' : 'white',
+              color: vegFilter === 'all' ? 'white' : '#424242',
+              border: '1px solid',
+              borderColor: vegFilter === 'all' ? '#C62828' : 'rgba(0,0,0,0.12)',
+              cursor: 'pointer',
+              '&:hover': { bgcolor: vegFilter === 'all' ? '#8E0000' : 'rgba(198,40,40,0.06)' },
+            }}
+          />
+          {VEG_SHORTCUTS.map((opt) => {
+            const active = vegFilter === opt.value;
+            return (
+              <Chip
+                key={opt.value}
+                // Tapping the active shortcut again clears it — no need to
+                // hunt for "All" to get back to the full menu.
+                onClick={() => setVegFilter(active ? 'all' : opt.value)}
+                aria-pressed={active}
+                icon={
+                  <Box
+                    sx={{
+                      width: 14, height: 14, ml: '8px !important',
+                      border: `2px solid ${active ? '#FFFFFF' : opt.dot}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      borderRadius: opt.value === 'veg' ? '3px' : '50%',
+                    }}
+                  >
+                    <Box sx={{
+                      width: 7, height: 7, borderRadius: '50%',
+                      bgcolor: active ? '#FFFFFF' : opt.dot,
+                    }} />
+                  </Box>
+                }
+                label={opt.label}
+                sx={{
+                  fontWeight: active ? 800 : 600,
+                  bgcolor: active ? opt.color : 'white',
+                  color: active ? 'white' : '#424242',
+                  border: '1px solid',
+                  borderColor: active ? opt.color : 'rgba(0,0,0,0.12)',
+                  cursor: 'pointer',
+                  boxShadow: active ? `0 4px 14px ${opt.color}40` : '0 1px 4px rgba(0,0,0,0.06)',
+                  transition: 'all 0.2s',
+                  '&:hover': { bgcolor: active ? opt.color : `${opt.color}12` },
+                }}
+              />
+            );
+          })}
+          {vegFilter === 'egg' && (
+            <Chip
+              label="🥚 Egg"
+              onDelete={() => setVegFilter('all')}
+              sx={{ fontWeight: 800, bgcolor: 'rgba(255,152,0,0.15)', color: '#E65100' }}
+            />
+          )}
         </Box>
 
         {/* Filters Panel */}

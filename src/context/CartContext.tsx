@@ -33,7 +33,7 @@ interface CartContextType {
   toggleCart: () => void;
   openCart: () => void;
   closeCart: () => void;
-  applyCoupon: (code: string, discount: number) => void;
+  applyCoupon: (code: string, discount: number, maxDiscount?: number) => void;
   removeCoupon: () => void;
   totalItems: number;
   subtotal: number;
@@ -71,7 +71,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     toggleCart: () => dispatch(toggleCartAction()),
     openCart: () => dispatch(openCartAction()),
     closeCart: () => dispatch(closeCartAction()),
-    applyCoupon: (code, discount) => dispatch(applyCouponAction({ code, discount })),
+    applyCoupon: (code, discount, maxDiscount) => dispatch(applyCouponAction({ code, discount, maxDiscount })),
     removeCoupon: () => dispatch(removeCouponAction()),
     totalItems,
     subtotal,

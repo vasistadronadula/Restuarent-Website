@@ -26,7 +26,14 @@ export default function FloatingCartBar() {
     }
   }, [totalItems]);
 
-  if (pathname?.startsWith('/admin') || totalItems === 0) return null;
+  if (
+    !pathname ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/cashier') ||
+    pathname.startsWith('/checkout') ||
+    pathname.startsWith('/cart') ||
+    totalItems === 0
+  ) return null;
 
   return (
     <Box

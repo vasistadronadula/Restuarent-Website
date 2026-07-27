@@ -4,7 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
-import { ROLE_LABELS } from '@/lib/roleAccess';
+import {
+  ROLE_LABELS, receivesOrderNotifications, receivesReservationNotifications,
+  isStaffRole,
+} from '@/lib/roleAccess';
+import { roleAppFor } from '@/lib/roleApps';
+import { getPushState } from '@/lib/pushClient';
 import MobileAppInstallModal from './MobileAppInstallModal';
 
 interface Props {
@@ -58,8 +63,43 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // First sign-in on a device: offer this role's app once, unprompted. The
+  // dialog is where notification permission and printer pairing are asked
+  // for, so a chef or cashier who never opens the profile menu still gets
+  // set up. Shown once per role per device — the flag is written whichever
+  // way the dialog is dismissed, so it never nags.
+  const staffApp = roleAppFor(userRole);
+  useEffect(() => {
+    if (!user || !isStaffRole(userRole) || !staffApp) return;
+
+    const seenKey = `pala_pitta_app_setup_${staffApp.slug}`;
+    if (localStorage.getItem(seenKey) === 'done') return;
+
+    // Nothing left to offer: already installed and alerts already answered.
+    const standalone = window.matchMedia('(display-mode: standalone)').matches;
+    const pushAnswered = getPushState() !== 'default';
+    if (standalone && pushAnswered && userRole !== 'cashier') {
+      localStorage.setItem(seenKey, 'done');
+      return;
+    }
+
+    const timer = setTimeout(() => setInstallOpen(true), 1200);
+    return () => clearTimeout(timer);
+  }, [user, userRole, staffApp]);
+
+  const closeInstallModal = () => {
+    setInstallOpen(false);
+    if (staffApp) localStorage.setItem(`pala_pitta_app_setup_${staffApp.slug}`, 'done');
+  };
+
+  // Each role is only alerted about the module it works in: cashier/chef see
+  // incoming orders, server sees incoming reservations. Admin and manager get
+  // no bell at all — they read the lists instead.
+  const showOrderAlerts = receivesOrderNotifications(userRole);
+  const showReservationAlerts = receivesReservationNotifications(userRole);
+
   const realNotifications = [
-    ...orders.slice(0, 5).map((o) => ({
+    ...(showOrderAlerts ? orders.slice(0, 5) : []).map((o) => ({
       id: `ord-${o.id}`,
       text: `Order #${String(o.id).slice(-4)} — ${o.customerName || 'Customer'}`,
       sub: `₹${(o.grandTotal || o.subtotal || 0).toLocaleString()}`,
@@ -67,7 +107,7 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
       unread: o.status === 'pending',
       type: 'order' as const,
     })),
-    ...reservations.slice(0, 3).map((r) => ({
+    ...(showReservationAlerts ? reservations.slice(0, 3) : []).map((r) => ({
       id: `res-${r.id}`,
       text: `Table for ${r.customerName || 'Diner'}`,
       sub: `${r.guests} guests`,
@@ -83,6 +123,11 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
   const initials = adminName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || 'AD';
   const avatarUrl = user?.user_metadata?.avatar_url || '';
   const dateStr = new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+
+  // Only cashier sees auto-print toggle
+  const showAutoPrint = userRole === 'cashier';
+  // Only notification-eligible roles see the bell
+  const showNotifications = showOrderAlerts || showReservationAlerts;
 
   return (
     <>
@@ -329,7 +374,8 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
           </div>
 
           <div className="header-actions">
-            {/* Auto Print Toggle - Desktop only */}
+            {/* Auto Print Toggle - Cashier only, Desktop only */}
+            {showAutoPrint && (
             <button
               className="autoprint-chip"
               onClick={toggleAutoPrint}
@@ -347,6 +393,7 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
               </svg>
               {autoPrint ? 'AUTO-PRINT' : 'PRINT OFF'}
             </button>
+            )}
 
             {/* Refresh */}
             <button className="icon-btn" onClick={() => window.location.reload()} title="Refresh">
@@ -356,7 +403,8 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
               </svg>
             </button>
 
-            {/* Notifications */}
+            {/* Notifications - only for cashier/chef/waiter */}
+            {showNotifications && (
             <div className="relative" ref={notifRef}>
               <button
                 className="icon-btn"
@@ -401,6 +449,7 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
                 </div>
               )}
             </div>
+            )}
 
             {/* Profile Avatar */}
             <div className="relative" ref={profileRef}>
@@ -447,7 +496,7 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
                         <path d="M3 20H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                       </svg>
                     </span>
-                    Install Mobile App
+                    {staffApp ? `Install ${staffApp.shortName}` : 'Install Mobile App'}
                   </button>
 
                   <Link href="/" className="menu-item">
@@ -476,7 +525,7 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
         </div>
       </header>
 
-      <MobileAppInstallModal open={installOpen} onClose={() => setInstallOpen(false)} />
+      <MobileAppInstallModal open={installOpen} onClose={closeInstallModal} />
     </>
   );
 }

@@ -16,7 +16,7 @@ import type { UserRole } from '@/types';
 
 export { adminColors, roleColors, orderStatusColors, reservationStatusColors };
 
-// ─── PageHeader ─────────────────────────────────────────────────────────────
+// ── PageHeader ─────────────────────────────────────────────────────────────
 export function PageHeader({
   title, subtitle, action,
 }: { title: string; subtitle?: string; action?: React.ReactNode }) {
@@ -25,14 +25,14 @@ export function PageHeader({
       display: 'flex', justifyContent: 'space-between',
       alignItems: { xs: 'flex-start', sm: 'center' },
       flexDirection: { xs: 'column', sm: 'row' },
-      gap: 2, mb: 3,
+      gap: 1.5, mb: 2,
     }}>
       <Box>
-        <Typography sx={{ fontSize: { xs: 20, sm: 24 }, fontWeight: 800, color: adminColors.textPrimary, letterSpacing: '-0.4px', lineHeight: 1.2 }}>
+        <Typography sx={{ fontSize: { xs: 18, sm: 22 }, fontWeight: 900, color: adminColors.textPrimary, letterSpacing: '-0.5px', lineHeight: 1.2 }}>
           {title}
         </Typography>
         {subtitle && (
-          <Typography sx={{ fontSize: 13, color: adminColors.textMuted, mt: 0.5 }}>
+          <Typography sx={{ fontSize: 12.5, color: adminColors.textMuted, mt: 0.3, fontWeight: 500 }}>
             {subtitle}
           </Typography>
         )}
@@ -42,7 +42,7 @@ export function PageHeader({
   );
 }
 
-// ─── StatCard ───────────────────────────────────────────────────────────────
+// ── StatCard ───────────────────────────────────────────────────────────────
 export function StatCard({
   icon, label, value, sub, accent = adminColors.accent, trend, href,
 }: {
@@ -53,20 +53,20 @@ export function StatCard({
     <Paper
       elevation={0}
       sx={{
-        p: 2.25, borderRadius: adminColors.radiusLg,
+        p: 1.75, borderRadius: adminColors.radiusMd,
         border: `1px solid ${adminColors.border}`,
         bgcolor: adminColors.bgPanel, boxShadow: adminColors.shadowSm,
-        height: '100%', display: 'flex', flexDirection: 'column', gap: 1.25,
+        height: '100%', display: 'flex', flexDirection: 'column', gap: 1,
         transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
         ...(href ? { cursor: 'pointer', '&:hover': { borderColor: accent, boxShadow: adminColors.shadowMd } } : {}),
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
         <Box sx={{
-          width: 34, height: 34, borderRadius: adminColors.radiusSm,
+          width: 32, height: 32, borderRadius: adminColors.radiusSm,
           bgcolor: `${accent}14`, color: accent,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0, fontSize: '16px',
+          flexShrink: 0, fontSize: '15px',
         }}>
           {icon}
         </Box>
@@ -77,20 +77,20 @@ export function StatCard({
             sx={{
               bgcolor: trend.up ? adminColors.successBg : adminColors.dangerBg,
               color: trend.up ? adminColors.success : adminColors.danger,
-              fontWeight: 700, fontSize: '10.5px', height: 20, flexShrink: 0,
+              fontWeight: 800, fontSize: '10px', height: 19, flexShrink: 0,
             }}
           />
         )}
       </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: { xs: 22, sm: 26 }, fontWeight: 800, color: adminColors.textPrimary, lineHeight: 1.1, letterSpacing: '-0.6px' }}>
+        <Typography sx={{ fontSize: { xs: 20, sm: 24 }, fontWeight: 900, color: adminColors.textPrimary, lineHeight: 1.1, letterSpacing: '-0.6px' }}>
           {value}
         </Typography>
-        <Typography sx={{ fontSize: 12, fontWeight: 600, color: adminColors.textSecondary, mt: 0.4 }}>
+        <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: adminColors.textSecondary, mt: 0.3 }}>
           {label}
         </Typography>
         {sub && (
-          <Typography sx={{ fontSize: 11, color: adminColors.textMuted, mt: 0.2 }}>
+          <Typography sx={{ fontSize: 10.5, color: adminColors.textMuted, mt: 0.15, fontWeight: 500 }}>
             {sub}
           </Typography>
         )}
@@ -104,7 +104,7 @@ export function StatCard({
   return inner;
 }
 
-// ─── SectionCard ────────────────────────────────────────────────────────────
+// ── SectionCard ────────────────────────────────────────────────────────────
 export function SectionCard({
   children, sx, noPadding = false,
 }: { children: React.ReactNode; sx?: SxProps<Theme>; noPadding?: boolean }) {
@@ -112,11 +112,11 @@ export function SectionCard({
     <Paper
       elevation={0}
       sx={{
-        borderRadius: adminColors.radiusLg,
+        borderRadius: adminColors.radiusMd,
         border: `1px solid ${adminColors.border}`,
         bgcolor: adminColors.bgPanel, boxShadow: adminColors.shadowSm,
         overflow: 'hidden',
-        ...(noPadding ? {} : { p: { xs: 2, sm: 2.5 } }),
+        ...(noPadding ? {} : { p: { xs: 1.75, sm: 2 } }),
         ...sx,
       }}
     >
@@ -125,18 +125,18 @@ export function SectionCard({
   );
 }
 
-// ─── SectionHeading — in-card title row ─────────────────────────────────────
+// ── SectionHeading — in-card title row ─────────────────────────────────────
 export function SectionHeading({
   title, subtitle, action,
 }: { title: React.ReactNode; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
+    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5, mb: 1.5, flexWrap: 'wrap' }}>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: 14, fontWeight: 700, color: adminColors.textPrimary, letterSpacing: '-0.2px' }}>
+        <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: adminColors.textPrimary, letterSpacing: '-0.2px' }}>
           {title}
         </Typography>
         {subtitle && (
-          <Typography sx={{ fontSize: 11.5, color: adminColors.textMuted, mt: 0.2 }}>{subtitle}</Typography>
+          <Typography sx={{ fontSize: 11, color: adminColors.textMuted, mt: 0.15, fontWeight: 500 }}>{subtitle}</Typography>
         )}
       </Box>
       {action}
@@ -144,7 +144,7 @@ export function SectionHeading({
   );
 }
 
-// ─── AlertTile — a single actionable "needs attention" row ──────────────────
+// ── AlertTile — a single actionable "needs attention" row ──────────────────
 export function AlertTile({
   icon, label, detail, count, tone = 'warning', href,
 }: {
@@ -160,34 +160,34 @@ export function AlertTile({
   return (
     <Link href={href} style={{ textDecoration: 'none' }}>
       <Box sx={{
-        display: 'flex', alignItems: 'center', gap: 1.5,
-        p: 1.5, borderRadius: adminColors.radiusMd,
+        display: 'flex', alignItems: 'center', gap: 1.25,
+        p: 1.25, borderRadius: adminColors.radiusSm,
         bgcolor: tones.bg, border: `1px solid ${tones.border}`,
         transition: 'transform 0.12s ease',
         '&:hover': { transform: 'translateX(2px)' },
       }}>
         <Box sx={{
-          width: 32, height: 32, borderRadius: adminColors.radiusSm, flexShrink: 0,
+          width: 30, height: 30, borderRadius: '7px', flexShrink: 0,
           bgcolor: '#FFFFFF', color: tones.color,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
         }}>
           {icon}
         </Box>
         <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 700, color: adminColors.textPrimary, lineHeight: 1.3 }}>
+          <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: adminColors.textPrimary, lineHeight: 1.3 }}>
             {label}
           </Typography>
           {detail && (
-            <Typography sx={{ fontSize: 11.5, color: adminColors.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <Typography sx={{ fontSize: 11, color: adminColors.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
               {detail}
             </Typography>
           )}
         </Box>
         <Box sx={{
-          minWidth: 26, height: 24, px: 1, borderRadius: '12px', flexShrink: 0,
+          minWidth: 24, height: 22, px: 0.75, borderRadius: '11px', flexShrink: 0,
           bgcolor: tones.color, color: '#FFFFFF',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 12, fontWeight: 800,
+          fontSize: 11, fontWeight: 800,
         }}>
           {count}
         </Box>
@@ -196,33 +196,33 @@ export function AlertTile({
   );
 }
 
-// ─── StatusChip ─────────────────────────────────────────────────────────────
+// ── StatusChip ─────────────────────────────────────────────────────────────
 export function StatusChip({
   status, palette,
 }: { status: string; palette?: Record<string, { label: string; color: string; bg: string }> }) {
   const p = (palette || orderStatusColors)[status] || { label: status, color: adminColors.neutral, bg: adminColors.neutralBg };
   return (
-    <Chip label={p.label} size="small" sx={{ bgcolor: p.bg, color: p.color, fontWeight: 700, fontSize: '11px' }} />
+    <Chip label={p.label} size="small" sx={{ bgcolor: p.bg, color: p.color, fontWeight: 800, fontSize: '10.5px' }} />
   );
 }
 
-// ─── EmptyState ─────────────────────────────────────────────────────────────
+// ── EmptyState ─────────────────────────────────────────────────────────────
 export function EmptyState({
   emoji = '📭', title, subtitle, action,
 }: { emoji?: string; title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <Box sx={{ textAlign: 'center', py: 6, px: 2 }}>
-      <Typography sx={{ fontSize: '2.25rem', mb: 1, opacity: 0.8 }}>{emoji}</Typography>
-      <Typography sx={{ fontWeight: 700, color: adminColors.textPrimary, fontSize: 15 }}>{title}</Typography>
+    <Box sx={{ textAlign: 'center', py: 4, px: 2 }}>
+      <Typography sx={{ fontSize: '2rem', mb: 0.75, opacity: 0.8 }}>{emoji}</Typography>
+      <Typography sx={{ fontWeight: 800, color: adminColors.textPrimary, fontSize: 14 }}>{title}</Typography>
       {subtitle && (
-        <Typography sx={{ color: adminColors.textMuted, mt: 0.5, fontSize: 13 }}>{subtitle}</Typography>
+        <Typography sx={{ color: adminColors.textMuted, mt: 0.4, fontSize: 12.5, fontWeight: 500 }}>{subtitle}</Typography>
       )}
-      {action && <Box sx={{ mt: 2.5 }}>{action}</Box>}
+      {action && <Box sx={{ mt: 2 }}>{action}</Box>}
     </Box>
   );
 }
 
-// ─── RoleBadge ──────────────────────────────────────────────────────────────
+// ── RoleBadge ──────────────────────────────────────────────────────────────
 export function RoleBadge({ role, size = 'small' }: { role: UserRole | null | undefined; size?: 'small' | 'medium' }) {
   if (!role || role === 'customer') return null;
   const c = roleColors[role];
@@ -232,9 +232,9 @@ export function RoleBadge({ role, size = 'small' }: { role: UserRole | null | un
       size="small"
       sx={{
         bgcolor: c.bg, color: c.color, fontWeight: 800,
-        fontSize: size === 'small' ? '9.5px' : '11px',
+        fontSize: size === 'small' ? '9px' : '10.5px',
         textTransform: 'uppercase', letterSpacing: '0.4px',
-        height: size === 'small' ? 19 : 23,
+        height: size === 'small' ? 18 : 22,
       }}
     />
   );

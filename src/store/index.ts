@@ -17,7 +17,8 @@ import { realtimeMiddleware } from './realtimeMiddleware';
 const cartPersistConfig = {
   key: 'pala-pitta-cart',
   storage,
-  whitelist: ['items', 'couponCode', 'couponDiscount'], // Don't persist isOpen state
+  // Don't persist isOpen state
+  whitelist: ['items', 'couponCode', 'couponDiscount', 'couponMaxDiscount'],
 };
 
 const persistedCartReducer = persistReducer(cartPersistConfig, cartReducer);

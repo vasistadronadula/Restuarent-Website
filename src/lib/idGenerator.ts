@@ -53,3 +53,13 @@ export const generateTableId = (tableNumber: number): string =>
 /** Generates a unique Employee ID — PPR-EMP-20260725-4821 */
 export const generateEmployeeId = (): string =>
   `PPR-EMP-${getDateStamp()}-${rand4()}`;
+
+/**
+ * Generates a Stock/Inventory ID — PPR-STK-20260725-4821
+ *
+ * The inventory page used to build its own ID from the last six digits of
+ * `Date.now()`, which repeat every ~16 minutes — two items added in the same
+ * session could collide on the primary key and the second insert would fail.
+ */
+export const generateInventoryId = (): string =>
+  `PPR-STK-${getDateStamp()}-${rand4()}`;

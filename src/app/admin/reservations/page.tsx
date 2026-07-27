@@ -164,20 +164,26 @@ export default function ReservationsPage() {
     try {
       await deleteTable(table.id).unwrap();
       toast.success(`Table ${table.tableNumber} deleted`);
-    } catch {
-      toast.error('Failed to delete table');
+    } catch (err) {
+      // Show why — most often the table still has bookings referencing it.
+      toast.error((err as { error?: string })?.error || 'Failed to delete table');
     }
   };
 
+  // Both of these used to announce success unconditionally: if the status
+  // write failed, the row snapped back to its old state while a green
+  // "completed ✅" toast sat on screen.
   const handleCompleteReservation = async (id: string) => {
-    await updateReservationStatus(id, 'completed');
-    try { await releaseTableSlot(id).unwrap(); } catch { /* ignore */ }
-    toast.success('Reservation completed — table slot released ✅');
+    const ok = await updateReservationStatus(id, 'completed');
+    if (!ok) return;
+    try { await releaseTableSlot(id).unwrap(); } catch { /* slot may already be free */ }
+    toast.success('Reservation completed — table slot released');
   };
 
   const handleCancelReservation = async (id: string) => {
-    await updateReservationStatus(id, 'cancelled');
-    try { await releaseTableSlot(id).unwrap(); } catch { /* ignore */ }
+    const ok = await updateReservationStatus(id, 'cancelled');
+    if (!ok) return;
+    try { await releaseTableSlot(id).unwrap(); } catch { /* slot may already be free */ }
     toast.success('Reservation cancelled — table slot freed');
   };
 

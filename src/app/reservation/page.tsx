@@ -16,6 +16,7 @@ import toast from 'react-hot-toast';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { generateReservationId } from '@/lib/idGenerator';
+import { triggerNewReservationPush } from '@/lib/triggerPush';
 import {
   useGetTablesQuery,
   useGetBookedTableSlotsQuery,
@@ -147,6 +148,10 @@ export default function ReservationPage() {
       setLoading(false);
       return;
     }
+
+    // Alert the servers on the floor — fire-and-forget, never blocks the
+    // confirmation the guest is waiting for.
+    triggerNewReservationPush(id);
 
     setConfirmId(id);
     setSuccess(true);
