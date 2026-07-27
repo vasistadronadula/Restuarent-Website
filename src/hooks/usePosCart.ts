@@ -4,14 +4,7 @@ import { useCallback, useMemo, useReducer } from 'react';
 import type { MenuItem, PortionPrices, VegStatus } from '@/types';
 
 /**
- * usePosCart — the counter bill's line items, as a state machine.
- *
- * Every change goes through one reducer with explicit, guarded operations
- * (add / increment / decrement / set quantity / remove / clear) instead of
- * ad-hoc `setState` spread across the page. That's what makes the bill
- * trustworthy: a quantity can't go negative, a line can't be duplicated by
- * a double tap, and "remove" is a deliberate action rather than something
- * that happens when a decrement passes zero unnoticed.
+ * usePosCart — counter bill line items state machine.
  */
 
 export type Portion = 'single' | 'full' | 'large';
@@ -22,14 +15,14 @@ export const PORTION_LABEL: Record<Portion, string> = {
   large: 'Large',
 };
 
-/** One dish can't be rung up more times than this on a single line. */
+/** Max items on a single line */
 export const MAX_LINE_QTY = 99;
 
 export interface PosLine {
   /** menuItemId + portion — two portions of one dish are separate lines. */
   key: string;
   menuItemId: string;
-  /** Display name including the portion, exactly as it prints on the bill. */
+  /** Display name including portion */
   name: string;
   unitPrice: number;
   quantity: number;
@@ -64,13 +57,27 @@ function reducer(state: PosLine[], action: Action): PosLine[] {
       return state.map((l) =>
         l.key === action.key ? { ...l, quantity: clampQty(l.quantity + 1) } : l
       );
-    case 'decrement':
-      // Decrementing the last unit removes the line — but only that line,
-      // and only when it is genuinely at 1.
-      return state.flatMap((l) => {
-        if (l.key !== action.key) return [l];
-        return l.quantity <= 1 ? [] : [{ ...l, quantity: l.quantity - 1 }];
-      });
+    case 'decrement': {
+      // 1. Direct key match (e.g. dish123::full)
+      const exactIdx = state.findIndex((l) => l.key === action.key);
+      if (exactIdx !== -1) {
+        const line = state[exactIdx];
+        return line.quantity <= 1
+          ? state.filter((_, i) => i !== exactIdx)
+          : state.map((l, i) => (i === exactIdx ? { ...l, quantity: l.quantity - 1 } : l));
+      }
+
+      // 2. Fallback: menuItemId match (e.g. dish123)
+      const menuIdx = state.findLastIndex((l) => l.menuItemId === action.key);
+      if (menuIdx !== -1) {
+        const line = state[menuIdx];
+        return line.quantity <= 1
+          ? state.filter((_, i) => i !== menuIdx)
+          : state.map((l, i) => (i === menuIdx ? { ...l, quantity: l.quantity - 1 } : l));
+      }
+
+      return state;
+    }
     case 'setQuantity': {
       if (!Number.isFinite(action.quantity) || action.quantity < 1) {
         return state.filter((l) => l.key !== action.key);
@@ -99,7 +106,6 @@ export function sellablePortions(item: MenuItem): { portion: Portion; price: num
 
 export interface AddResult {
   ok: boolean;
-  /** Why the dish couldn't be added — shown to the cashier verbatim. */
   reason?: string;
 }
 
@@ -108,11 +114,21 @@ export function usePosCart() {
 
   const add = useCallback((item: MenuItem, portion?: Portion): AddResult => {
     const portions = sellablePortions(item);
-    const chosen = portion ? portions.find((p) => p.portion === portion) : undefined;
 
-    // Asked for a portion this dish isn't sold in — refuse rather than
-    // quietly falling back to the base price, which is how a bill ends up
-    // charging for a size the kitchen doesn't make.
+    // If no portion specified, check if there's already a line for this dish in cart
+    let targetPortion = portion;
+    if (!targetPortion && portions.length > 0) {
+      const existingLine = lines.find((l) => l.menuItemId === item.id);
+      if (existingLine && existingLine.portion) {
+        targetPortion = existingLine.portion;
+      } else {
+        // Default to first portion available
+        targetPortion = portions[0].portion;
+      }
+    }
+
+    const chosen = targetPortion ? portions.find((p) => p.portion === targetPortion) : undefined;
+
     if (portion && !chosen) {
       return { ok: false, reason: `${item.name} isn't sold as ${PORTION_LABEL[portion]}` };
     }
@@ -140,7 +156,7 @@ export function usePosCart() {
       },
     });
     return { ok: true };
-  }, []);
+  }, [lines]);
 
   const increment = useCallback((key: string) => dispatch({ type: 'increment', key }), []);
   const decrement = useCallback((key: string) => dispatch({ type: 'decrement', key }), []);
