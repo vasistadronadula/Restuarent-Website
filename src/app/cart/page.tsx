@@ -314,7 +314,7 @@ export default function CartPage() {
                           bgcolor: '#FFF8F2',
                           display: 'flex',
                           flexDirection: 'column',
-                          justify: 'space-between',
+                          justifyContent: 'space-between',
                           height: '100%',
                         }}
                       >
@@ -377,7 +377,7 @@ export default function CartPage() {
                   <Box
                     sx={{
                       display: 'flex',
-                      justify: 'space-between',
+                      justifyContent: 'space-between',
                       alignItems: 'center',
                       p: 2,
                       bgcolor: 'rgba(46,125,50,0.08)',

@@ -60,8 +60,11 @@ export default function Reveal({
     if (!el) return;
 
     if (typeof IntersectionObserver === 'undefined') {
-      setShown(true);
-      return;
+      // Deferred to the next frame rather than set inline: an observer
+      // callback would have been asynchronous too, so this keeps both paths
+      // behaving the same and avoids a re-render cascading out of the effect.
+      const frame = requestAnimationFrame(() => setShown(true));
+      return () => cancelAnimationFrame(frame);
     }
 
     const observer = new IntersectionObserver(

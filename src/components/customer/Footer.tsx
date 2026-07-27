@@ -35,12 +35,16 @@ export default function Footer() {
       sx={{
         background: 'linear-gradient(180deg, #1A0A0A 0%, #2D0000 100%)',
         color: 'white',
-        pt: 8, pb: 3,
+        pt: { xs: 6, md: 8 },
+        // Reserve room for the fixed FloatingCartBar when it is on screen, so
+        // a full cart never covers the policy links. See globals.css.
+        pb: 'calc(24px + var(--ppr-floating-cart-h, 0px))',
+        transition: 'padding-bottom 0.3s ease',
         mt: 'auto',
       }}
     >
-      <Container maxWidth="lg">
-        <Grid container spacing={5}>
+      <Container maxWidth="lg" sx={{ px: { xs: 2.5, sm: 3, md: 4 } }}>
+        <Grid container spacing={{ xs: 4, md: 5 }}>
           {/* Brand */}
           <Grid size={{ xs: 12, md: 4 }}>
             <Box sx={{ mb: 2.5 }}>

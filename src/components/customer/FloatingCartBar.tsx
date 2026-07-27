@@ -26,14 +26,28 @@ export default function FloatingCartBar() {
     }
   }, [totalItems]);
 
-  if (
+  const hidden =
     !pathname ||
     pathname.startsWith('/admin') ||
     pathname.startsWith('/cashier') ||
     pathname.startsWith('/checkout') ||
     pathname.startsWith('/cart') ||
-    totalItems === 0
-  ) return null;
+    totalItems === 0;
+
+  /**
+   * Publish the space this bar takes up so page content can reserve it.
+   * A `position: fixed` element is out of flow and cannot push anything, so
+   * with a full cart the bar used to sit directly on top of the footer's
+   * policy links and copyright. The storefront footer adds this value to its
+   * own bottom padding; every other surface ignores it.
+   */
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--ppr-floating-cart-h', hidden ? '0px' : '104px');
+    return () => root.style.setProperty('--ppr-floating-cart-h', '0px');
+  }, [hidden]);
+
+  if (hidden) return null;
 
   return (
     <Box

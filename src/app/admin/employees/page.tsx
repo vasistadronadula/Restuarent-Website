@@ -7,7 +7,7 @@ import {
   CircularProgress, InputAdornment, useMediaQuery, useTheme,
 } from '@mui/material';
 import {
-  Edit, Add, Close, Delete, Visibility, VisibilityOff, Casino, ContentCopy, Check,
+  Edit, Add, Close, Delete, Visibility, VisibilityOff, Casino, ContentCopy, Check, VpnKey,
 } from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
@@ -297,30 +297,39 @@ function EmployeeDialog({
 }
 
 // ─── Credentials reveal ─────────────────────────────────────────────────────
-function CredentialsDialog({ creds, onClose }: { creds: { email: string; password: string } | null; onClose: () => void }) {
+// ─── Credentials reveal ─────────────────────────────────────────────────────
+function CredentialsDialog({ creds, onClose }: { creds: { email: string; password: string; isReset?: boolean } | null; onClose: () => void }) {
   if (!creds) return null;
   const copy = () => {
     navigator.clipboard?.writeText(`Email: ${creds.email}\nPassword: ${creds.password}`);
-    toast.success('Copied to clipboard');
+    toast.success('Credentials copied to clipboard');
   };
   return (
     <Dialog open={!!creds} onClose={onClose} maxWidth="xs" fullWidth
       slotProps={{ paper: { sx: { borderRadius: adminColors.radiusXl } } }}>
-      <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>✅ Account created</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>
+        {creds.isReset ? '🔑 Password Reset Successful' : '✅ Account Created'}
+      </DialogTitle>
       <DialogContent>
         <Typography sx={{ fontSize: 13, color: adminColors.textSecondary, mb: 2 }}>
-          Share these details with them directly — the password won&apos;t be shown again.
+          {creds.isReset
+            ? 'Share this new password with the employee so they can sign in.'
+            : 'Share these details with them directly — the password won\'t be shown again.'}
         </Typography>
         <Box sx={{ p: 2, borderRadius: adminColors.radiusMd, bgcolor: adminColors.bgSubtle, border: `1px solid ${adminColors.border}` }}>
           <Typography sx={{ fontSize: 10.5, color: adminColors.textMuted, fontWeight: 800, letterSpacing: '0.5px' }}>EMAIL</Typography>
           <Typography sx={{ fontWeight: 700, mb: 1.5, wordBreak: 'break-all', fontSize: 14 }}>{creds.email}</Typography>
-          <Typography sx={{ fontSize: 10.5, color: adminColors.textMuted, fontWeight: 800, letterSpacing: '0.5px' }}>PASSWORD</Typography>
-          <Typography sx={{ fontWeight: 700, fontFamily: 'ui-monospace, monospace', fontSize: 17 }}>{creds.password}</Typography>
+          <Typography sx={{ fontSize: 10.5, color: adminColors.textMuted, fontWeight: 800, letterSpacing: '0.5px' }}>
+            {creds.isReset ? 'NEW PASSWORD' : 'PASSWORD'}
+          </Typography>
+          <Typography sx={{ fontWeight: 700, fontFamily: 'ui-monospace, monospace', fontSize: 17, color: adminColors.brand }}>
+            {creds.password}
+          </Typography>
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
         <Button startIcon={<ContentCopy />} onClick={copy} sx={{ color: adminColors.brand, textTransform: 'none', fontWeight: 700 }}>
-          Copy
+          Copy Credentials
         </Button>
         <Button variant="contained" onClick={onClose}
           sx={{ bgcolor: adminColors.brand, '&:hover': { bgcolor: adminColors.brandDark }, borderRadius: adminColors.radiusMd, fontWeight: 700, textTransform: 'none', boxShadow: 'none' }}>
@@ -331,12 +340,121 @@ function CredentialsDialog({ creds, onClose }: { creds: { email: string; passwor
   );
 }
 
+// ─── Reset Password Modal ───────────────────────────────────────────────────
+function ResetPasswordDialog({
+  emp,
+  onClose,
+  onSuccess,
+}: {
+  emp: Employee | null;
+  onClose: () => void;
+  onSuccess: (email: string, password: string) => void;
+}) {
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [updateEmployee] = useUpdateEmployeeMutation();
+
+  React.useEffect(() => {
+    if (emp) {
+      setNewPassword(generateTempPassword());
+      setShowPassword(true);
+    }
+  }, [emp]);
+
+  if (!emp) return null;
+
+  const handleReset = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const result = await updateEmployee({ id: emp.id, password: newPassword });
+      if ('error' in result && result.error) {
+        toast.error((result.error as { error?: string }).error || 'Failed to reset password');
+        return;
+      }
+      toast.success(`Password reset for ${emp.name}`);
+      onSuccess(emp.email, newPassword);
+      onClose();
+    } catch {
+      toast.error('Failed to reset password');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!emp} onClose={onClose} maxWidth="xs" fullWidth
+      slotProps={{ paper: { sx: { borderRadius: adminColors.radiusXl } } }}>
+      <DialogTitle sx={{ fontWeight: 800, fontSize: 17, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        🔑 Reset Password
+        <IconButton size="small" onClick={onClose} aria-label="Close"><Close fontSize="small" /></IconButton>
+      </DialogTitle>
+      <DialogContent>
+        <Typography sx={{ fontSize: 13, color: adminColors.textSecondary, mb: 2 }}>
+          Set a new login password for <strong>{emp.name}</strong> ({emp.email}):
+        </Typography>
+        <TextField
+          fullWidth size="small"
+          label="New Password *"
+          type={showPassword ? 'text' : 'password'}
+          value={newPassword}
+          onChange={(e) => setNewPassword(e.target.value)}
+          placeholder="Min 6 characters"
+          slotProps={{
+            input: {
+              endAdornment: (
+                <InputAdornment position="end">
+                  <Tooltip title="Generate Random Password">
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setNewPassword(generateTempPassword());
+                        setShowPassword(true);
+                      }}
+                    >
+                      <Casino fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <IconButton size="small" onClick={() => setShowPassword((v) => !v)}>
+                    {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+        <Button onClick={onClose} sx={{ color: adminColors.textSecondary, textTransform: 'none', fontWeight: 600 }}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleReset}
+          disabled={updating || !newPassword}
+          sx={{
+            bgcolor: adminColors.brand, '&:hover': { bgcolor: adminColors.brandDark },
+            borderRadius: adminColors.radiusMd, fontWeight: 700, textTransform: 'none', px: 2.5, boxShadow: 'none',
+          }}
+        >
+          {updating ? <CircularProgress size={20} color="inherit" /> : 'Set New Password'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 // ─── Employee card ──────────────────────────────────────────────────────────
 function EmployeeCard({
-  emp, isSelf, manageable, onEdit, onToggle, onDelete,
+  emp, isSelf, manageable, onEdit, onResetPassword, onToggle, onDelete,
 }: {
   emp: Employee; isSelf: boolean; manageable: boolean;
-  onEdit: () => void; onToggle: () => void; onDelete: () => void;
+  onEdit: () => void; onResetPassword: () => void; onToggle: () => void; onDelete: () => void;
 }) {
   const c = roleColors[emp.role] || roleColors.waiter;
   // A manager sees admin accounts (they're part of the team) but can't act on
@@ -395,7 +513,14 @@ function EmployeeCard({
           )}
         </Box>
         <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-          <Tooltip title={lockedReason || 'Edit'}>
+          <Tooltip title={lockedReason || 'Reset Password'}>
+            <span>
+              <IconButton size="small" onClick={onResetPassword} disabled={!manageable} sx={{ color: '#D97706' }}>
+                <VpnKey sx={{ fontSize: 17 }} />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title={lockedReason || 'Edit Details'}>
             <span>
               <IconButton size="small" onClick={onEdit} disabled={!manageable} sx={{ color: adminColors.textSecondary }}>
                 <Edit sx={{ fontSize: 17 }} />
@@ -425,7 +550,8 @@ export default function EmployeesPage() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
-  const [creds, setCreds] = useState<{ email: string; password: string } | null>(null);
+  const [resettingEmp, setResettingEmp] = useState<Employee | null>(null);
+  const [creds, setCreds] = useState<{ email: string; password: string; isReset?: boolean } | null>(null);
   const [roleFilter, setRoleFilter] = useState<StaffRole | 'all'>('all');
 
   const counts = useMemo(() => {
@@ -532,6 +658,7 @@ export default function EmployeesPage() {
                   isSelf={!!currentEmail && emp.email.toLowerCase() === currentEmail}
                   manageable={canManageStaffRole(userRole, emp.role)}
                   onEdit={() => openEdit(emp)}
+                  onResetPassword={() => setResettingEmp(emp)}
                   onToggle={() => handleToggle(emp)}
                   onDelete={() => handleDelete(emp)}
                 />
@@ -547,7 +674,12 @@ export default function EmployeesPage() {
         editing={editing}
         roles={roles}
         onClose={() => setDialogOpen(false)}
-        onCreated={(email, password) => setCreds({ email, password })}
+        onCreated={(email, password) => setCreds({ email, password, isReset: false })}
+      />
+      <ResetPasswordDialog
+        emp={resettingEmp}
+        onClose={() => setResettingEmp(null)}
+        onSuccess={(email, password) => setCreds({ email, password, isReset: true })}
       />
       <CredentialsDialog creds={creds} onClose={() => setCreds(null)} />
     </AdminLayout>

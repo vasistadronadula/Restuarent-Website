@@ -34,7 +34,7 @@ const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585937421612-70a00835
 export default function FoodMenuSlider() {
   const { menuItems: liveMenuItems, isLoadingDB } = useAdmin();
   const [activeCategory, setActiveCategory] = useState('all');
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [rawIndex, setRawIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [likedIds, setLikedIds] = useState<Record<string, boolean>>({});
   const touchStartX = useRef<number | null>(null);
@@ -50,33 +50,33 @@ export default function FoodMenuSlider() {
 
   const maxIndex = Math.max(0, filteredDishes.length - 1);
 
-  // A category switch can shorten the list under the current index; clamp it
-  // back in range or the track scrolls to blank space.
-  useEffect(() => {
-    setCurrentIndex((prev) => Math.min(prev, maxIndex));
+  // A category switch — or a realtime menu update that pulls a dish — can
+  // shorten the list out from under the stored index. Clamping here, during
+  // render, means the track can never point at a slide that no longer exists.
+  const currentIndex = Math.min(rawIndex, maxIndex);
+
+  const goTo = useCallback((index: number) => {
+    const count = maxIndex + 1;
+    setRawIndex(((index % count) + count) % count);
   }, [maxIndex]);
 
-  // `currentIndex` in the deps restarts the countdown after manual navigation.
+  // `currentIndex` in the deps restarts the countdown after manual navigation,
+  // so a dish the visitor just picked never flips away early.
   useEffect(() => {
     if (isPaused || filteredDishes.length <= 1) return;
     const timer = setTimeout(() => {
-      setCurrentIndex((prev) => (prev >= maxIndex ? 0 : prev + 1));
+      setRawIndex(currentIndex >= maxIndex ? 0 : currentIndex + 1);
     }, SLIDE_MS);
     return () => clearTimeout(timer);
   }, [isPaused, filteredDishes.length, maxIndex, currentIndex]);
 
   const handleCategoryChange = (catId: string) => {
     setActiveCategory(catId);
-    setCurrentIndex(0);
+    setRawIndex(0);
   };
 
-  const handlePrev = useCallback(() => {
-    setCurrentIndex((prev) => (prev === 0 ? maxIndex : prev - 1));
-  }, [maxIndex]);
-
-  const handleNext = useCallback(() => {
-    setCurrentIndex((prev) => (prev >= maxIndex ? 0 : prev + 1));
-  }, [maxIndex]);
+  const handlePrev = useCallback(() => goTo(currentIndex - 1), [goTo, currentIndex]);
+  const handleNext = useCallback(() => goTo(currentIndex + 1), [goTo, currentIndex]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
@@ -605,11 +605,11 @@ export default function FoodMenuSlider() {
                     tabIndex={0}
                     aria-label={`Show dish ${idx + 1}`}
                     aria-current={currentIndex === idx}
-                    onClick={() => setCurrentIndex(idx)}
+                    onClick={() => goTo(idx)}
                     onKeyDown={(e: React.KeyboardEvent) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        setCurrentIndex(idx);
+                        goTo(idx);
                       }
                     }}
                     sx={{
