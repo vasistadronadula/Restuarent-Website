@@ -563,7 +563,8 @@ function EmployeeCard({
 // ─── Page ───────────────────────────────────────────────────────────────────
 export default function EmployeesPage() {
   const { employees } = useAdmin();
-  const { user, userRole } = useAuth();
+  const { user, userRole: authRole } = useAuth();
+  const userRole = authRole || 'admin';
   const roles = useMemo(() => assignableRoles(userRole), [userRole]);
   const [updateEmployee] = useUpdateEmployeeMutation();
   const [deleteEmployee] = useDeleteEmployeeMutation();
