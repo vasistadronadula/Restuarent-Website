@@ -209,43 +209,49 @@ function EmployeeDialog({
 
           {/* Password field: visible for BOTH Add and Edit */}
           <Grid size={{ xs: 12 }}>
-            <TextField
-              fullWidth size="small"
-              label={isEdit ? 'Set New Password (optional)' : 'Initial Password *'}
-              type={showPassword ? 'text' : 'password'}
-              value={form.password}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
-              error={!!errors.password}
-              helperText={
-                errors.password ||
-                (isEdit
-                  ? 'Leave blank to keep existing password, or enter/generate a new password to reset it.'
-                  : 'Share this password with them directly — no email is sent.')
-              }
-              placeholder={isEdit ? 'Enter new password or click 🎲' : 'Min 6 characters'}
-              slotProps={{
-                input: {
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Tooltip title="Generate Random Password">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setForm({ ...form, password: generateTempPassword() });
-                            setShowPassword(true);
-                          }}
-                        >
-                          <Casino fontSize="small" />
+            <Box sx={{ p: 1.5, borderRadius: '12px', bgcolor: isEdit ? '#FFFBEB' : '#FAFAF9', border: `1px solid ${isEdit ? '#FCD34D' : '#E7E5E4'}` }}>
+              <Typography variant="caption" sx={{ fontWeight: 800, color: isEdit ? '#B45309' : '#1C1917', display: 'block', mb: 0.75 }}>
+                {isEdit ? '🔑 RESET / SET NEW PASSWORD (OPTIONAL)' : '🔑 LOGIN PASSWORD *'}
+              </Typography>
+              <TextField
+                fullWidth size="small"
+                label={isEdit ? 'New Password' : 'Initial Password *'}
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                error={!!errors.password}
+                helperText={
+                  errors.password ||
+                  (isEdit
+                    ? 'Leave blank to keep existing password, or type / click 🎲 to set a new password.'
+                    : 'Share this password with them directly — no email is sent.')
+                }
+                placeholder={isEdit ? 'Enter new password or click 🎲' : 'Min 6 characters'}
+                slotProps={{
+                  input: {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <Tooltip title="Generate Random Password">
+                          <IconButton
+                            size="small"
+                            onClick={() => {
+                              setForm({ ...form, password: generateTempPassword() });
+                              setShowPassword(true);
+                            }}
+                            sx={{ color: '#D97706' }}
+                          >
+                            <Casino fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <IconButton size="small" onClick={() => setShowPassword((v) => !v)}>
+                          {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
                         </IconButton>
-                      </Tooltip>
-                      <IconButton size="small" onClick={() => setShowPassword((v) => !v)}>
-                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+            </Box>
           </Grid>
 
           <Grid size={{ xs: 12 }}>
@@ -512,14 +518,28 @@ function EmployeeCard({
             </Typography>
           )}
         </Box>
-        <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-          <Tooltip title={lockedReason || 'Reset Password'}>
-            <span>
-              <IconButton size="small" onClick={onResetPassword} disabled={!manageable} sx={{ color: '#D97706' }}>
-                <VpnKey sx={{ fontSize: 17 }} />
-              </IconButton>
-            </span>
-          </Tooltip>
+        <Box sx={{ display: 'flex', gap: 0.75, flexShrink: 0, alignItems: 'center' }}>
+          <Button
+            size="small"
+            startIcon={<VpnKey sx={{ fontSize: 13 }} />}
+            onClick={onResetPassword}
+            disabled={!manageable}
+            sx={{
+              borderRadius: '8px',
+              fontSize: '11px',
+              fontWeight: 800,
+              textTransform: 'none',
+              bgcolor: '#FEF3C7',
+              color: '#B45309',
+              px: 1.25, py: 0.4,
+              minWidth: 0,
+              border: '1px solid #FCD34D',
+              '&:hover': { bgcolor: '#FDE68A' },
+            }}
+          >
+            Reset Pwd
+          </Button>
+
           <Tooltip title={lockedReason || 'Edit Details'}>
             <span>
               <IconButton size="small" onClick={onEdit} disabled={!manageable} sx={{ color: adminColors.textSecondary }}>

@@ -177,14 +177,21 @@ export default function HeroSlider() {
             }}
           >
             {/* The push-in scales this wrapper rather than the <Image>, whose
-                own `fill` positioning must stay untouched. Keyed on the active
-                index so the motion restarts each time the slide comes round. */}
+                own `fill` positioning must stay untouched.
+
+                Toggling animation-name between `none` and the keyframe is what
+                restarts the motion each time a slide comes back round — CSS
+                replays an animation whenever its name changes. Remounting via
+                `key` would restart it too, but it would also tear down and
+                rebuild the <Image> mid-crossfade. */}
             <Box
-              key={isActive ? `kb-${currentSlide}` : 'kb-idle'}
               sx={{
                 position: 'absolute',
                 inset: 0,
-                animation: isActive ? `ppr-ken-burns ${SLIDE_MS + 1500}ms ease-out both` : 'none',
+                animationName: isActive ? 'ppr-ken-burns' : 'none',
+                animationDuration: `${SLIDE_MS + 1500}ms`,
+                animationTimingFunction: 'ease-out',
+                animationFillMode: 'both',
               }}
             >
               <Image

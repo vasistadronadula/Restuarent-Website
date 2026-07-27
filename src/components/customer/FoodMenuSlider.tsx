@@ -171,6 +171,7 @@ export default function FoodMenuSlider() {
             pb: 0.5,
             mx: { xs: -0.5, lg: 0 },
             px: 0.5,
+            WebkitMaskImage: { xs: 'linear-gradient(to right, #000 88%, transparent 100%)', lg: 'none' },
             maskImage: { xs: 'linear-gradient(to right, #000 88%, transparent 100%)', lg: 'none' },
             scrollbarWidth: 'none',
             '&::-webkit-scrollbar': { display: 'none' },
@@ -280,7 +281,12 @@ export default function FoodMenuSlider() {
                   role="group"
                   aria-roledescription="slide"
                   aria-label={`${idx + 1} of ${filteredDishes.length}`}
-                  aria-hidden={idx !== currentIndex}
+                  // `inert` rather than `aria-hidden` alone. Off-screen slides
+                  // still hold real buttons — wishlist, Add to Cart — and
+                  // tabbing into one makes the browser scroll it into view
+                  // inside the overflow-hidden shell, which knocks the track
+                  // permanently out of alignment with its own translateX.
+                  inert={idx !== currentIndex}
                   sx={{
                     minWidth: '100%',
                     width: '100%',

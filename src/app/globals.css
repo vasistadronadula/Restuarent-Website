@@ -118,6 +118,19 @@ a {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
+  /* Exception. The autofill rules above are not an animation — the 50000s
+     transition is the standard trick for stopping Chrome repainting an
+     autofilled field yellow, and collapsing it to 0.01ms would let the
+     yellow straight back in on every login form. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active,
+  textarea:-webkit-autofill,
+  select:-webkit-autofill {
+    transition-duration: 50000s !important;
+  }
 }
 
 /* ============================================================ */
