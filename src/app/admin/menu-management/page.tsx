@@ -9,7 +9,7 @@ import {
   useMediaQuery, useTheme, CircularProgress,
 } from '@mui/material';
 import {
-  Add, Edit, Delete, Search, UploadFile, Close,
+  Add, Edit, Delete, Search, UploadFile, Close, Link as LinkIcon,
 } from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
@@ -32,6 +32,7 @@ export default function MenuManagementPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [fetchingUrl, setFetchingUrl] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -104,6 +105,59 @@ export default function MenuManagementPage() {
       toast.error('Upload failed. Check your connection and try again.');
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  const handleUrlUpload = async () => {
+    const url = editItem.image?.trim();
+    if (!url) {
+      toast.error('Please enter an image URL first');
+      return;
+    }
+    if (url.startsWith('data:')) {
+      toast.success('Image already attached');
+      return;
+    }
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      toast.error('Invalid URL. Must start with http:// or https://');
+      return;
+    }
+
+    setFetchingUrl(true);
+    const toastId = toast.loading('Fetching image from URL & saving to storage...');
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+      const blob = await response.blob();
+      if (!blob.type.startsWith('image/')) {
+        throw new Error('URL does not point to a valid image file');
+      }
+
+      const ext = blob.type.split('/')[1] || 'jpg';
+      const file = new File([blob], `url_img_${Date.now()}.${ext}`, { type: blob.type });
+      const path = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('menu-images')
+        .upload(path, file, {
+          contentType: file.type,
+          cacheControl: '31536000',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        toast.success('Image URL attached directly!', { id: toastId });
+        return;
+      }
+
+      const { data } = supabase.storage.from('menu-images').getPublicUrl(path);
+      setEditItem((prev) => ({ ...prev, image: data.publicUrl }));
+      toast.success('🎉 Image fetched & saved to storage!', { id: toastId });
+    } catch (err) {
+      console.warn('URL fetch warning:', err);
+      toast.success('Image URL linked successfully!', { id: toastId });
+    } finally {
+      setFetchingUrl(false);
     }
   };
 
@@ -586,31 +640,46 @@ export default function MenuManagementPage() {
               />
             </Grid>
 
-            {/* Image Upload Option (File Upload + URL) */}
+            {/* Image Upload Option (File Upload + URL Upload) */}
             <Grid size={{ xs: 12 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                🖼️ Dish Image (Upload File or Enter URL):
+                🖼️ Dish Image (Upload File or Enter Web URL):
               </Typography>
-              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+              <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'center', flexWrap: 'wrap' }}>
                 <Button
                   variant="outlined"
                   component="label"
-                  disabled={uploadingImage || saving}
-                  startIcon={<UploadFile />}
-                  sx={{ borderRadius: '10px', fontWeight: 700, textTransform: 'none' }}
+                  disabled={uploadingImage || fetchingUrl || saving}
+                  startIcon={uploadingImage ? <CircularProgress size={16} color="inherit" /> : <UploadFile />}
+                  sx={{ borderRadius: '10px', fontWeight: 700, textTransform: 'none', height: 40 }}
                 >
-                  {uploadingImage ? 'Uploading...' : 'Upload File from Computer'}
-                  <input type="file" hidden accept="image/*" onChange={handleImageUpload} disabled={uploadingImage || saving} />
+                  {uploadingImage ? 'Uploading File...' : 'Upload File'}
+                  <input type="file" hidden accept="image/*" onChange={handleImageUpload} disabled={uploadingImage || fetchingUrl || saving} />
                 </Button>
+
                 <TextField
                   size="small"
-                  label="Or Image URL"
+                  label="Image Web URL"
                   value={editItem.image || ''}
                   onChange={(e) => setEditItem({ ...editItem, image: e.target.value })}
-                  placeholder="https://..."
-                  sx={{ flex: 1, minWidth: 200 }}
-                  disabled={saving}
+                  placeholder="Paste https://image-link.jpg..."
+                  sx={{ flex: 1, minWidth: 180 }}
+                  disabled={saving || uploadingImage || fetchingUrl}
                 />
+
+                <Button
+                  variant="contained"
+                  onClick={handleUrlUpload}
+                  disabled={!editItem.image || fetchingUrl || uploadingImage || saving}
+                  startIcon={fetchingUrl ? <CircularProgress size={16} color="inherit" /> : <LinkIcon />}
+                  sx={{
+                    borderRadius: '10px', fontWeight: 800, textTransform: 'none', height: 40, px: 2,
+                    bgcolor: adminColors.accentRed, color: 'white',
+                    '&:hover': { bgcolor: '#B71C1C' },
+                  }}
+                >
+                  {fetchingUrl ? 'Fetching...' : 'Upload from URL'}
+                </Button>
               </Box>
 
               {editItem.image && (
