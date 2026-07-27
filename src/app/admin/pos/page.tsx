@@ -533,7 +533,12 @@ export default function CounterBillingPage() {
         onNewOrder={() => {
           setPlacedOrder(null);
           setPlacedInvoiceNo('');
-          if (!isPhone) searchRef.current?.focus();
+          resetBill();
+          setTimeout(() => {
+            if (!isPhone && searchRef.current) {
+              searchRef.current.focus();
+            }
+          }, 50);
         }}
       />
     </AdminLayout>
