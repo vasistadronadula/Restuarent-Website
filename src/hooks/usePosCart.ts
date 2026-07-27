@@ -186,11 +186,22 @@ export function usePosCart() {
     return map;
   }, [lines]);
 
+  /** Quantity by menuItemId + portion key (e.g. "dish123::full") */
+  const quantityByPortion = useMemo(() => {
+    const map: Record<string, number> = {};
+    lines.forEach((l) => {
+      const key = l.portion ? `${l.menuItemId}::${l.portion}` : l.menuItemId;
+      map[key] = (map[key] || 0) + l.quantity;
+    });
+    return map;
+  }, [lines]);
+
   return {
     lines,
     subtotal,
     totalUnits,
     quantityByMenuItem,
+    quantityByPortion,
     add,
     increment,
     decrement,

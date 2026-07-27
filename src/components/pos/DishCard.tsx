@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { Box, Button, Paper, Typography } from '@mui/material';
-import { Add, Remove } from '@mui/icons-material';
+import { Add, Remove, Check } from '@mui/icons-material';
 import type { MenuItem } from '@/types';
 import { PORTION_LABEL, sellablePortions, type Portion } from '@/hooks/usePosCart';
 import { pos } from '@/theme/posColors';
@@ -14,11 +14,13 @@ interface Props {
   item: MenuItem;
   /** How many of this dish are already on the bill. */
   inBill: number;
+  /** Quantity map for each portion (e.g. "dish123::single" => 1, "dish123::full" => 2) */
+  quantityByPortion?: Record<string, number>;
   onAdd: (item: MenuItem, portion?: Portion) => void;
   onDecrement?: (item: MenuItem) => void;
 }
 
-function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
+function DishCard({ item, inBill, quantityByPortion, onAdd, onDecrement }: Props) {
   const isVeg = item.vegStatus === 'veg';
   const isEgg = item.vegStatus === 'egg';
   const portions = sellablePortions(item);
@@ -75,8 +77,8 @@ function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
           <Box
             sx={{
               position: 'absolute', top: 4, right: 4,
-              minWidth: 22, height: 22, px: 0.6,
-              borderRadius: '11px', bgcolor: pos.brand, color: '#FFFFFF',
+              minWidth: 20, height: 20, px: 0.6,
+              borderRadius: '10px', bgcolor: pos.brand, color: '#FFFFFF',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 11, fontWeight: 900,
               boxShadow: '0 2px 6px rgba(198,40,40,0.4)',
@@ -112,31 +114,40 @@ function DishCard({ item, inBill, onAdd, onDecrement }: Props) {
           ₹{item.price}
         </Typography>
 
-        {/* 4. Portion Buttons (Full/Half) — Larger & touch-friendly */}
+        {/* 4. Portion Buttons (Full/Half) — Highlights active selection distinctly */}
         {portions.length > 0 && (
           <Box sx={{ mt: 'auto', display: 'flex', gap: 0.4, flexWrap: 'wrap', pt: 0.4 }}>
-            {portions.map(({ portion, price }) => (
-              <Button
-                key={portion}
-                size="small"
-                onClick={(e) => { e.stopPropagation(); onAdd(item, portion); }}
-                sx={{
-                  flex: '1 1 auto', minWidth: 0, px: 0.75, py: 0.5, minHeight: 34,
-                  borderRadius: '7px', textTransform: 'none', fontWeight: 800,
-                  fontSize: { xs: 11, sm: 11.5 },
-                  bgcolor: portion === 'full' ? pos.brand : pos.brandSoft,
-                  color: portion === 'full' ? '#FFFFFF' : pos.brand,
-                  border: `1.5px solid ${portion === 'full' ? pos.brand : '#FECACA'}`,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                  '&:hover': {
-                    bgcolor: portion === 'full' ? pos.brandDark : '#FEE2E2',
-                  },
-                  '&:active': { transform: 'scale(0.95)' },
-                }}
-              >
-                {PORTION_LABEL[portion]} ₹{price}
-              </Button>
-            ))}
+            {portions.map(({ portion, price }) => {
+              const portionKey = `${item.id}::${portion}`;
+              const portionQty = quantityByPortion ? quantityByPortion[portionKey] || 0 : 0;
+              const isSelected = portionQty > 0;
+
+              return (
+                <Button
+                  key={portion}
+                  size="small"
+                  onClick={(e) => { e.stopPropagation(); onAdd(item, portion); }}
+                  sx={{
+                    flex: '1 1 auto', minWidth: 0, px: 0.75, py: 0.5, minHeight: 34,
+                    borderRadius: '7px', textTransform: 'none', fontWeight: 900,
+                    fontSize: { xs: 11, sm: 11.5 },
+                    bgcolor: isSelected ? pos.brand : '#F5F5F4',
+                    color: isSelected ? '#FFFFFF' : '#44403C',
+                    border: `2px solid ${isSelected ? pos.brandDark : pos.border}`,
+                    boxShadow: isSelected ? '0 2px 6px rgba(198,40,40,0.3)' : '0 1px 2px rgba(0,0,0,0.04)',
+                    '&:hover': {
+                      bgcolor: isSelected ? pos.brandDark : '#E7E5E4',
+                      color: isSelected ? '#FFFFFF' : '#1C1917',
+                    },
+                    '&:active': { transform: 'scale(0.95)' },
+                  }}
+                >
+                  {isSelected && <Check sx={{ fontSize: 13, mr: 0.3 }} />}
+                  {PORTION_LABEL[portion]} ₹{price}
+                  {portionQty > 0 ? ` (${portionQty})` : ''}
+                </Button>
+              );
+            })}
           </Box>
         )}
       </Box>

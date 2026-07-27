@@ -442,6 +442,7 @@ export default function CounterBillingPage() {
                     key={item.id}
                     item={item}
                     inBill={cart.quantityByMenuItem[item.id] || 0}
+                    quantityByPortion={cart.quantityByPortion}
                     onAdd={handleAdd}
                     onDecrement={handleDecrement}
                   />
