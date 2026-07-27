@@ -1,63 +1,57 @@
 /**
- * posColors.ts — dark-theme design tokens exclusive to the POS screen.
- *
- * The admin panel stays warm-cream; this palette only applies inside
- * /admin/pos. Every value meets WCAG AA on the surface it sits on.
- *
- * Inspired by Toast, Square, and Petpooja POS terminals — dark slate
- * backgrounds reduce eye strain during long cashier shifts, and the
- * emerald "Charge" button is the most visible element on screen.
+ * posColors.ts — clean light-theme design tokens for the POS screen.
+ * Harmonized with Pala Pitta Ruchulu's warm cream & brand red aesthetic.
  */
 
 export const pos = {
   // ── Surfaces ──────────────────────────────────────────────
-  bg:            '#0F172A',
-  surface:       '#1E293B',
-  surfaceAlt:    '#162032',
-  surfaceHover:  '#334155',
-  surfaceActive: '#475569',
-  elevated:      '#253349',
+  bg:            '#FBF8F5',   // Warm cream page canvas
+  surface:       '#FFFFFF',   // Clean white cards/panels
+  surfaceAlt:    '#F9F8F6',
+  surfaceHover:  '#F3F0EC',
+  surfaceActive: '#EBE7E1',
+  elevated:      '#FFFFFF',
 
   // ── Borders ───────────────────────────────────────────────
-  border:        '#334155',
-  borderSubtle:  '#1E293B',
-  borderFocus:   '#6366F1',
+  border:        '#E7E5E4',
+  borderSubtle:  '#F1EFED',
+  borderFocus:   '#C62828',
 
   // ── Text ──────────────────────────────────────────────────
-  text:          '#F8FAFC',
-  textSecondary: '#CBD5E1',
-  textMuted:     '#94A3B8',
-  textFaint:     '#64748B',
+  text:          '#1C1917',   // Near black
+  textSecondary: '#44403C',
+  textMuted:     '#78716C',
+  textFaint:     '#A8A29E',
 
   // ── Brand & Actions ───────────────────────────────────────
   brand:         '#C62828',   // Pala Pitta red
   brandDark:     '#9B1C1C',
-  brandSoft:     'rgba(198,40,40,0.15)',
+  brandSoft:     '#FEF2F2',
 
-  charge:        '#10B981',   // Primary CTA — "Charge / Place order"
-  chargeDark:    '#059669',
-  chargeSoft:    'rgba(16,185,129,0.12)',
+  charge:        '#15803D',   // Emerald green for charge/pay action
+  chargeDark:    '#166534',
+  chargeSoft:    '#F0FDF4',
 
-  danger:        '#EF4444',
-  dangerDark:    '#DC2626',
-  dangerSoft:    'rgba(239,68,68,0.12)',
+  danger:        '#DC2626',
+  dangerDark:    '#B91C1C',
+  dangerSoft:    '#FEF2F2',
 
   // ── Category / Selection ──────────────────────────────────
-  categoryActive:   '#6366F1',
-  categoryActiveBg: 'rgba(99,102,241,0.15)',
+  categoryActive:   '#C62828',
+  categoryActiveBg: '#FEF2F2',
 
   // ── Veg indicators ────────────────────────────────────────
-  veg:           '#22C55E',
-  nonVeg:        '#EF4444',
-  egg:           '#F59E0B',
+  veg:           '#16A34A',
+  nonVeg:        '#DC2626',
+  egg:           '#D97706',
 
   // ── Payment mode ──────────────────────────────────────────
-  cash:          '#10B981',
-  upi:           '#8B5CF6',
-  card:          '#3B82F6',
+  cash:          '#16A34A',
+  upi:           '#7C3AED',
+  card:          '#2563EB',
 
-  // ── Shadows (on dark they are near-black) ─────────────────
-  shadowSm:  '0 1px 3px rgba(0,0,0,0.3)',
-  shadowMd:  '0 4px 12px rgba(0,0,0,0.4)',
-  shadowLg:  '0 12px 32px rgba(0,0,0,0.5)',
+  // ── Shadows ───────────────────────────────────────────────
+  shadowSm:  '0 1px 3px rgba(28,25,23,0.06)',
+  shadowMd:  '0 4px 12px rgba(28,25,23,0.08)',
+  shadowLg:  '0 12px 32px rgba(28,25,23,0.12)',
 } as const;

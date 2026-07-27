@@ -5,7 +5,7 @@ import {
   Box, Button, Chip, Drawer, IconButton, InputAdornment, Paper,
   TextField, Typography, useMediaQuery,
 } from '@mui/material';
-import { Clear, Fastfood, Search, ShoppingCart } from '@mui/icons-material';
+import { Clear, Fastfood, ReceiptLong, Search } from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import DishCard from '@/components/pos/DishCard';
 import BillPanel, { type PosOrderType, type PosPaymentMode } from '@/components/pos/BillPanel';
@@ -44,12 +44,8 @@ const VEG_FILTERS = [
 type VegFilter = (typeof VEG_FILTERS)[number]['value'];
 
 /**
- * Counter billing — dark-themed POS.
- *
- * Three layouts:
- *   phone   (< 768px)      3-column dish grid, floating cart bar, bottom sheet
- *   tablet  (768–1199px)    dish grid + 320px bill pane
- *   laptop  (≥ 1200px)     dish grid + 396px bill pane, keyboard shortcuts
+ * Counter billing — Clean Light Theme POS.
+ * Responsive for phone, tablet, and desktop.
  */
 export default function CounterBillingPage() {
   const { addOrderLocallyAndDB } = useAdmin();
@@ -70,7 +66,6 @@ export default function CounterBillingPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [paymentMode, setPaymentMode] = useState<PosPaymentMode>('cash');
-  const [discountPercent, setDiscountPercent] = useState(0);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [isPlacing, setIsPlacing] = useState(false);
@@ -81,8 +76,8 @@ export default function CounterBillingPage() {
 
   const activeTables = useMemo(() => tables.filter((t) => t.isActive), [tables]);
   const totals = useMemo(
-    () => computeBillTotals(cart.subtotal, discountPercent),
-    [cart.subtotal, discountPercent]
+    () => computeBillTotals(cart.subtotal, 0),
+    [cart.subtotal]
   );
 
   const categoryCounts = useMemo(() => {
@@ -126,7 +121,6 @@ export default function CounterBillingPage() {
 
   const resetBill = useCallback(() => {
     cart.clear();
-    setDiscountPercent(0);
     setCustomerName('');
     setCustomerPhone('');
     setTableNumber('');
@@ -171,7 +165,7 @@ export default function CounterBillingPage() {
       subtotal: totals.subtotal,
       cgst: totals.cgst,
       sgst: totals.sgst,
-      discount: totals.discountAmount,
+      discount: 0,
       deliveryCharge: 0,
       grandTotal: totals.grandTotal,
       status: 'pending',
@@ -196,7 +190,7 @@ export default function CounterBillingPage() {
     }
   }, [
     isPlacing, cart.lines, orderType, tableNumber, customerPhone, customerName,
-    totals.subtotal, totals.cgst, totals.sgst, totals.discountAmount, totals.grandTotal,
+    totals.subtotal, totals.cgst, totals.sgst, totals.grandTotal,
     paymentMode, addOrderLocallyAndDB, resetBill,
   ]);
 
@@ -253,8 +247,6 @@ export default function CounterBillingPage() {
       onCustomerPhone={setCustomerPhone}
       paymentMode={paymentMode}
       onPaymentMode={setPaymentMode}
-      discountPercent={discountPercent}
-      onDiscountPercent={setDiscountPercent}
       onIncrement={cart.increment}
       onDecrement={cart.decrement}
       onSetQuantity={cart.setQuantity}
@@ -268,32 +260,26 @@ export default function CounterBillingPage() {
 
   return (
     <AdminLayout title="Counter Billing">
-      {/* Dark POS container — overrides admin cream background */}
+      {/* Light Theme container */}
       <Box
         sx={{
           display: 'flex',
-          gap: 1,
+          gap: 1.25,
           height: 'var(--admin-content-h)',
           minHeight: 420,
           overflow: 'hidden',
           bgcolor: pos.bg,
-          mx: { xs: -1.75, sm: -2.5 },
-          mt: { xs: -1.75, sm: -2.5 },
-          mb: { xs: -1.75, sm: -2.5 },
-          px: { xs: 1, sm: 1.5 },
-          pt: { xs: 1, sm: 1.25 },
-          pb: { xs: 0.5, sm: 1.25 },
-          borderRadius: 0,
         }}
       >
-        {/* ── Dishes Panel ──────────────────────────────────────── */}
-        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-          {/* Search + filters bar */}
+        {/* ── Dishes Grid Side ───────────────────────────────────── */}
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {/* Top Filter & Search Card */}
           <Paper
             elevation={0}
             sx={{
               flexShrink: 0, p: 1, borderRadius: '12px',
               bgcolor: pos.surface, border: `1px solid ${pos.border}`,
+              boxShadow: pos.shadowSm,
             }}
           >
             {/* Search row */}
@@ -305,21 +291,20 @@ export default function CounterBillingPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onKeyDown={handleSearchEnter}
-                placeholder={isPhone ? 'Search…' : 'Search dishes…  ( / to focus )'}
+                placeholder={isPhone ? 'Search dishes…' : 'Search dishes…  ( / to focus, Enter to add )'}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     bgcolor: pos.bg, color: pos.text, borderRadius: '10px',
                     '& fieldset': { borderColor: pos.border },
-                    '&:hover fieldset': { borderColor: pos.surfaceHover },
-                    '&.Mui-focused fieldset': { borderColor: pos.borderFocus },
+                    '&:hover fieldset': { borderColor: pos.textMuted },
+                    '&.Mui-focused fieldset': { borderColor: pos.brand },
                   },
-                  '& .MuiOutlinedInput-input::placeholder': { color: pos.textFaint, opacity: 1 },
                 }}
                 slotProps={{
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Search sx={{ fontSize: 18, color: pos.textFaint }} />
+                        <Search sx={{ fontSize: 18, color: pos.textMuted }} />
                       </InputAdornment>
                     ),
                     endAdornment: search ? (
@@ -342,11 +327,12 @@ export default function CounterBillingPage() {
                     onClick={() => setVegFilter(v.value)}
                     sx={{
                       fontWeight: 800, fontSize: 11, cursor: 'pointer',
-                      height: { xs: 30, sm: 32 },
-                      bgcolor: vegFilter === v.value ? v.color : pos.bg,
+                      height: { xs: 32, sm: 34 },
+                      bgcolor: vegFilter === v.value
+                        ? (v.value === 'veg' ? pos.veg : v.value === 'non-veg' ? pos.nonVeg : pos.brand)
+                        : pos.bg,
                       color: vegFilter === v.value ? '#FFFFFF' : pos.textMuted,
-                      border: `1px solid ${vegFilter === v.value ? v.color : pos.border}`,
-                      '& .MuiChip-label': { px: { xs: 0.5, sm: 1 } },
+                      border: `1px solid ${vegFilter === v.value ? 'transparent' : pos.border}`,
                       '&:hover': { opacity: 0.9 },
                     }}
                   />
@@ -354,7 +340,7 @@ export default function CounterBillingPage() {
               </Box>
             </Box>
 
-            {/* Category strip */}
+            {/* Horizontal Category Strip */}
             <Box
               sx={{
                 display: 'flex', gap: 0.5,
@@ -378,10 +364,9 @@ export default function CounterBillingPage() {
                           component="span"
                           sx={{
                             fontSize: 9.5, fontWeight: 900,
-                            bgcolor: active ? 'rgba(255,255,255,0.25)' : pos.surfaceHover,
-                            color: active ? '#FFFFFF' : pos.textFaint,
-                            borderRadius: '6px', px: 0.5, py: 0.05,
-                            ml: 0.2,
+                            bgcolor: active ? 'rgba(255,255,255,0.25)' : pos.borderSubtle,
+                            color: active ? '#FFFFFF' : pos.textMuted,
+                            borderRadius: '6px', px: 0.5, py: 0.05, ml: 0.2,
                           }}
                         >
                           {count}
@@ -394,13 +379,10 @@ export default function CounterBillingPage() {
                       height: { xs: 30, sm: 32 },
                       fontWeight: active ? 800 : 600,
                       fontSize: { xs: 11, sm: 12 },
-                      bgcolor: active ? pos.categoryActive : pos.bg,
-                      color: active ? '#FFFFFF' : pos.textMuted,
-                      border: `1px solid ${active ? pos.categoryActive : pos.border}`,
-                      '& .MuiChip-label': { px: 0.75 },
-                      '&:hover': {
-                        bgcolor: active ? pos.categoryActive : pos.surfaceHover,
-                      },
+                      bgcolor: active ? pos.brand : pos.bg,
+                      color: active ? '#FFFFFF' : pos.textSecondary,
+                      border: `1px solid ${active ? pos.brand : pos.border}`,
+                      '&:hover': { bgcolor: active ? pos.brandDark : pos.surfaceHover },
                     }}
                   />
                 );
@@ -408,7 +390,7 @@ export default function CounterBillingPage() {
             </Box>
           </Paper>
 
-          {/* Dish grid — the only scrolling region */}
+          {/* Scrolling Grid Region */}
           <Box
             sx={{
               flex: 1, minHeight: 0,
@@ -416,24 +398,20 @@ export default function CounterBillingPage() {
               overscrollBehavior: 'contain',
               WebkitOverflowScrolling: 'touch',
               pr: 0.25,
-              /* Custom scrollbar for dark theme */
               scrollbarWidth: 'thin',
-              scrollbarColor: `${pos.surfaceHover} transparent`,
+              scrollbarColor: `${pos.border} transparent`,
               '&::-webkit-scrollbar': { width: 5 },
-              '&::-webkit-scrollbar-track': { background: 'transparent' },
-              '&::-webkit-scrollbar-thumb': {
-                background: pos.surfaceHover, borderRadius: 4,
-              },
+              '&::-webkit-scrollbar-thumb': { background: pos.border, borderRadius: 4 },
             }}
           >
             {menuLoading ? (
               <Box sx={{ textAlign: 'center', py: 8, color: pos.textMuted }}>Loading menu…</Box>
             ) : dishes.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 8, color: pos.textFaint }}>
-                <Fastfood sx={{ fontSize: 44, opacity: 0.35, mb: 1 }} />
+                <Fastfood sx={{ fontSize: 44, opacity: 0.35, mb: 1, color: pos.textMuted }} />
                 <Typography sx={{ fontWeight: 700, color: pos.textMuted }}>No dishes match</Typography>
                 <Typography sx={{ fontSize: 12.5, color: pos.textFaint }}>
-                  Try another category or clear the search
+                  Try another category or clear search
                 </Typography>
               </Box>
             ) : (
@@ -441,12 +419,12 @@ export default function CounterBillingPage() {
                 sx={{
                   display: 'grid',
                   gridTemplateColumns: {
-                    xs: 'repeat(3, minmax(0, 1fr))',
-                    sm: 'repeat(auto-fill, minmax(130px, 1fr))',
-                    md: 'repeat(auto-fill, minmax(140px, 1fr))',
-                    lg: 'repeat(auto-fill, minmax(150px, 1fr))',
+                    xs: 'repeat(2, minmax(0, 1fr))',
+                    sm: 'repeat(auto-fill, minmax(135px, 1fr))',
+                    md: 'repeat(auto-fill, minmax(145px, 1fr))',
+                    lg: 'repeat(auto-fill, minmax(155px, 1fr))',
                   },
-                  gap: { xs: 0.75, sm: 1 },
+                  gap: { xs: 1, sm: 1.25 },
                   alignItems: 'stretch',
                   pb: 1,
                 }}
@@ -464,46 +442,42 @@ export default function CounterBillingPage() {
             )}
           </Box>
 
-          {/* ── Phone: floating cart bar ──────────────────────────── */}
+          {/* ── Mobile: Clean Floating Action Bar ───────────────────── */}
           {isPhone && (
             <Box
               sx={{
                 flexShrink: 0,
                 pt: 0.5,
-                pb: 'calc(4px + env(safe-area-inset-bottom, 0px))',
+                pb: 'calc(6px + env(safe-area-inset-bottom, 0px))',
               }}
             >
               <Button
                 fullWidth
                 variant="contained"
                 onClick={() => setSheetOpen(true)}
-                startIcon={<ShoppingCart />}
+                startIcon={<ReceiptLong />}
                 sx={{
-                  minHeight: 48, borderRadius: '12px', textTransform: 'none',
+                  minHeight: 46, borderRadius: '14px', textTransform: 'none',
                   fontSize: 14, fontWeight: 900,
                   display: 'flex', justifyContent: 'space-between', px: 2,
-                  bgcolor: cart.totalUnits > 0 ? pos.charge : pos.surfaceActive,
+                  bgcolor: cart.totalUnits > 0 ? pos.brand : '#57534E',
                   color: '#FFFFFF',
-                  boxShadow: cart.totalUnits > 0
-                    ? '0 6px 24px rgba(16,185,129,0.4)'
-                    : 'none',
-                  '&:hover': {
-                    bgcolor: cart.totalUnits > 0 ? pos.chargeDark : pos.surfaceActive,
-                  },
+                  boxShadow: cart.totalUnits > 0 ? '0 4px 14px rgba(198,40,40,0.35)' : 'none',
+                  '&:hover': { bgcolor: cart.totalUnits > 0 ? pos.brandDark : '#44403C' },
                 }}
               >
                 <Box component="span" sx={{ flex: 1, textAlign: 'left', ml: 0.5 }}>
                   {cart.totalUnits > 0
-                    ? `View Cart · ${cart.totalUnits} item${cart.totalUnits === 1 ? '' : 's'}`
+                    ? `View Cart (${cart.totalUnits})`
                     : 'Cart Empty'}
                 </Box>
-                <Box component="span" sx={{ fontSize: 15 }}>{rupees(totals.grandTotal)}</Box>
+                <Box component="span" sx={{ fontSize: 15, fontWeight: 900 }}>{rupees(totals.grandTotal)}</Box>
               </Button>
             </Box>
           )}
         </Box>
 
-        {/* ── Bill pane: tablet and laptop ────────────────────────── */}
+        {/* ── Bill pane: tablet & desktop ─────────────────────────── */}
         {!isPhone && (
           <Paper
             elevation={0}
@@ -522,7 +496,7 @@ export default function CounterBillingPage() {
         )}
       </Box>
 
-      {/* ── Bill sheet: phone ─────────────────────────────────────── */}
+      {/* ── Bill Sheet: Phone ────────────────────────────────────── */}
       {isPhone && (
         <Drawer
           anchor="bottom"
@@ -531,7 +505,7 @@ export default function CounterBillingPage() {
           slotProps={{
             paper: {
               sx: {
-                height: '92dvh',
+                height: '90dvh',
                 borderTopLeftRadius: 20,
                 borderTopRightRadius: 20,
                 overflow: 'hidden',

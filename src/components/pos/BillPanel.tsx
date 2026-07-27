@@ -7,7 +7,7 @@ import {
   MenuItem as MuiMenuItem, Select, Stack, TextField, Typography,
 } from '@mui/material';
 import {
-  Add, Close, DeleteOutlined, Fastfood, LocalMall, Remove, ShoppingCart,
+  Add, Close, DeleteOutlined, LocalMall, Remove, ShoppingCart,
 } from '@mui/icons-material';
 import { MAX_LINE_QTY, type PosLine } from '@/hooks/usePosCart';
 import type { BillTotals } from '@/lib/billing';
@@ -31,19 +31,17 @@ export const PAYMENT_MODES = [
 
 export type PosPaymentMode = (typeof PAYMENT_MODES)[number]['mode'];
 
-const DISCOUNTS = [0, 5, 10, 15, 20];
-
-/* ── Dark-themed input overrides ──────────────────────────────── */
-const darkInputSx = {
+/* ── Light-themed input overrides ──────────────────────────────── */
+const lightInputSx = {
   '& .MuiOutlinedInput-root': {
-    bgcolor: pos.bg,
+    bgcolor: '#FFFFFF',
     color: pos.text,
     '& fieldset': { borderColor: pos.border },
-    '&:hover fieldset': { borderColor: pos.surfaceHover },
-    '&.Mui-focused fieldset': { borderColor: pos.borderFocus },
+    '&:hover fieldset': { borderColor: pos.textMuted },
+    '&.Mui-focused fieldset': { borderColor: pos.brand },
   },
   '& .MuiInputLabel-root': { color: pos.textMuted },
-  '& .MuiInputLabel-root.Mui-focused': { color: pos.borderFocus },
+  '& .MuiInputLabel-root.Mui-focused': { color: pos.brand },
 };
 
 export interface BillPanelProps {
@@ -64,8 +62,6 @@ export interface BillPanelProps {
 
   paymentMode: PosPaymentMode;
   onPaymentMode: (m: PosPaymentMode) => void;
-  discountPercent: number;
-  onDiscountPercent: (d: number) => void;
 
   onIncrement: (key: string) => void;
   onDecrement: (key: string) => void;
@@ -80,15 +76,13 @@ export interface BillPanelProps {
 }
 
 /**
- * Dark-themed bill panel — the cart sidebar on desktop/tablet and the
- * bottom-sheet contents on mobile. Structure: fixed header, scrolling
- * middle (order details + line items), pinned footer with charge button.
+ * Light-themed bill panel — cart sidebar on desktop/tablet and bottom-sheet on mobile.
  */
 export default function BillPanel({
   lines, totals, totalUnits,
   orderType, onOrderType, tables, tableNumber, onTableNumber,
   customerName, onCustomerName, customerPhone, onCustomerPhone,
-  paymentMode, onPaymentMode, discountPercent, onDiscountPercent,
+  paymentMode, onPaymentMode,
   onIncrement, onDecrement, onSetQuantity, onRemove, onClear,
   onPlace, isPlacing, onClose,
 }: BillPanelProps) {
@@ -102,13 +96,13 @@ export default function BillPanel({
       <Box
         sx={{
           flexShrink: 0, px: 1.5, py: 1.25,
-          bgcolor: pos.elevated,
+          bgcolor: pos.surfaceAlt,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
           borderBottom: `1px solid ${pos.border}`,
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0 }}>
-          <LocalMall sx={{ fontSize: 18, color: pos.charge }} />
+          <LocalMall sx={{ fontSize: 18, color: pos.brand }} />
           <Typography sx={{ fontWeight: 800, fontSize: 14, color: pos.text }}>
             Current Order
           </Typography>
@@ -118,7 +112,7 @@ export default function BillPanel({
               size="small"
               sx={{
                 height: 20, fontSize: 10.5, fontWeight: 900,
-                bgcolor: pos.charge, color: '#FFFFFF',
+                bgcolor: pos.brand, color: '#FFFFFF',
                 '& .MuiChip-label': { px: 0.8 },
               }}
             />
@@ -158,11 +152,11 @@ export default function BillPanel({
                 sx={{
                   flex: 1, minHeight: 36, borderRadius: '8px', textTransform: 'none',
                   fontWeight: 800, fontSize: 12,
-                  bgcolor: orderType === t.type ? pos.categoryActive : pos.bg,
-                  color: orderType === t.type ? '#FFFFFF' : pos.textMuted,
-                  border: `1px solid ${orderType === t.type ? pos.categoryActive : pos.border}`,
+                  bgcolor: orderType === t.type ? pos.brand : pos.surface,
+                  color: orderType === t.type ? '#FFFFFF' : pos.textSecondary,
+                  border: `1px solid ${orderType === t.type ? pos.brand : pos.border}`,
                   '&:hover': {
-                    bgcolor: orderType === t.type ? pos.categoryActive : pos.surfaceHover,
+                    bgcolor: orderType === t.type ? pos.brandDark : pos.surfaceHover,
                   },
                 }}
               >
@@ -174,7 +168,7 @@ export default function BillPanel({
           {orderType === 'dine-in' && (
             <FormControl
               fullWidth size="small"
-              sx={{ mb: 1, ...darkInputSx }}
+              sx={{ mb: 1, ...lightInputSx }}
               error={needsTable && !empty}
             >
               <InputLabel>Table *</InputLabel>
@@ -203,12 +197,12 @@ export default function BillPanel({
             <TextField
               size="small" label="Name" placeholder="Walk-in"
               value={customerName} onChange={(e) => onCustomerName(e.target.value)}
-              sx={{ flex: '1 1 120px', minWidth: 0, ...darkInputSx }}
+              sx={{ flex: '1 1 120px', minWidth: 0, ...lightInputSx }}
             />
             <TextField
               size="small" label="Phone" inputMode="tel"
               value={customerPhone} onChange={(e) => onCustomerPhone(e.target.value)}
-              sx={{ flex: '1 1 120px', minWidth: 0, ...darkInputSx }}
+              sx={{ flex: '1 1 120px', minWidth: 0, ...lightInputSx }}
             />
           </Box>
         </Box>
@@ -216,7 +210,7 @@ export default function BillPanel({
         {/* Line items */}
         {empty ? (
           <Box sx={{ textAlign: 'center', py: 5, px: 2, color: pos.textFaint }}>
-            <ShoppingCart sx={{ fontSize: 40, opacity: 0.4, mb: 1 }} />
+            <ShoppingCart sx={{ fontSize: 40, opacity: 0.3, mb: 1, color: pos.textMuted }} />
             <Typography sx={{ fontWeight: 700, fontSize: 13, color: pos.textMuted }}>
               No items yet
             </Typography>
@@ -225,9 +219,9 @@ export default function BillPanel({
             </Typography>
           </Box>
         ) : (
-          <Stack divider={<Divider sx={{ borderColor: pos.border }} />} sx={{ px: 0 }}>
+          <Stack divider={<Divider sx={{ borderColor: pos.borderSubtle }} />} sx={{ px: 0 }}>
             {lines.map((line) => (
-              <Box key={line.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.75 }}>
+              <Box key={line.key} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.8 }}>
                 <Box
                   sx={{
                     position: 'relative', width: 36, height: 36,
@@ -275,32 +269,25 @@ export default function BillPanel({
         )}
       </Box>
 
-      {/* ── Pinned footer ─────────────────────────────────────────── */}
+      {/* ── Pinned footer: totals, payment mode & charge CTA ────── */}
       <Box
         sx={{
           flexShrink: 0, px: 1.25, pt: 1,
           pb: 'calc(10px + env(safe-area-inset-bottom, 0px))',
-          bgcolor: pos.elevated, borderTop: `1px solid ${pos.border}`,
+          bgcolor: pos.surfaceAlt, borderTop: `1px solid ${pos.border}`,
         }}
       >
         {!empty && (
           <>
-            {/* Totals */}
-            <Stack spacing={0.2} sx={{ mb: 0.75 }}>
+            {/* Totals Breakdown */}
+            <Stack spacing={0.25} sx={{ mb: 1 }}>
               <Row label="Subtotal" value={rupeesExact(totals.subtotal)} />
-              {totals.discountAmount > 0 && (
-                <Row
-                  label={`Discount (${discountPercent || 0}%)`}
-                  value={`−${rupeesExact(totals.discountAmount)}`}
-                  color={pos.charge}
-                />
-              )}
               <Row label="CGST 2.5%" value={rupeesExact(totals.cgst)} />
               <Row label="SGST 2.5%" value={rupeesExact(totals.sgst)} />
             </Stack>
 
-            {/* Payment mode */}
-            <Box sx={{ display: 'flex', gap: 0.5, mb: 0.75 }}>
+            {/* Payment mode select */}
+            <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
               {PAYMENT_MODES.map((p) => (
                 <Button
                   key={p.mode}
@@ -308,12 +295,11 @@ export default function BillPanel({
                   sx={{
                     flex: 1, minHeight: 36, borderRadius: '8px', textTransform: 'none',
                     fontWeight: 800, fontSize: 11.5,
-                    bgcolor: paymentMode === p.mode ? p.color : pos.bg,
-                    color: paymentMode === p.mode ? '#FFFFFF' : pos.textMuted,
-                    border: `1px solid ${paymentMode === p.mode ? p.color : pos.border}`,
+                    bgcolor: paymentMode === p.mode ? pos.text : pos.surface,
+                    color: paymentMode === p.mode ? '#FFFFFF' : pos.textSecondary,
+                    border: `1px solid ${paymentMode === p.mode ? pos.text : pos.border}`,
                     '&:hover': {
-                      bgcolor: paymentMode === p.mode ? p.color : pos.surfaceHover,
-                      opacity: paymentMode === p.mode ? 0.9 : 1,
+                      bgcolor: paymentMode === p.mode ? '#000000' : pos.surfaceHover,
                     },
                   }}
                 >
@@ -324,21 +310,21 @@ export default function BillPanel({
           </>
         )}
 
-        {/* ── CHARGE BUTTON — the primary action ───────────────────── */}
+        {/* ── CHARGE / PLACE ORDER BUTTON ──────────────────────────── */}
         <Button
           fullWidth
           variant="contained"
           onClick={onPlace}
           disabled={blocked || isPlacing}
           sx={{
-            minHeight: 52, borderRadius: '12px', textTransform: 'none',
+            minHeight: 50, borderRadius: '12px', textTransform: 'none',
             fontSize: 15, fontWeight: 900,
             display: 'flex', justifyContent: 'space-between', px: 2,
-            bgcolor: blocked ? pos.surfaceActive : pos.charge,
+            bgcolor: blocked ? '#D6D3D1' : pos.charge,
             color: '#FFFFFF',
-            boxShadow: blocked ? 'none' : '0 6px 20px rgba(16,185,129,0.35)',
-            '&:hover': { bgcolor: blocked ? pos.surfaceActive : pos.chargeDark },
-            '&.Mui-disabled': { color: pos.textFaint, bgcolor: pos.surfaceActive },
+            boxShadow: blocked ? 'none' : '0 4px 14px rgba(21,128,61,0.3)',
+            '&:hover': { bgcolor: blocked ? '#D6D3D1' : pos.chargeDark },
+            '&.Mui-disabled': { color: '#FFFFFF', bgcolor: '#D6D3D1' },
           }}
         >
           <span>
@@ -357,7 +343,7 @@ export default function BillPanel({
 const MAX_QTY_DIGITS = String(MAX_LINE_QTY).length;
 
 /**
- * Compact dark quantity stepper: − / editable number / +.
+ * Quantity stepper: − / editable number / +.
  */
 function QuantityStepper({
   line, onIncrement, onDecrement, onSetQuantity, onRemove,
@@ -388,6 +374,7 @@ function QuantityStepper({
           width: 28, height: 28,
           border: `1px solid ${pos.border}`, borderRadius: '7px',
           color: atMinimum ? pos.danger : pos.textMuted,
+          bgcolor: '#FFFFFF',
           '&:hover': { bgcolor: atMinimum ? pos.dangerSoft : pos.surfaceHover },
         }}
         aria-label={atMinimum ? `Remove ${line.name}` : `One less ${line.name}`}
@@ -405,14 +392,14 @@ function QuantityStepper({
         inputMode="numeric"
         size="small"
         sx={{
-          width: 40,
+          width: 38,
           '& .MuiOutlinedInput-input': {
             textAlign: 'center', fontWeight: 800, fontSize: 12,
             py: 0.5, px: 0, color: pos.text,
           },
           '& .MuiOutlinedInput-notchedOutline': { borderColor: pos.border },
-          '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: pos.surfaceHover },
-          '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: pos.borderFocus },
+          '& .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline': { borderColor: pos.textMuted },
+          '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: pos.brand },
         }}
         aria-label={`Quantity of ${line.name}`}
       />
@@ -423,8 +410,8 @@ function QuantityStepper({
         sx={{
           width: 28, height: 28,
           border: `1px solid ${pos.border}`, borderRadius: '7px',
-          color: pos.charge,
-          '&:hover': { bgcolor: pos.chargeSoft },
+          color: pos.brand, bgcolor: '#FFFFFF',
+          '&:hover': { bgcolor: pos.brandSoft },
         }}
         aria-label={`One more ${line.name}`}
       >
@@ -437,8 +424,8 @@ function QuantityStepper({
 function Row({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-      <Typography sx={{ fontSize: 11, color: color || pos.textFaint }}>{label}</Typography>
-      <Typography sx={{ fontSize: 11, fontWeight: 700, color: color || pos.textSecondary }}>{value}</Typography>
+      <Typography sx={{ fontSize: 11.5, color: color || pos.textMuted }}>{label}</Typography>
+      <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: color || pos.textSecondary }}>{value}</Typography>
     </Box>
   );
 }
