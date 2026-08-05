@@ -9,7 +9,9 @@ const inter = Inter({
   display: "swap",
 });
 
+import Script from "next/script";
 import { Providers } from "./providers";
+import { RECAPTCHA_SITE_KEY } from "@/lib/recaptcha";
 
 export const viewport: Viewport = {
   themeColor: "#FFFFFF",
@@ -48,6 +50,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable} style={{ colorScheme: 'light' }}>
       <body>
+        <Script
+          src={`https://www.google.com/recaptcha/enterprise.js?render=${RECAPTCHA_SITE_KEY}`}
+          strategy="lazyOnload"
+        />
         <Providers>{children}</Providers>
       </body>
     </html>
