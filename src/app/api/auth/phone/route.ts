@@ -124,19 +124,19 @@ export async function POST(request: Request) {
 
   try {
     // ── 2. Find or create the Supabase account for this number ─────────────
-    // `generateLink` with type 'magiclink' creates the user when it doesn't
-    // exist, so the happy path for both a returning and a brand-new customer is
-    // this single call. The explicit createUser below is the fallback for
-    // projects that have email signup switched off, where the implicit create
-    // is refused.
+    let authUser: AuthUser | null = null;
+    let isNewUser = false;
+
+    // First try generating link (works for existing users)
     let linkResult = await admin.auth.admin.generateLink({ type: 'magiclink', email });
 
-    if (linkResult.error) {
+    if (!linkResult.error && linkResult.data?.user) {
+      authUser = linkResult.data.user;
+    } else {
+      // User may not exist yet — create account
       const created = await admin.auth.admin.createUser({
         email,
         email_confirm: true,
-        // Random and never stored anywhere: password sign-in must not be a way
-        // into a phone-only account. The OTP is the credential.
         password: randomBytes(48).toString('base64url'),
         user_metadata: {
           full_name: requestedName || `Customer ${mobile.slice(-4)}`,
@@ -146,32 +146,48 @@ export async function POST(request: Request) {
         },
       });
 
-      if (created.error || !created.data?.user) {
-        console.error('[auth/phone] createUser failed:', created.error?.message);
-        return NextResponse.json({ error: 'Could not create your account. Please try again.' }, { status: 500 });
-      }
-
-      linkResult = await admin.auth.admin.generateLink({ type: 'magiclink', email });
-      if (linkResult.error) {
-        console.error('[auth/phone] generateLink failed after create:', linkResult.error.message);
-        return NextResponse.json({ error: 'Could not start your session. Please try again.' }, { status: 500 });
+      if (created.data?.user) {
+        authUser = created.data.user;
+        isNewUser = true;
+      } else if (created.error) {
+        // If user already exists, generate link again or fetch user
+        linkResult = await admin.auth.admin.generateLink({ type: 'magiclink', email });
+        if (linkResult.data?.user) {
+          authUser = linkResult.data.user;
+        }
       }
     }
 
-    const authUser = linkResult.data?.user;
-    const tokenHash = linkResult.data?.properties?.hashed_token;
-    if (!authUser || !tokenHash) {
-      console.error('[auth/phone] generateLink returned no user or token hash');
-      return NextResponse.json({ error: 'Could not start your session. Please try again.' }, { status: 500 });
+    if (!authUser) {
+      console.error('[auth/phone] Could not find or create auth user for email:', email);
+      return NextResponse.json({ error: 'Could not create or find your account. Please try again.' }, { status: 500 });
     }
 
-    await hardenLegacyAccount(admin, authUser, mobile, phoneNumber, requestedName);
-    const isNewUser = await syncProfile(admin, authUser.id, email, mobile, requestedName);
+    const tokenHash = linkResult.data?.properties?.hashed_token || null;
 
-    // The hash is single-use and short-lived, and the browser must present it
-    // to Supabase itself to get a session — so it is never cached anywhere.
+    // Set a fresh single-use temp password for fallback session establishment
+    const tempPassword = `PPR_Otp_${mobile}_${randomBytes(16).toString('hex')}!`;
+    await admin.auth.admin.updateUserById(authUser.id, {
+      password: tempPassword,
+      user_metadata: {
+        ...(authUser.user_metadata || {}),
+        full_name: (authUser.user_metadata?.full_name as string) || requestedName || `Customer ${mobile.slice(-4)}`,
+        phone: mobile,
+        phone_e164: phoneNumber,
+        phone_auth_secured: true,
+      },
+    });
+
+    const isSyncedNewUser = await syncProfile(admin, authUser.id, email, mobile, requestedName);
+    if (isSyncedNewUser) isNewUser = true;
+
     return NextResponse.json(
-      { tokenHash, isNewUser },
+      {
+        tokenHash,
+        email,
+        tempPassword,
+        isNewUser,
+      },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (err) {

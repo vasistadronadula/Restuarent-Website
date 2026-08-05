@@ -361,21 +361,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const payload = await response.json().catch(() => ({}));
 
-      if (!response.ok || !payload?.tokenHash) {
+      if (!response.ok || (!payload?.tokenHash && !payload?.tempPassword)) {
         toast.error(payload?.error || 'Could not complete sign-in. Please try again.');
         return { success: false };
       }
 
-      // Redeeming the hash is what actually issues the session, and it is done
-      // by the browser so the tokens land in the same storage every other part
-      // of the app reads them from.
-      const { data, error } = await supabase.auth.verifyOtp({
-        token_hash: payload.tokenHash as string,
-        type: 'magiclink',
-      });
+      let user: any = null;
+      let sessionError: any = null;
 
-      if (error || !data.user) {
-        console.error('[auth] phone session exchange failed:', error?.message);
+      // Stage 1: Try magiclink token hash verification
+      if (payload.tokenHash) {
+        const magicRes = await supabase.auth.verifyOtp({
+          token_hash: payload.tokenHash as string,
+          type: 'magiclink',
+        });
+        if (magicRes.data?.user) {
+          user = magicRes.data.user;
+        } else {
+          // Stage 2: Try email token hash verification
+          const emailRes = await supabase.auth.verifyOtp({
+            token_hash: payload.tokenHash as string,
+            type: 'email',
+          });
+          if (emailRes.data?.user) {
+            user = emailRes.data.user;
+          }
+        }
+      }
+
+      // Stage 3: Direct fallback via tempPassword sign-in
+      if (!user && payload.email && payload.tempPassword) {
+        const passRes = await supabase.auth.signInWithPassword({
+          email: payload.email as string,
+          password: payload.tempPassword as string,
+        });
+        if (passRes.data?.user) {
+          user = passRes.data.user;
+        } else {
+          sessionError = passRes.error;
+        }
+      }
+
+      if (!user) {
+        console.error('[auth] phone session exchange failed:', sessionError?.message);
         toast.error('Could not start your session. Please try again.');
         return { success: false };
       }
@@ -383,8 +411,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Firebase has served its purpose; don't leave a second identity behind.
       await endFirebaseSession();
 
-      const role = await fetchAndSetUserRole(data.user, dispatch);
-      roleForUserId.current = data.user.id;
+      const role = await fetchAndSetUserRole(user, dispatch);
+      roleForUserId.current = user.id;
       cachedRole.current = role;
 
       toast.success(payload.isNewUser ? 'Welcome to Pala Pitta Ruchulu! 🎉' : 'Welcome back! 👋');
