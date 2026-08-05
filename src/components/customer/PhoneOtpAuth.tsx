@@ -32,7 +32,6 @@ export default function PhoneOtpAuth({
   const [name, setName] = useState('');
   const [otp, setOtp] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [provider, setProvider] = useState<'msg91' | 'firebase'>('msg91');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -61,50 +60,27 @@ export default function PhoneOtpAuth({
     }
 
     setLoading(true);
-
-    // 1. First attempt: Direct MSG91 SMS API Route (No Firebase Billing required)
     try {
-      const res = await fetch('/api/otp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: cleanedPhone }),
-      });
-      const data = await res.json();
-
-      if (res.ok && data.success) {
-        setProvider('msg91');
-        setOtpSent(true);
-        setCountdown(30);
-        toast.success(`OTP sent to +91 ${cleanedPhone} 📲`);
-        setLoading(false);
-        return;
-      }
-    } catch (msg91Err) {
-      console.warn('[MSG91 Send Failed, falling back to Firebase]:', msg91Err);
-    }
-
-    // 2. Fallback attempt: Firebase Phone Auth
-    try {
+      // Create or re-use Firebase RecaptchaVerifier
       const verifier = createRecaptchaVerifier(containerId);
       recaptchaVerifierRef.current = verifier;
 
       const result = await sendFirebaseOtp(cleanedPhone, verifier);
       setConfirmationResult(result);
-      setProvider('firebase');
       setOtpSent(true);
       setCountdown(30);
-      toast.success(`OTP sent to +91 ${cleanedPhone} 📲`);
+      toast.success(`OTP sent to +91 ${cleanedPhone} via SMS 📲`);
     } catch (err: any) {
-      console.error('[Firebase OTP Error]:', err);
+      console.error('[Firebase Phone Auth Error]:', err);
       let msg = 'Failed to send OTP. Please try again.';
       if (err.code === 'auth/billing-not-enabled' || err.message?.includes('billing-not-enabled')) {
-        msg = 'Firebase billing is disabled. Please upgrade Firebase project to Blaze plan or use Phone Testing numbers in Firebase Console.';
-      } else if (err.code === 'auth/operation-not-allowed' || err.message?.includes('auth/operation-not-allowed')) {
-        msg = 'Phone authentication or SMS region (India +91) is not enabled in Firebase Console. Please enable Phone Sign-in & India region in Firebase Console > Authentication > Sign-in method.';
+        msg = 'Firebase SMS Billing is disabled. Please upgrade your Firebase project to the Blaze plan (10,000 free SMS/mo) or add phone numbers for testing in Firebase Console.';
+      } else if (err.code === 'auth/operation-not-allowed' || err.message?.includes('operation-not-allowed')) {
+        msg = 'Phone Sign-in or India (+91) region is not enabled in Firebase Console. Please enable Phone provider under Authentication > Sign-in method.';
       } else if (err.code === 'auth/invalid-phone-number') {
         msg = 'Invalid phone number format.';
       } else if (err.code === 'auth/too-many-requests') {
-        msg = 'Too many OTP requests. Please wait a few minutes.';
+        msg = 'Too many requests. Please wait a few minutes before trying again.';
       } else if (err.message) {
         msg = err.message;
       }
@@ -120,8 +96,13 @@ export default function PhoneOtpAuth({
     setErrorMsg(null);
 
     const cleanedOtp = otp.trim();
-    if (!cleanedOtp || cleanedOtp.length < 4) {
-      setErrorMsg('Please enter the OTP code sent to your phone');
+    if (!cleanedOtp || cleanedOtp.length < 6) {
+      setErrorMsg('Please enter the 6-digit OTP code sent to your phone');
+      return;
+    }
+
+    if (!confirmationResult) {
+      setErrorMsg('OTP session expired. Please request a new code.');
       return;
     }
 
@@ -130,20 +111,8 @@ export default function PhoneOtpAuth({
     const fullPhone = `+91${cleanedPhone}`;
 
     try {
-      // 1. Verify OTP based on provider
-      if (provider === 'msg91') {
-        const res = await fetch('/api/otp/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone: cleanedPhone, otp: cleanedOtp }),
-        });
-        const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'Incorrect OTP code');
-        }
-      } else if (provider === 'firebase' && confirmationResult) {
-        await verifyFirebaseOtp(confirmationResult, cleanedOtp);
-      }
+      // 1. Verify OTP with Firebase
+      await verifyFirebaseOtp(confirmationResult, cleanedOtp);
 
       // 2. Initialize customer session
       const authRes = await signInWithOtpPhoneUser(fullPhone, name.trim());
@@ -162,8 +131,15 @@ export default function PhoneOtpAuth({
         onSuccess(authRes.role);
       }
     } catch (err: any) {
-      console.error('[OTP Verify Error]:', err);
-      let msg = err.message || 'Invalid OTP code. Please check and try again.';
+      console.error('[Firebase OTP Verification Error]:', err);
+      let msg = 'Invalid OTP code. Please check your SMS and try again.';
+      if (err.code === 'auth/invalid-verification-code') {
+        msg = 'Incorrect OTP entered. Please check your SMS.';
+      } else if (err.code === 'auth/code-expired') {
+        msg = 'OTP has expired. Please tap Resend OTP.';
+      } else if (err.message) {
+        msg = err.message;
+      }
       setErrorMsg(msg);
       toast.error(msg);
     } finally {
@@ -173,7 +149,7 @@ export default function PhoneOtpAuth({
 
   return (
     <Box sx={{ width: '100%' }}>
-      {/* Invisible Recaptcha container target */}
+      {/* Invisible Recaptcha container target for Firebase */}
       <div id={containerId} style={{ display: 'none' }} />
 
       {errorMsg && (
@@ -259,7 +235,7 @@ export default function PhoneOtpAuth({
           </Stack>
         </form>
       ) : (
-        /* STEP 2: OTP Verification */
+        /* STEP 2: 6-Digit OTP Verification */
         <form onSubmit={handleVerifyOtp}>
           <Stack spacing={2}>
             <Box sx={{ bgcolor: '#FFF8F2', p: 1.8, borderRadius: '12px', border: '1px solid #FFE0B2' }}>
@@ -275,7 +251,7 @@ export default function PhoneOtpAuth({
               fullWidth
               size="small"
               type="number"
-              label="Enter OTP Code"
+              label="Enter 6-Digit OTP"
               required
               autoFocus
               value={otp}
@@ -297,7 +273,7 @@ export default function PhoneOtpAuth({
               type="submit"
               fullWidth
               variant="contained"
-              disabled={loading || otp.trim().length < 4}
+              disabled={loading || otp.trim().length < 6}
               sx={{
                 py: 1.3,
                 borderRadius: '12px',
