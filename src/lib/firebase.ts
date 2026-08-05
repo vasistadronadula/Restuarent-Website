@@ -84,15 +84,13 @@ function getFirebaseAuth(): Auth {
 const verifiers = new Map<string, RecaptchaVerifier>();
 
 function getVerifier(containerId: string): RecaptchaVerifier {
-  const existing = verifiers.get(containerId);
-  if (existing) return existing;
+  // Clear any existing instance/markup to prevent "reCAPTCHA has already been rendered in this element"
+  clearRecaptcha(containerId);
 
   const container = document.getElementById(containerId);
   if (!container) {
     throw new Error(`reCAPTCHA container #${containerId} is not in the document.`);
   }
-  // Any markup left by a previous instance would make Firebase refuse to
-  // render into this node again.
   container.innerHTML = '';
 
   const verifier = new RecaptchaVerifier(getFirebaseAuth(), containerId, { size: 'invisible' });
