@@ -40,6 +40,9 @@ function SignupForm() {
   // order, and an empty home page is not where that continues.
   const redirectTo = safeRedirect(searchParams.get('redirect'), '/menu');
 
+  // Phone first: a customer with a SIM can finish in two taps, where email
+  // signup asks them to invent and remember a password.
+  const [authMethod, setAuthMethod] = useState<'otp' | 'email'>('otp');
   const [values, setValues] = useState({ name: '', phone: '', email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -133,8 +136,6 @@ function SignupForm() {
 
     landAfterLogin(res.role ?? 'customer', redirectTo);
   };
-
-  const [authMethod, setAuthMethod] = useState<'otp' | 'email'>('otp');
 
   const loginHref = redirectTo === '/menu' ? '/login' : `/login?redirect=${encodeURIComponent(redirectTo)}`;
 
@@ -252,14 +253,23 @@ function SignupForm() {
         </Box>
       </Box>
 
+      {/* One method at a time. Both used to render together, so a customer who
+          picked "Phone OTP" was still shown the full email form underneath —
+          two ways to create an account, on one screen, at once. */}
       {authMethod === 'otp' ? (
-        <Box sx={{ mb: 2.5 }}>
-          <PhoneOtpAuth
-            containerIdPrefix="signup-page"
-            isSignUpMode
-            onSuccess={(role) => landAfterLogin(role ?? 'customer', redirectTo)}
-          />
-        </Box>
+        <>
+          <PhoneOtpAuth isSignUpMode onSuccess={(role) => landAfterLogin(role ?? 'customer', redirectTo)} />
+          <Typography sx={{ fontSize: '11.5px', color: 'text.secondary', textAlign: 'center', mt: 2, lineHeight: 1.5 }}>
+            By continuing you agree to our{' '}
+            <MuiLink component={Link} href="/terms" target="_blank" underline="hover" sx={{ color: 'primary.main', fontWeight: 700 }}>
+              Terms of Service
+            </MuiLink>{' '}
+            and{' '}
+            <MuiLink component={Link} href="/privacy-policy" target="_blank" underline="hover" sx={{ color: 'primary.main', fontWeight: 700 }}>
+              Privacy Policy
+            </MuiLink>
+          </Typography>
+        </>
       ) : (
         <>
           <Button
@@ -301,218 +311,218 @@ function SignupForm() {
           >
             OR SIGN UP WITH EMAIL
           </Divider>
-        </>
-      )}
 
-      <Box component="form" onSubmit={handleSubmit} noValidate>
-        {formError && (
-          <Alert
-            severity="error"
-            role="alert"
-            sx={{
-              mb: 2.5,
-              borderRadius: '14px',
-              fontSize: '13px',
-              border: '1px solid rgba(211, 47, 47, 0.2)',
-              bgcolor: 'rgba(211, 47, 47, 0.04)',
-            }}
-          >
-            {formError}
-          </Alert>
-        )}
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <TextField
-            fullWidth
-            inputRef={nameRef}
-            label="Full name"
-            name="name"
-            value={values.name}
-            onChange={(e) => setField('name', e.target.value)}
-            onBlur={() => handleBlur('name')}
-            error={Boolean(showError('name'))}
-            helperText={showError('name')}
-            autoComplete="name"
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Person sx={{ color: 'primary.main', fontSize: 20 }} />
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-
-          <TextField
-            fullWidth
-            inputRef={phoneRef}
-            label="Mobile number"
-            name="phone"
-            type="tel"
-            value={values.phone}
-            onChange={(e) => setField('phone', e.target.value)}
-            onBlur={() => handleBlur('phone')}
-            error={Boolean(showError('phone'))}
-            helperText={showError('phone') ?? 'For delivery updates & table reservations'}
-            autoComplete="tel"
-            slotProps={{
-              htmlInput: { inputMode: 'tel', maxLength: 15 },
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Phone sx={{ color: 'primary.main', fontSize: 20 }} />
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-
-          <TextField
-            fullWidth
-            inputRef={emailRef}
-            label="Email address"
-            name="email"
-            type="email"
-            value={values.email}
-            onChange={(e) => setField('email', e.target.value)}
-            onBlur={() => handleBlur('email')}
-            error={Boolean(showError('email'))}
-            helperText={showError('email')}
-            autoComplete="email"
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Email sx={{ color: 'primary.main', fontSize: 20 }} />
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-
-          <Box>
-            <TextField
-              fullWidth
-              inputRef={passwordRef}
-              label="Password"
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              value={values.password}
-              onChange={(e) => setField('password', e.target.value)}
-              onBlur={() => handleBlur('password')}
-              error={Boolean(showError('password'))}
-              helperText={showError('password')}
-              autoComplete="new-password"
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Lock sx={{ color: 'primary.main', fontSize: 20 }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        size="small"
-                        onClick={() => setShowPassword((s) => !s)}
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                        edge="end"
-                        sx={{ color: 'text.secondary' }}
-                      >
-                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-
-            {/* Strength meter */}
-            {values.password ? (
-              <Box sx={{ mt: 1.25, px: 0.5 }}>
-                <Box sx={{ display: 'flex', gap: 0.8, mb: 0.75 }}>
-                  {[1, 2, 3, 4].map((segment) => (
-                    <Box
-                      key={segment}
-                      sx={{
-                        flex: 1,
-                        height: 4,
-                        borderRadius: 2,
-                        bgcolor: strength.score >= segment ? strength.color : 'rgba(0,0,0,0.08)',
-                        boxShadow: strength.score >= segment ? `0 0 6px ${strength.color}40` : 'none',
-                        transition: 'all .3s ease',
-                      }}
-                    />
-                  ))}
-                </Box>
-                <Typography aria-live="polite" sx={{ fontSize: '11.5px', fontWeight: 700, color: strength.color }}>
-                  {strength.label}
-                  <Box component="span" sx={{ fontWeight: 500, color: 'text.secondary' }}>
-                    {strength.hint ? ` · ${strength.hint}` : ' — good password'}
-                  </Box>
-                </Typography>
-              </Box>
-            ) : (
-              <Typography sx={{ fontSize: '11.5px', color: 'text.secondary', mt: 0.75, ml: 1 }}>
-                Must be at least {MIN_PASSWORD_LENGTH} characters long
-              </Typography>
-            )}
-          </Box>
-
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={acceptedTerms}
-                onChange={(e) => { setAcceptedTerms(e.target.checked); if (e.target.checked) setFormError(null); }}
-                size="small"
+          <Box component="form" onSubmit={handleSubmit} noValidate>
+            {formError && (
+              <Alert
+                severity="error"
+                role="alert"
                 sx={{
-                  color: 'primary.main',
-                  '&.Mui-checked': { color: 'primary.main' },
-                  pt: 0.25,
+                  mb: 2.5,
+                  borderRadius: '14px',
+                  fontSize: '13px',
+                  border: '1px solid rgba(211, 47, 47, 0.2)',
+                  bgcolor: 'rgba(211, 47, 47, 0.04)',
+                }}
+              >
+                {formError}
+              </Alert>
+            )}
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                fullWidth
+                inputRef={nameRef}
+                label="Full name"
+                name="name"
+                value={values.name}
+                onChange={(e) => setField('name', e.target.value)}
+                onBlur={() => handleBlur('name')}
+                error={Boolean(showError('name'))}
+                helperText={showError('name')}
+                autoComplete="name"
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Person sx={{ color: 'primary.main', fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                  },
                 }}
               />
-            }
-            sx={{ alignItems: 'flex-start', mr: 0, ml: -0.5, mt: 0.5 }}
-            label={
-              <Typography sx={{ fontSize: '12.5px', color: 'text.secondary', lineHeight: 1.5, mt: 0.4 }}>
-                I agree to the{' '}
-                <MuiLink component={Link} href="/terms" target="_blank" underline="hover" sx={{ color: 'primary.main', fontWeight: 700 }}>
-                  Terms of Service
-                </MuiLink>{' '}
-                and{' '}
-                <MuiLink component={Link} href="/privacy-policy" target="_blank" underline="hover" sx={{ color: 'primary.main', fontWeight: 700 }}>
-                  Privacy Policy
-                </MuiLink>
-              </Typography>
-            }
-          />
 
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            disabled={loading}
-            sx={{
-              py: 1.5,
-              mt: 1,
-              borderRadius: '14px',
-              fontWeight: 800,
-              fontSize: '15px',
-              background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
-              boxShadow: '0 6px 20px rgba(198, 40, 40, 0.25)',
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)',
-                boxShadow: '0 8px 24px rgba(198, 40, 40, 0.35)',
-                transform: 'translateY(-1px)',
-              },
-            }}
-          >
-            {loading ? <CircularProgress size={23} color="inherit" /> : 'Create account'}
-          </Button>
-        </Box>
-      </Box>
+              <TextField
+                fullWidth
+                inputRef={phoneRef}
+                label="Mobile number"
+                name="phone"
+                type="tel"
+                value={values.phone}
+                onChange={(e) => setField('phone', e.target.value)}
+                onBlur={() => handleBlur('phone')}
+                error={Boolean(showError('phone'))}
+                helperText={showError('phone') ?? 'For delivery updates & table reservations'}
+                autoComplete="tel"
+                slotProps={{
+                  htmlInput: { inputMode: 'tel', maxLength: 15 },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Phone sx={{ color: 'primary.main', fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+
+              <TextField
+                fullWidth
+                inputRef={emailRef}
+                label="Email address"
+                name="email"
+                type="email"
+                value={values.email}
+                onChange={(e) => setField('email', e.target.value)}
+                onBlur={() => handleBlur('email')}
+                error={Boolean(showError('email'))}
+                helperText={showError('email')}
+                autoComplete="email"
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Email sx={{ color: 'primary.main', fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+
+              <Box>
+                <TextField
+                  fullWidth
+                  inputRef={passwordRef}
+                  label="Password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={values.password}
+                  onChange={(e) => setField('password', e.target.value)}
+                  onBlur={() => handleBlur('password')}
+                  error={Boolean(showError('password'))}
+                  helperText={showError('password')}
+                  autoComplete="new-password"
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock sx={{ color: 'primary.main', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => setShowPassword((s) => !s)}
+                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            edge="end"
+                            sx={{ color: 'text.secondary' }}
+                          >
+                            {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+
+                {/* Strength meter */}
+                {values.password ? (
+                  <Box sx={{ mt: 1.25, px: 0.5 }}>
+                    <Box sx={{ display: 'flex', gap: 0.8, mb: 0.75 }}>
+                      {[1, 2, 3, 4].map((segment) => (
+                        <Box
+                          key={segment}
+                          sx={{
+                            flex: 1,
+                            height: 4,
+                            borderRadius: 2,
+                            bgcolor: strength.score >= segment ? strength.color : 'rgba(0,0,0,0.08)',
+                            boxShadow: strength.score >= segment ? `0 0 6px ${strength.color}40` : 'none',
+                            transition: 'all .3s ease',
+                          }}
+                        />
+                      ))}
+                    </Box>
+                    <Typography aria-live="polite" sx={{ fontSize: '11.5px', fontWeight: 700, color: strength.color }}>
+                      {strength.label}
+                      <Box component="span" sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                        {strength.hint ? ` · ${strength.hint}` : ' — good password'}
+                      </Box>
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Typography sx={{ fontSize: '11.5px', color: 'text.secondary', mt: 0.75, ml: 1 }}>
+                    Must be at least {MIN_PASSWORD_LENGTH} characters long
+                  </Typography>
+                )}
+              </Box>
+
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={acceptedTerms}
+                    onChange={(e) => { setAcceptedTerms(e.target.checked); if (e.target.checked) setFormError(null); }}
+                    size="small"
+                    sx={{
+                      color: 'primary.main',
+                      '&.Mui-checked': { color: 'primary.main' },
+                      pt: 0.25,
+                    }}
+                  />
+                }
+                sx={{ alignItems: 'flex-start', mr: 0, ml: -0.5, mt: 0.5 }}
+                label={
+                  <Typography sx={{ fontSize: '12.5px', color: 'text.secondary', lineHeight: 1.5, mt: 0.4 }}>
+                    I agree to the{' '}
+                    <MuiLink component={Link} href="/terms" target="_blank" underline="hover" sx={{ color: 'primary.main', fontWeight: 700 }}>
+                      Terms of Service
+                    </MuiLink>{' '}
+                    and{' '}
+                    <MuiLink component={Link} href="/privacy-policy" target="_blank" underline="hover" sx={{ color: 'primary.main', fontWeight: 700 }}>
+                      Privacy Policy
+                    </MuiLink>
+                  </Typography>
+                }
+              />
+
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={loading}
+                sx={{
+                  py: 1.5,
+                  mt: 1,
+                  borderRadius: '14px',
+                  fontWeight: 800,
+                  fontSize: '15px',
+                  background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
+                  boxShadow: '0 6px 20px rgba(198, 40, 40, 0.25)',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)',
+                    boxShadow: '0 8px 24px rgba(198, 40, 40, 0.35)',
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                {loading ? <CircularProgress size={23} color="inherit" /> : 'Create account'}
+              </Button>
+            </Box>
+          </Box>
+        </>
+      )}
     </AuthShell>
   );
 }

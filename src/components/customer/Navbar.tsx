@@ -17,6 +17,7 @@ import { selectTotalItems, openCart, closeCart } from '@/store/cartSlice';
 import { selectUser, selectUserRole, openAuthModal } from '@/store/authSlice';
 import { useAuth } from '@/context/AuthContext';
 import { ROLE_LABELS, ROLE_ICONS, getRoleHome, isStaffRole, getRoleDashboardLabel } from '@/lib/roleAccess';
+import { accountDisplayName, accountIdentityLabel } from '@/lib/phoneIdentity';
 import CartDrawer from './CartDrawer';
 import PalaPittaLogo from './PalaPittaLogo';
 
@@ -72,7 +73,11 @@ export default function Navbar() {
   const user = useAppSelector(selectUser);
   const userRole = useAppSelector(selectUserRole);
   const { signOutUser } = useAuth();
-  const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || (user?.email ? user.email.split('@')[0] : '');
+  // Both derived through the identity helpers so a phone customer never sees
+  // the internal `phone_91…@palapitta.internal` address their account is keyed
+  // on — they get the number they signed in with.
+  const userName = accountDisplayName(user);
+  const accountLabel = accountIdentityLabel(user?.email, user?.user_metadata?.phone);
   const isStaff = isStaffRole(userRole);
 
   const closeMenu = () => setAnchorEl(null);
@@ -239,7 +244,7 @@ export default function Navbar() {
             {/* User Avatar & Account Menu */}
             {user && (
               <>
-                <Tooltip title={user.email || 'Account'}>
+                <Tooltip title={accountLabel || 'Account'}>
                   <IconButton
                     onClick={(e) => setAnchorEl(e.currentTarget)}
                     aria-label="Account menu"
@@ -254,7 +259,7 @@ export default function Navbar() {
                         borderColor: 'secondary.main',
                       }}
                     >
-                      {(userName || user.email || 'U').charAt(0).toUpperCase()}
+                      {(userName || accountLabel || 'U').charAt(0).toUpperCase()}
                     </Avatar>
                   </IconButton>
                 </Tooltip>
@@ -273,7 +278,7 @@ export default function Navbar() {
                       {userRole ? `${ROLE_ICONS[userRole] || ''} ${ROLE_LABELS[userRole]}` : 'Customer'}
                     </Typography>
                     <Typography sx={{ color: 'text.secondary', fontSize: '11px', wordBreak: 'break-all', mt: 0.2 }}>
-                      {user.email}
+                      {accountLabel}
                     </Typography>
                   </Box>
 

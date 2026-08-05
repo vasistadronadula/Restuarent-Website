@@ -19,6 +19,7 @@ import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { useAdmin } from '@/context/AdminContext';
 import { generateOrderId } from '@/lib/idGenerator';
+import { accountDisplayName, isInternalPhoneEmail } from '@/lib/phoneIdentity';
 import { triggerNewOrderPush } from '@/lib/triggerPush';
 import PrintBillButton from '@/components/bill/PrintBillButton';
 import type { Order, PaymentMode, PaymentStatus } from '@/types';
@@ -76,8 +77,14 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  const autofillName = user?.user_metadata?.full_name || user?.user_metadata?.name || (user?.email ? user.email.split('@')[0] : '') || '';
+  // accountDisplayName rather than the email local-part: for a customer who
+  // signed in by SMS that local-part is "phone_919876543210", and prefilling
+  // the name on a food order with it is how a kitchen ticket ends up addressed
+  // to a database key.
+  const autofillName = accountDisplayName(user);
   const autofillPhone = user?.user_metadata?.phone || user?.phone || '';
+  /** Empty for a phone-only account — see the customerId note in finalizeOrder. */
+  const accountEmail = isInternalPhoneEmail(user?.email) ? '' : (user?.email ?? '');
   const effectiveName = form.name || autofillName;
   const effectivePhone = form.phone || autofillPhone;
 
@@ -114,7 +121,12 @@ export default function CheckoutPage() {
       id,
       orderId: id,
       orderType: 'takeaway',
-      customerId: user?.email || effectivePhone || 'GUEST',
+      // Persisted to the `customer_email` column, so only a real address
+      // belongs here. A phone customer's account carries the synthetic
+      // `@palapitta.internal` placeholder instead, which would end up printed
+      // on their receipt — they fall through to their number, exactly as a
+      // guest checkout does.
+      customerId: accountEmail || effectivePhone || 'GUEST',
       customerName: effectiveName,
       customerPhone: effectivePhone,
       customerAddress: 'Takeaway — Collect from Madhapur Restaurant',

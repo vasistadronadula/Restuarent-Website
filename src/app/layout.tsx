@@ -9,9 +9,7 @@ const inter = Inter({
   display: "swap",
 });
 
-import Script from "next/script";
 import { Providers } from "./providers";
-import { RECAPTCHA_SITE_KEY } from "@/lib/recaptcha";
 
 export const viewport: Viewport = {
   themeColor: "#FFFFFF",
@@ -50,10 +48,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable} style={{ colorScheme: 'light' }}>
       <body>
-        <Script
-          src={`https://www.google.com/recaptcha/enterprise.js?render=${RECAPTCHA_SITE_KEY}`}
-          strategy="lazyOnload"
-        />
+        {/* No global reCAPTCHA script: the only thing on this site that needs
+            one is Firebase phone sign-in, and it injects its own on demand from
+            the auth screens. Loading Enterprise reCAPTCHA site-wide cost every
+            visitor a third-party request on a page that never called it. */}
         <Providers>{children}</Providers>
       </body>
     </html>

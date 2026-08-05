@@ -195,7 +195,9 @@ export default function AuthModal() {
 
         {authMethod === 'otp' ? (
           <PhoneOtpAuth
-            containerIdPrefix="modal"
+            // Remounted per tab so switching between Log In and Sign Up starts a
+            // clean flow rather than carrying a half-entered code across.
+            key={isLogin ? 'login' : 'signup'}
             isSignUpMode={!isLogin}
             onSuccess={() => dispatch(closeAuthModal())}
           />
@@ -327,39 +329,45 @@ export default function AuthModal() {
           </form>
         )}
 
-        {/* Divider & Bottom Google Sign In */}
-        <Divider
-          sx={{
-            my: 2,
-            fontSize: '10.5px',
-            fontWeight: 800,
-            color: 'text.secondary',
-            letterSpacing: 0.8,
-            '&::before, &::after': { borderColor: '#F0E4D8' },
-          }}
-        >
-          OR CONTINUE WITH
-        </Divider>
+        {/* Google is offered alongside email only. During an OTP flow the
+            customer is mid-way through one verification, and a second sign-in
+            button under the code field is an invitation to abandon it. */}
+        {authMethod === 'email' && (
+          <>
+            <Divider
+              sx={{
+                my: 2,
+                fontSize: '10.5px',
+                fontWeight: 800,
+                color: 'text.secondary',
+                letterSpacing: 0.8,
+                '&::before, &::after': { borderColor: '#F0E4D8' },
+              }}
+            >
+              OR CONTINUE WITH
+            </Divider>
 
-        <Button
-          fullWidth
-          variant="outlined"
-          onClick={signInWithGoogle}
-          startIcon={<GoogleIcon />}
-          sx={{
-            py: 1.2,
-            borderRadius: '12px',
-            borderColor: '#E2E8F0',
-            bgcolor: '#FFFFFF',
-            color: '#2D3748',
-            fontWeight: 700,
-            fontSize: '13.5px',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-            '&:hover': { borderColor: '#CBD5E0', bgcolor: '#F7FAFC' },
-          }}
-        >
-          Continue with Google
-        </Button>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={signInWithGoogle}
+              startIcon={<GoogleIcon />}
+              sx={{
+                py: 1.2,
+                borderRadius: '12px',
+                borderColor: '#E2E8F0',
+                bgcolor: '#FFFFFF',
+                color: '#2D3748',
+                fontWeight: 700,
+                fontSize: '13.5px',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                '&:hover': { borderColor: '#CBD5E0', bgcolor: '#F7FAFC' },
+              }}
+            >
+              Continue with Google
+            </Button>
+          </>
+        )}
 
         <Box sx={{ textAlign: 'center', mt: 2, pt: 1.5, borderTop: '1px solid #F0E4D8' }}>
           <Typography variant="body2" sx={{ fontSize: '12.5px', color: 'text.secondary', display: 'block', mb: 0.25 }}>

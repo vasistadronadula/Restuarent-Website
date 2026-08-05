@@ -10,6 +10,7 @@ import React, {
   createContext, useContext, ReactNode, useCallback, useEffect, useMemo, useRef,
 } from 'react';
 import { supabase } from '@/lib/supabase';
+import { endFirebaseSession } from '@/lib/firebase';
 import toast from 'react-hot-toast';
 import { User } from '@supabase/supabase-js';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -90,7 +91,8 @@ interface AuthContextType {
   authModalTab: 'login' | 'signup';
   signInWithEmail: (email: string, pass: string) => Promise<{ success: boolean; role?: UserRole }>;
   signUpWithEmail: (email: string, pass: string, name?: string, phone?: string) => Promise<{ success: boolean; role?: UserRole }>;
-  signInWithOtpPhoneUser: (phone: string, name?: string) => Promise<{ success: boolean; role?: UserRole }>;
+  /** Takes a Firebase ID token from the OTP screen, not a phone number — see the implementation. */
+  signInWithPhoneToken: (idToken: string, name?: string) => Promise<{ success: boolean; role?: UserRole }>;
   signInWithGoogle: () => Promise<void>;
   signOutUser: () => Promise<void>;
   fetchUserRole: (u: User) => Promise<UserRole>;
@@ -333,54 +335,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
 
-  const signInWithOtpPhoneUser = useCallback(async (
-    phone: string, name?: string
+  /**
+   * Completes a phone sign-in from a Firebase ID token.
+   *
+   * The token is proof that Firebase sent an SMS to a number and the right code
+   * came back. It is worth nothing until a server checks Google's signature on
+   * it, so that is all this does: post it to /api/auth/phone, which verifies it
+   * and returns a one-time hash the browser redeems with Supabase for a real
+   * session.
+   *
+   * The version this replaced signed in with a password derived from the phone
+   * number — meaning anyone who knew a customer's number could open a console
+   * and sign in as them, no SMS involved. Nothing here is derived from anything
+   * the browser can guess.
+   */
+  const signInWithPhoneToken = useCallback(async (
+    idToken: string, name?: string
   ): Promise<{ success: boolean; role?: UserRole }> => {
     try {
-      const cleanedPhone = phone.replace(/\D/g, '');
-      const dummyEmail = `phone_${cleanedPhone}@palapitta.internal`;
-      const dummyPassword = `PPR_Otp_${cleanedPhone}_AuthKey!`;
-
-      const signInRes = await supabase.auth.signInWithPassword({
-        email: dummyEmail,
-        password: dummyPassword,
+      const response = await fetch('/api/auth/phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken, fullName: name || undefined }),
       });
 
-      let user = signInRes.data.user;
-      let error = signInRes.error;
+      const payload = await response.json().catch(() => ({}));
 
-      if (error && (error.message.toLowerCase().includes('invalid login credentials') || error.message.toLowerCase().includes('user not found'))) {
-        const signUpRes = await supabase.auth.signUp({
-          email: dummyEmail,
-          password: dummyPassword,
-          options: {
-            data: {
-              full_name: name || `Customer ${cleanedPhone.slice(-4)}`,
-              phone: phone,
-            },
-          },
-        });
-        user = signUpRes.data.user;
-        error = signUpRes.error;
-      }
-
-      if (error) {
-        toast.error(error.message || 'OTP Login session initialization failed');
+      if (!response.ok || !payload?.tokenHash) {
+        toast.error(payload?.error || 'Could not complete sign-in. Please try again.');
         return { success: false };
       }
 
-      let role: UserRole = 'customer';
-      if (user) {
-        role = await fetchAndSetUserRole(user, dispatch);
-        roleForUserId.current = user.id;
-        cachedRole.current = role;
+      // Redeeming the hash is what actually issues the session, and it is done
+      // by the browser so the tokens land in the same storage every other part
+      // of the app reads them from.
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: payload.tokenHash as string,
+        type: 'magiclink',
+      });
+
+      if (error || !data.user) {
+        console.error('[auth] phone session exchange failed:', error?.message);
+        toast.error('Could not start your session. Please try again.');
+        return { success: false };
       }
 
-      toast.success('Mobile OTP verified! Welcome back 👋');
+      // Firebase has served its purpose; don't leave a second identity behind.
+      await endFirebaseSession();
+
+      const role = await fetchAndSetUserRole(data.user, dispatch);
+      roleForUserId.current = data.user.id;
+      cachedRole.current = role;
+
+      toast.success(payload.isNewUser ? 'Welcome to Pala Pitta Ruchulu! 🎉' : 'Welcome back! 👋');
       dispatch(closeAuthModal());
       return { success: true, role };
     } catch (err) {
-      toast.error(getErrorMessage(err) || 'OTP session error');
+      console.error('[auth] phone sign-in error:', err);
+      toast.error(getErrorMessage(err) || 'Sign-in failed. Please try again.');
       return { success: false };
     }
   }, [dispatch]);
@@ -444,13 +456,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // every useAuth() consumer — the whole POS included — on each render pass.
   const contextValue = useMemo(() => ({
     user, session, userRole, loading, isAuthModalOpen, authModalTab,
-    signInWithEmail, signUpWithEmail, signInWithOtpPhoneUser, signInWithGoogle, signOutUser,
+    signInWithEmail, signUpWithEmail, signInWithPhoneToken, signInWithGoogle, signOutUser,
     fetchUserRole,
     openAuthModal: openModal,
     closeAuthModal: closeModal,
   }), [
     user, session, userRole, loading, isAuthModalOpen, authModalTab,
-    signInWithEmail, signUpWithEmail, signInWithOtpPhoneUser, signInWithGoogle, signOutUser,
+    signInWithEmail, signUpWithEmail, signInWithPhoneToken, signInWithGoogle, signOutUser,
     fetchUserRole, openModal, closeModal,
   ]);
 

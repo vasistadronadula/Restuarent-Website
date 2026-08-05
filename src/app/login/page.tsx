@@ -41,6 +41,13 @@ function LoginForm() {
     searchParams.get('mode') === 'forgot' ? 'forgot' : 'login',
   );
 
+  // Phone first: it is how most customers here sign in, and it needs no
+  // password to have been remembered. This has to be declared with the other
+  // hooks — it previously sat below the `forgot` early return, so switching to
+  // "Reset password" changed how many hooks the component called and React
+  // tore the whole screen down with a hook-order error.
+  const [authMethod, setAuthMethod] = useState<'otp' | 'email'>('otp');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -269,8 +276,6 @@ function LoginForm() {
     );
   }
 
-  const [authMethod, setAuthMethod] = useState<'otp' | 'email'>('otp');
-
   /* ── Log in ───────────────────────────────────────────────────────────── */
   return (
     <AuthShell
@@ -386,13 +391,11 @@ function LoginForm() {
         </Box>
       </Box>
 
+      {/* One method at a time. Both used to render together — the phone form
+          stacked on top of a full email form — which made a screen that asks
+          for two unrelated credentials at once and works with either. */}
       {authMethod === 'otp' ? (
-        <Box sx={{ mb: 2.5 }}>
-          <PhoneOtpAuth
-            containerIdPrefix="login-page"
-            onSuccess={(role) => landAfterLogin(role ?? 'customer', redirectTo)}
-          />
-        </Box>
+        <PhoneOtpAuth onSuccess={(role) => landAfterLogin(role ?? 'customer', redirectTo)} />
       ) : (
         <>
           <Button
@@ -434,128 +437,128 @@ function LoginForm() {
           >
             OR LOGIN WITH EMAIL
           </Divider>
-        </>
-      )}
 
-      <Box component="form" onSubmit={handleLogin} noValidate>
-        {formError && (
-          <Alert
-            severity="error"
-            role="alert"
-            sx={{
-              mb: 2.5,
-              borderRadius: '14px',
-              fontSize: '13px',
-              border: '1px solid rgba(211, 47, 47, 0.2)',
-              bgcolor: 'rgba(211, 47, 47, 0.04)',
-            }}
-          >
-            {formError}
-          </Alert>
-        )}
-
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
-          <TextField
-            fullWidth
-            inputRef={emailRef}
-            label="Email address"
-            type="email"
-            name="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onBlur={() => handleBlur('email')}
-            error={Boolean(showError('email'))}
-            helperText={showError('email')}
-            autoComplete="email"
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Email sx={{ color: 'primary.main', fontSize: 20 }} />
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-
-          <Box>
-            <TextField
-              fullWidth
-              inputRef={passwordRef}
-              label="Password"
-              type={showPassword ? 'text' : 'password'}
-              name="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onBlur={() => handleBlur('password')}
-              error={Boolean(showError('password'))}
-              helperText={showError('password')}
-              autoComplete="current-password"
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Lock sx={{ color: 'primary.main', fontSize: 20 }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        size="small"
-                        onClick={() => setShowPassword((s) => !s)}
-                        aria-label={showPassword ? 'Hide password' : 'Show password'}
-                        edge="end"
-                        sx={{ color: 'text.secondary' }}
-                      >
-                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.75 }}>
-              <Button
-                onClick={() => { setMode('forgot'); setFormError(null); setErrors({}); setTouched({}); }}
+          <Box component="form" onSubmit={handleLogin} noValidate>
+            {formError && (
+              <Alert
+                severity="error"
+                role="alert"
                 sx={{
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  color: 'primary.main',
-                  p: 0.5,
-                  minWidth: 0,
-                  '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
+                  mb: 2.5,
+                  borderRadius: '14px',
+                  fontSize: '13px',
+                  border: '1px solid rgba(211, 47, 47, 0.2)',
+                  bgcolor: 'rgba(211, 47, 47, 0.04)',
                 }}
               >
-                Forgot password?
+                {formError}
+              </Alert>
+            )}
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
+              <TextField
+                fullWidth
+                inputRef={emailRef}
+                label="Email address"
+                type="email"
+                name="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => handleBlur('email')}
+                error={Boolean(showError('email'))}
+                helperText={showError('email')}
+                autoComplete="email"
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Email sx={{ color: 'primary.main', fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+
+              <Box>
+                <TextField
+                  fullWidth
+                  inputRef={passwordRef}
+                  label="Password"
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onBlur={() => handleBlur('password')}
+                  error={Boolean(showError('password'))}
+                  helperText={showError('password')}
+                  autoComplete="current-password"
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Lock sx={{ color: 'primary.main', fontSize: 20 }} />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            size="small"
+                            onClick={() => setShowPassword((s) => !s)}
+                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            edge="end"
+                            sx={{ color: 'text.secondary' }}
+                          >
+                            {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.75 }}>
+                  <Button
+                    onClick={() => { setMode('forgot'); setFormError(null); setErrors({}); setTouched({}); }}
+                    sx={{
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      color: 'primary.main',
+                      p: 0.5,
+                      minWidth: 0,
+                      '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
+                    }}
+                  >
+                    Forgot password?
+                  </Button>
+                </Box>
+              </Box>
+
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={loading}
+                sx={{
+                  py: 1.5,
+                  borderRadius: '14px',
+                  fontWeight: 800,
+                  fontSize: '15px',
+                  background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
+                  boxShadow: '0 6px 20px rgba(198, 40, 40, 0.25)',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)',
+                    boxShadow: '0 8px 24px rgba(198, 40, 40, 0.35)',
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                {loading ? <CircularProgress size={23} color="inherit" /> : 'Log in'}
               </Button>
             </Box>
           </Box>
-
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            disabled={loading}
-            sx={{
-              py: 1.5,
-              borderRadius: '14px',
-              fontWeight: 800,
-              fontSize: '15px',
-              background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
-              boxShadow: '0 6px 20px rgba(198, 40, 40, 0.25)',
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)',
-                boxShadow: '0 8px 24px rgba(198, 40, 40, 0.35)',
-                transform: 'translateY(-1px)',
-              },
-            }}
-          >
-            {loading ? <CircularProgress size={23} color="inherit" /> : 'Log in'}
-          </Button>
-        </Box>
-      </Box>
+        </>
+      )}
     </AuthShell>
   );
 }

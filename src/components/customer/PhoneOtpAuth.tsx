@@ -1,176 +1,268 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
-  Box, Typography, TextField, Button, CircularProgress,
-  InputAdornment, Alert, Stack,
+  Alert, Box, Button, CircularProgress, InputAdornment, Stack, TextField, Typography,
 } from '@mui/material';
-import { Phone, Lock, Person, Sms, ArrowBack, Refresh } from '@mui/icons-material';
+import { ArrowBack, Person, Refresh, Sms } from '@mui/icons-material';
 import toast from 'react-hot-toast';
+
 import {
-  createRecaptchaVerifier, sendFirebaseOtp, verifyFirebaseOtp, type ConfirmationResult,
+  sendOtp, verifyOtpCode, clearRecaptcha, describeOtpError, isFirebaseConfigured,
+  type ConfirmationResult,
 } from '@/lib/firebase';
+import { formatMobileForDisplay, isValidMobile, toE164 } from '@/lib/phoneIdentity';
 import { useAuth, landAfterLogin } from '@/context/AuthContext';
 import { isStaffRole } from '@/lib/roleAccess';
 import type { UserRole } from '@/types';
-import type { RecaptchaVerifier } from 'firebase/auth';
+
+/**
+ * PhoneOtpAuth — the two-step SMS sign-in used by the login page, the signup
+ * page and the auth modal.
+ *
+ * It owns the SMS half of the flow only. Confirming the code yields a Firebase
+ * ID token, which is handed to AuthContext to be exchanged server-side for a
+ * Supabase session; this component never decides who anyone is.
+ *
+ * Two limits are enforced here that the customer can feel:
+ *  - a resend cooldown, so an unreceived SMS doesn't turn into ten sent ones;
+ *  - a cap on wrong codes, after which a fresh code must be requested rather
+ *    than the same one guessed indefinitely.
+ * Neither is a security boundary — Firebase and the API route enforce the real
+ * ones. These exist so the honest customer on a slow network isn't the person
+ * who burns through the SMS quota.
+ */
+
+/** Seconds before Resend becomes available. Long enough for a slow SMS to land. */
+const RESEND_COOLDOWN_SECONDS = 45;
+
+/** Wrong codes tolerated before the session is thrown away and a new one required. */
+const MAX_VERIFY_ATTEMPTS = 5;
+
+const OTP_LENGTH = 6;
+
+type Step = 'phone' | 'code';
 
 interface Props {
+  /** Called after a customer signs in. Staff are routed by this component instead. */
   onSuccess?: (role?: UserRole) => void;
+  /** Shows the name field, so a first-time customer isn't left as "Customer 3210". */
   isSignUpMode?: boolean;
-  containerIdPrefix?: string;
 }
 
-export default function PhoneOtpAuth({
-  onSuccess,
-  isSignUpMode = false,
-  containerIdPrefix = 'auth-modal',
-}: Props) {
-  const { signInWithOtpPhoneUser } = useAuth();
+export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false }: Props) {
+  const { signInWithPhoneToken } = useAuth();
 
+  // useId keeps the reCAPTCHA container unique even when two instances mount
+  // together — the modal and the page form can both be in the tree during a
+  // route transition, and Firebase refuses to render two widgets into one node.
+  // Non-alphanumerics are stripped because React's generated ids have carried
+  // punctuation (`:r0:`) across versions, and this string is used as a DOM id.
+  const containerId = `recaptcha-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
+
+  const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
-  const [otp, setOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(0);
+  const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+  const [attemptsLeft, setAttemptsLeft] = useState(MAX_VERIFY_ATTEMPTS);
 
-  const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
-  const containerId = `${containerIdPrefix}-recaptcha-container`;
+  const confirmationRef = useRef<ConfirmationResult | null>(null);
+  const codeRef = useRef<HTMLInputElement>(null);
+  // Guards the async handlers: a resolved promise must not call setState on a
+  // form the customer has already closed or navigated away from.
+  const mountedRef = useRef(true);
 
-  // Countdown timer for Resend OTP button
+  const e164 = toE164(phone);
+  const phoneIsValid = Boolean(e164);
+
   useEffect(() => {
-    if (countdown <= 0) return;
-    const timer = setInterval(() => {
-      setCountdown((prev) => prev - 1);
-    }, 1000);
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      // Leaving the widget bound to a removed node is what makes a second
+      // visit to this form fail with "reCAPTCHA has already been rendered".
+      clearRecaptcha(containerId);
+    };
+  }, [containerId]);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => setCooldown((n) => Math.max(0, n - 1)), 1000);
     return () => clearInterval(timer);
-  }, [countdown]);
+  }, [cooldown]);
 
-  const handleSendOtp = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setErrorMsg(null);
+  /**
+   * Android Chrome can read the code straight out of the SMS, with the
+   * customer's permission, when the message carries the site's origin. If the
+   * browser doesn't support it, or the customer dismisses the prompt, nothing
+   * happens and they type it in — so this is added without a fallback path.
+   */
+  useEffect(() => {
+    if (step !== 'code') return;
+    if (typeof window === 'undefined' || !('OTPCredential' in window)) return;
 
-    const cleanedPhone = phone.replace(/\D/g, '');
-    if (cleanedPhone.length !== 10) {
-      setErrorMsg('Please enter a valid 10-digit mobile number');
+    const abort = new AbortController();
+    navigator.credentials
+      .get({ otp: { transport: ['sms'] }, signal: abort.signal } as CredentialRequestOptions)
+      .then((credential) => {
+        const received = (credential as { code?: string } | null)?.code;
+        if (received && mountedRef.current) setCode(received.slice(0, OTP_LENGTH));
+      })
+      .catch(() => { /* dismissed, unsupported, or superseded — the field still works */ });
+
+    return () => abort.abort();
+  }, [step]);
+
+  const handleSend = useCallback(async (isResend = false) => {
+    if (busy) return;
+    setError(null);
+
+    if (!isValidMobile(phone)) {
+      setError('Enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (isSignUpMode && !isResend && name.trim().length < 2) {
+      setError('Please tell us your name so we know who the order is for.');
       return;
     }
 
-    setLoading(true);
+    setBusy(true);
     try {
-      // Create or re-use Firebase RecaptchaVerifier
-      const verifier = createRecaptchaVerifier(containerId);
-      recaptchaVerifierRef.current = verifier;
+      confirmationRef.current = await sendOtp(phone, containerId);
+      if (!mountedRef.current) return;
 
-      const result = await sendFirebaseOtp(cleanedPhone, verifier);
-      setConfirmationResult(result);
-      setOtpSent(true);
-      setCountdown(30);
-      toast.success(`OTP sent to +91 ${cleanedPhone} via SMS 📲`);
-    } catch (err: any) {
-      console.error('[Firebase Phone Auth Error]:', err);
-      let msg = 'Failed to send OTP. Please try again.';
-      if (err.code === 'auth/billing-not-enabled' || err.message?.includes('billing-not-enabled')) {
-        msg = 'Firebase SMS Billing is disabled. Please upgrade your Firebase project to the Blaze plan (10,000 free SMS/mo) or add phone numbers for testing in Firebase Console.';
-      } else if (err.code === 'auth/operation-not-allowed' || err.message?.includes('operation-not-allowed')) {
-        msg = 'Phone Sign-in or India (+91) region is not enabled in Firebase Console. Please enable Phone provider under Authentication > Sign-in method.';
-      } else if (err.code === 'auth/invalid-phone-number') {
-        msg = 'Invalid phone number format.';
-      } else if (err.code === 'auth/too-many-requests') {
-        msg = 'Too many requests. Please wait a few minutes before trying again.';
-      } else if (err.message) {
-        msg = err.message;
-      }
-      setErrorMsg(msg);
-      toast.error(msg);
+      setStep('code');
+      setCode('');
+      setAttemptsLeft(MAX_VERIFY_ATTEMPTS);
+      setCooldown(RESEND_COOLDOWN_SECONDS);
+      toast.success(`Code sent to ${formatMobileForDisplay(e164 ?? phone)}`);
+      // Autofocus after the step renders, so the keyboard opens on the field
+      // the customer needs rather than the one they just left.
+      setTimeout(() => codeRef.current?.focus(), 50);
+    } catch (err) {
+      console.error('[otp] send failed:', err);
+      if (!mountedRef.current) return;
+      const message = describeOtpError(err);
+      setError(message);
+      toast.error(message);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setBusy(false);
     }
-  };
+  }, [busy, phone, name, isSignUpMode, containerId, e164]);
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
+  const handleVerify = useCallback(async (event?: React.FormEvent) => {
+    event?.preventDefault();
+    if (busy) return;
+    setError(null);
 
-    const cleanedOtp = otp.trim();
-    if (!cleanedOtp || cleanedOtp.length < 6) {
-      setErrorMsg('Please enter the 6-digit OTP code sent to your phone');
+    if (code.trim().length !== OTP_LENGTH) {
+      setError(`Enter the ${OTP_LENGTH}-digit code from the SMS.`);
+      return;
+    }
+    const confirmation = confirmationRef.current;
+    if (!confirmation) {
+      setError('That verification has expired. Please request a new code.');
+      setStep('phone');
       return;
     }
 
-    if (!confirmationResult) {
-      setErrorMsg('OTP session expired. Please request a new code.');
-      return;
-    }
-
-    setLoading(true);
-    const cleanedPhone = phone.replace(/\D/g, '');
-    const fullPhone = `+91${cleanedPhone}`;
-
+    setBusy(true);
     try {
-      // 1. Verify OTP with Firebase
-      await verifyFirebaseOtp(confirmationResult, cleanedOtp);
+      // Firebase confirms the code and issues the ID token; the token is the
+      // only thing the server will accept as proof, so nothing else is sent.
+      const idToken = await verifyOtpCode(confirmation, code);
+      const result = await signInWithPhoneToken(idToken, isSignUpMode ? name.trim() : undefined);
 
-      // 2. Initialize customer session
-      const authRes = await signInWithOtpPhoneUser(fullPhone, name.trim());
-
-      if (!authRes.success) {
-        setLoading(false);
+      if (!result.success) {
+        if (mountedRef.current) setBusy(false);
         return;
       }
 
-      if (authRes.role && isStaffRole(authRes.role)) {
-        landAfterLogin(authRes.role);
+      // Staff who sign in by phone go to their console; a full page load, for
+      // the shared-terminal reasons documented on landAfterLogin.
+      if (result.role && isStaffRole(result.role)) {
+        landAfterLogin(result.role);
+        return; // Navigating away — deliberately stays busy.
+      }
+
+      onSuccess?.(result.role);
+      if (mountedRef.current) setBusy(false);
+    } catch (err) {
+      console.error('[otp] verification failed:', err);
+      if (!mountedRef.current) return;
+
+      const remaining = attemptsLeft - 1;
+      setAttemptsLeft(remaining);
+      setBusy(false);
+
+      if (remaining <= 0) {
+        // The confirmation is spent — force a fresh code rather than leaving a
+        // dead session that returns the same error however often it's tried.
+        confirmationRef.current = null;
+        clearRecaptcha(containerId);
+        setStep('phone');
+        setCode('');
+        setCooldown(0);
+        setError('Too many incorrect codes. Please request a new one.');
         return;
       }
 
-      if (onSuccess) {
-        onSuccess(authRes.role);
-      }
-    } catch (err: any) {
-      console.error('[Firebase OTP Verification Error]:', err);
-      let msg = 'Invalid OTP code. Please check your SMS and try again.';
-      if (err.code === 'auth/invalid-verification-code') {
-        msg = 'Incorrect OTP entered. Please check your SMS.';
-      } else if (err.code === 'auth/code-expired') {
-        msg = 'OTP has expired. Please tap Resend OTP.';
-      } else if (err.message) {
-        msg = err.message;
-      }
-      setErrorMsg(msg);
-      toast.error(msg);
-    } finally {
-      setLoading(false);
+      const base = describeOtpError(err);
+      setError(remaining <= 2 ? `${base} ${remaining} attempt${remaining === 1 ? '' : 's'} left.` : base);
+      codeRef.current?.select();
     }
-  };
+  }, [busy, code, attemptsLeft, containerId, isSignUpMode, name, onSuccess, signInWithPhoneToken]);
+
+  const startOver = useCallback(() => {
+    confirmationRef.current = null;
+    clearRecaptcha(containerId);
+    setStep('phone');
+    setCode('');
+    setError(null);
+    setCooldown(0);
+    setAttemptsLeft(MAX_VERIFY_ATTEMPTS);
+  }, [containerId]);
+
+  if (!isFirebaseConfigured) {
+    return (
+      <Alert severity="warning" sx={{ borderRadius: '12px', fontSize: '13px' }}>
+        Phone sign-in is unavailable right now. Please use email and password.
+      </Alert>
+    );
+  }
 
   return (
     <Box sx={{ width: '100%' }}>
-      {/* Invisible Recaptcha container target for Firebase */}
-      <div id={containerId} style={{ display: 'none' }} />
+      {/* Firebase renders its invisible reCAPTCHA challenge into this node. */}
+      <div id={containerId} />
 
-      {errorMsg && (
-        <Alert severity="error" sx={{ mb: 2, borderRadius: '12px', fontSize: '13px' }}>
-          {errorMsg}
+      {error && (
+        <Alert
+          severity="error"
+          role="alert"
+          sx={{ mb: 2, borderRadius: '12px', fontSize: '13px' }}
+        >
+          {error}
         </Alert>
       )}
 
-      {!otpSent ? (
-        /* STEP 1: Phone Number Entry */
-        <form onSubmit={handleSendOtp}>
+      {step === 'phone' ? (
+        <Box component="form" onSubmit={(e) => { e.preventDefault(); handleSend(); }} noValidate>
           <Stack spacing={2}>
             {isSignUpMode && (
               <TextField
                 fullWidth
                 size="small"
-                label="Full Name"
+                label="Full name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Rahul Sharma"
+                autoComplete="name"
                 slotProps={{
+                  htmlInput: { maxLength: 80 },
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
@@ -186,12 +278,16 @@ export default function PhoneOtpAuth({
               fullWidth
               size="small"
               type="tel"
-              label="Mobile Number"
+              label="Mobile number"
               required
+              autoFocus={!isSignUpMode}
               value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
               placeholder="10-digit mobile number"
+              autoComplete="tel-national"
+              helperText="We'll text you a 6-digit code. Standard SMS rates apply."
               slotProps={{
+                htmlInput: { inputMode: 'numeric', maxLength: 10 },
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
@@ -200,11 +296,6 @@ export default function PhoneOtpAuth({
                       </Typography>
                     </InputAdornment>
                   ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <Phone fontSize="small" sx={{ color: 'text.secondary' }} />
-                    </InputAdornment>
-                  ),
                 },
               }}
             />
@@ -213,7 +304,7 @@ export default function PhoneOtpAuth({
               type="submit"
               fullWidth
               variant="contained"
-              disabled={loading || phone.replace(/\D/g, '').length !== 10}
+              disabled={busy || !phoneIsValid}
               sx={{
                 py: 1.3,
                 borderRadius: '12px',
@@ -221,43 +312,48 @@ export default function PhoneOtpAuth({
                 fontSize: '14px',
                 background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
                 boxShadow: '0 4px 16px rgba(198, 40, 40, 0.25)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)',
-                },
+                '&:hover': { background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)' },
               }}
             >
-              {loading ? (
-                <CircularProgress size={22} color="inherit" />
-              ) : (
-                'Get OTP via SMS'
-              )}
+              {busy ? <CircularProgress size={22} color="inherit" /> : 'Send code'}
             </Button>
           </Stack>
-        </form>
+        </Box>
       ) : (
-        /* STEP 2: 6-Digit OTP Verification */
-        <form onSubmit={handleVerifyOtp}>
+        <Box component="form" onSubmit={handleVerify} noValidate>
           <Stack spacing={2}>
             <Box sx={{ bgcolor: '#FFF8F2', p: 1.8, borderRadius: '12px', border: '1px solid #FFE0B2' }}>
               <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.25 }}>
-                SMS OTP sent to:
+                Code sent to
               </Typography>
               <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#C62828' }}>
-                +91 {phone.replace(/\D/g, '')}
+                {formatMobileForDisplay(e164 ?? phone)}
               </Typography>
             </Box>
 
             <TextField
               fullWidth
               size="small"
-              type="number"
-              label="Enter 6-Digit OTP"
+              inputRef={codeRef}
+              // Deliberately `text`, not `number`: a number input accepts `e`,
+              // `+` and `-`, drops leading zeros, and puts spinner arrows next
+              // to a field where they mean nothing.
+              type="text"
+              label={`${OTP_LENGTH}-digit code`}
               required
-              autoFocus
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.slice(0, 6))}
-              placeholder="e.g. 123456"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
+              placeholder="••••••"
+              // The pairing iOS and Android look for to offer the code from the
+              // SMS above the keyboard.
+              autoComplete="one-time-code"
               slotProps={{
+                htmlInput: {
+                  inputMode: 'numeric',
+                  maxLength: OTP_LENGTH,
+                  pattern: '[0-9]*',
+                  style: { letterSpacing: '0.4em', fontWeight: 700 },
+                },
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
@@ -265,7 +361,6 @@ export default function PhoneOtpAuth({
                     </InputAdornment>
                   ),
                 },
-                htmlInput: { maxLength: 6 },
               }}
             />
 
@@ -273,7 +368,7 @@ export default function PhoneOtpAuth({
               type="submit"
               fullWidth
               variant="contained"
-              disabled={loading || otp.trim().length < 6}
+              disabled={busy || code.length !== OTP_LENGTH}
               sx={{
                 py: 1.3,
                 borderRadius: '12px',
@@ -281,40 +376,35 @@ export default function PhoneOtpAuth({
                 fontSize: '14px',
                 background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
                 boxShadow: '0 4px 16px rgba(46, 125, 50, 0.25)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%)',
-                },
+                '&:hover': { background: 'linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%)' },
               }}
             >
-              {loading ? (
-                <CircularProgress size={22} color="inherit" />
-              ) : (
-                'Verify & Continue'
-              )}
+              {busy ? <CircularProgress size={22} color="inherit" /> : 'Verify & continue'}
             </Button>
 
             <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
               <Button
                 size="small"
-                onClick={() => setOtpSent(false)}
+                onClick={startOver}
+                disabled={busy}
                 startIcon={<ArrowBack sx={{ fontSize: 16 }} />}
                 sx={{ fontSize: '12px', color: 'text.secondary', textTransform: 'none' }}
               >
-                Change Phone
+                Change number
               </Button>
 
               <Button
                 size="small"
-                disabled={countdown > 0 || loading}
-                onClick={() => handleSendOtp()}
+                onClick={() => handleSend(true)}
+                disabled={cooldown > 0 || busy}
                 startIcon={<Refresh sx={{ fontSize: 16 }} />}
                 sx={{ fontSize: '12px', fontWeight: 700, color: 'primary.main', textTransform: 'none' }}
               >
-                {countdown > 0 ? `Resend OTP in ${countdown}s` : 'Resend OTP'}
+                {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
               </Button>
             </Stack>
           </Stack>
-        </form>
+        </Box>
       )}
     </Box>
   );
