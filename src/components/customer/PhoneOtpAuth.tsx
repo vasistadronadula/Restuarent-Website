@@ -8,7 +8,7 @@ import {
 import { Phone, Lock, Person, Sms, ArrowBack, Refresh } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import {
-  createRecaptchaVerifier, sendFirebaseOtp, verifyFirebaseOtp, ConfirmationResult,
+  createRecaptchaVerifier, sendFirebaseOtp, verifyFirebaseOtp, type ConfirmationResult,
 } from '@/lib/firebase';
 import { useAuth, landAfterLogin } from '@/context/AuthContext';
 import { isStaffRole } from '@/lib/roleAccess';
@@ -287,7 +287,7 @@ export default function PhoneOtpAuth({
               )}
             </Button>
 
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
               <Button
                 size="small"
                 onClick={() => setOtpSent(false)}

@@ -341,10 +341,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const dummyEmail = `phone_${cleanedPhone}@palapitta.internal`;
       const dummyPassword = `PPR_Otp_${cleanedPhone}_AuthKey!`;
 
-      let { data, error } = await supabase.auth.signInWithPassword({
+      const signInRes = await supabase.auth.signInWithPassword({
         email: dummyEmail,
         password: dummyPassword,
       });
+
+      let user = signInRes.data.user;
+      let error = signInRes.error;
 
       if (error && (error.message.toLowerCase().includes('invalid login credentials') || error.message.toLowerCase().includes('user not found'))) {
         const signUpRes = await supabase.auth.signUp({
@@ -357,7 +360,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             },
           },
         });
-        data = signUpRes.data;
+        user = signUpRes.data.user;
         error = signUpRes.error;
       }
 
@@ -366,11 +369,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false };
       }
 
-      const u = data.user;
       let role: UserRole = 'customer';
-      if (u) {
-        role = await fetchAndSetUserRole(u, dispatch);
-        roleForUserId.current = u.id;
+      if (user) {
+        role = await fetchAndSetUserRole(user, dispatch);
+        roleForUserId.current = user.id;
         cachedRole.current = role;
       }
 

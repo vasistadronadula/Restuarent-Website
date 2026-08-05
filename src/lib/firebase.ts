@@ -3,9 +3,11 @@ import {
   getAuth,
   RecaptchaVerifier,
   signInWithPhoneNumber,
-  ConfirmationResult,
-  UserCredential,
+  type ConfirmationResult,
+  type UserCredential,
 } from 'firebase/auth';
+
+export type { ConfirmationResult, UserCredential, RecaptchaVerifier };
 
 const firebaseConfig = {
   apiKey: "AIzaSyCOb5OWVP_ZGoEI1KpFvivj7rf2KfKOuDo",
