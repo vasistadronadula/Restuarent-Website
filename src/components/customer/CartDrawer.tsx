@@ -14,10 +14,12 @@ import {
 } from '@/store/cartSlice';
 import { useGetCouponsQuery } from '@/store/supabaseApi';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import toast from 'react-hot-toast';
 
 export default function CartDrawer() {
   const dispatch = useAppDispatch();
+  const pathname = usePathname();
   const [couponInput, setCouponInput] = useState('');
   const { data: coupons = [] } = useGetCouponsQuery();
 
@@ -29,6 +31,13 @@ export default function CartDrawer() {
   const cgst = useAppSelector(selectCgst);
   const sgst = useAppSelector(selectSgst);
   const grandTotal = useAppSelector(selectGrandTotal);
+
+  // Close cart drawer whenever route/tab changes
+  React.useEffect(() => {
+    if (isOpen) {
+      dispatch(closeCart());
+    }
+  }, [pathname, dispatch]);
 
 
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);

@@ -52,8 +52,12 @@ export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[] | 'all'> = {
 // Bills is deliberately NOT denied: it is a read-only record of what the
 // till took, which is exactly the oversight an owner needs. Operating the
 // till and auditing it are different privileges.
+//
+// '/cashier' is listed alongside '/admin/pos' because it renders the exact
+// same till component — denying only one of the two paths would leave the
+// restriction trivially bypassable by typing the other URL.
 export const ROLE_DENIED_PREFIXES: Partial<Record<UserRole, string[]>> = {
-  admin: ['/admin/pos'],
+  admin: ['/admin/pos', '/cashier'],
 };
 
 // Reachable by every signed-in staff member regardless of role — managing

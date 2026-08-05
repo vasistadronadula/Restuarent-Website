@@ -9,6 +9,12 @@
      to its bottom padding so the bar never sits on top of the legal links.
      A fixed element can't push page content, so the content has to make room. */
   --ppr-floating-cart-h: 0px;
+
+  /* Same contract for the phone-only storefront bottom nav. MobileBottomNav
+     keeps it in sync and reports 0px on desktop and on the pages that hide it,
+     so the two consumers — the footer's bottom padding and the floating cart
+     bar's offset from the viewport edge — can add it unconditionally. */
+  --ppr-bottom-nav-h: 0px;
 }
 
 html {
@@ -95,6 +101,19 @@ a {
 @keyframes ppr-progress {
   from { transform: scaleX(0); }
   to   { transform: scaleX(1); }
+}
+
+/* Sliding shimmer on the offer banner gradient background. */
+@keyframes ppr-shimmer {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Light shine sweep — a single highlight that crosses the element. */
+@keyframes ppr-shine {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(200%); }
 }
 
 /* ============================================================ */
@@ -207,9 +226,22 @@ select:-webkit-autofill:focus {
 /* Button, Badge & Chip Icon Centering */
 .MuiButton-startIcon,
 .MuiButton-endIcon,
-.MuiChip-icon,
-.MuiIconButton-root {
+.MuiChip-icon {
   display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: center !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+/* IconButton gets the same centering, but `display` is deliberately NOT
+   forced here.
+   MUI already defaults IconButton to `display: inline-flex`, so pinning it
+   again with !important bought nothing — while silently defeating every
+   responsive toggle written as sx={{ display: { xs: 'flex', md: 'none' } }}.
+   That is why the mobile hamburger stayed visible on desktop. */
+.MuiIconButton-root {
   align-items: center !important;
   justify-content: center !important;
   align-self: center !important;

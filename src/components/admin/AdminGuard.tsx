@@ -1,151 +1,109 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
-import { Box, CircularProgress, Typography, Paper, Button } from '@mui/material';
-import { Lock, Home } from '@mui/icons-material';
+import { useAppSelector } from '@/store/hooks';
+import {
+  selectUser, selectUserRole, selectAuthReady, selectIsSigningOut,
+} from '@/store/authSlice';
+import { Box, CircularProgress, Typography } from '@mui/material';
 import toast from 'react-hot-toast';
 import { adminColors } from '@/theme/adminColors';
-import { canAccess, getRoleHome, isStaffRole, ROLE_LABELS } from '@/lib/roleAccess';
+import { canAccess, getRoleHome, isStaffRole } from '@/lib/roleAccess';
+
+/**
+ * AdminGuard — auth gate for every /admin/* route (and /cashier).
+ *
+ * Three rules, in order of importance:
+ *
+ * 1. NEVER render an "Access Denied" page. On a cold load the store is
+ *    briefly user=null while Supabase restores the session from localStorage,
+ *    and rendering the denial state during that window flashed a full-screen
+ *    403 at legitimate staff every single time they opened the dashboard.
+ *    Denial is a redirect, not a destination — the only thing this component
+ *    ever renders besides the page itself is a spinner.
+ *
+ * 2. Decide only once `authReady` is set. That flag is a one-way latch set
+ *    when the initial session check produces an answer (see authSlice), which
+ *    replaced an earlier guess-a-timeout approach: any fixed delay is either
+ *    too short on a slow connection (evicting valid staff) or dead time on a
+ *    fast one.
+ *
+ * 3. Real security lives in the Supabase RLS policies. This guard is UX.
+ */
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
-  const { user, userRole, loading } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
+  const user       = useAppSelector(selectUser);
+  const userRole   = useAppSelector(selectUserRole);
+  const authReady  = useAppSelector(selectAuthReady);
+  const signingOut = useAppSelector(selectIsSigningOut);
+  const router     = useRouter();
+  const pathname   = usePathname();
 
-  const isStaff = isStaffRole(userRole);
+  // Stops a second toast + a second router.replace firing between the effect
+  // running and the navigation actually committing.
+  const isRedirecting = useRef(false);
+
+  const isStaff          = isStaffRole(userRole);
   const hasSectionAccess = isStaff && canAccess(userRole, pathname);
+  const allowed          = !!user && hasSectionAccess;
 
+  // ── Redirect effect ────────────────────────────────────────────────────
   useEffect(() => {
-    if (loading) return;
+    if (!authReady) return;
+    // Sign-out owns its own navigation and shows its own toast.
+    if (signingOut) return;
+    if (isRedirecting.current) return;
+    if (allowed) return;
+
+    isRedirecting.current = true;
 
     if (!user || !isStaff) {
-      toast.error('Please log in with your staff account to access the Admin Panel.', { id: 'admin-denied' });
+      toast.error('Please log in with your staff account.', { id: 'admin-denied', duration: 3000 });
       router.replace('/');
       return;
     }
 
-    if (!canAccess(userRole, pathname)) {
-      toast.error("Your role doesn't have access to this section.", { id: 'admin-section-denied' });
-      router.replace(getRoleHome(userRole));
-    }
-  }, [user, userRole, loading, pathname, isStaff, router]);
+    toast.error("Your role doesn't have access to this section.", {
+      id: 'admin-section-denied', duration: 3000,
+    });
+    router.replace(getRoleHome(userRole));
+  }, [authReady, signingOut, allowed, user, isStaff, userRole, router]);
 
-  // Loading state
-  if (loading) {
-    return (
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          bgcolor: adminColors.bgPanel,
-          color: adminColors.textPrimary,
-          gap: 2,
-        }}
-      >
-        <CircularProgress size={48} sx={{ color: adminColors.accentOrange }} />
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          Verifying Admin Authorization...
-        </Typography>
-      </Box>
-    );
-  }
+  // Navigation committed — re-arm for the next decision.
+  useEffect(() => { isRedirecting.current = false; }, [pathname]);
 
-  // Not logged in, or a customer account — no staff access at all
-  if (!user || !isStaff) {
-    return (
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          bgcolor: adminColors.bgDanger,
-          p: 3,
-        }}
-      >
-        <Paper
-          sx={{
-            p: 5,
-            maxWidth: 460,
-            textAlign: 'center',
-            borderRadius: '24px',
-            bgcolor: adminColors.bgDangerPanel,
-            color: adminColors.textPrimary,
-            border: `1px solid ${adminColors.dangerBorder}`,
-            boxShadow: '0 20px 60px rgba(0,0,0,0.12)',
-          }}
-        >
-          <Box
-            sx={{
-              width: 72,
-              height: 72,
-              borderRadius: '50%',
-              bgcolor: 'rgba(198,40,40,0.15)',
-              color: adminColors.danger,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              mx: 'auto',
-              mb: 2.5,
-            }}
-          >
-            <Lock sx={{ fontSize: 36 }} />
-          </Box>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: adminColors.dangerStrong, mb: 1 }}>
-            403 - Access Denied
-          </Typography>
-          <Typography variant="body2" sx={{ color: adminColors.textMuted, mb: 3.5, lineHeight: 1.6 }}>
-            This section is restricted to authorized staff accounts.
-            Your account role is <strong>{userRole ? ROLE_LABELS[userRole] : 'Guest'}</strong>.
-          </Typography>
-          <Button
-            variant="contained"
-            onClick={() => router.push('/')}
-            startIcon={<Home />}
-            sx={{
-              py: 1.2,
-              px: 4,
-              borderRadius: '12px',
-              fontWeight: 700,
-              background: adminColors.gradientDanger,
-            }}
-          >
-            Return to Home
-          </Button>
-        </Paper>
-      </Box>
-    );
-  }
+  // ── Render ─────────────────────────────────────────────────────────────
+  if (!authReady) return <LoadingScreen message="Verifying access…" />;
+  if (signingOut) return <LoadingScreen message="Signing you out…" />;
+  // Redirect is in flight — a spinner, never an error page.
+  if (!allowed)  return <LoadingScreen message="Redirecting…" />;
 
-  // Logged in staff, but this page is outside their role's section — brief
-  // transitional state while the effect above redirects to their home page.
-  if (!hasSectionAccess) {
-    return (
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          bgcolor: adminColors.bgPanel,
-          color: adminColors.textPrimary,
-          gap: 2,
-        }}
-      >
-        <CircularProgress size={40} sx={{ color: adminColors.accentOrange }} />
-        <Typography variant="body2" sx={{ fontWeight: 600, color: adminColors.textMuted }}>
-          Redirecting to your workspace...
-        </Typography>
-      </Box>
-    );
-  }
-
-  // Access granted
   return <>{children}</>;
+}
+
+// ── Shared loading UI ──────────────────────────────────────────────────────
+function LoadingScreen({ message }: { message: string }) {
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: adminColors.bgPanel,
+        color: adminColors.textPrimary,
+        gap: 2.5,
+      }}
+    >
+      <CircularProgress size={44} thickness={4} sx={{ color: adminColors.accentOrange }} />
+      <Typography
+        variant="body2"
+        sx={{ fontWeight: 600, color: adminColors.textMuted, letterSpacing: 0.3 }}
+      >
+        {message}
+      </Typography>
+    </Box>
+  );
 }

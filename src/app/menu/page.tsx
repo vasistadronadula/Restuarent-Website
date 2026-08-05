@@ -1,66 +1,112 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+
+import React, { Suspense, useMemo, useState } from 'react';
 import {
   Box, Container, Typography, Grid, Chip, Button, TextField, InputAdornment,
-  Slider, ToggleButton, ToggleButtonGroup,
-  FormControl, Select, MenuItem as MuiMenuItem, InputLabel, Paper,
+  Slider, FormControl, Select, MenuItem as MuiMenuItem, InputLabel, Paper,
+  CircularProgress, useMediaQuery,
 } from '@mui/material';
-import {
-  Search, Tune, Clear, TrendingUp, Star, EggAlt,
-  Spa, Restaurant as RestaurantIcon,
-} from '@mui/icons-material';
+import { Search, Tune, Clear, TrendingUp, Star, FilterList } from '@mui/icons-material';
+import { useSearchParams } from 'next/navigation';
+
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import MenuCard from '@/components/customer/MenuCard';
+import DishListItem from '@/components/customer/DishListItem';
 import { categoryLabels } from '@/data/menuData';
 import { useAdmin } from '@/context/AdminContext';
 import { Category, VegStatus } from '@/types';
 
 const categories: (Category | 'all')[] = [
-  'all', 'combos', 'starters', 'tandoori', 'biryani', 'south-indian', 'north-indian',
-  'chinese', 'rice', 'breads', 'desserts', 'beverages',
+  'all', 'combos', 'starters', 'tandoori', 'biryani', 'south-indian',
+  'rice', 'breads', 'desserts', 'beverages',
 ];
 
 const categoryEmojis: Record<string, string> = {
-  all: '🍽️', combos: '🎉', starters: '🥗', 'south-indian': '🥘', 'north-indian': '🍲',
-  chinese: '🥡', biryani: '🍚', tandoori: '🔥', rice: '🍚', breads: '🫓',
+  all: '🍽️', combos: '🎉', starters: '🥗', 'south-indian': '🥘',
+  biryani: '🍚', tandoori: '🔥', rice: '🍚', breads: '🫓',
   desserts: '🍮', beverages: '🥤',
 };
 
 type SortOption = 'popular' | 'price-asc' | 'price-desc' | 'rating';
 
-// Veg / Non-Veg is the filter customers reach for most, so it gets a
-// permanent shortcut above the dish grid instead of living only inside the
-// collapsible Filters panel. Both write the same `vegFilter` state, so the
-// two views can never disagree.
-const VEG_SHORTCUTS: { value: VegStatus; label: string; color: string; dot: string }[] = [
-  { value: 'veg', label: 'Veg', color: '#2E7D32', dot: '#2E7D32' },
-  { value: 'non-veg', label: 'Non-Veg', color: '#C62828', dot: '#C62828' },
-];
+const VEG_OPTIONS: VegStatus[] = ['veg', 'non-veg', 'egg'];
 
-export default function MenuPage() {
-  const { menuItems: liveMenuItems } = useAdmin();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<Category | 'all'>('all');
-  const [vegFilter, setVegFilter] = useState<VegStatus | 'all'>('all');
+const isCategory = (value: string | null): value is Category =>
+  value !== null && value !== 'all' && (categories as string[]).includes(value);
+
+const isVegStatus = (value: string | null): value is VegStatus =>
+  value !== null && (VEG_OPTIONS as string[]).includes(value);
+
+function MenuBrowser() {
+  const { menuItems: liveMenuItems, isLoadingDB } = useAdmin();
+  const searchParams = useSearchParams();
+
+  /**
+   * The home page's category circles, the hero search box and the footer all
+   * link in here with their choice in the query string. Until now none of that
+   * arrived: this page opened on "All items" no matter what the link said, so
+   * every one of those entry points quietly dropped the thing the customer had
+   * just tapped. Params seed the state, and an effect re-seeds it when a link
+   * changes them on a page that is already mounted — a Link to the same route
+   * does not remount the component, so the initialiser alone is not enough.
+   */
+  const categoryParam = searchParams.get('category');
+  const queryParam = searchParams.get('q');
+  const vegParam = searchParams.get('veg');
+
+  const [searchQuery, setSearchQuery] = useState(queryParam ?? '');
+  const [activeCategory, setActiveCategory] = useState<Category | 'all'>(
+    isCategory(categoryParam) ? categoryParam : 'all',
+  );
+  const [vegFilter, setVegFilter] = useState<VegStatus | 'all'>(
+    isVegStatus(vegParam) ? vegParam : 'all',
+  );
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [sortBy, setSortBy] = useState<SortOption>('popular');
   const [showFilters, setShowFilters] = useState(false);
 
+  /**
+   * Re-seed during render when — and only when — the query string itself
+   * changes. This is React's "adjusting state when a prop changes" pattern
+   * rather than an effect: an effect would repaint the old filters first and
+   * the corrected ones a frame later, and the eslint rule that forbids it is
+   * right to. Typing in the search box or tapping a pill moves local state
+   * without touching the URL, so none of that trips this.
+   */
+  const [syncedParams, setSyncedParams] = useState(
+    () => ({ categoryParam, queryParam, vegParam }),
+  );
+  if (
+    syncedParams.categoryParam !== categoryParam ||
+    syncedParams.queryParam !== queryParam ||
+    syncedParams.vegParam !== vegParam
+  ) {
+    setSyncedParams({ categoryParam, queryParam, vegParam });
+    setActiveCategory(isCategory(categoryParam) ? categoryParam : 'all');
+    setSearchQuery(queryParam ?? '');
+    setVegFilter(isVegStatus(vegParam) ? vegParam : 'all');
+  }
+
+  /**
+   * Phones get a list, laptops get the card grid.
+   *
+   * Two cards per row on a 360px screen leaves each dish ~150px — enough for a
+   * photo and a truncated name, and nothing else. The list gives the name and
+   * description the full width and keeps the photo legible, which is the whole
+   * reason delivery apps use rows on phones. `noSsr` picks the layout on the
+   * client so the server never renders one and hydrates into the other.
+   */
+  const isPhone = useMediaQuery('(max-width:899.95px)', { noSsr: true });
+
   const filtered = useMemo(() => {
     let items = [...liveMenuItems];
-
-    // Category
     if (activeCategory !== 'all') {
       items = items.filter((i) => i.category === activeCategory);
     }
-
-    // Veg filter
     if (vegFilter !== 'all') {
       items = items.filter((i) => i.vegStatus === vegFilter);
     }
-
-    // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       items = items.filter(
@@ -70,18 +116,13 @@ export default function MenuPage() {
           i.tags.some((t) => t.toLowerCase().includes(q))
       );
     }
-
-    // Price
     items = items.filter((i) => i.price >= priceRange[0] && i.price <= priceRange[1]);
-
-    // Sort
     switch (sortBy) {
       case 'popular':    items.sort((a, b) => (b.isPopular ? 1 : 0) - (a.isPopular ? 1 : 0)); break;
       case 'price-asc':  items.sort((a, b) => a.price - b.price); break;
       case 'price-desc': items.sort((a, b) => b.price - a.price); break;
       case 'rating':     items.sort((a, b) => b.rating - a.rating); break;
     }
-
     return items;
   }, [liveMenuItems, searchQuery, activeCategory, vegFilter, priceRange, sortBy]);
 
@@ -93,43 +134,129 @@ export default function MenuPage() {
     setSortBy('popular');
   };
 
+  const activeFilterCount = [
+    searchQuery.trim() ? 1 : 0,
+    activeCategory !== 'all' ? 1 : 0,
+    vegFilter !== 'all' ? 1 : 0,
+    (priceRange[0] > 0 || priceRange[1] < 1000) ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  const hasAnyFilter = activeFilterCount > 0;
+
   return (
     <>
       <Navbar />
 
-      {/* Hero */}
-      <Box sx={{
-        background: 'linear-gradient(135deg, #C62828 0%, #1A0A0A 100%)',
-        py: { xs: 3, md: 4.5 }, textAlign: 'center',
-      }}>
-        <Typography variant="h2" sx={{fontWeight: 800, color: 'white', fontSize: { xs: '1.8rem', md: '2.5rem' }, mb: 1}}>
-          Our <span style={{ color: '#FF9800' }}>Royal</span> Menu
-        </Typography>
-        <Typography sx={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.95rem', maxWidth: 520, mx: 'auto' }}>
-          Explore 100+ authentic Indian dishes crafted with love and tradition.
-        </Typography>
+      {/* ─── Hero Banner ───────────────────────────────── */}
+      <Box
+        sx={{
+          background: 'linear-gradient(135deg, #C62828 0%, #8E0000 50%, #1A0A0A 100%)',
+          py: { xs: 3, md: 5 },
+          textAlign: 'center',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <Box
+          aria-hidden
+          sx={{
+            position: 'absolute',
+            top: '-40%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: { xs: 300, md: 600 },
+            height: { xs: 300, md: 600 },
+            background: 'radial-gradient(circle, rgba(255,152,0,0.22) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          }}
+        />
+        <Box sx={{ position: 'relative', zIndex: 1 }}>
+          <Chip
+            label={`🍽️ ${liveMenuItems.length || '100'}+ AUTHENTIC DISHES`}
+            sx={{
+              bgcolor: 'rgba(255,255,255,0.12)',
+              color: '#FFD54F',
+              fontWeight: 800,
+              letterSpacing: 0.8,
+              fontSize: '11px',
+              mb: 1.5,
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,213,79,0.3)',
+            }}
+          />
+          <Typography
+            variant="h1"
+            sx={{
+              fontWeight: 900,
+              color: 'white',
+              fontSize: { xs: '1.7rem', md: '2.6rem' },
+              mb: 0.75,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Our{' '}
+            <Box
+              component="span"
+              sx={{
+                background: 'linear-gradient(90deg, #FFD54F, #FF9800)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              Royal
+            </Box>{' '}
+            Menu
+          </Typography>
+          <Typography
+            sx={{
+              color: 'rgba(255,255,255,0.75)',
+              fontSize: { xs: '0.85rem', md: '1rem' },
+              maxWidth: 520,
+              mx: 'auto',
+              lineHeight: 1.6,
+              px: 2,
+            }}
+          >
+            Every dish cooked to order, with the same recipes we&apos;ve used for 25 years.
+          </Typography>
+        </Box>
       </Box>
 
-      <Container maxWidth="lg" sx={{ py: { xs: 3, md: 4 } }}>
-        {/* Search + Sort */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+      {/* The background is pinned here rather than inherited from <body>: the
+          sticky filter rail below paints its own background to hide the list
+          scrolling underneath, and the two have to be the same colour. Which
+          rule wins on <body> — globals.css or CssBaseline — is a cascade
+          detail, and a sticky bar is not the place to find out. */}
+      <Box sx={{ bgcolor: 'background.default' }}>
+      <Container maxWidth="lg" sx={{ py: { xs: 2.5, md: 4 }, px: { xs: 2, sm: 3 } }}>
+
+        {/* ─── Search + Sort Row ─────────────────────────── */}
+        <Box sx={{ display: 'flex', gap: { xs: 1.5, md: 2 }, mb: 2.5, flexWrap: 'wrap' }}>
           <TextField
             placeholder="Search dishes, ingredients..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ flex: 1, minWidth: 200 }}
+            sx={{ flex: 1, minWidth: { xs: '100%', sm: 200 } }}
             slotProps={{
+              htmlInput: { 'aria-label': 'Search the menu', enterKeyHint: 'search' },
               input: {
-                startAdornment: <InputAdornment position="start"><Search sx={{ color: '#C62828' }} /></InputAdornment>,
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search sx={{ color: '#C62828' }} />
+                  </InputAdornment>
+                ),
                 endAdornment: searchQuery ? (
                   <InputAdornment position="end">
-                    <Clear sx={{ cursor: 'pointer', color: '#616161' }} onClick={() => setSearchQuery('')} />
+                    <Clear
+                      sx={{ cursor: 'pointer', color: '#9E9E9E', '&:hover': { color: '#C62828' }, transition: 'color 0.2s' }}
+                      onClick={() => setSearchQuery('')}
+                    />
                   </InputAdornment>
                 ) : null,
               },
             }}
           />
-          <FormControl sx={{ minWidth: 160 }}>
+          <FormControl sx={{ flex: { xs: 1, sm: 'none' }, minWidth: { xs: 0, sm: 160 } }}>
             <InputLabel>Sort By</InputLabel>
             <Select
               value={sortBy}
@@ -147,186 +274,335 @@ export default function MenuPage() {
             color="primary"
             startIcon={<Tune />}
             onClick={() => setShowFilters(!showFilters)}
-            sx={{ borderRadius: '12px' }}
+            aria-expanded={showFilters}
+            sx={{
+              borderRadius: '12px',
+              fontWeight: 700,
+              borderColor: '#C62828',
+              color: showFilters ? 'white' : '#C62828',
+              position: 'relative',
+              flexShrink: 0,
+              '&:hover': { borderColor: '#C62828' },
+            }}
           >
             Filters
+            {activeFilterCount > 0 && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: -6,
+                  right: -6,
+                  width: 18,
+                  height: 18,
+                  borderRadius: '50%',
+                  bgcolor: '#FF9800',
+                  color: 'white',
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {activeFilterCount}
+              </Box>
+            )}
           </Button>
         </Box>
 
-        {/* Veg / Non-Veg quick filter — always visible, one tap away */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3, flexWrap: 'wrap' }}>
-          <Typography
-            variant="caption"
-            sx={{ fontWeight: 700, color: '#616161', letterSpacing: 0.5, mr: 0.5 }}
-          >
-            FOOD TYPE
-          </Typography>
-          <Chip
-            label="All"
-            onClick={() => setVegFilter('all')}
-            sx={{
-              fontWeight: vegFilter === 'all' ? 800 : 600,
-              bgcolor: vegFilter === 'all' ? '#C62828' : 'white',
-              color: vegFilter === 'all' ? 'white' : '#424242',
-              border: '1px solid',
-              borderColor: vegFilter === 'all' ? '#C62828' : 'rgba(0,0,0,0.12)',
-              cursor: 'pointer',
-              '&:hover': { bgcolor: vegFilter === 'all' ? '#8E0000' : 'rgba(198,40,40,0.06)' },
-            }}
-          />
-          {VEG_SHORTCUTS.map((opt) => {
-            const active = vegFilter === opt.value;
-            return (
-              <Chip
-                key={opt.value}
-                // Tapping the active shortcut again clears it — no need to
-                // hunt for "All" to get back to the full menu.
-                onClick={() => setVegFilter(active ? 'all' : opt.value)}
-                aria-pressed={active}
-                icon={
-                  <Box
-                    sx={{
-                      width: 14, height: 14, ml: '8px !important',
-                      border: `2px solid ${active ? '#FFFFFF' : opt.dot}`,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      borderRadius: opt.value === 'veg' ? '3px' : '50%',
-                    }}
-                  >
-                    <Box sx={{
-                      width: 7, height: 7, borderRadius: '50%',
-                      bgcolor: active ? '#FFFFFF' : opt.dot,
-                    }} />
-                  </Box>
-                }
-                label={opt.label}
-                sx={{
-                  fontWeight: active ? 800 : 600,
-                  bgcolor: active ? opt.color : 'white',
-                  color: active ? 'white' : '#424242',
-                  border: '1px solid',
-                  borderColor: active ? opt.color : 'rgba(0,0,0,0.12)',
-                  cursor: 'pointer',
-                  boxShadow: active ? `0 4px 14px ${opt.color}40` : '0 1px 4px rgba(0,0,0,0.06)',
-                  transition: 'all 0.2s',
-                  '&:hover': { bgcolor: active ? opt.color : `${opt.color}12` },
-                }}
-              />
-            );
-          })}
-          {vegFilter === 'egg' && (
-            <Chip
-              label="🥚 Egg"
-              onDelete={() => setVegFilter('all')}
-              sx={{ fontWeight: 800, bgcolor: 'rgba(255,152,0,0.15)', color: '#E65100' }}
-            />
-          )}
-        </Box>
-
-        {/* Filters Panel */}
+        {/* ─── Advanced Filters Panel ─────────────────────── */}
         {showFilters && (
-          <Paper sx={{ p: 3, mb: 3, borderRadius: '16px', border: '1px solid rgba(198,40,40,0.1)' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="subtitle1" sx={{fontWeight: 700}}>Filters</Typography>
-              <Button size="small" onClick={resetFilters} startIcon={<Clear />}>Reset All</Button>
+          <Paper
+            elevation={0}
+            sx={{
+              p: { xs: 2.5, md: 3 },
+              mb: 2.5,
+              borderRadius: '20px',
+              border: '1.5px solid rgba(198,40,40,0.1)',
+              background: 'linear-gradient(135deg, #FFF8F2 0%, #FFFFFF 100%)',
+              boxShadow: '0 8px 32px rgba(198,40,40,0.06)',
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FilterList sx={{ color: '#C62828', fontSize: 20 }} />
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#212121' }}>
+                  Advanced Filters
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                onClick={resetFilters}
+                startIcon={<Clear />}
+                sx={{ color: '#C62828', fontWeight: 700 }}
+              >
+                Reset All
+              </Button>
             </Box>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Typography variant="caption" color="text.secondary" sx={{fontWeight: 600, display: 'block', mb: 1}}>
-                  FOOD TYPE
-                </Typography>
-                <ToggleButtonGroup
-                  value={vegFilter}
-                  exclusive
-                  onChange={(_, v) => v && setVegFilter(v)}
-                  size="small"
-                >
-                  <ToggleButton value="all">All</ToggleButton>
-                  <ToggleButton value="veg" sx={{ '&.Mui-selected': { bgcolor: 'rgba(46,125,50,0.15)', color: '#2E7D32' } }}>
-                    <Spa sx={{ mr: 0.5, fontSize: 16 }} />Veg
-                  </ToggleButton>
-                  <ToggleButton value="non-veg" sx={{ '&.Mui-selected': { bgcolor: 'rgba(198,40,40,0.15)', color: '#C62828' } }}>
-                    <RestaurantIcon sx={{ mr: 0.5, fontSize: 16 }} />Non-Veg
-                  </ToggleButton>
-                  <ToggleButton value="egg" sx={{ '&.Mui-selected': { bgcolor: 'rgba(255,152,0,0.15)', color: '#FF9800' } }}>
-                    <EggAlt sx={{ mr: 0.5, fontSize: 16 }} />Egg
-                  </ToggleButton>
-                </ToggleButtonGroup>
-              </Grid>
-              <Grid size={{ xs: 12, md: 8 }}>
-                <Typography variant="caption" color="text.secondary" sx={{fontWeight: 600, display: 'block', mb: 1}}>
-                  PRICE RANGE: ₹{priceRange[0]} – ₹{priceRange[1]}
-                </Typography>
-                <Slider
-                  value={priceRange}
-                  onChange={(_, v) => setPriceRange(v as [number, number])}
-                  min={0} max={1000} step={10}
-                  sx={{ color: '#C62828' }}
-                  valueLabelDisplay="auto"
-                  valueLabelFormat={(v) => `₹${v}`}
-                />
-              </Grid>
-            </Grid>
+            <Box>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontWeight: 700, display: 'block', mb: 1.5, letterSpacing: 0.5 }}
+              >
+                PRICE RANGE: ₹{priceRange[0]} – ₹{priceRange[1]}
+              </Typography>
+              <Slider
+                value={priceRange}
+                onChange={(_, v) => setPriceRange(v as [number, number])}
+                min={0}
+                max={1000}
+                step={10}
+                sx={{
+                  color: '#C62828',
+                  '& .MuiSlider-thumb': { boxShadow: '0 4px 12px rgba(198,40,40,0.35)' },
+                  '& .MuiSlider-track': { background: 'linear-gradient(90deg, #C62828, #FF9800)', border: 'none' },
+                }}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(v) => `₹${v}`}
+                getAriaLabel={(index) => (index === 0 ? 'Minimum price' : 'Maximum price')}
+              />
+            </Box>
           </Paper>
         )}
 
-        {/* Category Tabs */}
-        <Box sx={{ mb: 4, overflowX: 'auto' }}>
-          <Box sx={{ display: 'flex', gap: 1.5, pb: 1, minWidth: 'max-content' }}>
-            {categories.map((cat) => (
-              <Chip
-                key={cat}
-                label={`${categoryEmojis[cat]} ${cat === 'all' ? 'All Items' : categoryLabels[cat as Category]}`}
-                onClick={() => setActiveCategory(cat)}
-                sx={{
-                  px: 1.5, py: 2.5, fontSize: '14px',
-                  fontWeight: activeCategory === cat ? 700 : 500,
-                  bgcolor: activeCategory === cat ? '#C62828' : 'white',
-                  color: activeCategory === cat ? 'white' : '#424242',
-                  boxShadow: activeCategory === cat ? '0 4px 16px rgba(198,40,40,0.3)' : '0 2px 8px rgba(0,0,0,0.08)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  border: '1px solid',
-                  borderColor: activeCategory === cat ? '#C62828' : 'transparent',
-                  '&:hover': { bgcolor: activeCategory === cat ? '#8E0000' : 'rgba(198,40,40,0.08)' },
-                }}
-              />
-            ))}
+        {/* ─── Sticky filter rail ─────────────────────────────
+            Veg preference and category, pinned under the navbar. On a 100-dish
+            list these are the controls you reach for *after* scrolling, and
+            scrolling back to the top to change one is the single most annoying
+            thing a long menu can ask of you. */}
+        <Box
+          sx={{
+            position: 'sticky',
+            top: { xs: 60, md: 68 },
+            zIndex: 5,
+            bgcolor: 'background.default',
+            mx: { xs: -2, sm: -3 },
+            px: { xs: 2, sm: 3 },
+            pt: 1.5,
+            pb: 1,
+            mb: 2,
+            borderBottom: '1px solid rgba(198,40,40,0.08)',
+          }}
+        >
+          {/* Veg / non-veg / egg */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.25, flexWrap: 'wrap' }}>
+            {([
+              { id: 'all', label: '🍽️ All', color: '#424242' },
+              { id: 'veg', label: 'Veg', color: '#2E7D32', marker: 'veg' },
+              { id: 'non-veg', label: 'Non-Veg', color: '#C62828', marker: 'non-veg' },
+              { id: 'egg', label: '🥚 Egg', color: '#F57C00' },
+            ] as const).map((option) => {
+              const selected = vegFilter === option.id;
+              return (
+                <Box
+                  key={option.id}
+                  component="button"
+                  type="button"
+                  onClick={() => setVegFilter(option.id)}
+                  aria-pressed={selected}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.7,
+                    px: { xs: 1.5, md: 2 },
+                    py: { xs: 0.7, md: 0.85 },
+                    borderRadius: '50px',
+                    border: '2px solid',
+                    borderColor: selected ? option.color : 'rgba(0,0,0,0.12)',
+                    bgcolor: selected ? option.color : 'white',
+                    color: selected ? 'white' : option.color,
+                    fontWeight: 700,
+                    fontSize: { xs: '12px', md: '13px' },
+                    cursor: 'pointer',
+                    font: 'inherit',
+                    transition: 'all 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+                    boxShadow: selected ? `0 4px 16px ${option.color}45` : '0 1px 4px rgba(0,0,0,0.06)',
+                    '&:active': { transform: 'scale(0.97)' },
+                  }}
+                >
+                  {/* The FSSAI square/triangle, inverted when the pill is filled. */}
+                  {'marker' in option && option.marker && (
+                    <Box
+                      sx={{
+                        width: 14, height: 14,
+                        border: `2px solid ${selected ? 'white' : option.color}`,
+                        borderRadius: '3px',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {option.marker === 'veg' ? (
+                        <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: selected ? 'white' : option.color }} />
+                      ) : (
+                        <Box
+                          component="span"
+                          sx={{
+                            display: 'block', width: 0, height: 0,
+                            borderLeft: '4px solid transparent',
+                            borderRight: '4px solid transparent',
+                            borderBottom: `6px solid ${selected ? 'white' : option.color}`,
+                          }}
+                        />
+                      )}
+                    </Box>
+                  )}
+                  {option.label}
+                </Box>
+              );
+            })}
+          </Box>
+
+          {/* Category pills */}
+          <Box
+            sx={{
+              overflowX: 'auto',
+              msOverflowStyle: 'none',
+              scrollbarWidth: 'none',
+              '&::-webkit-scrollbar': { display: 'none' },
+            }}
+          >
+            <Box sx={{ display: 'flex', gap: 1, pb: 0.5, minWidth: 'max-content' }}>
+              {categories.map((cat) => {
+                const active = activeCategory === cat;
+                return (
+                  <Box
+                    key={cat}
+                    component="button"
+                    type="button"
+                    onClick={() => setActiveCategory(cat)}
+                    aria-pressed={active}
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      px: { xs: 1.5, md: 2 },
+                      py: { xs: 0.75, md: 1 },
+                      borderRadius: '50px',
+                      border: '1.5px solid',
+                      borderColor: active ? '#C62828' : 'rgba(0,0,0,0.08)',
+                      bgcolor: active ? '#C62828' : 'white',
+                      color: active ? 'white' : '#424242',
+                      fontWeight: active ? 800 : 600,
+                      fontSize: { xs: '12px', md: '13.5px' },
+                      cursor: 'pointer',
+                      font: 'inherit',
+                      whiteSpace: 'nowrap',
+                      boxShadow: active ? '0 4px 18px rgba(198,40,40,0.3)' : '0 1px 6px rgba(0,0,0,0.06)',
+                      transition: 'all 0.2s ease',
+                      '&:active': { transform: 'scale(0.97)' },
+                    }}
+                  >
+                    <span>{categoryEmojis[cat]}</span>
+                    <span>{cat === 'all' ? 'All Items' : categoryLabels[cat as Category]}</span>
+                  </Box>
+                );
+              })}
+            </Box>
           </Box>
         </Box>
 
-        {/* Results Count */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="body2" color="text.secondary">
-            Showing <strong>{filtered.length}</strong> {filtered.length === 1 ? 'dish' : 'dishes'}
+        {/* ─── Results Count + Clear ──────────────────────── */}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 1,
+            mb: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary" aria-live="polite">
+            <Box component="strong" sx={{ color: '#212121', fontWeight: 800 }}>
+              {filtered.length}
+            </Box>{' '}
+            {filtered.length === 1 ? 'dish' : 'dishes'}
             {activeCategory !== 'all' && ` in ${categoryLabels[activeCategory as Category]}`}
           </Typography>
-          {(searchQuery || activeCategory !== 'all' || vegFilter !== 'all') && (
-            <Button size="small" onClick={resetFilters} startIcon={<Clear />} color="primary">
-              Clear Filters
+
+          {hasAnyFilter && (
+            <Button
+              size="small"
+              onClick={resetFilters}
+              startIcon={<Clear sx={{ fontSize: 14 }} />}
+              sx={{ color: '#C62828', fontWeight: 700, fontSize: '12px', flexShrink: 0 }}
+            >
+              Clear All
             </Button>
           )}
         </Box>
 
-        {/* Grid */}
-        {filtered.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: 10 }}>
-            <Typography variant="h2" sx={{ fontSize: '3rem', mb: 2 }}>🍽️</Typography>
-            <Typography variant="h5" sx={{fontWeight: 700, mb: 1}}>No dishes found</Typography>
-            <Typography color="text.secondary" sx={{mb: 3}}>Try adjusting your filters or search term</Typography>
-            <Button variant="contained" color="primary" onClick={resetFilters}>Reset Filters</Button>
+        {/* ─── Dishes ─────────────────────────────────────── */}
+        {isLoadingDB && liveMenuItems.length === 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: { xs: 8, md: 12 } }}>
+            <CircularProgress />
+            <Typography color="text.secondary" sx={{ fontSize: '13.5px' }}>Loading the menu…</Typography>
+          </Box>
+        ) : filtered.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: { xs: 7, md: 11 }, px: 2 }}>
+            <Typography sx={{ fontSize: '4rem', mb: 2, animation: 'ppr-float 3s ease-in-out infinite' }}>
+              🍽️
+            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, mb: 1, color: '#212121' }}>
+              No dishes found
+            </Typography>
+            <Typography color="text.secondary" sx={{ mb: 3, maxWidth: 320, mx: 'auto' }}>
+              Try adjusting your filters or search term to find what you&apos;re craving.
+            </Typography>
+            <Button
+              variant="contained"
+              onClick={resetFilters}
+              sx={{ fontWeight: 800, borderRadius: '12px', px: 3, py: 1.2 }}
+            >
+              Reset Filters
+            </Button>
+          </Box>
+        ) : isPhone ? (
+          <Box
+            sx={{
+              bgcolor: 'white',
+              borderRadius: '18px',
+              px: 2,
+              border: '1px solid rgba(0,0,0,0.05)',
+              boxShadow: '0 6px 24px rgba(0,0,0,0.05)',
+            }}
+          >
+            {filtered.map((item, i) => (
+              <DishListItem key={item.id} item={item} divider={i < filtered.length - 1} />
+            ))}
           </Box>
         ) : (
-          <Grid container spacing={3}>
+          <Grid container spacing={{ sm: 2.5, md: 3 }}>
             {filtered.map((item) => (
-              <Grid key={item.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+              <Grid key={item.id} size={{ sm: 6, md: 4, lg: 3 }}>
                 <MenuCard item={item} />
               </Grid>
             ))}
           </Grid>
         )}
       </Container>
+      </Box>
 
       <Footer />
     </>
+  );
+}
+
+/**
+ * `useSearchParams` opts everything under it out of prerendering, so the
+ * boundary is where that stops. See node_modules/next/dist/docs —
+ * 01-app/03-api-reference/04-functions/use-search-params.md.
+ */
+export default function MenuPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box sx={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <MenuBrowser />
+    </Suspense>
   );
 }

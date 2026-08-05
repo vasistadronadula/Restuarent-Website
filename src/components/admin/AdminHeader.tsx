@@ -350,6 +350,23 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
           transition: all 0.2s ease; letter-spacing: 0.3px;
           -webkit-tap-highlight-color: transparent;
         }
+        .back-website-btn {
+          display: flex; align-items: center; gap: 6px;
+          padding: 0 12px; height: 40px; border-radius: 10px;
+          background: rgba(0,0,0,0.04); color: rgba(33,33,33,0.75);
+          font-size: 12px; font-weight: 700; text-decoration: none;
+          transition: all 0.15s ease; flex-shrink: 0;
+          -webkit-tap-highlight-color: transparent;
+        }
+        @media (min-width: 900px) {
+          .back-website-btn { height: 36px; }
+        }
+        .back-website-btn:hover { background: rgba(198,40,40,0.08); color: #C62828; }
+        .back-website-btn:active { transform: scale(0.93); }
+        @media (max-width: 540px) {
+          .back-website-text { display: none; }
+          .back-website-btn { width: 40px; padding: 0; justify-content: center; }
+        }
         .relative { position: relative; }
       `}</style>
 
@@ -402,6 +419,19 @@ export default function AdminHeader({ title, onMobileDrawerToggle }: Props) {
                 <path d="M3.51 15C4.15839 16.8604 5.38734 18.4553 7.01166 19.5484C8.63598 20.6415 10.5677 21.1783 12.5157 21.0821C14.4637 20.9858 16.3342 20.2617 17.845 19.0115C19.3558 17.7612 20.4262 16.0517 20.8917 14.1389C21.3573 12.2261 21.1928 10.2138 20.4217 8.39944C19.6506 6.58513 18.3124 5.06233 16.6123 4.0645C14.9123 3.06667 12.9361 2.64507 10.9799 2.86292C9.02375 3.08078 7.18519 3.92757 5.74 5.27L1 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </button>
+
+            {/* Back to Customer Website */}
+            <Link
+              href="/"
+              className="back-website-btn"
+              title="Back to Customer Website"
+              aria-label="Back to Customer Website"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M3 9.5L12 3L21 9.5V20C21 20.5523 20.5523 21 20 21H15V15H9V21H4C3.44772 21 3 20.5523 3 20V9.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="back-website-text">Website</span>
+            </Link>
 
             {/* Notifications - only for cashier/chef/waiter */}
             {showNotifications && (

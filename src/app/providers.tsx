@@ -13,6 +13,7 @@ import { AdminProvider } from '@/context/AdminContext';
 import { CartProvider } from '@/context/CartContext';
 import AuthModal from '@/components/customer/AuthModal';
 import FloatingCartBar from '@/components/customer/FloatingCartBar';
+import MobileBottomNav from '@/components/customer/MobileBottomNav';
 import { Toaster } from 'react-hot-toast';
 import useMediaQuery from '@mui/material/useMediaQuery';
 
@@ -77,6 +78,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
                 {children}
                 <AuthModal />
                 <FloatingCartBar />
+                <MobileBottomNav />
                 <ResponsiveToaster />
               </CartProvider>
             </AdminProvider>

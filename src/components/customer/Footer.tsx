@@ -8,6 +8,8 @@ import {
   YouTube, Twitter, WhatsApp,
 } from '@mui/icons-material';
 import Link from 'next/link';
+import { useAppDispatch } from '@/store/hooks';
+import { closeCart } from '@/store/cartSlice';
 import PalaPittaLogo from './PalaPittaLogo';
 
 const quickLinks = [
@@ -21,7 +23,6 @@ const quickLinks = [
 
 const menuCategories = [
   { label: 'Biryani', href: '/menu?category=biryani' },
-  { label: 'North Indian', href: '/menu?category=north-indian' },
   { label: 'South Indian', href: '/menu?category=south-indian' },
   { label: 'Tandoori', href: '/menu?category=tandoori' },
   { label: 'Starters', href: '/menu?category=starters' },
@@ -29,6 +30,8 @@ const menuCategories = [
 ];
 
 export default function Footer() {
+  const dispatch = useAppDispatch();
+
   return (
     <Box
       component="footer"
@@ -36,9 +39,10 @@ export default function Footer() {
         background: 'linear-gradient(180deg, #1A0A0A 0%, #2D0000 100%)',
         color: 'white',
         pt: { xs: 6, md: 8 },
-        // Reserve room for the fixed FloatingCartBar when it is on screen, so
-        // a full cart never covers the policy links. See globals.css.
-        pb: 'calc(24px + var(--ppr-floating-cart-h, 0px))',
+        // Reserve room for both fixed bottom-edge elements when they are on
+        // screen — the FloatingCartBar and, on phones, the bottom nav — so
+        // neither ever covers the policy links. See globals.css.
+        pb: 'calc(24px + var(--ppr-floating-cart-h, 0px) + var(--ppr-bottom-nav-h, 0px))',
         transition: 'padding-bottom 0.3s ease',
         mt: 'auto',
       }}
@@ -81,7 +85,7 @@ export default function Footer() {
               Quick Links
             </Typography>
             {quickLinks.map((link) => (
-              <Link key={link.href} href={link.href} style={{ textDecoration: 'none' }}>
+              <Link key={link.href} href={link.href} onClick={() => dispatch(closeCart())} style={{ textDecoration: 'none' }}>
                 <Typography
                   variant="body2"
                   sx={{
@@ -102,7 +106,7 @@ export default function Footer() {
               Our Menu
             </Typography>
             {menuCategories.map((c) => (
-              <Link key={c.href} href={c.href} style={{ textDecoration: 'none' }}>
+              <Link key={c.href} href={c.href} onClick={() => dispatch(closeCart())} style={{ textDecoration: 'none' }}>
                 <Typography
                   variant="body2"
                   sx={{
@@ -166,7 +170,7 @@ export default function Footer() {
               { label: 'Terms', href: '/terms' },
               { label: 'Refund Policy', href: '/refund-policy' },
             ].map((policy) => (
-              <Link key={policy.label} href={policy.href} style={{ textDecoration: 'none' }}>
+              <Link key={policy.label} href={policy.href} onClick={() => dispatch(closeCart())} style={{ textDecoration: 'none' }}>
                 <Typography
                   variant="caption"
                   sx={{ color: 'rgba(255,255,255,0.4)', cursor: 'pointer', '&:hover': { color: '#FF9800' } }}

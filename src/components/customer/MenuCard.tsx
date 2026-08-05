@@ -7,9 +7,7 @@ import {
 } from '@mui/material';
 import { Add, Favorite, FavoriteBorder, Star, Timer } from '@mui/icons-material';
 import { MenuItem } from '@/types';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { addItem, increaseQty, decreaseQty, selectCartItems } from '@/store/cartSlice';
-import toast from 'react-hot-toast';
+import { useDishPortion } from '@/hooks/useDishPortion';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80';
 
@@ -20,41 +18,15 @@ interface Props {
 
 // Wrapped in React.memo — only re-renders when `item` prop or the specific cart entry changes
 const MenuCard = memo(function MenuCard({ item, compact = false }: Props) {
-  const dispatch = useAppDispatch();
   const [liked, setLiked] = useState(false);
 
-  const availablePortions = item.portionPrices
-    ? (Object.keys(item.portionPrices) as Array<'single' | 'full' | 'large'>).filter(
-        (p) => item.portionPrices?.[p] !== undefined
-      )
-    : [];
-
-  const initialPortion = availablePortions.length > 0
-    ? availablePortions.includes('full') ? 'full' : availablePortions[0]
-    : 'full';
-
-  const [selectedPortion, setSelectedPortion] = useState<'single' | 'full' | 'large'>(initialPortion);
-  const activePrice = item.portionPrices?.[selectedPortion] || item.price;
-
-  // Fine-grained selector — only subscribes to this specific cart item, not all cart changes
-  const cartItems = useAppSelector(selectCartItems);
-  const cartItem = cartItems.find(
-    (i) => i.id === item.id && (i.selectedPortion || 'full') === selectedPortion
-  );
-
-  const handleAdd = () => {
-    const itemToAdd = {
-      ...item,
-      price: activePrice,
-      selectedPortion,
-      selectedPrice: activePrice,
-      name: availablePortions.length > 1
-        ? `${item.name} (${selectedPortion.toUpperCase()})`
-        : item.name,
-    };
-    dispatch(addItem(itemToAdd));
-    toast.success(`${itemToAdd.name} added to cart! 🛒`, { icon: '🍽️' });
-  };
+  // Portion selection, pricing and the add/increase/decrease actions are shared
+  // with the dish rail and the dish list, so all three put an identical row in
+  // the cart for the same dish rather than three near-identical ones.
+  const {
+    availablePortions, selectedPortion, setSelectedPortion,
+    activePrice, cartItem, add, increase, decrease,
+  } = useDishPortion(item);
 
   return (
     <Box
@@ -189,13 +161,13 @@ const MenuCard = memo(function MenuCard({ item, compact = false }: Props) {
               display: 'flex', alignItems: 'center',
               bgcolor: 'rgba(198,40,40,0.08)', borderRadius: '10px', border: '1.5px solid #C62828',
             }}>
-              <IconButton size="small" onClick={() => dispatch(decreaseQty(cartItem.id))} sx={{ p: 0.5 }}>
+              <IconButton size="small" onClick={decrease} aria-label={`Remove one ${item.name}`} sx={{ p: 0.5 }}>
                 <Box sx={{ color: '#C62828', fontWeight: 700, fontSize: 18, lineHeight: 1, px: 0.5 }}>−</Box>
               </IconButton>
               <Typography sx={{ px: 1, fontWeight: 700, color: '#C62828', fontSize: 15, minWidth: 20, textAlign: 'center' }}>
                 {cartItem.quantity}
               </Typography>
-              <IconButton size="small" onClick={() => dispatch(increaseQty(cartItem.id))} sx={{ p: 0.5 }}>
+              <IconButton size="small" onClick={increase} aria-label={`Add one more ${item.name}`} sx={{ p: 0.5 }}>
                 <Add sx={{ color: '#C62828', fontSize: 18 }} />
               </IconButton>
             </Box>
@@ -203,7 +175,7 @@ const MenuCard = memo(function MenuCard({ item, compact = false }: Props) {
             <Button
               variant="contained" color="primary" size="small"
               disabled={!item.isAvailable}
-              onClick={handleAdd}
+              onClick={add}
               startIcon={<Add />}
               sx={{
                 borderRadius: '10px', px: 2, py: 0.8, fontSize: '13px', fontWeight: 600,

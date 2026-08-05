@@ -47,13 +47,24 @@ export default function FloatingCartBar() {
     return () => root.style.setProperty('--ppr-floating-cart-h', '0px');
   }, [hidden]);
 
+  /**
+   * On phones the storefront bottom nav owns the bottom edge, so this bar
+   * stacks directly above it rather than on top of it. `--ppr-bottom-nav-h` is
+   * 0px on desktop and wherever the nav hides itself, which leaves the plain
+   * 16/24px offset intact on those surfaces.
+   */
+  const bottomOffset = {
+    xs: 'calc(16px + var(--ppr-bottom-nav-h, 0px))',
+    sm: 'calc(24px + var(--ppr-bottom-nav-h, 0px))',
+  };
+
   if (hidden) return null;
 
   return (
     <Box
       sx={{
         position: 'fixed',
-        bottom: { xs: 16, sm: 24 },
+        bottom: bottomOffset,
         left: 0, right: 0,
         display: 'flex', justifyContent: 'center',
         zIndex: 1200, pointerEvents: 'none',
@@ -81,8 +92,9 @@ export default function FloatingCartBar() {
           >
             {/* Left: Cart Info */}
             <Box
-              onClick={() => dispatch(openCart())}
-              sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer', flexShrink: 0 }}
+              component={Link}
+              href="/cart"
+              sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer', flexShrink: 0, textDecoration: 'none' }}
             >
               <Box sx={{ position: 'relative', width: 44, height: 44, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFD54F', flexShrink: 0 }}>
                 <ShoppingBag sx={{ fontSize: 24, display: 'block' }} />
@@ -109,11 +121,12 @@ export default function FloatingCartBar() {
             {/* Right: CTA Buttons */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Button
+                component={Link}
+                href="/cart"
                 variant="outlined" size="small"
-                onClick={() => dispatch(openCart())}
                 sx={{
                   color: 'white', borderColor: 'rgba(255,255,255,0.4)', borderRadius: '10px',
-                  px: 1.8, py: 0.8, fontWeight: 700, fontSize: '13px',
+                  px: 1.8, py: 0.8, fontWeight: 700, fontSize: '13px', textDecoration: 'none',
                   display: { xs: 'none', sm: 'inline-flex' },
                   '&:hover': { borderColor: '#FFD54F', color: '#FFD54F', bgcolor: 'rgba(255,213,79,0.1)' },
                 }}

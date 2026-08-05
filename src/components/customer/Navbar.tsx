@@ -3,31 +3,62 @@ import React, { useState, useEffect } from 'react';
 import {
   AppBar, Toolbar, Box, Typography, Button, IconButton, Badge,
   Drawer, List, ListItem, ListItemButton, ListItemText, Divider,
-  Avatar, Menu, MenuItem, Tooltip, Chip,
+  Avatar, Menu, MenuItem, Tooltip,
 } from '@mui/material';
 import {
-  Menu as MenuIcon, ShoppingCart, Phone, 
+  Menu as MenuIcon, ShoppingCart, Phone,
   Close, Home, Info, MenuBook, BookOnline, ContactMail, Logout,
   Login, Dashboard, Receipt,
 } from '@mui/icons-material';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { selectTotalItems, openCart } from '@/store/cartSlice';
+import { selectTotalItems, openCart, closeCart } from '@/store/cartSlice';
 import { selectUser, selectUserRole, openAuthModal } from '@/store/authSlice';
 import { useAuth } from '@/context/AuthContext';
 import { ROLE_LABELS, ROLE_ICONS, getRoleHome, isStaffRole, getRoleDashboardLabel } from '@/lib/roleAccess';
 import CartDrawer from './CartDrawer';
 import PalaPittaLogo from './PalaPittaLogo';
 
-const navLinks = [
+/**
+ * Customer navbar.
+ *
+ * Kept to a single row on purpose. The bar carries four destinations and
+ * nothing else; everything account-shaped lives behind the avatar and
+ * everything else behind the drawer on mobile. Two things that used to sit
+ * here have moved rather than been dropped:
+ *
+ * - "Home" — the logo is the Home link, which is the convention everywhere;
+ *   a second one earned no space. It is still listed explicitly in the
+ *   drawer, because a drawer reads as a full site index.
+ * - "My Orders" — it was in the bar *and* in the account menu. Order history
+ *   is account-scoped, so the account menu is the one that made sense.
+ *
+ * The separate red strip above the bar is gone: it cost a whole row of
+ * chrome to show a phone number and a location. The phone survives as a
+ * one-tap call button; the address and hours are in the drawer and footer.
+ */
+
+const PHONE_DISPLAY = '+91 70326 82089';
+const PHONE_HREF = 'tel:+917032682089';
+
+const NAV_LINKS = [
   { label: 'Home',        href: '/',            icon: <Home fontSize="small" /> },
-  { label: 'About',       href: '/about',        icon: <Info fontSize="small" /> },
-  { label: 'Menu',        href: '/menu',         icon: <MenuBook fontSize="small" /> },
-  { label: 'Reservation', href: '/reservation',  icon: <BookOnline fontSize="small" /> },
-  { label: 'My Orders',   href: '/orders',       icon: <Receipt fontSize="small" /> },
-  { label: 'Contact',     href: '/contact',      icon: <ContactMail fontSize="small" /> },
+  { label: 'Menu',        href: '/menu',        icon: <MenuBook fontSize="small" /> },
+  { label: 'Reservation', href: '/reservation', icon: <BookOnline fontSize="small" /> },
+  { label: 'About',       href: '/about',       icon: <Info fontSize="small" /> },
+  { label: 'Contact',     href: '/contact',     icon: <ContactMail fontSize="small" /> },
 ];
+
+// The drawer is the whole index, including Dashboard and My Orders.
+const DRAWER_LINKS = [
+  ...NAV_LINKS,
+  { label: 'Dashboard', href: '/admin', icon: <Dashboard fontSize="small" /> },
+  { label: 'My Orders', href: '/orders', icon: <Receipt fontSize="small" /> },
+];
+
+/** primary.main at low alpha — one definition instead of ~30 inline rgba(). */
+const tint = (alpha: number) => `rgba(198, 40, 40, ${alpha})`;
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -42,9 +73,10 @@ export default function Navbar() {
   const userRole = useAppSelector(selectUserRole);
   const { signOutUser } = useAuth();
   const userName = user?.user_metadata?.full_name || user?.user_metadata?.name || (user?.email ? user.email.split('@')[0] : '');
+  const isStaff = isStaffRole(userRole);
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
-  const handleMenuClose = () => setAnchorEl(null);
+  const closeMenu = () => setAnchorEl(null);
+  const closeDrawer = () => setMobileOpen(false);
 
   useEffect(() => {
     const handler = () => setScrolled(window.scrollY > 20);
@@ -52,241 +84,384 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handler);
   }, []);
 
-  const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href);
+  useEffect(() => {
+    setMobileOpen(false);
+    dispatch(closeCart());
+  }, [pathname, dispatch]);
+
+  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
   return (
     <>
-      {/* Top Bar */}
-      <Box sx={{ bgcolor: '#C62828', py: 0.3, display: { xs: 'none', md: 'block' } }}>
-        <Box sx={{ maxWidth: 1200, mx: 'auto', px: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '11px' }}>
-              <Phone sx={{ fontSize: 13 }} /> +91 70326 82089
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.9)', fontSize: '11px' }}>
-              📍 Madhapur, Hyderabad
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Chip
-              label="🕐 Available on Swiggy & Zomato"
-              size="small"
-              sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: 'white', fontSize: '10px', height: 20 }}
-            />
-          </Box>
-        </Box>
-      </Box>
-
-      {/* Main Navbar */}
       <AppBar
         position="sticky"
-        elevation={scrolled ? 3 : 0}
+        elevation={0}
         sx={{
-          bgcolor: scrolled ? 'rgba(255,255,255,0.96)' : '#fff',
+          bgcolor: '#fff',
           backdropFilter: scrolled ? 'blur(20px)' : 'none',
-          borderBottom: '1px solid rgba(198,40,40,0.08)',
-          transition: 'all 0.3s ease',
+          borderBottom: '1px solid',
+          borderColor: scrolled ? tint(0.14) : tint(0.08),
+          boxShadow: scrolled ? '0 2px 16px rgba(0,0,0,0.06)' : 'none',
+          transition: 'border-color .25s ease, box-shadow .25s ease',
           top: 0,
         }}
       >
         <Toolbar
-          variant="dense"
           sx={{
             maxWidth: 1200, mx: 'auto', width: '100%',
-            px: { xs: 2, md: 3 }, py: 0.4,
-            minHeight: { xs: '48px !important', md: '52px !important' },
+            px: { xs: 1.5, md: 3 },
+            gap: 1,
+            minHeight: { xs: '60px !important', md: '68px !important' },
           }}
         >
-          <Link href="/" style={{ textDecoration: 'none' }}>
+          <Link href="/" aria-label="Pala Pitta Ruchulu — Home" style={{ textDecoration: 'none', display: 'flex' }}>
             <PalaPittaLogo variant="light" size="small" />
           </Link>
+
+          {/* Links sit centred-ish, pushed off the logo, with the actions pinned right */}
           <Box sx={{ flexGrow: 1 }} />
 
-          {/* Desktop Nav Links */}
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.3, alignItems: 'center' }}>
-            {user && isStaffRole(userRole) && (
-              <Link href={getRoleHome(userRole)} style={{ textDecoration: 'none' }}>
+          <Box
+            component="nav"
+            sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.5, alignItems: 'center' }}
+          >
+            {NAV_LINKS.map((link) => {
+              const active = isActive(link.href);
+              return (
                 <Button
-                  size="small"
-                  startIcon={<Dashboard fontSize="small" />}
+                  key={link.href}
+                  component={Link}
+                  href={link.href}
+                  prefetch
+                  disableRipple
                   sx={{
-                    bgcolor: 'rgba(198,40,40,0.12)', color: '#C62828',
-                    fontWeight: 800, fontSize: '12px', px: 1.5, py: 0.5, borderRadius: '8px',
-                    border: '1.5px solid rgba(198,40,40,0.3)', mr: 0.8,
-                    '&:hover': { bgcolor: '#C62828', color: 'white' },
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  {getRoleDashboardLabel(userRole, userName)}
-                </Button>
-              </Link>
-            )}
-            {navLinks.map((link) => (
-              <Link key={link.href} href={link.href} prefetch={true} style={{ textDecoration: 'none' }}>
-                <Button
-                  size="small"
-                  sx={{
-                    color: isActive(link.href) ? '#C62828' : '#424242',
-                    fontWeight: isActive(link.href) ? 700 : 500,
-                    fontSize: '13px', px: 1.6, py: 0.5, borderRadius: '8px', position: 'relative',
-                    '&::after': isActive(link.href) ? {
-                      content: '""', position: 'absolute', bottom: 2, left: '50%',
-                      transform: 'translateX(-50%)', width: '50%', height: 2,
-                      bgcolor: '#C62828', borderRadius: 4,
-                    } : {},
-                    '&:hover': { bgcolor: 'rgba(198,40,40,0.06)', color: '#C62828' },
+                    color: active ? 'primary.main' : 'text.primary',
+                    fontWeight: active ? 700 : 500,
+                    fontSize: '14.5px',
+                    px: 1.75, py: 0.75,
+                    borderRadius: '10px',
+                    position: 'relative',
+                    '&::after': {
+                      content: '""',
+                      position: 'absolute',
+                      bottom: 4, left: '50%',
+                      transform: `translateX(-50%) scaleX(${active ? 1 : 0})`,
+                      width: '42%', height: 2,
+                      bgcolor: 'primary.main',
+                      borderRadius: 2,
+                      transition: 'transform .2s ease',
+                    },
+                    '&:hover': { bgcolor: tint(0.06), color: 'primary.main' },
+                    '&:hover::after': { transform: 'translateX(-50%) scaleX(1)' },
                   }}
                 >
                   {link.label}
                 </Button>
-              </Link>
-            ))}
+              );
+            })}
           </Box>
 
-          {/* Cart + Auth */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, ml: 1 }}>
-            <IconButton
-              onClick={() => dispatch(openCart())}
-              size="small"
-              sx={{
-                bgcolor: totalItems > 0 ? 'rgba(198,40,40,0.08)' : 'transparent',
-                border: totalItems > 0 ? '1px solid rgba(198,40,40,0.2)' : 'none',
-                p: 0.7,
-                '&:hover': { bgcolor: 'rgba(198,40,40,0.12)' },
-              }}
-            >
-              <Badge badgeContent={totalItems} color="primary" max={99} slotProps={{ badge: { sx: { fontSize: '10px', height: 16, minWidth: 16 } } }}>
-                <ShoppingCart sx={{ color: '#C62828', fontSize: 20 }} />
-              </Badge>
-            </IconButton>
+          {/* ── Actions ─────────────────────────────────────────────────── */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, md: 1 }, ml: { md: 1.5 } }}>
+            <Tooltip title={`Call ${PHONE_DISPLAY}`}>
+              <IconButton
+                component="a"
+                href={PHONE_HREF}
+                aria-label={`Call ${PHONE_DISPLAY}`}
+                sx={{ display: { xs: 'none', md: 'inline-flex' }, color: 'primary.main' }}
+              >
+                <Phone fontSize="small" />
+              </IconButton>
+            </Tooltip>
 
-            {user ? (
-              <>
-                <Tooltip title={user.email || 'My Profile'}>
-                  <IconButton onClick={handleMenuOpen} size="small" sx={{ p: 0.3 }}>
-                    <Avatar sx={{ width: 32, height: 32, bgcolor: '#C62828', fontSize: '13px', fontWeight: 700, boxShadow: '0 2px 6px rgba(198,40,40,0.3)' }}>
-                      {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
-                    </Avatar>
-                  </IconButton>
-                </Tooltip>
-                <Menu
-                  anchorEl={anchorEl}
-                  open={Boolean(anchorEl)}
-                  onClose={handleMenuClose}
-                  slotProps={{ paper: { sx: { mt: 1, borderRadius: '14px', minWidth: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', p: 0.5 } } }}
+            <Tooltip title="Cart">
+              <IconButton
+                component={Link}
+                href="/cart"
+                aria-label={`Cart, ${totalItems} item${totalItems === 1 ? '' : 's'}`}
+                sx={{ color: 'primary.main' }}
+              >
+                <Badge
+                  badgeContent={totalItems}
+                  color="primary"
+                  max={99}
+                  slotProps={{ badge: { sx: { fontSize: '10px', height: 17, minWidth: 17 } } }}
                 >
-                  <Box sx={{ px: 1.8, py: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: '13.5px' }}>
-                      {userName || 'User'}
-                    </Typography>
-                    <Typography variant="caption" sx={{ display: 'block', color: '#C62828', fontWeight: 700, fontSize: '11px', mb: 0.2 }}>
-                      {userRole ? `${ROLE_ICONS[userRole] || ''} ${ROLE_LABELS[userRole]}` : 'Customer'}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-all', fontSize: '10.5px' }}>
-                      {user.email}
-                    </Typography>
-                  </Box>
-                  <Divider />
-                  <Link href="/orders" style={{ textDecoration: 'none', color: 'inherit' }} onClick={handleMenuClose}>
-                    <MenuItem sx={{ borderRadius: '8px', my: 0.5, fontSize: '13px', fontWeight: 600 }}>
-                      <Receipt fontSize="small" sx={{ mr: 1.2, color: '#C62828' }} /> My Orders History
-                    </MenuItem>
-                  </Link>
-                  {isStaffRole(userRole) && (
-                    <Link href={getRoleHome(userRole)} style={{ textDecoration: 'none', color: 'inherit' }} onClick={handleMenuClose}>
-                      <MenuItem sx={{ borderRadius: '8px', my: 0.5, color: '#C62828', fontWeight: 800, fontSize: '13px' }}>
-                        <Dashboard fontSize="small" sx={{ mr: 1.2 }} /> {getRoleDashboardLabel(userRole, userName)}
-                      </MenuItem>
-                    </Link>
-                  )}
-                  <MenuItem onClick={() => { handleMenuClose(); signOutUser(); }} sx={{ color: '#C62828', borderRadius: '8px', mt: 0.5, fontSize: '13px' }}>
-                    <Logout fontSize="small" sx={{ mr: 1.2 }} /> Sign Out
-                  </MenuItem>
-                </Menu>
-              </>
-            ) : (
+                  <ShoppingCart fontSize="small" />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+
+            {/* Admin / Staff Dashboard Button — Only displayed for staff/admin roles */}
+            {isStaff && (
               <Button
-                variant="outlined" color="primary" size="small"
+                component={Link}
+                href={getRoleHome(userRole)}
+                startIcon={<Dashboard fontSize="small" />}
+                sx={{
+                  display: { xs: 'none', md: 'inline-flex' },
+                  color: 'primary.main',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  px: 1.4,
+                  py: 0.5,
+                  borderRadius: '10px',
+                  bgcolor: tint(0.06),
+                  border: '1px solid',
+                  borderColor: tint(0.18),
+                  '&:hover': { bgcolor: tint(0.12), borderColor: tint(0.3) },
+                }}
+              >
+                Dashboard
+              </Button>
+            )}
+
+            {/* Log In Button — Displayed when user is NOT signed in */}
+            {!user && (
+              <Button
                 onClick={() => dispatch(openAuthModal('login'))}
                 startIcon={<Login fontSize="small" />}
                 sx={{
-                  borderRadius: '8px', borderColor: '#C62828', color: '#C62828',
-                  fontWeight: 700, fontSize: '12px', px: 1.4, py: 0.4,
-                  '&:hover': { bgcolor: 'rgba(198,40,40,0.08)', borderColor: '#8E0000' },
+                  display: { xs: 'none', sm: 'inline-flex' },
+                  color: 'primary.main',
+                  fontWeight: 600,
+                  fontSize: '13.5px',
+                  px: 1.5,
+                  py: 0.6,
+                  borderRadius: '10px',
+                  '&:hover': { bgcolor: tint(0.07) },
                 }}
               >
                 Log In
               </Button>
             )}
 
-            <Link href="/menu" style={{ textDecoration: 'none' }}>
-              <Button
-                variant="contained" color="primary" size="small"
-                sx={{
-                  display: { xs: 'none', sm: 'flex' },
-                  background: 'linear-gradient(135deg, #C62828, #EF5350)',
-                  px: 2, py: 0.5, borderRadius: '8px', fontSize: '12px', fontWeight: 700,
-                  '&:hover': { background: 'linear-gradient(135deg, #8E0000, #C62828)' },
-                }}
-              >
-                Order Now
-              </Button>
-            </Link>
+            {/* User Avatar & Account Menu */}
+            {user && (
+              <>
+                <Tooltip title={user.email || 'Account'}>
+                  <IconButton
+                    onClick={(e) => setAnchorEl(e.currentTarget)}
+                    aria-label="Account menu"
+                    sx={{ p: 0.4 }}
+                  >
+                    <Avatar
+                      sx={{
+                        width: 34, height: 34,
+                        bgcolor: 'primary.main',
+                        fontSize: '14px', fontWeight: 700,
+                        border: isStaff ? '2px solid' : 'none',
+                        borderColor: 'secondary.main',
+                      }}
+                    >
+                      {(userName || user.email || 'U').charAt(0).toUpperCase()}
+                    </Avatar>
+                  </IconButton>
+                </Tooltip>
+
+                <Menu
+                  anchorEl={anchorEl}
+                  open={Boolean(anchorEl)}
+                  onClose={closeMenu}
+                  slotProps={{ paper: { sx: { mt: 1.2, borderRadius: '14px', minWidth: 232, boxShadow: '0 8px 28px rgba(0,0,0,0.14)', p: 0.6 } } }}
+                >
+                  <Box sx={{ px: 1.6, py: 1.1 }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '14px', lineHeight: 1.3 }}>
+                      {userName || 'User'}
+                    </Typography>
+                    <Typography sx={{ color: 'primary.main', fontWeight: 700, fontSize: '11.5px', mt: 0.3 }}>
+                      {userRole ? `${ROLE_ICONS[userRole] || ''} ${ROLE_LABELS[userRole]}` : 'Customer'}
+                    </Typography>
+                    <Typography sx={{ color: 'text.secondary', fontSize: '11px', wordBreak: 'break-all', mt: 0.2 }}>
+                      {user.email}
+                    </Typography>
+                  </Box>
+
+                  <Divider sx={{ my: 0.5 }} />
+
+                  {isStaff && (
+                    <MenuItem
+                      component={Link}
+                      href={getRoleHome(userRole)}
+                      onClick={closeMenu}
+                      sx={{ borderRadius: '9px', my: 0.3, fontSize: '13.5px', fontWeight: 700, color: 'primary.main' }}
+                    >
+                      <Dashboard fontSize="small" sx={{ mr: 1.3 }} />
+                      {getRoleDashboardLabel(userRole, userName)}
+                    </MenuItem>
+                  )}
+
+                  <MenuItem
+                    component={Link}
+                    href="/orders"
+                    onClick={closeMenu}
+                    sx={{ borderRadius: '9px', my: 0.3, fontSize: '13.5px', fontWeight: 500 }}
+                  >
+                    <Receipt fontSize="small" sx={{ mr: 1.3, color: 'primary.main' }} />
+                    My Orders
+                  </MenuItem>
+
+                  <MenuItem
+                    onClick={() => { closeMenu(); signOutUser(); }}
+                    sx={{ borderRadius: '9px', my: 0.3, fontSize: '13.5px', fontWeight: 500, color: 'primary.main' }}
+                  >
+                    <Logout fontSize="small" sx={{ mr: 1.3 }} />
+                    Sign Out
+                  </MenuItem>
+                </Menu>
+              </>
+            )}
+
+            <Button
+              component={Link}
+              href="/menu"
+              variant="contained"
+              color="primary"
+              sx={{
+                display: { xs: 'none', sm: 'inline-flex' },
+                px: 2.4, py: 0.8,
+                borderRadius: '10px',
+                fontSize: '13.5px', fontWeight: 700,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Order Now
+            </Button>
 
             <IconButton
-              sx={{ display: { xs: 'flex', md: 'none' }, color: '#C62828', p: 0.5 }}
               onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+              sx={{ display: { xs: 'inline-flex', md: 'none' }, color: 'primary.main' }}
             >
-              <MenuIcon fontSize="small" />
+              <MenuIcon />
             </IconButton>
           </Box>
         </Toolbar>
       </AppBar>
 
-      {/* Mobile Drawer */}
+      {/* ── Mobile drawer ───────────────────────────────────────────────── */}
       <Drawer
-        anchor="right" open={mobileOpen} onClose={() => setMobileOpen(false)}
-        slotProps={{ paper: { sx: { width: 280, borderTopLeftRadius: 20, borderBottomLeftRadius: 20 } } }}
+        anchor="right"
+        open={mobileOpen}
+        onClose={closeDrawer}
+        slotProps={{ paper: { sx: { width: 292, borderTopLeftRadius: 20, borderBottomLeftRadius: 20 } } }}
       >
-        <Box sx={{ p: 2 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
             <PalaPittaLogo size="small" />
-            <IconButton onClick={() => setMobileOpen(false)} size="small"><Close /></IconButton>
+            <IconButton onClick={closeDrawer} aria-label="Close menu" size="small"><Close /></IconButton>
           </Box>
-          <Divider sx={{ mb: 2 }} />
-          <List disablePadding>
-            {user && isStaffRole(userRole) && (
+
+          {/* Who you are, right at the top — on a shared phone this is the
+              first thing worth knowing. */}
+          {user && (
+            <Box sx={{ p: 1.5, mb: 1.5, borderRadius: '12px', bgcolor: tint(0.06) }}>
+              <Typography sx={{ fontWeight: 700, fontSize: '13.5px' }}>{userName || 'User'}</Typography>
+              <Typography sx={{ color: 'primary.main', fontWeight: 700, fontSize: '11.5px' }}>
+                {userRole ? `${ROLE_ICONS[userRole] || ''} ${ROLE_LABELS[userRole]}` : 'Customer'}
+              </Typography>
+            </Box>
+          )}
+
+          <Divider sx={{ mb: 1.5 }} />
+
+          <List disablePadding sx={{ flexGrow: 1 }}>
+            {isStaff && (
               <ListItem disablePadding>
-                <Link href={getRoleHome(userRole)} style={{ textDecoration: 'none', width: '100%' }} onClick={() => setMobileOpen(false)}>
-                  <ListItemButton sx={{ borderRadius: '12px', mb: 0.5, bgcolor: 'rgba(198,40,40,0.12)', color: '#C62828', border: '1px solid rgba(198,40,40,0.2)' }}>
-                    <Box sx={{ mr: 1.5, color: '#C62828' }}><Dashboard fontSize="small" /></Box>
-                    <ListItemText primary={getRoleDashboardLabel(userRole, userName)} slotProps={{ primary: { sx: { fontWeight: 800, fontSize: '14px' } } }} />
-                  </ListItemButton>
-                </Link>
+                <ListItemButton
+                  component={Link}
+                  href={getRoleHome(userRole)}
+                  onClick={closeDrawer}
+                  sx={{
+                    borderRadius: '12px', mb: 0.5,
+                    bgcolor: tint(0.1), color: 'primary.main',
+                    border: '1px solid', borderColor: tint(0.2),
+                  }}
+                >
+                  <Box sx={{ mr: 1.5, display: 'flex' }}><Dashboard fontSize="small" /></Box>
+                  <ListItemText
+                    primary={getRoleDashboardLabel(userRole, userName)}
+                    slotProps={{ primary: { sx: { fontWeight: 700, fontSize: '14px' } } }}
+                  />
+                </ListItemButton>
               </ListItem>
             )}
-            {navLinks.map((link) => (
-              <ListItem key={link.href} disablePadding>
-                <Link href={link.href} style={{ textDecoration: 'none', width: '100%' }} onClick={() => setMobileOpen(false)}>
-                  <ListItemButton sx={{ borderRadius: '12px', mb: 0.5, bgcolor: isActive(link.href) ? 'rgba(198,40,40,0.08)' : 'transparent', color: isActive(link.href) ? '#C62828' : '#424242' }}>
-                    <Box sx={{ mr: 1.5, color: isActive(link.href) ? '#C62828' : '#616161' }}>{link.icon}</Box>
-                    <ListItemText primary={link.label} slotProps={{ primary: { sx: { fontWeight: isActive(link.href) ? 600 : 400 } } }} />
+
+            {DRAWER_LINKS.map((link) => {
+              const active = isActive(link.href);
+              return (
+                <ListItem key={link.href} disablePadding>
+                  <ListItemButton
+                    component={Link}
+                    href={link.href}
+                    onClick={closeDrawer}
+                    sx={{
+                      borderRadius: '12px', mb: 0.5,
+                      bgcolor: active ? tint(0.08) : 'transparent',
+                      color: active ? 'primary.main' : 'text.primary',
+                    }}
+                  >
+                    <Box sx={{ mr: 1.5, display: 'flex', color: active ? 'primary.main' : 'text.secondary' }}>
+                      {link.icon}
+                    </Box>
+                    <ListItemText
+                      primary={link.label}
+                      slotProps={{ primary: { sx: { fontWeight: active ? 700 : 500, fontSize: '14.5px' } } }}
+                    />
                   </ListItemButton>
-                </Link>
-              </ListItem>
-            ))}
+                </ListItem>
+              );
+            })}
           </List>
-          <Divider sx={{ my: 2 }} />
-          <Link href="/menu" style={{ textDecoration: 'none' }} onClick={() => setMobileOpen(false)}>
-            <Button variant="contained" color="primary" fullWidth sx={{ mb: 1 }}>🍽️ Order Now</Button>
-          </Link>
-          <Link href="/reservation" style={{ textDecoration: 'none' }} onClick={() => setMobileOpen(false)}>
-            <Button variant="outlined" color="primary" fullWidth sx={{ mb: 1 }}>📅 Reserve Table</Button>
-          </Link>
-          <Box sx={{ mt: 3, p: 2, bgcolor: '#FFF8F2', borderRadius: '12px' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>📞 +91 70326 82089</Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>📍 Madhapur, Hyderabad, TS</Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>🕐 7AM – 11PM Daily</Typography>
+
+          <Divider sx={{ my: 1.5 }} />
+
+          <Button
+            component={Link}
+            href="/menu"
+            onClick={closeDrawer}
+            variant="contained"
+            color="primary"
+            fullWidth
+            sx={{ mb: 1, borderRadius: '12px', fontSize: '14.5px' }}
+          >
+            Order Now
+          </Button>
+
+          {user ? (
+            <Button
+              onClick={() => { closeDrawer(); signOutUser(); }}
+              startIcon={<Logout fontSize="small" />}
+              fullWidth
+              sx={{ color: 'primary.main', fontWeight: 600, borderRadius: '12px' }}
+            >
+              Sign Out
+            </Button>
+          ) : (
+            <Button
+              onClick={() => { closeDrawer(); dispatch(openAuthModal('login')); }}
+              startIcon={<Login fontSize="small" />}
+              fullWidth
+              sx={{ color: 'primary.main', fontWeight: 600, borderRadius: '12px' }}
+            >
+              Log In
+            </Button>
+          )}
+
+          <Box sx={{ mt: 2, p: 1.75, bgcolor: 'background.default', borderRadius: '12px' }}>
+            <Typography
+              component="a"
+              href={PHONE_HREF}
+              sx={{ display: 'block', color: 'primary.main', fontWeight: 700, fontSize: '13px', textDecoration: 'none' }}
+            >
+              📞 {PHONE_DISPLAY}
+            </Typography>
+            <Typography sx={{ display: 'block', color: 'text.secondary', fontSize: '12px', mt: 0.4 }}>
+              📍 Madhapur, Hyderabad
+            </Typography>
+            <Typography sx={{ display: 'block', color: 'text.secondary', fontSize: '12px' }}>
+              🕐 7 AM – 11 PM daily
+            </Typography>
           </Box>
         </Box>
       </Drawer>

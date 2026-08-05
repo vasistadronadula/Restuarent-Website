@@ -1,205 +1,515 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useRef, useState } from 'react';
 import {
-  Container, Box, Paper, Typography, TextField, Button,
-  InputAdornment, IconButton, CircularProgress, Divider, Alert,
+  Box, Typography, TextField, Button, InputAdornment, IconButton,
+  CircularProgress, Divider, Alert, Link as MuiLink,
 } from '@mui/material';
-import { Email, Lock, Visibility, VisibilityOff, ArrowBack } from '@mui/icons-material';
+import { Email, Lock, Visibility, VisibilityOff, MarkEmailRead } from '@mui/icons-material';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
-import PalaPittaLogo from '@/components/customer/PalaPittaLogo';
+import { useSearchParams } from 'next/navigation';
 
-const GoogleIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24">
-    <path
-      fill="#4285F4"
-      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-    />
-    <path
-      fill="#34A853"
-      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-    />
-    <path
-      fill="#FBBC05"
-      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-    />
-    <path
-      fill="#EA4335"
-      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-    />
-  </svg>
-);
+import { useAuth, landAfterLogin } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
+import { getErrorMessage } from '@/lib/errors';
+import { validateEmail, validatePassword, safeRedirect } from '@/lib/validation';
+import AuthShell from '@/components/customer/AuthShell';
+import GoogleIcon from '@/components/customer/GoogleIcon';
 
-export default function LoginPage() {
+/**
+ * Sign-in.
+ *
+ * Three things this screen has to get right, all of which it previously did
+ * not: it must say *why* a submission failed without leaking whether an email
+ * is registered; it must offer a way out when the password is forgotten; and
+ * it must return the customer to whatever they were doing (`?redirect=`)
+ * instead of always dumping them on the home page — a login prompted from the
+ * checkout that lands you back at the top of the site loses the sale.
+ */
+
+type Field = 'email' | 'password';
+
+function LoginForm() {
   const { signInWithEmail, signInWithGoogle } = useAuth();
-  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Validated, because `?redirect=` is attacker-supplied. See safeRedirect.
+  const redirectTo = safeRedirect(searchParams.get('redirect'), '/');
+
+  const [mode, setMode] = useState<'login' | 'forgot'>(
+    searchParams.get('mode') === 'forgot' ? 'forgot' : 'login',
+  );
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
+  const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resetSentTo, setResetSentTo] = useState<string | null>(null);
+
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+
+  /** Errors only appear once a field has been left or the form submitted —
+      flagging "email is required" while someone is still typing it is noise. */
+  const showError = (field: Field) => (touched[field] ? errors[field] : undefined);
+
+  const runValidation = () => {
+    const next: Partial<Record<Field, string>> = {};
+    const emailError = validateEmail(email);
+    if (emailError) next.email = emailError;
+    if (mode === 'login') {
+      const passwordError = validatePassword(password, 'login');
+      if (passwordError) next.password = passwordError;
+    }
+    setErrors(next);
+    return next;
+  };
+
+  const handleBlur = (field: Field) => {
+    setTouched((t) => ({ ...t, [field]: true }));
+    runValidation();
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    setFormError(null);
+
+    const found = runValidation();
+    setTouched({ email: true, password: true });
+    if (found.email) { emailRef.current?.focus(); return; }
+    if (found.password) { passwordRef.current?.focus(); return; }
 
     setLoading(true);
-    const res = await signInWithEmail(email, password);
-    setLoading(false);
+    const res = await signInWithEmail(email.trim(), password);
 
-    if (res.success) {
-      router.push('/');
+    if (!res.success) {
+      setLoading(false);
+      // Deliberately does not distinguish "no such account" from "wrong
+      // password" — that difference is a free account-enumeration oracle.
+      setFormError("That email and password don't match an account. Check them and try again, or reset your password.");
+      passwordRef.current?.focus();
+      return;
+    }
+
+    // Stays in the loading state on purpose: landAfterLogin triggers a full
+    // page load, and re-enabling the button first invites a second submit
+    // during the hand-off.
+    landAfterLogin(res.role ?? 'customer', redirectTo);
+  };
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    setTouched({ email: true });
+
+    const emailError = validateEmail(email);
+    setErrors({ email: emailError ?? undefined });
+    if (emailError) { emailRef.current?.focus(); return; }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      // A failure here is reported the same as a success. "No account with
+      // that email" is exactly the answer an attacker enumerating addresses
+      // wants, and the genuine user's next step is identical either way:
+      // check the inbox.
+      if (error) console.warn('[auth] password reset request failed:', error.message);
+      setResetSentTo(email.trim());
+    } catch (err) {
+      setFormError(getErrorMessage(err) || 'Could not send the reset email. Try again in a moment.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#FFF8F2', py: 6, display: 'flex', alignItems: 'center' }}>
-      <Container maxWidth="xs">
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href="/" style={{ textDecoration: 'none' }}>
-            <Button startIcon={<ArrowBack />} sx={{ color: '#616161', fontWeight: 600 }}>
-              Home
-            </Button>
-          </Link>
-          <PalaPittaLogo size="medium" />
-        </Box>
+  /* ── Reset email sent ─────────────────────────────────────────────────── */
+  if (resetSentTo) {
+    return (
+      <AuthShell
+        title="Check your inbox"
+        subtitle="If an account exists for that address, a password reset link has been dispatched."
+      >
+        <Box sx={{ textAlign: 'center', py: 1 }}>
+          <Box
+            sx={{
+              width: 68,
+              height: 68,
+              borderRadius: '22px',
+              mx: 'auto',
+              mb: 2.5,
+              background: 'linear-gradient(135deg, rgba(46,125,50,0.12) 0%, rgba(76,175,80,0.18) 100%)',
+              color: 'success.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 8px 24px rgba(46,125,50,0.15)',
+            }}
+          >
+            <MarkEmailRead sx={{ fontSize: 36 }} />
+          </Box>
 
-        <Paper sx={{ p: 4, borderRadius: '24px', boxShadow: '0 12px 40px rgba(0,0,0,0.08)' }}>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: '#C62828', mb: 0.5, textAlign: 'center' }}>
-            Welcome Back! 👋
+          <Typography sx={{ fontWeight: 800, fontSize: '15px', color: '#1A0C0C', mb: 1, wordBreak: 'break-all' }}>
+            {resetSentTo}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3, textAlign: 'center' }}>
-            Log in to manage your orders & cart items
+          <Typography sx={{ color: 'text.secondary', fontSize: '13.5px', lineHeight: 1.6, mb: 3 }}>
+            Open the link in that email to choose a new password. It expires in 1 hour. If you don&apos;t see it, check your spam or junk folder.
           </Typography>
-
-          <Alert severity="info" sx={{ mb: 2.5, borderRadius: '12px', fontSize: '13px' }}>
-            💡 Log in to view order history, or continue as guest to start ordering!
-          </Alert>
 
           <Button
             fullWidth
-            variant="outlined"
-            onClick={signInWithGoogle}
-            startIcon={<GoogleIcon />}
+            variant="contained"
+            onClick={() => { setResetSentTo(null); setMode('login'); setPassword(''); }}
             sx={{
-              py: 1.2,
+              py: 1.4,
+              borderRadius: '14px',
+              fontWeight: 800,
+              fontSize: '15px',
+              mb: 1.25,
+              background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
+              boxShadow: '0 6px 20px rgba(198, 40, 40, 0.25)',
+              '&:hover': { background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)' },
+            }}
+          >
+            Back to log in
+          </Button>
+          <Button
+            fullWidth
+            onClick={() => setResetSentTo(null)}
+            sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '13px' }}
+          >
+            Use a different email address
+          </Button>
+        </Box>
+      </AuthShell>
+    );
+  }
+
+  /* ── Forgot password ──────────────────────────────────────────────────── */
+  if (mode === 'forgot') {
+    return (
+      <AuthShell
+        title="Reset password"
+        subtitle="Enter the email associated with your account and we'll send you instructions to reset your password."
+      >
+        <Box component="form" onSubmit={handleForgot} noValidate>
+          {formError && (
+            <Alert
+              severity="error"
+              role="alert"
+              sx={{
+                mb: 2.5,
+                borderRadius: '14px',
+                fontSize: '13px',
+                border: '1px solid rgba(211, 47, 47, 0.2)',
+                bgcolor: 'rgba(211, 47, 47, 0.04)',
+              }}
+            >
+              {formError}
+            </Alert>
+          )}
+
+          <TextField
+            fullWidth
+            inputRef={emailRef}
+            label="Email address"
+            type="email"
+            name="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => handleBlur('email')}
+            error={Boolean(showError('email'))}
+            helperText={showError('email')}
+            autoComplete="email"
+            autoFocus
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Email sx={{ color: 'primary.main', fontSize: 20 }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            disabled={loading}
+            sx={{
+              mt: 3,
+              py: 1.5,
+              borderRadius: '14px',
+              fontWeight: 800,
+              fontSize: '15px',
+              background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
+              boxShadow: '0 6px 20px rgba(198, 40, 40, 0.25)',
+              '&:hover': { background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)' },
+            }}
+          >
+            {loading ? <CircularProgress size={23} color="inherit" /> : 'Send reset link'}
+          </Button>
+
+          <Button
+            fullWidth
+            onClick={() => { setMode('login'); setFormError(null); setErrors({}); setTouched({}); }}
+            sx={{ mt: 1.5, fontWeight: 700, color: 'text.secondary', fontSize: '13.5px' }}
+          >
+            Back to log in
+          </Button>
+        </Box>
+      </AuthShell>
+    );
+  }
+
+  /* ── Log in ───────────────────────────────────────────────────────────── */
+  return (
+    <AuthShell
+      title="Welcome back"
+      subtitle="Sign in to view active orders, track food delivery, and manage table bookings."
+      footer={
+        <Typography sx={{ fontSize: '13.5px', color: 'text.secondary' }}>
+          New to Pala Pitta Ruchulu?{' '}
+          <MuiLink
+            component={Link}
+            href={redirectTo === '/' ? '/signup' : `/signup?redirect=${encodeURIComponent(redirectTo)}`}
+            sx={{
+              color: 'primary.main',
+              fontWeight: 800,
+              textDecoration: 'none',
+              '&:hover': { textDecoration: 'underline' },
+            }}
+          >
+            Create an account
+          </MuiLink>
+        </Typography>
+      }
+    >
+      {/* Pill Segmented Tab Switcher */}
+      <Box
+        sx={{
+          display: 'flex',
+          bgcolor: 'rgba(245, 235, 225, 0.75)',
+          p: 0.5,
+          borderRadius: '16px',
+          mb: 3,
+          border: '1px solid rgba(255, 204, 188, 0.5)',
+        }}
+      >
+        <Button
+          fullWidth
+          disableRipple
+          sx={{
+            borderRadius: '12px',
+            py: 0.8,
+            fontWeight: 800,
+            fontSize: '13.5px',
+            bgcolor: '#FFFFFF',
+            color: 'primary.main',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            cursor: 'default',
+          }}
+        >
+          Log In
+        </Button>
+        <Button
+          fullWidth
+          component={Link}
+          href={redirectTo === '/' ? '/signup' : `/signup?redirect=${encodeURIComponent(redirectTo)}`}
+          sx={{
+            borderRadius: '12px',
+            py: 0.8,
+            fontWeight: 700,
+            fontSize: '13.5px',
+            color: 'text.secondary',
+            '&:hover': { color: 'primary.main', bgcolor: 'rgba(255,255,255,0.4)' },
+          }}
+        >
+          Sign Up
+        </Button>
+      </Box>
+
+      <Button
+        fullWidth
+        variant="outlined"
+        onClick={signInWithGoogle}
+        startIcon={<GoogleIcon />}
+        sx={{
+          py: 1.3,
+          mb: 2.5,
+          borderRadius: '14px',
+          borderColor: '#E2E8F0',
+          bgcolor: 'rgba(255, 255, 255, 0.9)',
+          color: '#2D3748',
+          fontWeight: 700,
+          fontSize: '14px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            borderColor: '#CBD5E0',
+            bgcolor: '#FFFFFF',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.06)',
+            transform: 'translateY(-1px)',
+          },
+        }}
+      >
+        Continue with Google
+      </Button>
+
+      <Divider
+        sx={{
+          mb: 2.5,
+          fontSize: '11px',
+          fontWeight: 800,
+          color: 'text.secondary',
+          letterSpacing: 1,
+          '&::before, &::after': { borderColor: '#F0E4D8' },
+        }}
+      >
+        OR LOGIN WITH EMAIL
+      </Divider>
+
+      <Box component="form" onSubmit={handleLogin} noValidate>
+        {formError && (
+          <Alert
+            severity="error"
+            role="alert"
+            sx={{
               mb: 2.5,
-              borderRadius: '12px',
-              borderColor: '#E0E0E0',
-              color: '#333333',
-              fontWeight: 600,
-              fontSize: '14px',
-              textTransform: 'none',
+              borderRadius: '14px',
+              fontSize: '13px',
+              border: '1px solid rgba(211, 47, 47, 0.2)',
+              bgcolor: 'rgba(211, 47, 47, 0.04)',
+            }}
+          >
+            {formError}
+          </Alert>
+        )}
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.25 }}>
+          <TextField
+            fullWidth
+            inputRef={emailRef}
+            label="Email address"
+            type="email"
+            name="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => handleBlur('email')}
+            error={Boolean(showError('email'))}
+            helperText={showError('email')}
+            autoComplete="email"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Email sx={{ color: 'primary.main', fontSize: 20 }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+
+          <Box>
+            <TextField
+              fullWidth
+              inputRef={passwordRef}
+              label="Password"
+              type={showPassword ? 'text' : 'password'}
+              name="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onBlur={() => handleBlur('password')}
+              error={Boolean(showError('password'))}
+              helperText={showError('password')}
+              autoComplete="current-password"
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Lock sx={{ color: 'primary.main', fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={() => setShowPassword((s) => !s)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        edge="end"
+                        sx={{ color: 'text.secondary' }}
+                      >
+                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 0.75 }}>
+              <Button
+                onClick={() => { setMode('forgot'); setFormError(null); setErrors({}); setTouched({}); }}
+                sx={{
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  color: 'primary.main',
+                  p: 0.5,
+                  minWidth: 0,
+                  '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
+                }}
+              >
+                Forgot password?
+              </Button>
+            </Box>
+          </Box>
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            disabled={loading}
+            sx={{
+              py: 1.5,
+              borderRadius: '14px',
+              fontWeight: 800,
+              fontSize: '15px',
+              background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
+              boxShadow: '0 6px 20px rgba(198, 40, 40, 0.25)',
+              transition: 'all 0.2s ease',
               '&:hover': {
-                borderColor: '#BDBDBD',
-                bgcolor: '#F5F5F5',
+                background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)',
+                boxShadow: '0 8px 24px rgba(198, 40, 40, 0.35)',
+                transform: 'translateY(-1px)',
               },
             }}
           >
-            Continue with Google
+            {loading ? <CircularProgress size={23} color="inherit" /> : 'Log in'}
           </Button>
-
-          <Divider sx={{ mb: 2.5, fontSize: '12px', color: 'text.secondary' }}>OR EMAIL</Divider>
-
-          <form onSubmit={handleLogin}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-              <TextField
-                fullWidth
-                label="Email Address *"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Email sx={{ color: '#C62828' }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-
-              <TextField
-                fullWidth
-                label="Password *"
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Lock sx={{ color: '#C62828' }} />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => setShowPassword(!showPassword)}>
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={loading}
-                sx={{
-                  py: 1.5,
-                  borderRadius: '12px',
-                  fontWeight: 700,
-                  fontSize: '16px',
-                  background: 'linear-gradient(135deg, #C62828, #FF9800)',
-                }}
-              >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Log In'}
-              </Button>
-            </Box>
-          </form>
-
-          <Link href="/menu" style={{ textDecoration: 'none' }}>
-            <Button
-              fullWidth
-              variant="outlined"
-              color="secondary"
-              sx={{
-                mt: 2,
-                py: 1.3,
-                borderRadius: '12px',
-                fontWeight: 700,
-                fontSize: '14px',
-                borderColor: '#FF9800',
-                color: '#D84315',
-                '&:hover': {
-                  borderColor: '#E65100',
-                  bgcolor: 'rgba(255,152,0,0.08)',
-                },
-              }}
-            >
-              👤 Continue as Guest
-            </Button>
-          </Link>
-
-          <Divider sx={{ my: 3 }} />
-
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              Don&apos;t have an account?{' '}
-              <Link href="/signup" style={{ color: '#C62828', fontWeight: 700, textDecoration: 'none' }}>
-                Sign Up
-              </Link>
-            </Typography>
-          </Box>
-        </Paper>
-      </Container>
-    </Box>
+        </Box>
+      </Box>
+    </AuthShell>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box sx={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#FFFFFF' }}>
+          <CircularProgress color="primary" />
+        </Box>
+      }
+    >
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+

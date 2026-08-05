@@ -508,6 +508,7 @@ export default function CartPage() {
                       fontSize: '16px',
                       background: 'linear-gradient(135deg, #C62828, #EF5350)',
                       boxShadow: '0 8px 24px rgba(198,40,40,0.4)',
+                      display: { xs: 'none', md: 'inline-flex' },
                       '&:hover': {
                         background: 'linear-gradient(135deg, #B71C1C, #C62828)',
                         transform: 'translateY(-2px)',
@@ -522,13 +523,51 @@ export default function CartPage() {
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mt: 2, color: 'text.secondary' }}>
                   <Timer sx={{ fontSize: 16, color: '#FF9800' }} />
                   <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                    ⚡ Average Delivery Time: 30–45 Mins
+                    ⚡ Average Preparation Time: 25–30 Mins
                   </Typography>
                 </Box>
               </Paper>
             </Grid>
           </Grid>
         </Container>
+
+        {/* Sticky Mobile Checkout Bar */}
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 0, left: 0, right: 0,
+            bgcolor: 'white',
+            borderTop: '1px solid rgba(0,0,0,0.1)',
+            p: 1.75, px: 2.5,
+            zIndex: 1200,
+            display: { xs: 'flex', md: 'none' },
+            alignItems: 'center', justifyContent: 'space-between',
+            boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
+            pb: 'calc(14px + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1, fontWeight: 700 }}>
+              GRAND TOTAL
+            </Typography>
+            <Typography variant="h6" color="primary" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
+              ₹{grandTotal.toLocaleString()}
+            </Typography>
+          </Box>
+
+          <Link href="/checkout" style={{ textDecoration: 'none' }}>
+            <Button
+              variant="contained" color="primary" size="medium"
+              endIcon={<ArrowForward fontSize="small" />}
+              sx={{
+                borderRadius: '12px', px: 3, py: 1.1, fontWeight: 800, fontSize: '14px',
+                background: 'linear-gradient(135deg, #C62828, #EF5350)',
+              }}
+            >
+              Checkout
+            </Button>
+          </Link>
+        </Box>
       </Box>
 
       <Footer />

@@ -1,13 +1,17 @@
 'use client';
+
 import React, { useMemo, useState } from 'react';
 import {
   Box, Typography, Grid, Avatar, IconButton, Tooltip, Button, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   FormControl, InputLabel, Select, MenuItem as MuiMenuItem, Switch,
-  CircularProgress, InputAdornment, useMediaQuery, useTheme,
+  CircularProgress, InputAdornment, useMediaQuery, useTheme, Paper, Divider,
+  Table, TableBody, TableCell, TableHead, TableRow, ToggleButtonGroup, ToggleButton,
 } from '@mui/material';
 import {
   Edit, Add, Close, Delete, Visibility, VisibilityOff, ContentCopy, Check, VpnKey,
+  Search, FormatListBulleted, GridView, Refresh, Security, Work,
+  PersonAdd, Badge, Lock, Shield, Key,
 } from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
@@ -19,7 +23,7 @@ import {
   ROLE_LABELS, ROLE_ACCESS_SUMMARY, ROLE_ICONS, STAFF_ROLES,
   assignableRoles, canManageStaffRole,
 } from '@/lib/roleAccess';
-import { PageHeader, SectionCard, EmptyState, adminColors, roleColors } from '@/components/admin/ui';
+import { PageHeader, StatCard, SectionCard, EmptyState, adminColors, roleColors } from '@/components/admin/ui';
 import toast from 'react-hot-toast';
 
 const SHIFTS = ['morning', 'evening', 'night'];
@@ -27,70 +31,69 @@ const SHIFTS = ['morning', 'evening', 'night'];
 const initialsOf = (name: string) =>
   name.split(' ').filter(Boolean).map((n) => n[0]).join('').toUpperCase().slice(0, 2) || '?';
 
-function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-  return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-}
+// ─── Minimal Role Picker ──────────────────────────────────────────────────────
 
-// ─── Role picker — the core UX idea of this page ────────────────────────────
-// Assigning a role IS assigning permissions, so the picker shows what each
-// role unlocks instead of hiding it behind a plain dropdown label.
 function RolePicker({
   value, onChange, roles,
 }: {
   value: StaffRole; onChange: (r: StaffRole) => void; roles: readonly StaffRole[];
 }) {
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+    <Grid container spacing={1.5}>
       {roles.map((role) => {
         const selected = value === role;
         const c = roleColors[role];
         return (
-          <Box
-            key={role}
-            component="button"
-            type="button"
-            onClick={() => onChange(role)}
-            sx={{
-              display: 'flex', alignItems: 'center', gap: 1.5, width: '100%',
-              p: 1.5, borderRadius: adminColors.radiusMd, cursor: 'pointer',
-              textAlign: 'left', fontFamily: 'inherit',
-              bgcolor: selected ? c.bg : adminColors.bgPanel,
-              border: `1.5px solid ${selected ? c.color : adminColors.border}`,
-              transition: 'all 0.12s ease',
-              '&:hover': { borderColor: c.color },
-            }}
-          >
-            <Box sx={{
-              width: 34, height: 34, borderRadius: adminColors.radiusSm, flexShrink: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
-              bgcolor: selected ? '#FFFFFF' : c.bg,
-            }}>
-              {ROLE_ICONS[role]}
+          <Grid key={role} size={{ xs: 12, sm: 6 }}>
+            <Box
+              component="button"
+              type="button"
+              onClick={() => onChange(role)}
+              sx={{
+                display: 'flex', alignItems: 'flex-start', gap: 1.2, width: '100%',
+                p: 1.75, borderRadius: '14px', cursor: 'pointer',
+                textAlign: 'left', fontFamily: 'inherit',
+                bgcolor: selected ? c.bg : '#FFFFFF',
+                border: `2px solid ${selected ? c.color : 'rgba(0,0,0,0.08)'}`,
+                boxShadow: selected ? '0 4px 14px rgba(0,0,0,0.05)' : 'none',
+                transition: 'all 0.15s ease',
+                '&:hover': { borderColor: c.color },
+              }}
+            >
+              <Box sx={{
+                width: 32, height: 32, borderRadius: '10px', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16,
+                bgcolor: selected ? '#FFFFFF' : c.bg, color: c.color, fontWeight: 900,
+              }}>
+                {ROLE_ICONS[role]}
+              </Box>
+              <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: selected ? c.color : 'text.primary' }}>
+                    {ROLE_LABELS[role]}
+                  </Typography>
+                  {selected && <Check sx={{ fontSize: 16, color: c.color }} />}
+                </Box>
+                <Typography sx={{ fontSize: 11, color: 'text.secondary', mt: 0.3, lineHeight: 1.3 }}>
+                  {ROLE_ACCESS_SUMMARY[role]}
+                </Typography>
+              </Box>
             </Box>
-            <Box sx={{ minWidth: 0, flex: 1 }}>
-              <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: selected ? c.color : adminColors.textPrimary }}>
-                {ROLE_LABELS[role]}
-              </Typography>
-              <Typography sx={{ fontSize: 11.5, color: adminColors.textMuted }}>
-                {ROLE_ACCESS_SUMMARY[role]}
-              </Typography>
-            </Box>
-            {selected && <Check sx={{ fontSize: 18, color: c.color, flexShrink: 0 }} />}
-          </Box>
+          </Grid>
         );
       })}
-    </Box>
+    </Grid>
   );
 }
 
-// ─── Add / Edit dialog (one component, two modes) ───────────────────────────
+// ─── Minimal Create / Edit Staff Dialog ───────────────────────────────────────
+
 function EmployeeDialog({
   open, editing, roles, onClose, onCreated,
 }: {
   open: boolean; editing: Employee | null; roles: readonly StaffRole[];
   onClose: () => void;
-  onCreated: (email: string, password: string) => void;
+  onCreated: (email: string, password: string, isReset?: boolean) => void;
 }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -112,9 +115,9 @@ function EmployeeDialog({
 
   const handleSave = async () => {
     const e: Record<string, string> = {};
-    if (!form.name.trim()) e.name = 'Name is required';
+    if (!form.name.trim()) e.name = 'Full name is required';
     if (!isEdit) {
-      if (!form.email.trim() || !form.email.includes('@')) e.email = 'Valid email is required';
+      if (!form.email.trim() || !form.email.includes('@')) e.email = 'Valid login email required';
       if (!form.password || form.password.length < 6) e.password = 'Min 6 characters required';
     } else if (form.password && form.password.length < 6) {
       e.password = 'New password must be at least 6 characters';
@@ -138,14 +141,16 @@ function EmployeeDialog({
 
       const result = await updateEmployee(payload);
       if ('error' in result && result.error) {
-        toast.error((result.error as { error?: string }).error || 'Failed to update');
+        toast.error((result.error as { error?: string }).error || 'Failed to update member');
         return;
       }
-      toast.success(
-        form.password.trim()
-          ? `${form.name.trim()} & password updated successfully!`
-          : `${form.name.trim()} updated successfully`
-      );
+
+      if (form.password.trim()) {
+        toast.success(`Password reset for ${form.name.trim()}!`);
+        onCreated(editing.email, form.password.trim(), true);
+      } else {
+        toast.success(`${form.name.trim()} details updated`);
+      }
       onClose();
       return;
     }
@@ -161,10 +166,10 @@ function EmployeeDialog({
       password: form.password,
     });
     if ('error' in result && result.error) {
-      toast.error((result.error as { error?: string }).error || 'Failed to add employee');
+      toast.error((result.error as { error?: string }).error || 'Failed to add staff member');
       return;
     }
-    onCreated(form.email.trim().toLowerCase(), form.password);
+    onCreated(form.email.trim().toLowerCase(), form.password, false);
     onClose();
   };
 
@@ -172,173 +177,148 @@ function EmployeeDialog({
 
   return (
     <Dialog
-      open={open} onClose={onClose} maxWidth="sm" fullWidth fullScreen={isMobile}
-      slotProps={{ paper: { sx: { borderRadius: isMobile ? 0 : adminColors.radiusXl } } }}
+      open={open} onClose={onClose} maxWidth="md" fullWidth fullScreen={isMobile}
+      slotProps={{ paper: { sx: { borderRadius: isMobile ? 0 : '24px', p: { xs: 1, sm: 2 } } } }}
     >
-      <DialogTitle sx={{ fontWeight: 800, fontSize: 17, display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5 }}>
-        {isEdit ? `Edit ${editing?.name}` : 'Add team member'}
-        <IconButton size="small" onClick={onClose} aria-label="Close"><Close fontSize="small" /></IconButton>
+      <DialogTitle sx={{ fontWeight: 900, fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: adminColors.accentRed }}>
+        {isEdit ? `✏️ Manage Staff Member: ${editing?.name}` : '➕ Create New Staff Account'}
+        <IconButton size="small" onClick={onClose}><Close fontSize="small" /></IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ pt: '8px !important' }}>
-        <Grid container spacing={2}>
-          <Grid size={{ xs: 12, sm: 7 }}>
-            <TextField
-              fullWidth size="small" label="Full name *" value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              error={!!errors.name} helperText={errors.name}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 5 }}>
-            <TextField
-              fullWidth size="small" label="Phone" value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
-              slotProps={{ htmlInput: { maxLength: 10 } }}
-            />
-          </Grid>
+      <DialogContent sx={{ pt: '12px !important' }}>
+        <Paper elevation={0} sx={{ p: 2.5, borderRadius: '18px', border: '1px solid rgba(0,0,0,0.08)', bgcolor: '#FAF9F8', mb: 3 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 900, color: 'text.primary', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            👤 1. Basic Profile & Contact Details
+          </Typography>
 
-          <Grid size={{ xs: 12 }}>
-            <TextField
-              fullWidth size="small" label="Login email *" type="email" value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              disabled={isEdit}
-              error={!!errors.email}
-              helperText={errors.email || (isEdit ? 'Login email cannot be changed.' : 'They sign in with this.')}
-            />
-          </Grid>
-
-          {/* Password field: visible for BOTH Add and Edit */}
-          <Grid size={{ xs: 12 }}>
-            <Box sx={{ p: 1.5, borderRadius: '12px', bgcolor: isEdit ? '#FFFBEB' : '#FAFAF9', border: `1px solid ${isEdit ? '#FCD34D' : '#E7E5E4'}` }}>
-              <Typography variant="caption" sx={{ fontWeight: 800, color: isEdit ? '#B45309' : '#1C1917', display: 'block', mb: 0.75 }}>
-                {isEdit ? '🔑 RESET / SET NEW PASSWORD (OPTIONAL)' : '🔑 LOGIN PASSWORD *'}
-              </Typography>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
-                fullWidth size="small"
-                label={isEdit ? 'New Password' : 'Initial Password *'}
-                type={showPassword ? 'text' : 'password'}
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                error={!!errors.password}
-                helperText={
-                  errors.password ||
-                  (isEdit
-                    ? 'Leave blank to keep existing password, or type a new password.'
-                    : 'Share this password with them directly — no email is sent.')
-                }
-                placeholder={isEdit ? 'Enter new password (min 6 chars)' : 'Min 6 characters'}
-                slotProps={{
-                  input: {
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => setShowPassword((v) => !v)}>
-                          {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
+                fullWidth size="small" label="Full Name *" value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                error={!!errors.name} helperText={errors.name}
+                placeholder="e.g. Rahul Sharma"
+                sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'white', borderRadius: '10px' } }}
               />
-            </Box>
-          </Grid>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth size="small" label="Mobile Phone" value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                placeholder="10-digit phone number"
+                slotProps={{ htmlInput: { maxLength: 10 } }}
+                sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'white', borderRadius: '10px' } }}
+              />
+            </Grid>
 
-          <Grid size={{ xs: 12 }}>
-            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: adminColors.textSecondary, mb: 1 }}>
-              Role & access *
-            </Typography>
-            <RolePicker roles={roles} value={form.role} onChange={(role) => setForm({ ...form, role })} />
-          </Grid>
+            <Grid size={{ xs: 12, sm: 6 }}>
+              <TextField
+                fullWidth size="small" label="Login Email Address *" type="email" value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                disabled={isEdit}
+                error={!!errors.email}
+                helperText={errors.email || (isEdit ? 'Login email is fixed.' : 'Employee uses this email to log in.')}
+                sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'white', borderRadius: '10px' } }}
+              />
+            </Grid>
 
-          <Grid size={{ xs: 6 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Shift</InputLabel>
-              <Select value={form.shift} label="Shift" onChange={(e) => setForm({ ...form, shift: e.target.value })}>
-                {SHIFTS.map((s) => (
-                  <MuiMenuItem key={s} value={s} sx={{ textTransform: 'capitalize' }}>{s}</MuiMenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Work Shift</InputLabel>
+                <Select
+                  value={form.shift} label="Work Shift"
+                  onChange={(e) => setForm({ ...form, shift: e.target.value })}
+                  sx={{ bgcolor: 'white', borderRadius: '10px' }}
+                >
+                  {SHIFTS.map((s) => (
+                    <MuiMenuItem key={s} value={s} sx={{ textTransform: 'capitalize', fontWeight: 700 }}>
+                      {s === 'morning' ? '🌅 Morning' : s === 'evening' ? '🌆 Evening' : '🌙 Night'}
+                    </MuiMenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid size={{ xs: 6, sm: 3 }}>
+              <TextField
+                fullWidth size="small" label="Monthly Salary (₹)" type="number" value={form.salary}
+                onChange={(e) => {
+                  const val = Math.max(0, Number(e.target.value) || 0);
+                  setForm({ ...form, salary: String(val) });
+                }}
+                slotProps={{ htmlInput: { min: 0 } }}
+                sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'white', borderRadius: '10px' } }}
+              />
+            </Grid>
           </Grid>
-          <Grid size={{ xs: 6 }}>
-            <TextField
-              fullWidth size="small" label="Salary (₹/month)" type="number" value={form.salary}
-              onChange={(e) => {
-                const val = Math.max(0, Number(e.target.value) || 0);
-                setForm({ ...form, salary: String(val) });
-              }}
-              slotProps={{ htmlInput: { min: 0 } }}
-            />
-          </Grid>
-        </Grid>
+        </Paper>
+
+        {/* Section 2: Role & System Access */}
+        <Paper elevation={0} sx={{ p: 2.5, borderRadius: '18px', border: '1px solid rgba(0,0,0,0.08)', bgcolor: '#FAF9F8', mb: 3 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 900, color: 'text.primary', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            🛡️ 2. System Role & Access Level
+          </Typography>
+          <RolePicker roles={roles} value={form.role} onChange={(role) => setForm({ ...form, role })} />
+        </Paper>
+
+        {/* Section 3: Password & Security */}
+        <Paper elevation={0} sx={{ p: 2.5, borderRadius: '18px', border: `1px solid ${isEdit ? '#FFB74D' : 'rgba(0,0,0,0.08)'}`, bgcolor: isEdit ? '#FFF8F2' : '#FAF9F8' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 900, color: isEdit ? '#E65100' : 'text.primary', mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+            🔑 3. Account Password & Security {isEdit ? '(Reset Password)' : ''}
+          </Typography>
+
+          <TextField
+            fullWidth size="small"
+            label={isEdit ? 'Set New Password' : 'Initial Login Password *'}
+            type={showPassword ? 'text' : 'password'}
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            error={!!errors.password}
+            helperText={
+              errors.password ||
+              (isEdit
+                ? 'Type a new password to reset account login password. Leave blank to keep existing password.'
+                : 'Share this password with employee directly.')
+            }
+            placeholder={isEdit ? 'Type new password to reset...' : 'Min 6 characters'}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setShowPassword((v) => !v)}>
+                      {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'white', borderRadius: '10px' } }}
+          />
+        </Paper>
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: isMobile ? 'max(20px, env(safe-area-inset-bottom, 0px))' : 2.5, pt: 1.5, gap: 1 }}>
-        <Button onClick={onClose} sx={{ color: adminColors.textSecondary, textTransform: 'none', fontWeight: 600 }}>
+      <DialogActions sx={{ px: 3, pb: isMobile ? 'max(20px, env(safe-area-inset-bottom, 0px))' : 3, pt: 1, gap: 1.5 }}>
+        <Button onClick={onClose} sx={{ color: 'text.secondary', fontWeight: 700 }}>
           Cancel
         </Button>
         <Button
           variant="contained" onClick={handleSave} disabled={busy}
           sx={{
-            bgcolor: adminColors.brand, '&:hover': { bgcolor: adminColors.brandDark },
-            borderRadius: adminColors.radiusMd, fontWeight: 700, textTransform: 'none', px: 2.5, boxShadow: 'none',
+            bgcolor: adminColors.accentRed, '&:hover': { bgcolor: adminColors.accentRedDark },
+            borderRadius: '12px', fontWeight: 900, px: 3.5, py: 1.1, fontSize: '14.5px',
           }}
         >
-          {busy ? <CircularProgress size={20} color="inherit" /> : isEdit ? 'Save changes' : 'Create account'}
+          {busy ? <CircularProgress size={20} color="inherit" /> : isEdit ? 'Save Changes' : 'Create Staff Account'}
         </Button>
       </DialogActions>
     </Dialog>
   );
 }
 
-// ─── Credentials reveal ─────────────────────────────────────────────────────
-// ─── Credentials reveal ─────────────────────────────────────────────────────
-function CredentialsDialog({ creds, onClose }: { creds: { email: string; password: string; isReset?: boolean } | null; onClose: () => void }) {
-  if (!creds) return null;
-  const copy = () => {
-    navigator.clipboard?.writeText(`Email: ${creds.email}\nPassword: ${creds.password}`);
-    toast.success('Credentials copied to clipboard');
-  };
-  return (
-    <Dialog open={!!creds} onClose={onClose} maxWidth="xs" fullWidth
-      slotProps={{ paper: { sx: { borderRadius: adminColors.radiusXl } } }}>
-      <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>
-        {creds.isReset ? '🔑 Password Reset Successful' : '✅ Account Created'}
-      </DialogTitle>
-      <DialogContent>
-        <Typography sx={{ fontSize: 13, color: adminColors.textSecondary, mb: 2 }}>
-          {creds.isReset
-            ? 'Share this new password with the employee so they can sign in.'
-            : 'Share these details with them directly — the password won\'t be shown again.'}
-        </Typography>
-        <Box sx={{ p: 2, borderRadius: adminColors.radiusMd, bgcolor: adminColors.bgSubtle, border: `1px solid ${adminColors.border}` }}>
-          <Typography sx={{ fontSize: 10.5, color: adminColors.textMuted, fontWeight: 800, letterSpacing: '0.5px' }}>EMAIL</Typography>
-          <Typography sx={{ fontWeight: 700, mb: 1.5, wordBreak: 'break-all', fontSize: 14 }}>{creds.email}</Typography>
-          <Typography sx={{ fontSize: 10.5, color: adminColors.textMuted, fontWeight: 800, letterSpacing: '0.5px' }}>
-            {creds.isReset ? 'NEW PASSWORD' : 'PASSWORD'}
-          </Typography>
-          <Typography sx={{ fontWeight: 700, fontFamily: 'ui-monospace, monospace', fontSize: 17, color: adminColors.brand }}>
-            {creds.password}
-          </Typography>
-        </Box>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-        <Button startIcon={<ContentCopy />} onClick={copy} sx={{ color: adminColors.brand, textTransform: 'none', fontWeight: 700 }}>
-          Copy Credentials
-        </Button>
-        <Button variant="contained" onClick={onClose}
-          sx={{ bgcolor: adminColors.brand, '&:hover': { bgcolor: adminColors.brandDark }, borderRadius: adminColors.radiusMd, fontWeight: 700, textTransform: 'none', boxShadow: 'none' }}>
-          Done
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
+// ─── Standalone Reset Password Dialog ────────────────────────────────────────
 
-// ─── Reset Password Modal ───────────────────────────────────────────────────
 function ResetPasswordDialog({
-  emp,
-  onClose,
-  onSuccess,
+  emp, onClose, onSuccess,
 }: {
   emp: Employee | null;
   onClose: () => void;
@@ -382,23 +362,23 @@ function ResetPasswordDialog({
   };
 
   return (
-    <Dialog open={!!emp} onClose={onClose} maxWidth="xs" fullWidth
-      slotProps={{ paper: { sx: { borderRadius: adminColors.radiusXl } } }}>
-      <DialogTitle sx={{ fontWeight: 800, fontSize: 17, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        🔑 Reset Password
-        <IconButton size="small" onClick={onClose} aria-label="Close"><Close fontSize="small" /></IconButton>
+    <Dialog open={!!emp} onClose={onClose} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: '24px', p: 1 } } }}>
+      <DialogTitle sx={{ fontWeight: 900, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: adminColors.accentRed }}>
+        🔑 Reset Staff Password
+        <IconButton size="small" onClick={onClose}><Close fontSize="small" /></IconButton>
       </DialogTitle>
-      <DialogContent>
-        <Typography sx={{ fontSize: 13, color: adminColors.textSecondary, mb: 2 }}>
+      <DialogContent sx={{ pt: 1 }}>
+        <Typography sx={{ fontSize: 13, color: 'text.secondary', mb: 2 }}>
           Set a new login password for <strong>{emp.name}</strong> ({emp.email}):
         </Typography>
+
         <TextField
           fullWidth size="small"
           label="New Password *"
           type={showPassword ? 'text' : 'password'}
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
-          placeholder="Enter new password (min 6 characters)"
+          placeholder="Min 6 characters"
           slotProps={{
             input: {
               endAdornment: (
@@ -410,20 +390,14 @@ function ResetPasswordDialog({
               ),
             },
           }}
+          sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
         />
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-        <Button onClick={onClose} sx={{ color: adminColors.textSecondary, textTransform: 'none', fontWeight: 600 }}>
-          Cancel
-        </Button>
+        <Button onClick={onClose} sx={{ color: 'text.secondary', fontWeight: 700 }}>Cancel</Button>
         <Button
-          variant="contained"
-          onClick={handleReset}
-          disabled={updating || !newPassword}
-          sx={{
-            bgcolor: adminColors.brand, '&:hover': { bgcolor: adminColors.brandDark },
-            borderRadius: adminColors.radiusMd, fontWeight: 700, textTransform: 'none', px: 2.5, boxShadow: 'none',
-          }}
+          variant="contained" onClick={handleReset} disabled={updating || !newPassword}
+          sx={{ bgcolor: adminColors.accentRed, borderRadius: '10px', fontWeight: 800 }}
         >
           {updating ? <CircularProgress size={20} color="inherit" /> : 'Set New Password'}
         </Button>
@@ -432,150 +406,75 @@ function ResetPasswordDialog({
   );
 }
 
-// ─── Employee card ──────────────────────────────────────────────────────────
-function EmployeeCard({
-  emp, isSelf, lockedReason, onEdit, onResetPassword, onToggle, onDelete,
-}: {
-  emp: Employee; isSelf: boolean;
-  /**
-   * Why this card's actions are locked, or null when they're available.
-   * Passed in rather than derived here: only the page knows whether the
-   * caller is still loading, lacks the role outright, or is a manager
-   * looking at an admin account — and each needs a different explanation.
-   */
-  lockedReason: string | null;
-  onEdit: () => void; onResetPassword: () => void; onToggle: () => void; onDelete: () => void;
-}) {
-  const c = roleColors[emp.role] || roleColors.waiter;
-  const manageable = !lockedReason;
+// ─── Credentials Reveal Dialog ────────────────────────────────────────────────
+
+function CredentialsDialog({ creds, onClose }: { creds: { email: string; password: string; isReset?: boolean } | null; onClose: () => void }) {
+  if (!creds) return null;
+  const copy = () => {
+    navigator.clipboard?.writeText(`Email: ${creds.email}\nPassword: ${creds.password}`);
+    toast.success('Login credentials copied to clipboard! 📋');
+  };
   return (
-    <SectionCard sx={{ height: '100%', opacity: emp.isActive ? 1 : 0.65 }}>
-      <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start' }}>
-        <Avatar sx={{ width: 36, height: 36, bgcolor: c.bg, color: c.color, fontWeight: 800, fontSize: 13, flexShrink: 0 }}>
-          {initialsOf(emp.name)}
-        </Avatar>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-            <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: adminColors.textPrimary }} noWrap>
-              {emp.name}
-            </Typography>
-            {isSelf && (
-              <Chip label="You" size="small" sx={{ height: 17, fontSize: 9.5, fontWeight: 800, bgcolor: adminColors.bgSubtle, color: adminColors.textMuted }} />
-            )}
-          </Box>
-          <Typography sx={{ fontSize: 12, color: adminColors.textMuted, wordBreak: 'break-all' }}>
-            {emp.email}
-          </Typography>
-        </Box>
-        <Tooltip title={lockedReason || (isSelf ? "You can't disable your own account" : emp.isActive ? 'Active — can sign in' : 'Disabled — cannot sign in')}>
-          <span>
-            <Switch size="small" checked={emp.isActive} onChange={onToggle} disabled={isSelf || !manageable} color="success" />
-          </span>
-        </Tooltip>
-      </Box>
-
-      <Box sx={{
-        mt: 1.25, p: 1, borderRadius: adminColors.radiusSm,
-        bgcolor: c.bg, border: `1px solid ${c.color}22`,
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box component="span" sx={{ fontSize: 12 }}>{ROLE_ICONS[emp.role]}</Box>
-          <Typography sx={{ fontSize: 11, fontWeight: 800, color: c.color, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-            {ROLE_LABELS[emp.role]}
-          </Typography>
-        </Box>
-        <Typography sx={{ fontSize: 11.5, color: adminColors.textSecondary, mt: 0.3 }}>
-          {ROLE_ACCESS_SUMMARY[emp.role]}
+    <Dialog open={!!creds} onClose={onClose} maxWidth="xs" fullWidth slotProps={{ paper: { sx: { borderRadius: '24px', p: 1 } } }}>
+      <DialogTitle sx={{ fontWeight: 900, fontSize: 18, color: adminColors.accentRed }}>
+        {creds.isReset ? '🔑 Password Reset Complete' : '✅ Account Created Successfully'}
+      </DialogTitle>
+      <DialogContent>
+        <Typography sx={{ fontSize: 13, color: 'text.secondary', mb: 2 }}>
+          {creds.isReset
+            ? 'Share this new password with the team member so they can sign in.'
+            : 'Share these credentials with your team member directly.'}
         </Typography>
-      </Box>
-
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1.25, gap: 1 }}>
-        <Box sx={{ display: 'flex', gap: 1.5, minWidth: 0 }}>
-          <Typography sx={{ fontSize: 11.5, color: adminColors.textMuted, textTransform: 'capitalize' }}>
-            {emp.shift} shift
+        <Box sx={{ p: 2.5, borderRadius: '16px', bgcolor: '#FFF8F2', border: '1px solid #FFCCBC' }}>
+          <Typography sx={{ fontSize: 11, color: 'text.secondary', fontWeight: 900, letterSpacing: '0.5px' }}>LOGIN EMAIL</Typography>
+          <Typography sx={{ fontWeight: 800, mb: 1.5, wordBreak: 'break-all', fontSize: 14 }}>{creds.email}</Typography>
+          <Typography sx={{ fontSize: 11, color: 'text.secondary', fontWeight: 900, letterSpacing: '0.5px' }}>
+            {creds.isReset ? 'NEW PASSWORD' : 'TEMPORARY PASSWORD'}
           </Typography>
-          {emp.salary > 0 && (
-            <Typography sx={{ fontSize: 11.5, color: adminColors.textMuted }}>
-              ₹{emp.salary.toLocaleString('en-IN')}/mo
-            </Typography>
-          )}
+          <Typography sx={{ fontWeight: 900, fontFamily: 'monospace', fontSize: 18, color: adminColors.accentRed }}>
+            {creds.password}
+          </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 0.75, flexShrink: 0, alignItems: 'center' }}>
-          <Button
-            size="small"
-            startIcon={<VpnKey sx={{ fontSize: 13 }} />}
-            onClick={onResetPassword}
-            disabled={!manageable}
-            sx={{
-              borderRadius: '8px',
-              fontSize: '11px',
-              fontWeight: 800,
-              textTransform: 'none',
-              bgcolor: '#FEF3C7',
-              color: '#B45309',
-              px: 1.25, py: 0.4,
-              minWidth: 0,
-              border: '1px solid #FCD34D',
-              '&:hover': { bgcolor: '#FDE68A' },
-            }}
-          >
-            Reset Pwd
-          </Button>
-
-          <Tooltip title={lockedReason || 'Edit Details'}>
-            <span>
-              <IconButton size="small" onClick={onEdit} disabled={!manageable} sx={{ color: adminColors.textSecondary }}>
-                <Edit sx={{ fontSize: 17 }} />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title={lockedReason || (isSelf ? "You can't remove your own account" : 'Remove — revokes login')}>
-            <span>
-              <IconButton size="small" onClick={onDelete} disabled={isSelf || !manageable} sx={{ color: adminColors.danger }}>
-                <Delete sx={{ fontSize: 17 }} />
-              </IconButton>
-            </span>
-          </Tooltip>
-        </Box>
-      </Box>
-    </SectionCard>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+        <Button startIcon={<ContentCopy />} onClick={copy} sx={{ color: adminColors.accentRed, fontWeight: 800 }}>
+          Copy Credentials
+        </Button>
+        <Button variant="contained" onClick={onClose} sx={{ bgcolor: adminColors.accentRed, borderRadius: '10px', fontWeight: 800 }}>
+          Done
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
-// ─── Page ───────────────────────────────────────────────────────────────────
+// ─── Main Employees Page ──────────────────────────────────────────────────────
+
 export default function EmployeesPage() {
   const { employees } = useAdmin();
   const { user, userRole, loading: authLoading } = useAuth();
+  const [updateEmployee] = useUpdateEmployeeMutation();
+  const [deleteEmployee] = useDeleteEmployeeMutation();
 
-  // Managing the team — creating logins, editing details, resetting a
-  // forgotten password, disabling an account — is admin/manager only. The API
-  // is the real gate (requireAdmin + canManageStaffRole); this mirrors it so
-  // the UI never offers a button that would come back 403.
-  //
-  // Note there is deliberately no `userRole || 'admin'` fallback here. Assuming
-  // admin while the profile is still loading briefly hands a manager the full
-  // admin control set — including actions on admin accounts they may never
-  // touch — and offers the Admin role in the picker. Unknown means locked.
   const canManageTeam = userRole === 'admin' || userRole === 'manager';
   const roles = useMemo(() => assignableRoles(userRole), [userRole]);
 
-  const lockReasonFor = (target: Employee): string | null => {
-    if (authLoading || !userRole) return 'Checking your permissions…';
-    if (!canManageTeam) return 'Only an admin or manager can manage the team';
-    // A manager sees admin accounts (they're part of the team) but can't act
-    // on them — same rule the API enforces, surfaced here instead of failing
-    // after the click.
-    if (!canManageStaffRole(userRole, target.role)) return 'Only an admin can change an admin account';
-    return null;
-  };
-  const [updateEmployee] = useUpdateEmployeeMutation();
-  const [deleteEmployee] = useDeleteEmployeeMutation();
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<StaffRole | 'all'>('all');
+  const [shiftFilter, setShiftFilter] = useState<string>('all');
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Employee | null>(null);
   const [resettingEmp, setResettingEmp] = useState<Employee | null>(null);
   const [creds, setCreds] = useState<{ email: string; password: string; isReset?: boolean } | null>(null);
-  const [roleFilter, setRoleFilter] = useState<StaffRole | 'all'>('all');
+
+  const lockReasonFor = (target: Employee): string | null => {
+    if (authLoading || !userRole) return 'Checking your permissions…';
+    if (!canManageTeam) return 'Only an admin or manager can manage staff';
+    if (!canManageStaffRole(userRole, target.role)) return 'Only an admin can change an admin account';
+    return null;
+  };
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: employees.length };
@@ -583,10 +482,23 @@ export default function EmployeesPage() {
     return c;
   }, [employees]);
 
-  const visible = useMemo(
-    () => (roleFilter === 'all' ? employees : employees.filter((e) => e.role === roleFilter)),
-    [employees, roleFilter]
+  const totalMonthlyPayroll = useMemo(
+    () => employees.filter((e) => e.isActive).reduce((s, e) => s + (Number(e.salary) || 0), 0),
+    [employees]
   );
+
+  const visibleEmployees = useMemo(() => {
+    return employees.filter((e) => {
+      const matchRole = roleFilter === 'all' || e.role === roleFilter;
+      const matchShift = shiftFilter === 'all' || e.shift === shiftFilter;
+      const matchSearch = !search ||
+        e.name.toLowerCase().includes(search.toLowerCase()) ||
+        e.email.toLowerCase().includes(search.toLowerCase()) ||
+        e.phone.includes(search);
+
+      return matchRole && matchShift && matchSearch;
+    });
+  }, [employees, roleFilter, shiftFilter, search]);
 
   const activeCount = employees.filter((e) => e.isActive).length;
   const currentEmail = (user?.email || '').toLowerCase();
@@ -597,120 +509,332 @@ export default function EmployeesPage() {
   const handleToggle = async (emp: Employee) => {
     const result = await updateEmployee({ id: emp.id, status: emp.isActive ? 'Inactive' : 'Active' });
     if ('error' in result && result.error) { toast.error('Failed to update status'); return; }
-    toast.success(emp.isActive ? `${emp.name} disabled — login revoked` : `${emp.name} re-enabled`);
+    toast.success(emp.isActive ? `${emp.name} disabled — login revoked` : `${emp.name} account re-enabled`);
   };
 
   const handleDelete = async (emp: Employee) => {
-    if (!confirm(`Remove ${emp.name}? Their login will be permanently revoked.`)) return;
+    if (!confirm(`Permanently remove ${emp.name}? Their login access will be revoked.`)) return;
     const result = await deleteEmployee(emp.id);
     if ('error' in result && result.error) { toast.error('Failed to remove employee'); return; }
     toast.success(`${emp.name} removed`);
   };
 
-  // Creating a login is a management action too, so it follows the same rule
-  // as edit and reset rather than being open to anyone who reaches the page.
-  const addButton = (
-    <Tooltip title={canManageTeam ? '' : 'Only an admin or manager can add team members'}>
-      <span>
-        <Button
-          variant="contained" startIcon={<Add />} onClick={openAdd}
-          disabled={!canManageTeam}
-          sx={{
-            bgcolor: adminColors.brand, '&:hover': { bgcolor: adminColors.brandDark },
-            borderRadius: adminColors.radiusMd, fontWeight: 700, textTransform: 'none', px: 2.25, boxShadow: 'none',
-          }}
-        >
-          Add team member
-        </Button>
-      </span>
-    </Tooltip>
-  );
-
   return (
-    <AdminLayout title="Team & Access">
+    <AdminLayout title="Staff Directory">
       <PageHeader
-        title="Team & Access"
-        subtitle={
-          employees.length === 0
-            ? 'Create staff logins and choose what each person can reach.'
-            : `${activeCount} of ${employees.length} ${employees.length === 1 ? 'account' : 'accounts'} can sign in right now`
+        title="Staff Directory & Access"
+        subtitle={`${activeCount} active staff accounts. Manage roles, shifts, and credentials.`}
+        action={
+          <Box sx={{ display: 'flex', gap: 1.5, flexDirection: { xs: 'column', sm: 'row' } }}>
+            <Button
+              variant="outlined" startIcon={<Refresh />}
+              onClick={() => toast.success('Staff directory refreshed!')}
+              sx={{ borderRadius: '12px', fontWeight: 800 }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="outlined" startIcon={<VpnKey />}
+              onClick={() => {
+                if (employees.length > 0) setResettingEmp(employees[0]);
+              }}
+              sx={{ borderRadius: '12px', fontWeight: 800, bgcolor: '#FFFBEB', color: '#B45309', borderColor: '#FCD34D' }}
+            >
+              Reset Password
+            </Button>
+            <Button
+              variant="contained" startIcon={<PersonAdd />} onClick={openAdd}
+              disabled={!canManageTeam}
+              sx={{ bgcolor: adminColors.accentRed, '&:hover': { bgcolor: adminColors.accentRedDark }, borderRadius: '12px', fontWeight: 800 }}
+            >
+              + Add Staff Member
+            </Button>
+          </Box>
         }
-        action={addButton}
       />
 
-      {employees.length === 0 ? (
-        <SectionCard>
-          <EmptyState
-            emoji="👥"
-            title="No team members yet"
-            subtitle="Add your first chef, cashier, or server — each gets their own login limited to the part of the system they need."
-            action={addButton}
-          />
-        </SectionCard>
-      ) : (
-        <>
-          {/* Role filter — doubles as the access-model overview */}
-          <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-            <Chip
-              label={`All · ${counts.all}`}
-              onClick={() => setRoleFilter('all')}
-              sx={{
-                fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
-                bgcolor: roleFilter === 'all' ? adminColors.textPrimary : adminColors.bgPanel,
-                color: roleFilter === 'all' ? '#FFFFFF' : adminColors.textSecondary,
-                border: `1px solid ${roleFilter === 'all' ? adminColors.textPrimary : adminColors.border}`,
-              }}
-            />
-            {STAFF_ROLES.filter((r) => counts[r] > 0).map((role) => {
-              const c = roleColors[role];
-              const active = roleFilter === role;
-              return (
-                <Chip
-                  key={role}
-                  label={`${ROLE_ICONS[role]} ${ROLE_LABELS[role]} · ${counts[role]}`}
-                  onClick={() => setRoleFilter(role)}
-                  sx={{
-                    fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
-                    bgcolor: active ? c.color : adminColors.bgPanel,
-                    color: active ? '#FFFFFF' : adminColors.textSecondary,
-                    border: `1px solid ${active ? c.color : adminColors.border}`,
-                  }}
-                />
-              );
-            })}
-          </Box>
+      {/* Analytics KPI Stat Cards */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="👥" label="Active Team Size" value={activeCount} sub={`Total staff: ${employees.length}`} accent={adminColors.accentRed} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="💰" label="Monthly Payroll Total" value={`₹${totalMonthlyPayroll.toLocaleString('en-IN')}`} sub="Active salary total" accent={adminColors.success} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="🌅" label="Morning Shift" value={employees.filter((e) => e.shift === 'morning').length} sub="Morning staff" accent={adminColors.info} />
+        </Grid>
+        <Grid size={{ xs: 6, md: 3 }}>
+          <StatCard icon="🌆" label="Evening / Night Shift" value={employees.filter((e) => e.shift === 'evening' || e.shift === 'night').length} sub="Evening & night" accent={adminColors.accentOrange} />
+        </Grid>
+      </Grid>
 
-          <Grid container spacing={1.5}>
-            {visible.map((emp) => (
-              <Grid key={emp.id} size={{ xs: 12, sm: 6, lg: 4 }}>
-                <EmployeeCard
-                  emp={emp}
-                  isSelf={!!currentEmail && emp.email.toLowerCase() === currentEmail}
-                  lockedReason={lockReasonFor(emp)}
-                  onEdit={() => openEdit(emp)}
-                  onResetPassword={() => setResettingEmp(emp)}
-                  onToggle={() => handleToggle(emp)}
-                  onDelete={() => handleDelete(emp)}
-                />
-              </Grid>
-            ))}
-          </Grid>
-        </>
+      {/* Search, Filter & Layout View Switcher Bar */}
+      <Paper elevation={0} sx={{ p: 2, borderRadius: '16px', border: `1px solid ${adminColors.border}`, bgcolor: 'white', mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <TextField
+            size="small" placeholder="Search staff by name, email, or phone..."
+            value={search} onChange={(e) => setSearch(e.target.value)}
+            sx={{ width: { xs: '100%', sm: 320 }, '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+            slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ color: '#9E9E9E', fontSize: 18 }} /></InputAdornment> } }}
+          />
+
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <InputLabel>Shift Filter</InputLabel>
+              <Select value={shiftFilter} label="Shift Filter" onChange={(e) => setShiftFilter(e.target.value)}>
+                <MuiMenuItem value="all">All Shifts</MuiMenuItem>
+                <MuiMenuItem value="morning">🌅 Morning</MuiMenuItem>
+                <MuiMenuItem value="evening">🌆 Evening</MuiMenuItem>
+                <MuiMenuItem value="night">🌙 Night</MuiMenuItem>
+              </Select>
+            </FormControl>
+
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={(_, val) => val && setViewMode(val)}
+              size="small"
+              sx={{ bgcolor: '#FFF8F2', p: 0.5, borderRadius: '12px' }}
+            >
+              <ToggleButton value="table" sx={{ borderRadius: '10px', fontWeight: 800, px: 2 }}>
+                <FormatListBulleted sx={{ mr: 0.8, fontSize: 18 }} /> Staff Directory Table
+              </ToggleButton>
+              <ToggleButton value="cards" sx={{ borderRadius: '10px', fontWeight: 800, px: 2 }}>
+                <GridView sx={{ mr: 0.8, fontSize: 18 }} /> Org Cards
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+        </Box>
+
+        {/* Role Filter Chips Bar */}
+        <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
+          <Chip
+            label={`All Roles (${counts.all || 0})`}
+            onClick={() => setRoleFilter('all')}
+            sx={{
+              fontWeight: 800, fontSize: 12, cursor: 'pointer',
+              bgcolor: roleFilter === 'all' ? adminColors.accentRed : '#F5F5F5',
+              color: roleFilter === 'all' ? 'white' : 'text.primary',
+            }}
+          />
+          {STAFF_ROLES.map((role) => {
+            const count = counts[role] || 0;
+            const c = roleColors[role];
+            return (
+              <Chip
+                key={role}
+                label={`${ROLE_ICONS[role]} ${ROLE_LABELS[role]} (${count})`}
+                onClick={() => setRoleFilter(role)}
+                sx={{
+                  fontWeight: 800, fontSize: 12, cursor: 'pointer',
+                  bgcolor: roleFilter === role ? c.color : '#F5F5F5',
+                  color: roleFilter === role ? 'white' : 'text.primary',
+                }}
+              />
+            );
+          })}
+        </Box>
+      </Paper>
+
+      {/* ── VIEW 1: STAFF DIRECTORY ENTERPRISE TABLE ───────────────────────────── */}
+      {viewMode === 'table' && (
+        <SectionCard noPadding sx={{ mb: 4 }}>
+          {visibleEmployees.length === 0 ? (
+            <EmptyState emoji="👥" title="No staff members found" subtitle="Try clearing the search query or changing role filters." />
+          ) : (
+            <Box sx={{ overflowX: 'auto' }}>
+              <Table sx={{ minWidth: 900 }}>
+                <TableHead sx={{ bgcolor: adminColors.bgSubtle }}>
+                  <TableRow>
+                    {['Staff Member', 'Login Email', 'Role & Access', 'Work Shift', 'Monthly Salary', 'Status', 'Actions'].map((h) => (
+                      <TableCell key={h} sx={{ fontWeight: 900, fontSize: '12px', color: '#616161', py: 1.5, whiteSpace: 'nowrap' }}>{h}</TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {visibleEmployees.map((emp) => {
+                    const c = roleColors[emp.role] || roleColors.waiter;
+                    const isSelf = !!currentEmail && emp.email.toLowerCase() === currentEmail;
+                    const lockedReason = lockReasonFor(emp);
+                    const manageable = !lockedReason;
+
+                    return (
+                      <TableRow key={emp.id} hover sx={{ '&:last-child td': { border: 0 }, opacity: emp.isActive ? 1 : 0.6 }}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                            <Avatar sx={{ width: 36, height: 36, bgcolor: c.bg, color: c.color, fontWeight: 900, fontSize: 13 }}>
+                              {initialsOf(emp.name)}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 800 }}>{emp.name}</Typography>
+                              <Typography variant="caption" color="text.secondary">📞 {emp.phone || 'No phone'}</Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>{emp.email}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={`${ROLE_ICONS[emp.role]} ${ROLE_LABELS[emp.role]}`}
+                            size="small"
+                            sx={{ bgcolor: c.bg, color: c.color, fontWeight: 900, fontSize: '11px' }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ textTransform: 'capitalize', fontWeight: 700 }}>
+                            {emp.shift === 'morning' ? '🌅 Morning' : emp.shift === 'evening' ? '🌆 Evening' : '🌙 Night'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 800 }}>
+                            {emp.salary > 0 ? `₹${emp.salary.toLocaleString('en-IN')}` : '–'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Tooltip title={lockedReason || (isSelf ? "Cannot disable own account" : emp.isActive ? 'Active — can sign in' : 'Disabled')}>
+                            <Switch
+                              size="small"
+                              checked={emp.isActive}
+                              onChange={() => handleToggle(emp)}
+                              disabled={isSelf || !manageable}
+                              color="success"
+                            />
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                            <Button
+                              size="small" variant="outlined"
+                              startIcon={<VpnKey sx={{ fontSize: 13 }} />}
+                              onClick={() => setResettingEmp(emp)}
+                              disabled={!manageable}
+                              sx={{ borderRadius: '8px', fontSize: '11px', fontWeight: 800, py: 0.3, bgcolor: '#FFFBEB', color: '#B45309', borderColor: '#FCD34D' }}
+                            >
+                              Reset Pwd
+                            </Button>
+                            <IconButton size="small" onClick={() => openEdit(emp)} disabled={!manageable} sx={{ color: '#1976D2' }}>
+                              <Edit sx={{ fontSize: 18 }} />
+                            </IconButton>
+                            <IconButton size="small" onClick={() => handleDelete(emp)} disabled={isSelf || !manageable} sx={{ color: adminColors.accentRed }}>
+                              <Delete sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Box>
+          )}
+        </SectionCard>
       )}
 
+      {/* ── VIEW 2: TEAM ORG CARDS VIEW ────────────────────────────────────────── */}
+      {viewMode === 'cards' && (
+        <Grid container spacing={2} sx={{ mb: 4 }}>
+          {visibleEmployees.map((emp) => {
+            const c = roleColors[emp.role] || roleColors.waiter;
+            const isSelf = !!currentEmail && emp.email.toLowerCase() === currentEmail;
+            const lockedReason = lockReasonFor(emp);
+            const manageable = !lockedReason;
+
+            return (
+              <Grid key={emp.id} size={{ xs: 12, sm: 6, lg: 4 }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 2.5, borderRadius: '20px', border: `1px solid ${adminColors.border}`,
+                    bgcolor: 'white', opacity: emp.isActive ? 1 : 0.6,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Avatar sx={{ width: 42, height: 42, bgcolor: c.bg, color: c.color, fontWeight: 900, fontSize: 15 }}>
+                        {initialsOf(emp.name)}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
+                          {emp.name}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {emp.email}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Switch size="small" checked={emp.isActive} onChange={() => handleToggle(emp)} disabled={isSelf || !manageable} color="success" />
+                  </Box>
+
+                  <Chip
+                    label={`${ROLE_ICONS[emp.role]} ${ROLE_LABELS[emp.role]}`}
+                    size="small"
+                    sx={{ bgcolor: c.bg, color: c.color, fontWeight: 900, fontSize: '11px', mb: 1.5 }}
+                  />
+
+                  <Divider sx={{ my: 1.5 }} />
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'capitalize' }}>
+                      Shift: {emp.shift}
+                    </Typography>
+                    {emp.salary > 0 && (
+                      <Typography variant="caption" sx={{ fontWeight: 900, color: adminColors.accentRed }}>
+                        ₹{emp.salary.toLocaleString('en-IN')}/mo
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                    <Button
+                      size="small" variant="outlined"
+                      startIcon={<VpnKey sx={{ fontSize: 13 }} />}
+                      onClick={() => setResettingEmp(emp)}
+                      disabled={!manageable}
+                      sx={{ borderRadius: '8px', fontSize: '11px', fontWeight: 800, py: 0.4, bgcolor: '#FFFBEB', color: '#B45309', borderColor: '#FCD34D', flex: 1 }}
+                    >
+                      Reset Pwd
+                    </Button>
+                    <Button
+                      size="small" variant="contained"
+                      startIcon={<Edit sx={{ fontSize: 14 }} />}
+                      onClick={() => openEdit(emp)}
+                      disabled={!manageable}
+                      sx={{ borderRadius: '10px', fontSize: '12px', fontWeight: 800, bgcolor: adminColors.accentRed, flex: 1 }}
+                    >
+                      Edit Member
+                    </Button>
+                    <IconButton size="small" onClick={() => handleDelete(emp)} disabled={isSelf || !manageable} sx={{ color: adminColors.accentRed }}>
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Paper>
+              </Grid>
+            );
+          })}
+        </Grid>
+      )}
+
+      {/* Create / Edit Employee Dialog */}
       <EmployeeDialog
         key={`emp-dialog-${dialogOpen}-${editing?.id ?? 'new'}`}
         open={dialogOpen}
         editing={editing}
         roles={roles}
         onClose={() => setDialogOpen(false)}
-        onCreated={(email, password) => setCreds({ email, password, isReset: false })}
+        onCreated={(email, password, isReset) => setCreds({ email, password, isReset })}
       />
+
+      {/* Standalone Reset Password Dialog */}
       <ResetPasswordDialog
         emp={resettingEmp}
         onClose={() => setResettingEmp(null)}
         onSuccess={(email, password) => setCreds({ email, password, isReset: true })}
       />
+
+      {/* Copy Credentials Modal */}
       <CredentialsDialog creds={creds} onClose={() => setCreds(null)} />
     </AdminLayout>
   );

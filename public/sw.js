@@ -7,7 +7,7 @@
 
 // Bumped when the shell list or push handling changes — activating a new
 // version wipes the previous cache.
-const CACHE_VERSION = 'ppr-admin-v3';
+const CACHE_VERSION = 'ppr-admin-v4';
 // Each role's app starts on its own page, so all of them are pre-cached:
 // a chef opening Kitchen offline must not land on the dashboard's shell.
 const APP_SHELL = [

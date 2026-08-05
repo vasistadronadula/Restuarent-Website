@@ -3,22 +3,16 @@
 import React, { useState } from 'react';
 import {
   Dialog, DialogContent, Box, Typography, TextField, Button,
-  IconButton, Tabs, Tab, CircularProgress, InputAdornment, Alert, Divider,
+  IconButton, Tabs, Tab, CircularProgress, InputAdornment, Divider,
+  Link as MuiLink,
 } from '@mui/material';
 import { Close, Visibility, VisibilityOff, Lock, Email, Person, Phone } from '@mui/icons-material';
+import Link from 'next/link';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { selectIsAuthModalOpen, selectAuthModalTab, openAuthModal, closeAuthModal } from '@/store/authSlice';
-import { useAuth } from '@/context/AuthContext';
-import PalaPittaLogo from './PalaPittaLogo';
-
-const GoogleIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24">
-    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-  </svg>
-);
+import { useAuth, landAfterLogin } from '@/context/AuthContext';
+import { isStaffRole } from '@/lib/roleAccess';
+import GoogleIcon from './GoogleIcon';
 
 export default function AuthModal() {
   const dispatch = useAppDispatch();
@@ -35,114 +29,307 @@ export default function AuthModal() {
 
   const isLogin = authModalTab === 'login';
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
     setLoading(true);
     const res = isLogin
       ? await signInWithEmail(email, password)
       : await signUpWithEmail(email, password, name, phone);
-    setLoading(false);
-    if (res?.success) {
-      dispatch(closeAuthModal());
+
+    if (!res?.success) {
+      setLoading(false);
+      return;
     }
+
+    if (res.role && isStaffRole(res.role)) {
+      landAfterLogin(res.role);
+      return;
+    }
+
+    setLoading(false);
+    dispatch(closeAuthModal());
   };
 
   return (
     <Dialog
       open={isAuthModalOpen}
       onClose={() => dispatch(closeAuthModal())}
-      maxWidth="xs" fullWidth
-      slotProps={{ paper: { sx: { borderRadius: '24px', overflow: 'hidden', p: 1, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' } } }}
+      maxWidth="xs"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            borderRadius: '24px',
+            overflow: 'hidden',
+            p: 0,
+            boxShadow: '0 24px 64px rgba(28, 8, 8, 0.28)',
+            border: '1px solid rgba(255, 204, 188, 0.4)',
+          },
+        },
+      }}
     >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, pt: 1.5 }}>
-        <PalaPittaLogo size="small" />
-        <IconButton onClick={() => dispatch(closeAuthModal())} size="small"><Close /></IconButton>
+      {/* Top Branded Header Strip */}
+      <Box
+        sx={{
+          background: 'linear-gradient(135deg, #1C0808 0%, #2E0F0F 60%, #1A0404 100%)',
+          color: '#FFFFFF',
+          px: 2.5,
+          py: 2,
+          position: 'relative',
+          overflow: 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            top: '-50%',
+            right: '-20%',
+            width: '140px',
+            height: '140px',
+            borderRadius: '50%',
+            background: 'radial-gradient(circle, rgba(255,152,0,0.22) 0%, transparent 70%)',
+            pointerEvents: 'none',
+          },
+        }}
+      >
+        <Box sx={{ position: 'relative', zIndex: 1, pr: 5 }}>
+          <Box
+            component="img"
+            src="/logo.png"
+            alt="Pala Pitta Ruchulu Logo"
+            sx={{ height: 36, width: 'auto', display: 'block' }}
+          />
+          <Typography sx={{ fontSize: '10.5px', fontWeight: 800, color: '#FFB74D', letterSpacing: 0.8, mt: 0.5 }}>
+            A FEAST WORTH CRAVING
+          </Typography>
+        </Box>
+
+        <IconButton
+          onClick={() => dispatch(closeAuthModal())}
+          size="small"
+          aria-label="Close authentication modal"
+          sx={{
+            position: 'absolute',
+            top: 14,
+            right: 14,
+            zIndex: 10,
+            color: 'rgba(255,255,255,0.85)',
+            bgcolor: 'rgba(255,255,255,0.12)',
+            backdropFilter: 'blur(4px)',
+            '&:hover': { color: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.25)' },
+          }}
+        >
+          <Close fontSize="small" />
+        </IconButton>
       </Box>
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mt: 1 }}>
+      {/* Styled Tab Switcher */}
+      <Box sx={{ bgcolor: '#FFFDF9', px: 2, borderBottom: '1px solid #F0E4D8' }}>
         <Tabs
           value={authModalTab}
           onChange={(_, val) => dispatch(openAuthModal(val))}
-          variant="fullWidth" textColor="primary" indicatorColor="primary"
+          variant="fullWidth"
+          textColor="primary"
+          indicatorColor="primary"
+          sx={{
+            minHeight: 44,
+            '& .MuiTab-root': {
+              fontWeight: 800,
+              fontSize: '14px',
+              textTransform: 'none',
+              minHeight: 44,
+              py: 0.5,
+            },
+            '& .MuiTabs-indicator': {
+              height: 3,
+              borderRadius: '3px 3px 0 0',
+              bgcolor: 'primary.main',
+            },
+          }}
         >
-          <Tab label="🔑 Login" value="login" sx={{ fontWeight: 700 }} />
-          <Tab label="📝 Sign Up" value="signup" sx={{ fontWeight: 700 }} />
+          <Tab label="Log In" value="login" />
+          <Tab label="Sign Up" value="signup" />
         </Tabs>
       </Box>
 
-      <DialogContent sx={{ pt: 3 }}>
-        <Alert severity="info" sx={{ mb: 2.5, borderRadius: '12px', fontSize: '12px' }}>
-          💡 Log in to save your order history & preferences, or <strong>continue as guest</strong> to order right away!
-        </Alert>
+      <DialogContent sx={{ px: 2.5, py: 2.5, bgcolor: '#FFFFFF', overflowX: 'hidden' }}>
+        <form onSubmit={handleEmailSubmit}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {!isLogin && (
+              <>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Full Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person fontSize="small" sx={{ color: 'primary.main' }} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Mobile Number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Phone fontSize="small" sx={{ color: 'primary.main' }} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                />
+              </>
+            )}
+
+            <TextField
+              fullWidth
+              size="small"
+              type="email"
+              label="Email Address"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Email fontSize="small" sx={{ color: 'primary.main' }} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+
+            <TextField
+              fullWidth
+              size="small"
+              type={showPassword ? 'text' : 'password'}
+              label="Password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Lock fontSize="small" sx={{ color: 'primary.main' }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton size="small" onClick={() => setShowPassword(!showPassword)}>
+                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+
+            {isLogin && (
+              <Box sx={{ textAlign: 'right', mt: -0.25 }}>
+                <MuiLink
+                  component={Link}
+                  href="/login?mode=forgot"
+                  onClick={() => dispatch(closeAuthModal())}
+                  sx={{ fontSize: '12px', fontWeight: 700, color: 'primary.main', textDecoration: 'none' }}
+                >
+                  Forgot password?
+                </MuiLink>
+              </Box>
+            )}
+
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              disabled={loading}
+              sx={{
+                mt: 0.5,
+                py: 1.3,
+                borderRadius: '12px',
+                fontWeight: 800,
+                fontSize: '14.5px',
+                background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
+                boxShadow: '0 4px 16px rgba(198, 40, 40, 0.25)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)',
+                },
+              }}
+            >
+              {loading ? (
+                <CircularProgress size={22} color="inherit" />
+              ) : isLogin ? (
+                'Log In & Continue'
+              ) : (
+                'Create Account'
+              )}
+            </Button>
+          </Box>
+        </form>
+
+        {/* Divider & Bottom Google Sign In */}
+        <Divider
+          sx={{
+            my: 2,
+            fontSize: '10.5px',
+            fontWeight: 800,
+            color: 'text.secondary',
+            letterSpacing: 0.8,
+            '&::before, &::after': { borderColor: '#F0E4D8' },
+          }}
+        >
+          OR CONTINUE WITH
+        </Divider>
 
         <Button
-          fullWidth variant="outlined"
+          fullWidth
+          variant="outlined"
           onClick={signInWithGoogle}
           startIcon={<GoogleIcon />}
           sx={{
-            py: 1.2, mb: 2.5, borderRadius: '12px', borderColor: '#E0E0E0',
-            color: '#333333', fontWeight: 600, fontSize: '14px', textTransform: 'none',
-            '&:hover': { borderColor: '#BDBDBD', bgcolor: '#F5F5F5' },
+            py: 1.2,
+            borderRadius: '12px',
+            borderColor: '#E2E8F0',
+            bgcolor: '#FFFFFF',
+            color: '#2D3748',
+            fontWeight: 700,
+            fontSize: '13.5px',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+            '&:hover': { borderColor: '#CBD5E0', bgcolor: '#F7FAFC' },
           }}
         >
           Continue with Google
         </Button>
 
-        <Divider sx={{ mb: 2.5, fontSize: '12px', color: 'text.secondary' }}>OR EMAIL</Divider>
-
-        <form onSubmit={handleSubmit}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {!isLogin && (
-              <>
-                <TextField fullWidth size="small" label="Full Name" value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  slotProps={{ input: { startAdornment: <InputAdornment position="start"><Person fontSize="small" sx={{ color: '#C62828' }} /></InputAdornment> } }}
-                />
-                <TextField fullWidth size="small" label="Phone Number" value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  slotProps={{ input: { startAdornment: <InputAdornment position="start"><Phone fontSize="small" sx={{ color: '#C62828' }} /></InputAdornment> } }}
-                />
-              </>
-            )}
-            <TextField fullWidth size="small" type="email" label="Email Address *" required
-              value={email} onChange={(e) => setEmail(e.target.value)}
-              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Email fontSize="small" sx={{ color: '#C62828' }} /></InputAdornment> } }}
-            />
-            <TextField fullWidth size="small" type={showPassword ? 'text' : 'password'}
-              label="Password *" required value={password} onChange={(e) => setPassword(e.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: <InputAdornment position="start"><Lock fontSize="small" sx={{ color: '#C62828' }} /></InputAdornment>,
-                  endAdornment: <InputAdornment position="end"><IconButton size="small" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}</IconButton></InputAdornment>,
-                },
-              }}
-            />
-            <Button type="submit" fullWidth variant="contained" disabled={loading}
-              sx={{ mt: 1, py: 1.5, borderRadius: '12px', fontWeight: 700, fontSize: '15px', background: 'linear-gradient(135deg, #C62828, #FF9800)' }}>
-              {loading ? <CircularProgress size={22} color="inherit" /> : isLogin ? 'Log In & Continue' : 'Create Account'}
-            </Button>
-          </Box>
-        </form>
-
-        <Button fullWidth variant="outlined" color="secondary"
-          onClick={() => dispatch(closeAuthModal())}
-          sx={{ mt: 2, py: 1.2, borderRadius: '12px', fontWeight: 700, fontSize: '14px', borderColor: '#FF9800', color: '#D84315', '&:hover': { borderColor: '#E65100', bgcolor: 'rgba(255,152,0,0.08)' } }}>
-          👤 Continue as Guest
-        </Button>
-
-        <Divider sx={{ my: 2.5 }} />
-        <Box sx={{ textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
+        <Box sx={{ textAlign: 'center', mt: 2, pt: 1.5, borderTop: '1px solid #F0E4D8' }}>
+          <Typography variant="body2" sx={{ fontSize: '12.5px', color: 'text.secondary', display: 'block', mb: 0.25 }}>
             {isLogin ? "Don't have an account?" : 'Already have an account?'}
           </Typography>
-          <Button variant="text" color="primary"
+          <Button
+            variant="text"
+            color="primary"
             onClick={() => dispatch(openAuthModal(isLogin ? 'signup' : 'login'))}
-            sx={{ fontWeight: 700 }}>
-            {isLogin ? 'Sign Up Now' : 'Log In Here'}
+            sx={{ fontWeight: 800, fontSize: '13px', p: 0.25, minWidth: 0 }}
+          >
+            {isLogin ? 'Create Account' : 'Log In'}
           </Button>
         </Box>
       </DialogContent>
     </Dialog>
   );
 }
+
+

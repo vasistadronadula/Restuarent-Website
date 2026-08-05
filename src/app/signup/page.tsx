@@ -1,213 +1,471 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useMemo, useRef, useState } from 'react';
 import {
-  Container, Box, Paper, Typography, TextField, Button,
-  InputAdornment, IconButton, CircularProgress, Divider,
+  Box, Typography, TextField, Button, InputAdornment, IconButton,
+  CircularProgress, Divider, Alert, Checkbox, FormControlLabel,
+  Link as MuiLink,
 } from '@mui/material';
-import { Email, Lock, Visibility, VisibilityOff, ArrowBack, Person, Phone } from '@mui/icons-material';
+import { Email, Lock, Visibility, VisibilityOff, Person, Phone } from '@mui/icons-material';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
-import PalaPittaLogo from '@/components/customer/PalaPittaLogo';
+import { useSearchParams } from 'next/navigation';
 
-const GoogleIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24">
-    <path
-      fill="#4285F4"
-      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-    />
-    <path
-      fill="#34A853"
-      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-    />
-    <path
-      fill="#FBBC05"
-      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-    />
-    <path
-      fill="#EA4335"
-      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-    />
-  </svg>
-);
+import { useAuth, landAfterLogin } from '@/context/AuthContext';
+import {
+  validateEmail, validateName, validatePhone, validatePassword,
+  normalizePhone, getPasswordStrength, safeRedirect, MIN_PASSWORD_LENGTH,
+} from '@/lib/validation';
+import AuthShell from '@/components/customer/AuthShell';
+import GoogleIcon from '@/components/customer/GoogleIcon';
 
-export default function SignupPage() {
+/**
+ * Account creation.
+ *
+ * Every field here is validated before Supabase is called, which is not
+ * pedantry: a signup that round-trips only to come back "Password should be at
+ * least 8 characters" has already cost the customer a wait, and on a phone it
+ * usually costs the typed password too. The strength meter and the live rules
+ * exist so the requirement is visible while the password is being chosen
+ * rather than after it has been rejected.
+ */
+
+type Field = 'name' | 'phone' | 'email' | 'password';
+
+function SignupForm() {
   const { signUpWithEmail, signInWithGoogle } = useAuth();
-  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  // Where a new customer lands. Defaults to the menu — they came here to
+  // order, and an empty home page is not where that continues.
+  const redirectTo = safeRedirect(searchParams.get('redirect'), '/menu');
+
+  const [values, setValues] = useState({ name: '', phone: '', email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
+  const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) return;
+  // Four separate refs rather than one object of them: reading `refs.email`
+  // while rendering counts as touching a ref during render, which React's
+  // lint rules reject outright.
+  const nameRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
-    setLoading(true);
-    const res = await signUpWithEmail(email, password, name, phone);
-    setLoading(false);
-
-    if (res.success) {
-      router.push('/menu');
-    }
+  /** Called only from the submit handler, never during render. */
+  const focusField = (field: Field) => {
+    const target =
+      field === 'name' ? nameRef
+        : field === 'phone' ? phoneRef
+          : field === 'email' ? emailRef
+            : passwordRef;
+    target.current?.focus();
   };
 
-  return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#FFF8F2', py: 6, display: 'flex', alignItems: 'center' }}>
-      <Container maxWidth="xs">
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href="/" style={{ textDecoration: 'none' }}>
-            <Button startIcon={<ArrowBack />} sx={{ color: '#616161', fontWeight: 600 }}>
-              Home
-            </Button>
-          </Link>
-          <PalaPittaLogo size="medium" />
-        </Box>
+  const strength = useMemo(() => getPasswordStrength(values.password), [values.password]);
 
-        <Paper sx={{ p: 4, borderRadius: '24px', boxShadow: '0 12px 40px rgba(0,0,0,0.08)' }}>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: '#C62828', mb: 0.5, textAlign: 'center' }}>
-            Create an Account 🎉
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5, textAlign: 'center' }}>
-            Sign up to start adding delicious dishes to your cart
-          </Typography>
+  const setField = (field: Field, value: string) => {
+    setValues((v) => ({ ...v, [field]: value }));
+    // Clearing as they type means a corrected field stops shouting immediately
+    // instead of waiting for another blur.
+    if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
+  };
+
+  const showError = (field: Field) => (touched[field] ? errors[field] : undefined);
+
+  const runValidation = () => {
+    const next: Partial<Record<Field, string>> = {};
+    const name = validateName(values.name);
+    const phone = validatePhone(values.phone);
+    const email = validateEmail(values.email);
+    const password = validatePassword(values.password, 'new');
+    if (name) next.name = name;
+    if (phone) next.phone = phone;
+    if (email) next.email = email;
+    if (password) next.password = password;
+    setErrors(next);
+    return next;
+  };
+
+  const handleBlur = (field: Field) => {
+    setTouched((t) => ({ ...t, [field]: true }));
+    runValidation();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+
+    const found = runValidation();
+    setTouched({ name: true, phone: true, email: true, password: true });
+
+    // Focus the first thing that is wrong, top to bottom — otherwise on a long
+    // form the customer is told "something failed" with the offending field
+    // scrolled off screen.
+    const firstBad = (['name', 'phone', 'email', 'password'] as Field[]).find((f) => found[f]);
+    if (firstBad) { focusField(firstBad); return; }
+
+    if (!acceptedTerms) {
+      setFormError('Please accept the Terms of Service and Privacy Policy to continue.');
+      return;
+    }
+
+    setLoading(true);
+    const res = await signUpWithEmail(
+      values.email.trim(),
+      values.password,
+      values.name.trim(),
+      normalizePhone(values.phone),
+    );
+
+    if (!res.success) {
+      setLoading(false);
+      // signUpWithEmail surfaces Supabase's own message as a toast (it is the
+      // one that knows whether this was a duplicate address or a rejected
+      // password); this keeps a persistent copy on screen after it fades.
+      setFormError('We could not create that account. The email may already be registered — try logging in instead.');
+      return;
+    }
+
+    landAfterLogin(res.role ?? 'customer', redirectTo);
+  };
+
+  const loginHref = redirectTo === '/menu' ? '/login' : `/login?redirect=${encodeURIComponent(redirectTo)}`;
+
+  return (
+    <AuthShell
+      title="Create account"
+      subtitle="Join Pala Pitta Ruchulu in seconds. Track orders, earn rewards, and manage table reservations."
+      footer={
+        <Typography sx={{ fontSize: '13.5px', color: 'text.secondary' }}>
+          Already have an account?{' '}
+          <MuiLink
+            component={Link}
+            href={loginHref}
+            sx={{
+              color: 'primary.main',
+              fontWeight: 800,
+              textDecoration: 'none',
+              '&:hover': { textDecoration: 'underline' },
+            }}
+          >
+            Log in
+          </MuiLink>
+        </Typography>
+      }
+    >
+      {/* Pill Segmented Tab Switcher */}
+      <Box
+        sx={{
+          display: 'flex',
+          bgcolor: 'rgba(245, 235, 225, 0.75)',
+          p: 0.5,
+          borderRadius: '16px',
+          mb: 3,
+          border: '1px solid rgba(255, 204, 188, 0.5)',
+        }}
+      >
+        <Button
+          fullWidth
+          component={Link}
+          href={loginHref}
+          sx={{
+            borderRadius: '12px',
+            py: 0.8,
+            fontWeight: 700,
+            fontSize: '13.5px',
+            color: 'text.secondary',
+            '&:hover': { color: 'primary.main', bgcolor: 'rgba(255,255,255,0.4)' },
+          }}
+        >
+          Log In
+        </Button>
+        <Button
+          fullWidth
+          disableRipple
+          sx={{
+            borderRadius: '12px',
+            py: 0.8,
+            fontWeight: 800,
+            fontSize: '13.5px',
+            bgcolor: '#FFFFFF',
+            color: 'primary.main',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+            cursor: 'default',
+          }}
+        >
+          Sign Up
+        </Button>
+      </Box>
+
+      <Button
+        fullWidth
+        variant="outlined"
+        onClick={signInWithGoogle}
+        startIcon={<GoogleIcon />}
+        sx={{
+          py: 1.3,
+          mb: 2.5,
+          borderRadius: '14px',
+          borderColor: '#E2E8F0',
+          bgcolor: 'rgba(255, 255, 255, 0.9)',
+          color: '#2D3748',
+          fontWeight: 700,
+          fontSize: '14px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+          transition: 'all 0.2s ease',
+          '&:hover': {
+            borderColor: '#CBD5E0',
+            bgcolor: '#FFFFFF',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.06)',
+            transform: 'translateY(-1px)',
+          },
+        }}
+      >
+        Sign up with Google
+      </Button>
+
+      <Divider
+        sx={{
+          mb: 2.5,
+          fontSize: '11px',
+          fontWeight: 800,
+          color: 'text.secondary',
+          letterSpacing: 1,
+          '&::before, &::after': { borderColor: '#F0E4D8' },
+        }}
+      >
+        OR SIGN UP WITH EMAIL
+      </Divider>
+
+      <Box component="form" onSubmit={handleSubmit} noValidate>
+        {formError && (
+          <Alert
+            severity="error"
+            role="alert"
+            sx={{
+              mb: 2.5,
+              borderRadius: '14px',
+              fontSize: '13px',
+              border: '1px solid rgba(211, 47, 47, 0.2)',
+              bgcolor: 'rgba(211, 47, 47, 0.04)',
+            }}
+          >
+            {formError}
+          </Alert>
+        )}
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <TextField
+            fullWidth
+            inputRef={nameRef}
+            label="Full name"
+            name="name"
+            value={values.name}
+            onChange={(e) => setField('name', e.target.value)}
+            onBlur={() => handleBlur('name')}
+            error={Boolean(showError('name'))}
+            helperText={showError('name')}
+            autoComplete="name"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Person sx={{ color: 'primary.main', fontSize: 20 }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+
+          <TextField
+            fullWidth
+            inputRef={phoneRef}
+            label="Mobile number"
+            name="phone"
+            type="tel"
+            value={values.phone}
+            onChange={(e) => setField('phone', e.target.value)}
+            onBlur={() => handleBlur('phone')}
+            error={Boolean(showError('phone'))}
+            helperText={showError('phone') ?? 'For delivery updates & table reservations'}
+            autoComplete="tel"
+            slotProps={{
+              htmlInput: { inputMode: 'tel', maxLength: 15 },
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Phone sx={{ color: 'primary.main', fontSize: 20 }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+
+          <TextField
+            fullWidth
+            inputRef={emailRef}
+            label="Email address"
+            name="email"
+            type="email"
+            value={values.email}
+            onChange={(e) => setField('email', e.target.value)}
+            onBlur={() => handleBlur('email')}
+            error={Boolean(showError('email'))}
+            helperText={showError('email')}
+            autoComplete="email"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Email sx={{ color: 'primary.main', fontSize: 20 }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+
+          <Box>
+            <TextField
+              fullWidth
+              inputRef={passwordRef}
+              label="Password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              value={values.password}
+              onChange={(e) => setField('password', e.target.value)}
+              onBlur={() => handleBlur('password')}
+              error={Boolean(showError('password'))}
+              helperText={showError('password')}
+              autoComplete="new-password"
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Lock sx={{ color: 'primary.main', fontSize: 20 }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        size="small"
+                        onClick={() => setShowPassword((s) => !s)}
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        edge="end"
+                        sx={{ color: 'text.secondary' }}
+                      >
+                        {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+
+            {/* Strength meter */}
+            {values.password ? (
+              <Box sx={{ mt: 1.25, px: 0.5 }}>
+                <Box sx={{ display: 'flex', gap: 0.8, mb: 0.75 }}>
+                  {[1, 2, 3, 4].map((segment) => (
+                    <Box
+                      key={segment}
+                      sx={{
+                        flex: 1,
+                        height: 4,
+                        borderRadius: 2,
+                        bgcolor: strength.score >= segment ? strength.color : 'rgba(0,0,0,0.08)',
+                        boxShadow: strength.score >= segment ? `0 0 6px ${strength.color}40` : 'none',
+                        transition: 'all .3s ease',
+                      }}
+                    />
+                  ))}
+                </Box>
+                <Typography aria-live="polite" sx={{ fontSize: '11.5px', fontWeight: 700, color: strength.color }}>
+                  {strength.label}
+                  <Box component="span" sx={{ fontWeight: 500, color: 'text.secondary' }}>
+                    {strength.hint ? ` · ${strength.hint}` : ' — good password'}
+                  </Box>
+                </Typography>
+              </Box>
+            ) : (
+              <Typography sx={{ fontSize: '11.5px', color: 'text.secondary', mt: 0.75, ml: 1 }}>
+                Must be at least {MIN_PASSWORD_LENGTH} characters long
+              </Typography>
+            )}
+          </Box>
+
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={acceptedTerms}
+                onChange={(e) => { setAcceptedTerms(e.target.checked); if (e.target.checked) setFormError(null); }}
+                size="small"
+                sx={{
+                  color: 'primary.main',
+                  '&.Mui-checked': { color: 'primary.main' },
+                  pt: 0.25,
+                }}
+              />
+            }
+            sx={{ alignItems: 'flex-start', mr: 0, ml: -0.5, mt: 0.5 }}
+            label={
+              <Typography sx={{ fontSize: '12.5px', color: 'text.secondary', lineHeight: 1.5, mt: 0.4 }}>
+                I agree to the{' '}
+                <MuiLink component={Link} href="/terms" target="_blank" underline="hover" sx={{ color: 'primary.main', fontWeight: 700 }}>
+                  Terms of Service
+                </MuiLink>{' '}
+                and{' '}
+                <MuiLink component={Link} href="/privacy-policy" target="_blank" underline="hover" sx={{ color: 'primary.main', fontWeight: 700 }}>
+                  Privacy Policy
+                </MuiLink>
+              </Typography>
+            }
+          />
 
           <Button
+            type="submit"
             fullWidth
-            variant="outlined"
-            onClick={signInWithGoogle}
-            startIcon={<GoogleIcon />}
+            variant="contained"
+            disabled={loading}
             sx={{
-              py: 1.2,
-              mb: 2.5,
-              borderRadius: '12px',
-              borderColor: '#E0E0E0',
-              color: '#333333',
-              fontWeight: 600,
-              fontSize: '14px',
-              textTransform: 'none',
+              py: 1.5,
+              mt: 1,
+              borderRadius: '14px',
+              fontWeight: 800,
+              fontSize: '15px',
+              background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
+              boxShadow: '0 6px 20px rgba(198, 40, 40, 0.25)',
+              transition: 'all 0.2s ease',
               '&:hover': {
-                borderColor: '#BDBDBD',
-                bgcolor: '#F5F5F5',
+                background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)',
+                boxShadow: '0 8px 24px rgba(198, 40, 40, 0.35)',
+                transform: 'translateY(-1px)',
               },
             }}
           >
-            Continue with Google
+            {loading ? <CircularProgress size={23} color="inherit" /> : 'Create account'}
           </Button>
-
-          <Divider sx={{ mb: 2.5, fontSize: '12px', color: 'text.secondary' }}>OR EMAIL</Divider>
-
-          <form onSubmit={handleSignup}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                fullWidth
-                label="Full Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Person sx={{ color: '#C62828' }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-
-              <TextField
-                fullWidth
-                label="Phone Number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Phone sx={{ color: '#C62828' }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-
-              <TextField
-                fullWidth
-                label="Email Address *"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Email sx={{ color: '#C62828' }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-
-              <TextField
-                fullWidth
-                label="Password *"
-                type={showPassword ? 'text' : 'password'}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Lock sx={{ color: '#C62828' }} />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => setShowPassword(!showPassword)}>
-                          {showPassword ? <VisibilityOff /> : <Visibility />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
-
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={loading}
-                sx={{
-                  mt: 1,
-                  py: 1.5,
-                  borderRadius: '12px',
-                  fontWeight: 700,
-                  fontSize: '16px',
-                  background: 'linear-gradient(135deg, #C62828, #FF9800)',
-                }}
-              >
-                {loading ? <CircularProgress size={24} color="inherit" /> : 'Create Account'}
-              </Button>
-            </Box>
-          </form>
-
-          <Divider sx={{ my: 3 }} />
-
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              Already have an account?{' '}
-              <Link href="/login" style={{ color: '#C62828', fontWeight: 700, textDecoration: 'none' }}>
-                Log In
-              </Link>
-            </Typography>
-          </Box>
-        </Paper>
-      </Container>
-    </Box>
+        </Box>
+      </Box>
+    </AuthShell>
   );
 }
+
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box sx={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#FAF4ED' }}>
+          <CircularProgress color="primary" />
+        </Box>
+      }
+    >
+      <SignupForm />
+    </Suspense>
+  );
+}
+
+

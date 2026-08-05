@@ -3,12 +3,12 @@
 import React, { useState } from 'react';
 import {
   Box, Container, Grid, Typography, Button, TextField, Paper, Divider, Chip,
-  CircularProgress, Stack, Alert, InputAdornment,
+  CircularProgress, Stack, Alert, InputAdornment, Radio,
 } from '@mui/material';
 import {
   Person, Phone, ShoppingCart, CheckCircle,
   ContentCopy, WhatsApp, ArrowForward, Payment, ShoppingBag, Lock, Login,
-  LocalOffer, ConfirmationNumber,
+  LocalOffer, ConfirmationNumber, Storefront, CreditCard, AccountBalanceWallet,
 } from '@mui/icons-material';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
@@ -61,7 +61,6 @@ const loadRazorpayScript = (): Promise<boolean> => {
   });
 };
 
-
 export default function CheckoutPage() {
   const { data: coupons = [] } = useGetCouponsQuery();
   const { state, subtotal, cgst, sgst, discountAmount, clearCart, applyCoupon, removeCoupon } = useCart();
@@ -70,16 +69,13 @@ export default function CheckoutPage() {
 
   const [inputCoupon, setInputCoupon] = useState('');
   const [form, setForm] = useState({ name: '', phone: '' });
+  const [paymentChoice, setPaymentChoice] = useState<'online' | 'counter'>('online');
   const [placed, setPlaced] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  // Auto-fill from the logged-in user's profile, derived at render time
-  // rather than synced into state via an effect — `form` only ever holds
-  // what the customer has actually typed, so there's nothing to keep in
-  // sync and nothing to reset if they edit the pre-filled value.
   const autofillName = user?.user_metadata?.full_name || user?.user_metadata?.name || (user?.email ? user.email.split('@')[0] : '') || '';
   const autofillPhone = user?.user_metadata?.phone || user?.phone || '';
   const effectiveName = form.name || autofillName;
@@ -121,7 +117,7 @@ export default function CheckoutPage() {
       customerId: user?.email || effectivePhone || 'GUEST',
       customerName: effectiveName,
       customerPhone: effectivePhone,
-      customerAddress: 'Takeaway — Collect from Restaurant',
+      customerAddress: 'Takeaway — Collect from Madhapur Restaurant',
       items: orderItemPayload,
       subtotal,
       cgst,
@@ -140,24 +136,16 @@ export default function CheckoutPage() {
       razorpayPaymentId: razorpayIds?.razorpayPaymentId,
     };
 
-    // Single write path (RTK Query) — previously this also called
-    // lib/db.ts's createOrderInDB directly, inserting the same order twice
-    // and relying on a silent primary-key-conflict failure to avoid duplicates.
     try {
       await addOrderLocallyAndDB(newOrderObj);
     } catch {
-      toast.error('We could not save your order. Please try again, or message us on WhatsApp.');
+      toast.error('We could not save your order. Please try again or contact us.');
       setLoading(false);
       return;
     }
 
     triggerNewOrderPush(id);
-
-    // Keep the whole order, not a summary of it — the confirmation screen
-    // offers the customer the same 80mm bill the counter prints, and that
-    // needs the line items.
     setCompletedOrder(newOrderObj);
-
     setPlaced(true);
     clearCart();
     setLoading(false);
@@ -175,7 +163,12 @@ export default function CheckoutPage() {
 
     const activeOrderId = generateOrderId();
 
-    // Online payment via Razorpay
+    if (paymentChoice === 'counter') {
+      await finalizeOrder(activeOrderId, 'cash', 'unpaid');
+      return;
+    }
+
+    // Online Payment mode
     let orderData: { id?: string; amount?: number; currency?: string } | undefined;
     try {
       const res = await fetch('/api/razorpay/create-order', {
@@ -190,12 +183,12 @@ export default function CheckoutPage() {
       });
       orderData = await res.json();
       if (!res.ok || !orderData?.id) {
-        toast.error('Online payment is currently unavailable. Please try again later.');
+        toast.error('Online payment service is momentarily busy. You can pay at counter or retry.');
         setLoading(false);
         return;
       }
     } catch {
-      toast.error('Online payment is currently unavailable. Please try again later.');
+      toast.error('Online payment service is momentarily busy. You can pay at counter or retry.');
       setLoading(false);
       return;
     }
@@ -204,7 +197,7 @@ export default function CheckoutPage() {
     const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
 
     if (!scriptLoaded || !razorpayKey) {
-      toast.error('Payment gateway could not be loaded. Please try again.');
+      toast.error('Payment window could not be loaded. Please try paying at counter.');
       setLoading(false);
       return;
     }
@@ -220,7 +213,7 @@ export default function CheckoutPage() {
       prefill: { name: effectiveName, contact: effectivePhone },
       theme: { color: '#C62828' },
       handler: async function (response) {
-        toast.loading('Verifying payment...', { id: 'verify-toast' });
+        toast.loading('Confirming your payment...', { id: 'verify-toast' });
         const razorpayIds = {
           razorpayOrderId: response.razorpay_order_id as string,
           razorpayPaymentId: response.razorpay_payment_id as string,
@@ -238,24 +231,14 @@ export default function CheckoutPage() {
           const verifyData = await verifyRes.json();
 
           if (verifyRes.ok && verifyData.success) {
-            toast.success('Payment Verified! ✅', { id: 'verify-toast' });
+            toast.success('Payment Received Successfully! ✅', { id: 'verify-toast' });
             await finalizeOrder(activeOrderId, 'razorpay', 'paid', razorpayIds);
           } else {
-            // The charge may have gone through on Razorpay's side, but we
-            // could not confirm it server-side — never mark this "paid".
-            // The Razorpay payment ID is still recorded for manual
-            // reconciliation by an admin.
-            toast.error(
-              'We could not verify your payment automatically. Please show your payment confirmation at the counter.',
-              { id: 'verify-toast', duration: 7000 }
-            );
+            toast.error('Payment status pending verification. Show receipt at counter.', { id: 'verify-toast', duration: 6000 });
             await finalizeOrder(activeOrderId, 'razorpay', 'unpaid', razorpayIds);
           }
         } catch {
-          toast.error(
-            'We could not verify your payment automatically. Please show your payment confirmation at the counter.',
-            { id: 'verify-toast', duration: 7000 }
-          );
+          toast.error('Payment status pending verification. Show receipt at counter.', { id: 'verify-toast', duration: 6000 });
           await finalizeOrder(activeOrderId, 'razorpay', 'unpaid', razorpayIds);
         }
       },
@@ -268,7 +251,7 @@ export default function CheckoutPage() {
     };
 
     if (!window.Razorpay) {
-      toast.error('Payment gateway could not be loaded. Please try again.');
+      toast.error('Payment window could not be loaded. Try paying at counter.');
       setLoading(false);
       return;
     }
@@ -276,17 +259,21 @@ export default function CheckoutPage() {
     rzp.open();
   };
 
-  // Empty cart
+  // Empty cart state
   if (state.items.length === 0 && !placed) {
     return (
       <>
         <Navbar />
         <Container maxWidth="sm" sx={{ py: 12, textAlign: 'center' }}>
-          <Typography variant="h2" sx={{ fontSize: '4rem', mb: 2 }}>🛒</Typography>
-          <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>Your cart is empty</Typography>
-          <Typography color="text.secondary" sx={{ mb: 3 }}>Add some delicious items before checkout</Typography>
+          <Box sx={{ width: 80, height: 80, borderRadius: '50%', bgcolor: 'rgba(198,40,40,0.08)', mx: 'auto', mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ShoppingCart sx={{ fontSize: 44, color: '#C62828' }} />
+          </Box>
+          <Typography variant="h5" sx={{ fontWeight: 800, mb: 1 }}>Your checkout cart is empty</Typography>
+          <Typography color="text.secondary" sx={{ mb: 3.5 }}>Add items from our authentic Telugu menu to proceed.</Typography>
           <Link href="/menu" style={{ textDecoration: 'none' }}>
-            <Button variant="contained" color="primary" size="large">Go to Menu</Button>
+            <Button variant="contained" color="primary" size="large" sx={{ borderRadius: '12px', px: 4, py: 1.5, fontWeight: 700 }}>
+              Browse Dishes
+            </Button>
           </Link>
         </Container>
         <Footer />
@@ -294,79 +281,73 @@ export default function CheckoutPage() {
     );
   }
 
-  // Order success
+  // Order confirmation view
   if (placed && completedOrder) {
     return (
       <>
         <Navbar />
-        <Container maxWidth="sm" sx={{ py: 10 }}>
-          <Paper sx={{ p: 5, borderRadius: '24px', textAlign: 'center', boxShadow: '0 12px 48px rgba(0,0,0,0.08)' }}>
-            <Box sx={{ width: 80, height: 80, bgcolor: 'rgba(46,125,50,0.08)', borderRadius: '50%', mx: 'auto', mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CheckCircle sx={{ fontSize: 48, color: '#2E7D32' }} />
+        <Container maxWidth="sm" sx={{ py: { xs: 4, md: 8 } }}>
+          <Paper sx={{ p: { xs: 3, sm: 4.5 }, borderRadius: '24px', textAlign: 'center', boxShadow: '0 12px 48px rgba(0,0,0,0.08)' }}>
+            <Box sx={{ width: 72, height: 72, bgcolor: 'rgba(46,125,50,0.1)', borderRadius: '50%', mx: 'auto', mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CheckCircle sx={{ fontSize: 44, color: '#2E7D32' }} />
             </Box>
-            <Chip label="🥡 TAKEAWAY ORDER CONFIRMED" sx={{ bgcolor: '#C62828', color: 'white', fontWeight: 800, mb: 2, fontSize: '13px' }} />
-            <Typography variant="h4" color="#2E7D32" sx={{ fontWeight: 800, mb: 1 }}>Order Placed!</Typography>
-            <Typography color="text.secondary" sx={{ mb: 3 }}>
-              Thank you, <strong>{completedOrder.customerName}</strong>! Your takeaway order is being prepared. Show your Order ID at the counter.
+            <Chip label="🥡 TAKEAWAY CONFIRMED" sx={{ bgcolor: '#2E7D32', color: 'white', fontWeight: 800, mb: 1.5, fontSize: '12px' }} />
+            <Typography variant="h5" color="#1B5E20" sx={{ fontWeight: 900, mb: 0.5 }}>Order Placed Successfully!</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Thank you, <strong>{completedOrder.customerName}</strong>! Your food is being prepared at Pala Pitta Ruchulu.
             </Typography>
 
-            <Box sx={{ bgcolor: '#FFF8F2', borderRadius: '14px', p: 3, mb: 3 }}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 600 }}>ORDER ID</Typography>
+            <Box sx={{ bgcolor: '#FFF8F2', borderRadius: '16px', p: 2.5, mb: 3, border: '1px solid #FFCCBC' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontWeight: 700, letterSpacing: 0.5 }}>ORDER TOKEN ID</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mt: 0.5 }}>
-                <Typography variant="h5" color="#C62828" sx={{ fontWeight: 800 }}>{completedOrder.orderId}</Typography>
+                <Typography variant="h4" color="#C62828" sx={{ fontWeight: 900 }}>{completedOrder.orderId}</Typography>
                 <ContentCopy
-                  sx={{ fontSize: 18, color: '#616161', cursor: 'pointer' }}
-                  onClick={() => { navigator.clipboard.writeText(completedOrder.orderId); toast.success('Copied!'); }}
+                  sx={{ fontSize: 20, color: '#616161', cursor: 'pointer' }}
+                  onClick={() => { navigator.clipboard.writeText(completedOrder.orderId); toast.success('Order ID copied!'); }}
                 />
               </Box>
             </Box>
 
-            <Stack spacing={1.5} sx={{ mb: 3 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 1 }}>
-                <Typography variant="body2" color="text.secondary">Grand Total</Typography>
-                <Typography variant="h6" color="primary" sx={{ fontWeight: 800 }}>₹{completedOrder.grandTotal.toLocaleString()}</Typography>
+            <Stack spacing={1.5} sx={{ mb: 3, textAlign: 'left', bgcolor: '#FAFAF9', p: 2, borderRadius: '14px' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2" color="text.secondary">Total Amount</Typography>
+                <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 900 }}>₹{completedOrder.grandTotal.toLocaleString()}</Typography>
               </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 1 }}>
-                <Typography variant="body2" color="text.secondary">Payment</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body2" color="text.secondary">Payment Method</Typography>
                 <Chip
-                  label={completedOrder.paymentStatus === 'paid' ? '✅ PAID ONLINE' : '⏳ PAYMENT PENDING'}
+                  label={completedOrder.paymentStatus === 'paid' ? '✅ Paid Online' : '⏳ Pay at Counter'}
                   size="small"
                   color={completedOrder.paymentStatus === 'paid' ? 'success' : 'warning'}
-                  sx={{ fontWeight: 800 }}
+                  sx={{ fontWeight: 800, fontSize: '11px' }}
                 />
               </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', px: 1 }}>
-                <Typography variant="body2" color="text.secondary">Order Type</Typography>
-                <Chip label="🥡 TAKEAWAY" size="small" sx={{ bgcolor: '#FFF3E0', color: '#E65100', fontWeight: 700 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="body2" color="text.secondary">Pickup Location</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.primary' }}>Madhapur, Hyderabad</Typography>
               </Box>
             </Stack>
 
-            <Alert severity="info" sx={{ mb: 3, borderRadius: '12px', textAlign: 'left' }}>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>Collect your order at Pala Pitta Ruchulu</Typography>
-              <Typography variant="caption">📍 Madhapur, Hyderabad | 📞 +91 70326 82089</Typography>
-            </Alert>
-
             <Button
               fullWidth variant="contained"
-              href={`https://wa.me/917032682089?text=Hello Pala Pitta Ruchulu! My takeaway order ${completedOrder.orderId} (₹${completedOrder.grandTotal}) is placed. Please confirm readiness!`}
+              href={`https://wa.me/917032682089?text=Hello Pala Pitta Ruchulu! My takeaway order ${completedOrder.orderId} (₹${completedOrder.grandTotal}) is placed. Please confirm preparation!`}
               target="_blank"
               startIcon={<WhatsApp />}
-              sx={{ bgcolor: '#25D366', '&:hover': { bgcolor: '#128C7E' }, borderRadius: '14px', py: 1.5, fontWeight: 700, mb: 1.5 }}
+              sx={{ bgcolor: '#25D366', '&:hover': { bgcolor: '#128C7E' }, borderRadius: '12px', py: 1.4, fontWeight: 700, mb: 1.5 }}
             >
-              Confirm on WhatsApp
+              Contact Kitchen on WhatsApp
             </Button>
-            {/* The real 80mm bill — printed, or saved as a receipt-sized PDF. */}
             <PrintBillButton
               order={completedOrder}
-              label="Print / save bill"
+              label="Print / Download Receipt"
               fullWidth
               variant="outlined"
               color="inherit"
-              sx={{ borderRadius: '14px', py: 1.5, fontWeight: 700, mb: 1.5, color: '#616161', borderColor: '#E0E0E0' }}
+              sx={{ borderRadius: '12px', py: 1.4, fontWeight: 700, mb: 1.5, color: '#424242', borderColor: '#D6D6D6' }}
             />
             <Link href="/" style={{ textDecoration: 'none' }}>
-              <Button fullWidth variant="outlined" color="primary" sx={{ borderRadius: '14px', py: 1.5, fontWeight: 700 }}>
-                Back to Home
+              <Button fullWidth variant="text" color="primary" sx={{ fontWeight: 700 }}>
+                Return to Home
               </Button>
             </Link>
           </Paper>
@@ -378,10 +359,18 @@ export default function CheckoutPage() {
   return (
     <>
       <Navbar />
-      <Box sx={{ bgcolor: '#FFF8F2', minHeight: '100vh', py: { xs: 3, md: 5 } }}>
+      <Box sx={{ bgcolor: '#FFF8F2', minHeight: '90vh', pt: { xs: 2.5, md: 4 }, pb: { xs: 12, md: 6 } }}>
         <Container maxWidth="lg">
 
-          {/* Login Alert Banner if not logged in */}
+          {/* Top minimal breadcrumb */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+            <Link href="/cart" style={{ textDecoration: 'none' }}>
+              <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 700 }}>← Back to Cart</Typography>
+            </Link>
+            <Typography variant="body2" color="text.secondary">•</Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>Checkout</Typography>
+          </Box>
+
           {!user && (
             <Alert
               severity="warning"
@@ -392,90 +381,62 @@ export default function CheckoutPage() {
                   size="small"
                   startIcon={<Login />}
                   onClick={() => openAuthModal('login')}
-                  sx={{ fontWeight: 700, bgcolor: 'rgba(198,40,40,0.1)', '&:hover': { bgcolor: 'rgba(198,40,40,0.2)' } }}
+                  sx={{ fontWeight: 800, bgcolor: 'rgba(198,40,40,0.1)' }}
                 >
-                  Log In / Sign Up
+                  Log In
                 </Button>
               }
-              sx={{ mb: 3, borderRadius: '16px', border: '1.5px solid #FFB74D', bgcolor: '#FFF3E0' }}
+              sx={{ mb: 3, borderRadius: '14px', border: '1px solid #FFCC80', bgcolor: '#FFF3E0' }}
             >
               <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#C62828' }}>
-                Account Required for Checkout
+                Account login recommended
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Please log in or create an account to complete your takeaway order and track status.
+              <Typography variant="caption" color="text.secondary">
+                Log in to automatically save order history and earn points.
               </Typography>
             </Alert>
           )}
 
-          {/* Takeaway Banner */}
-          <Box sx={{
-            bgcolor: '#FFF3E0', border: '2px solid #FF9800', borderRadius: '16px',
-            p: 2, mb: 4, display: 'flex', alignItems: 'center', gap: 2,
-          }}>
-            <ShoppingBag sx={{ color: '#E65100', fontSize: 32, flexShrink: 0 }} />
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#E65100' }}>
-                🥡 Takeaway Only
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Order online → pay securely via Razorpay → collect from <strong>Pala Pitta Ruchulu, Madhapur</strong>. No delivery available.
-              </Typography>
-            </Box>
-          </Box>
-
-          <Typography variant="h4" color="#C62828" sx={{ fontWeight: 800, mb: 4 }}>
-            🛒 Checkout
-          </Typography>
-
-          <Grid container spacing={4}>
-            {/* Left – Customer Details & Payment */}
+          <Grid container spacing={3.5}>
+            {/* Left Side: Order Details & Payment Selection */}
             <Grid size={{ xs: 12, md: 7 }}>
-              {/* Customer Details */}
-              <Paper sx={{ p: 3.5, borderRadius: '20px', mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box sx={{ width: 36, height: 36, bgcolor: 'rgba(198,40,40,0.1)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Person sx={{ color: '#C62828', fontSize: 20 }} />
-                    </Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>Your Details</Typography>
-                  </Box>
 
-                  {user ? (
-                    <Chip
-                      icon={<CheckCircle sx={{ fontSize: '16px !important' }} />}
-                      label={`Logged in: ${user.email || 'Customer'}`}
-                      size="small"
-                      color="success"
-                      variant="outlined"
-                      sx={{ fontWeight: 700 }}
-                    />
-                  ) : (
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="primary"
-                      startIcon={<Login />}
-                      onClick={() => openAuthModal('login')}
-                      sx={{ borderRadius: '8px', fontWeight: 700 }}
-                    >
-                      Log In
-                    </Button>
-                  )}
+              {/* 1. Pickup & Contact Info */}
+              <Paper sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '20px', mb: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                    <Box sx={{ width: 34, height: 34, bgcolor: 'rgba(198,40,40,0.08)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Storefront sx={{ color: '#C62828', fontSize: 18 }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 800, fontSize: '17px' }}>Takeaway Pickup</Typography>
+                  </Box>
+                  <Chip label="30 MIN PREPARATION" size="small" sx={{ bgcolor: '#FFF3E0', color: '#E65100', fontWeight: 800, fontSize: '10.5px' }} />
                 </Box>
 
-                <Grid container spacing={2.5}>
-                  <Grid size={{ xs: 12 }}>
+                <Box sx={{ p: 2, bgcolor: '#FFF8F2', borderRadius: '14px', border: '1px solid #FFE0B2', mb: 2.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#E65100' }}>📍 Pala Pitta Ruchulu Restaurant</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.3 }}>
+                    Main Road, Madhapur, Hyderabad, TS – 500081 (Near Metro Pillar 1735)
+                  </Typography>
+                </Box>
+
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.5, color: 'text.primary' }}>
+                  Contact Information for Order Updates
+                </Typography>
+
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
-                      fullWidth label="Full Name *"
+                      fullWidth size="small" label="Full Name *"
                       value={effectiveName} onChange={(e) => setForm({ ...form, name: e.target.value })}
                       error={!!errors.name} helperText={errors.name}
-                      placeholder="e.g. Vasishta Dronadula"
+                      placeholder="e.g. Rahul Sharma"
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                     />
                   </Grid>
-                  <Grid size={{ xs: 12 }}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <TextField
-                      fullWidth label="Mobile Number *"
+                      fullWidth size="small" label="Mobile Phone *"
                       value={effectivePhone}
                       onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                       error={!!errors.phone} helperText={errors.phone}
@@ -484,294 +445,247 @@ export default function CheckoutPage() {
                         input: {
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Phone sx={{ color: '#616161', fontSize: 18 }} />
-                              <Typography sx={{ fontWeight: 600, color: '#616161', fontSize: '14px', ml: 0.5 }}>+91</Typography>
+                              <Typography sx={{ fontWeight: 700, color: '#616161', fontSize: '13px' }}>+91</Typography>
                             </InputAdornment>
                           ),
                         },
-                        htmlInput: { maxLength: 10 },
                       }}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                     />
                   </Grid>
                 </Grid>
               </Paper>
 
-              {/* Payment Method — Online Only */}
-              <Paper sx={{ p: 3.5, borderRadius: '20px' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-                  <Box sx={{ width: 36, height: 36, bgcolor: 'rgba(198,40,40,0.1)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Payment sx={{ color: '#C62828', fontSize: 20 }} />
+              {/* 2. Payment Method Selector */}
+              <Paper sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.04)' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, mb: 2.5 }}>
+                  <Box sx={{ width: 34, height: 34, bgcolor: 'rgba(198,40,40,0.08)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Payment sx={{ color: '#C62828', fontSize: 18 }} />
                   </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>Payment Method</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800, fontSize: '17px' }}>Payment Mode</Typography>
                 </Box>
 
-                <Box
-                  sx={{
-                    p: 2.5, borderRadius: '14px',
-                    border: '2px solid #C62828',
-                    bgcolor: 'rgba(198,40,40,0.04)',
-                    display: 'flex', alignItems: 'center', gap: 1.5,
-                  }}
-                >
-                  <Box sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: 'rgba(25,118,210,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Payment sx={{ color: '#1976D2', fontSize: 22 }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>💳 Pay Online (Razorpay)</Typography>
-                    <Typography variant="caption" color="text.secondary">UPI, Cards, GPay, PhonePe, NetBanking — Pay now, collect from restaurant</Typography>
-                  </Box>
-                </Box>
+                <Stack spacing={1.5}>
+                  {/* Option 1: Instant Online Payment */}
+                  <Paper
+                    elevation={0}
+                    onClick={() => setPaymentChoice('online')}
+                    sx={{
+                      p: 2, borderRadius: '14px', cursor: 'pointer',
+                      border: '2px solid',
+                      borderColor: paymentChoice === 'online' ? '#C62828' : 'rgba(0,0,0,0.08)',
+                      bgcolor: paymentChoice === 'online' ? 'rgba(198,40,40,0.03)' : '#FFFFFF',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      transition: 'all .2s ease',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Radio checked={paymentChoice === 'online'} color="primary" size="small" />
+                      <Box sx={{ width: 38, height: 38, borderRadius: '10px', bgcolor: 'rgba(25,118,210,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <AccountBalanceWallet sx={{ color: '#1976D2', fontSize: 20 }} />
+                      </Box>
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: '14px' }}>
+                          Instant Online Payment (UPI / Cards)
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Pay securely via Google Pay, PhonePe, Paytm, Cards or NetBanking
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Paper>
+
+                  {/* Option 2: Pay at Counter */}
+                  <Paper
+                    elevation={0}
+                    onClick={() => setPaymentChoice('counter')}
+                    sx={{
+                      p: 2, borderRadius: '14px', cursor: 'pointer',
+                      border: '2px solid',
+                      borderColor: paymentChoice === 'counter' ? '#C62828' : 'rgba(0,0,0,0.08)',
+                      bgcolor: paymentChoice === 'counter' ? 'rgba(198,40,40,0.03)' : '#FFFFFF',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      transition: 'all .2s ease',
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                      <Radio checked={paymentChoice === 'counter'} color="primary" size="small" />
+                      <Box sx={{ width: 38, height: 38, borderRadius: '10px', bgcolor: 'rgba(46,125,50,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Storefront sx={{ color: '#2E7D32', fontSize: 20 }} />
+                      </Box>
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: '14px' }}>
+                          Pay at Counter upon Pickup
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Pay cash or tap card when collecting your takeaway order at restaurant
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Paper>
+                </Stack>
               </Paper>
             </Grid>
 
-            {/* Right – Order Summary */}
+            {/* Right Side: Order Items Summary & Price Breakdown */}
             <Grid size={{ xs: 12, md: 5 }}>
-              <Paper sx={{ p: 3.5, borderRadius: '20px', position: 'sticky', top: 90 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-                  <Box sx={{ width: 36, height: 36, bgcolor: 'rgba(198,40,40,0.1)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <ShoppingCart sx={{ color: '#C62828', fontSize: 20 }} />
-                  </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>Order Summary</Typography>
-                </Box>
+              <Paper sx={{ p: { xs: 2.5, sm: 3.5 }, borderRadius: '20px', boxShadow: '0 4px 24px rgba(0,0,0,0.06)', position: { md: 'sticky' }, top: 80 }}>
+                <Typography variant="h6" sx={{ fontWeight: 900, mb: 2, fontSize: '17px' }}>
+                  Order Summary
+                </Typography>
 
-                {state.items.map((item) => (
-                  <Box key={`${item.id}-${item.selectedPortion}`} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'} />
-                      <Typography variant="body2" sx={{ maxWidth: 180 }}>
-                        {item.name} × {item.quantity}
+                {/* Items List */}
+                <Stack spacing={1.5} sx={{ maxH: 220, overflowY: 'auto', pr: 0.5, mb: 2 }}>
+                  {state.items.map((item) => (
+                    <Box key={`${item.id}-${item.selectedPortion}`} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                        <Box className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'} />
+                        <Typography variant="body2" sx={{ fontWeight: 700, fontSize: '13.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 180 }}>
+                          {item.name} <Box component="span" sx={{ color: 'text.secondary', fontWeight: 500 }}>× {item.quantity}</Box>
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" sx={{ fontWeight: 800, fontSize: '13.5px' }}>
+                        ₹{((item.selectedPrice ?? item.price) * item.quantity).toLocaleString()}
                       </Typography>
                     </Box>
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>₹{((item.selectedPrice ?? item.price) * item.quantity).toLocaleString()}</Typography>
-                  </Box>
-                ))}
+                  ))}
+                </Stack>
 
-                {/* 🎟️ Promo Code & Admin-created Coupons Section */}
-                <Box sx={{ mt: 2, mb: 2, p: 2, bgcolor: '#FFF8F2', borderRadius: '14px', border: '1px dashed #FFB74D' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                    <LocalOffer sx={{ color: '#E65100', fontSize: 20 }} />
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#E65100' }}>
-                      Apply Promo Code & Coupons
-                    </Typography>
-                  </Box>
-
+                {/* Promo Code Box */}
+                <Box sx={{ p: 1.5, bgcolor: '#FFF8F2', borderRadius: '12px', border: '1px dashed #FFB74D', mb: 2.5 }}>
                   {state.couponCode ? (
-                    <Box
-                      sx={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        p: 1.25, bgcolor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '10px',
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <ConfirmationNumber sx={{ color: '#15803D', fontSize: 18 }} />
-                        <Box>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#15803D', fontSize: 13 }}>
-                            Coupon '{state.couponCode}' Applied!
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: '#166534' }}>
-                            Saving ₹{discountAmount.toFixed(0)} on this order
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <Button
-                        size="small"
-                        onClick={() => {
-                          removeCoupon();
-                          toast.success('Coupon removed');
-                        }}
-                        sx={{ minWidth: 0, p: 0.5, color: '#DC2626', fontWeight: 800, fontSize: 12, textTransform: 'none' }}
-                      >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="caption" sx={{ fontWeight: 800, color: '#15803D' }}>
+                        🎉 Coupon '{state.couponCode}' Applied! (-₹{discountAmount.toFixed(0)})
+                      </Typography>
+                      <Button size="small" onClick={removeCoupon} sx={{ color: '#C62828', fontSize: '11px', fontWeight: 800, minWidth: 0, p: 0 }}>
                         Remove
                       </Button>
                     </Box>
                   ) : (
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <TextField
-                        size="small"
-                        fullWidth
-                        placeholder="Enter coupon code"
-                        value={inputCoupon}
-                        onChange={(e) => setInputCoupon(e.target.value.toUpperCase())}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            bgcolor: '#FFFFFF', borderRadius: '10px', fontSize: 13,
-                          },
-                        }}
+                        size="small" fullWidth placeholder="Coupon code"
+                        value={inputCoupon} onChange={(e) => setInputCoupon(e.target.value.toUpperCase())}
+                        sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'white', borderRadius: '8px', fontSize: '12.5px' } }}
                       />
                       <Button
-                        variant="contained"
-                        size="small"
+                        size="small" variant="contained" color="primary"
                         onClick={() => {
                           const code = inputCoupon.trim().toUpperCase();
-                          if (!code) return;
                           const match = coupons.find((c) => c.code.toUpperCase() === code && c.isActive);
                           if (match) {
-                            const minReq = match.minOrder || 0;
-                            if (subtotal < minReq) {
-                              toast.error(`Minimum order ₹${minReq} required for ${match.code}`);
+                            if (subtotal < (match.minOrder || 0)) {
+                              toast.error(`Min order ₹${match.minOrder} required`);
                               return;
                             }
                             applyCoupon(match.code, match.discount, match.maxDiscount);
-                            toast.success(`🎉 Coupon ${match.code} applied (${match.discount}% OFF)!`);
+                            toast.success(`Coupon ${match.code} applied!`);
                             setInputCoupon('');
                           } else {
-                            toast.error('Invalid or expired coupon code');
+                            toast.error('Invalid coupon code');
                           }
                         }}
-                        sx={{
-                          borderRadius: '10px', px: 2.5, fontWeight: 800, textTransform: 'none',
-                          bgcolor: '#C62828', '&:hover': { bgcolor: '#B71C1C' },
-                        }}
+                        sx={{ borderRadius: '8px', px: 2, fontWeight: 800 }}
                       >
                         Apply
                       </Button>
                     </Box>
                   )}
-
-                  {/* List of active admin/manager coupons available for 1-tap apply */}
-                  {coupons.filter((c) => c.isActive).length > 0 && !state.couponCode && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="caption" sx={{ fontWeight: 800, color: '#78716C', display: 'block', mb: 1 }}>
-                        AVAILABLE COUPONS:
-                      </Typography>
-                      <Stack spacing={1}>
-                        {coupons.filter((c) => c.isActive).map((c) => {
-                          const minReq = c.minOrder || 0;
-                          const eligible = subtotal >= minReq;
-
-                          return (
-                            <Paper
-                              key={c.code}
-                              elevation={0}
-                              sx={{
-                                p: 1.25, borderRadius: '10px',
-                                border: '1px solid #FED7AA',
-                                bgcolor: eligible ? '#FFFFFF' : '#FAFAF9',
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
-                              }}
-                            >
-                              <Box sx={{ minWidth: 0, flex: 1 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                                  <Chip
-                                    label={c.code}
-                                    size="small"
-                                    sx={{
-                                      fontWeight: 900, fontSize: 11,
-                                      bgcolor: '#FEF3C7', color: '#B45309', border: '1px solid #FCD34D',
-                                    }}
-                                  />
-                                  <Typography variant="subtitle2" sx={{ fontWeight: 800, fontSize: 12, color: '#1C1917' }}>
-                                    {c.discount}% OFF
-                                  </Typography>
-                                </Box>
-                                <Typography variant="caption" sx={{ color: '#78716C', display: 'block', mt: 0.25, fontSize: 11 }}>
-                                  {c.description || `Get ${c.discount}% discount${c.maxDiscount ? ` up to ₹${c.maxDiscount}` : ''}`}
-                                  {minReq > 0 ? ` on orders above ₹${minReq}` : ''}
-                                </Typography>
-                              </Box>
-
-                              {eligible ? (
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  onClick={() => {
-                                    applyCoupon(c.code, c.discount, c.maxDiscount);
-                                    toast.success(`🎉 Coupon ${c.code} applied!`);
-                                  }}
-                                  sx={{
-                                    borderRadius: '8px', minWidth: 60, py: 0.3, px: 1.25,
-                                    fontWeight: 800, fontSize: 11, textTransform: 'none',
-                                    borderColor: '#C62828', color: '#C62828',
-                                    '&:hover': { bgcolor: '#FEF2F2', borderColor: '#B71C1C' },
-                                  }}
-                                >
-                                  Apply
-                                </Button>
-                              ) : (
-                                <Typography variant="caption" sx={{ fontSize: 10, fontWeight: 700, color: '#D97706', textAlign: 'right' }}>
-                                  Add ₹{minReq - subtotal} more
-                                </Typography>
-                              )}
-                            </Paper>
-                          );
-                        })}
-                      </Stack>
-                    </Box>
-                  )}
                 </Box>
 
-                <Divider sx={{ my: 2 }} />
-
-                <Stack spacing={1}>
+                {/* Bill Breakdown */}
+                <Stack spacing={1.2}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">Subtotal</Typography>
-                    <Typography variant="body2">₹{subtotal.toLocaleString()}</Typography>
+                    <Typography variant="body2" color="text.secondary">Item Subtotal</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>₹{subtotal.toLocaleString()}</Typography>
                   </Box>
+
                   {discountAmount > 0 && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="body2" color="success.main">Discount ({state.couponCode})</Typography>
-                      <Typography variant="body2" color="success.main">-₹{discountAmount.toFixed(0)}</Typography>
+                      <Typography variant="body2" color="success.main">Discount</Typography>
+                      <Typography variant="body2" color="success.main" sx={{ fontWeight: 700 }}>-₹{discountAmount.toFixed(0)}</Typography>
                     </Box>
                   )}
+
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">CGST (2.5%)</Typography>
-                    <Typography variant="body2">₹{cgst.toFixed(2)}</Typography>
+                    <Typography variant="body2" color="text.secondary">Taxes (GST 5%)</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>₹{(cgst + sgst).toFixed(2)}</Typography>
                   </Box>
+
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="text.secondary">SGST (2.5%)</Typography>
-                    <Typography variant="body2">₹{sgst.toFixed(2)}</Typography>
+                    <Typography variant="body2" color="success.main">Takeaway Service</Typography>
+                    <Typography variant="body2" color="success.main" sx={{ fontWeight: 700 }}>FREE</Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="body2" color="success.main">Takeaway</Typography>
-                    <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>FREE</Typography>
-                  </Box>
-                  <Divider />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="h6" sx={{ fontWeight: 800 }}>Grand Total</Typography>
-                    <Typography variant="h6" color="primary" sx={{ fontWeight: 800 }}>₹{grandTotal.toLocaleString()}</Typography>
+
+                  <Divider sx={{ my: 1 }} />
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 900 }}>To Pay</Typography>
+                    <Typography variant="h5" color="primary" sx={{ fontWeight: 900 }}>
+                      ₹{grandTotal.toLocaleString()}
+                    </Typography>
                   </Box>
                 </Stack>
 
-                {!user ? (
-                  <Button
-                    fullWidth variant="contained" size="large"
-                    onClick={() => {
-                      toast.error('🔒 Please log in to complete your order');
-                      openAuthModal('login');
-                    }}
-                    startIcon={<Lock />}
-                    sx={{
-                      mt: 3, py: 1.8, borderRadius: '14px', fontSize: '16px', fontWeight: 700,
-                      background: 'linear-gradient(135deg, #1E88E5, #1565C0)',
-                      boxShadow: '0 4px 16px rgba(25,118,210,0.3)',
-                      '&:hover': { background: 'linear-gradient(135deg, #1565C0, #0D47A1)' },
-                    }}
-                  >
-                    🔑 Log In / Register to Checkout
-                  </Button>
-                ) : (
-                  <Button
-                    fullWidth variant="contained" color="primary" size="large"
-                    onClick={handleProceedToPayment}
-                    disabled={loading}
-                    endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ArrowForward />}
-                    sx={{
-                      mt: 3, py: 1.8, borderRadius: '14px', fontSize: '16px', fontWeight: 700,
-                      background: 'linear-gradient(135deg, #C62828, #EF5350)',
-                    }}
-                  >
-                    {loading ? 'Processing...' : '💳 Pay & Place Takeaway Order'}
-                  </Button>
-                )}
-
-                <Alert severity="success" sx={{ mt: 2, borderRadius: '12px', fontSize: '12px' }}>
-                  🥡 <strong>Takeaway:</strong> Collect your order at our Madhapur restaurant.
-                </Alert>
+                {/* Main Action Desktop Button */}
+                <Button
+                  fullWidth variant="contained" size="large"
+                  onClick={handleProceedToPayment}
+                  disabled={loading}
+                  endIcon={loading ? <CircularProgress size={20} color="inherit" /> : <ArrowForward />}
+                  sx={{
+                    mt: 3, py: 1.6, borderRadius: '14px', fontSize: '15.5px', fontWeight: 800,
+                    background: 'linear-gradient(135deg, #C62828, #EF5350)',
+                    display: { xs: 'none', md: 'inline-flex' },
+                  }}
+                >
+                  {loading ? 'Processing Order...' : paymentChoice === 'online' ? `Pay ₹${grandTotal.toLocaleString()} Online →` : `Confirm Order ₹${grandTotal.toLocaleString()} →`}
+                </Button>
               </Paper>
             </Grid>
           </Grid>
         </Container>
+
+        {/* Sticky Bottom Bar for Phones */}
+        <Box
+          sx={{
+            position: 'fixed',
+            bottom: 0, left: 0, right: 0,
+            bgcolor: 'white',
+            borderTop: '1px solid rgba(0,0,0,0.1)',
+            p: 1.75, px: 2.5,
+            zIndex: 1200,
+            display: { xs: 'flex', md: 'none' },
+            alignItems: 'center', justifyContent: 'space-between',
+            boxShadow: '0 -4px 20px rgba(0,0,0,0.1)',
+            pb: 'calc(14px + env(safe-area-inset-bottom, 0px))',
+          }}
+        >
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1, fontWeight: 700 }}>
+              TOTAL TO PAY
+            </Typography>
+            <Typography variant="h6" color="primary" sx={{ fontWeight: 900, lineHeight: 1.1 }}>
+              ₹{grandTotal.toLocaleString()}
+            </Typography>
+          </Box>
+
+          <Button
+            variant="contained" color="primary" size="medium"
+            onClick={handleProceedToPayment}
+            disabled={loading}
+            endIcon={loading ? <CircularProgress size={18} color="inherit" /> : <ArrowForward fontSize="small" />}
+            sx={{
+              borderRadius: '12px', px: 3, py: 1.1, fontWeight: 800, fontSize: '14px',
+              background: 'linear-gradient(135deg, #C62828, #EF5350)',
+            }}
+          >
+            {loading ? 'Placing...' : paymentChoice === 'online' ? 'Pay Online' : 'Place Order'}
+          </Button>
+        </Box>
       </Box>
+
       <Footer />
     </>
   );
