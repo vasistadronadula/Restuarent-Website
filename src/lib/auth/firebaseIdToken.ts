@@ -160,7 +160,7 @@ function verifySignature(cert: string, signingInput: string, signature: Buffer):
  * should not be handed a description of which validation they tripped.
  */
 export async function verifyFirebasePhoneToken(idToken: string): Promise<VerifiedPhoneToken> {
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'palapitta-8b18f';
   if (!projectId) {
     throw new FirebaseTokenError(
       'NEXT_PUBLIC_FIREBASE_PROJECT_ID is not set — cannot validate the token audience',
