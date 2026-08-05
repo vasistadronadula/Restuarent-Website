@@ -15,6 +15,7 @@ import { getErrorMessage } from '@/lib/errors';
 import { validateEmail, validatePassword, safeRedirect } from '@/lib/validation';
 import AuthShell from '@/components/customer/AuthShell';
 import GoogleIcon from '@/components/customer/GoogleIcon';
+import PhoneOtpAuth from '@/components/customer/PhoneOtpAuth';
 
 /**
  * Sign-in.
@@ -268,6 +269,8 @@ function LoginForm() {
     );
   }
 
+  const [authMethod, setAuthMethod] = useState<'otp' | 'email'>('otp');
+
   /* ── Log in ───────────────────────────────────────────────────────────── */
   return (
     <AuthShell
@@ -335,45 +338,104 @@ function LoginForm() {
         </Button>
       </Box>
 
-      <Button
-        fullWidth
-        variant="outlined"
-        onClick={signInWithGoogle}
-        startIcon={<GoogleIcon />}
-        sx={{
-          py: 1.3,
-          mb: 2.5,
-          borderRadius: '14px',
-          borderColor: '#E2E8F0',
-          bgcolor: 'rgba(255, 255, 255, 0.9)',
-          color: '#2D3748',
-          fontWeight: 700,
-          fontSize: '14px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-          transition: 'all 0.2s ease',
-          '&:hover': {
-            borderColor: '#CBD5E0',
-            bgcolor: '#FFFFFF',
-            boxShadow: '0 4px 14px rgba(0,0,0,0.06)',
-            transform: 'translateY(-1px)',
-          },
-        }}
-      >
-        Continue with Google
-      </Button>
+      {/* Auth Method Switcher (Phone OTP vs Email) */}
+      <Box sx={{ mb: 2.5, display: 'flex', justifyContent: 'center' }}>
+        <Box
+          sx={{
+            display: 'inline-flex',
+            bgcolor: '#F5EBE6',
+            p: 0.4,
+            borderRadius: '12px',
+            gap: 0.5,
+          }}
+        >
+          <Button
+            size="small"
+            onClick={() => setAuthMethod('otp')}
+            sx={{
+              borderRadius: '9px',
+              px: 2,
+              py: 0.6,
+              fontWeight: 800,
+              fontSize: '12.5px',
+              textTransform: 'none',
+              bgcolor: authMethod === 'otp' ? '#FFFFFF' : 'transparent',
+              color: authMethod === 'otp' ? 'primary.main' : 'text.secondary',
+              boxShadow: authMethod === 'otp' ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+            }}
+          >
+            📱 Phone OTP
+          </Button>
+          <Button
+            size="small"
+            onClick={() => setAuthMethod('email')}
+            sx={{
+              borderRadius: '9px',
+              px: 2,
+              py: 0.6,
+              fontWeight: 800,
+              fontSize: '12.5px',
+              textTransform: 'none',
+              bgcolor: authMethod === 'email' ? '#FFFFFF' : 'transparent',
+              color: authMethod === 'email' ? 'primary.main' : 'text.secondary',
+              boxShadow: authMethod === 'email' ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
+            }}
+          >
+            ✉️ Email & Password
+          </Button>
+        </Box>
+      </Box>
 
-      <Divider
-        sx={{
-          mb: 2.5,
-          fontSize: '11px',
-          fontWeight: 800,
-          color: 'text.secondary',
-          letterSpacing: 1,
-          '&::before, &::after': { borderColor: '#F0E4D8' },
-        }}
-      >
-        OR LOGIN WITH EMAIL
-      </Divider>
+      {authMethod === 'otp' ? (
+        <Box sx={{ mb: 2.5 }}>
+          <PhoneOtpAuth
+            containerIdPrefix="login-page"
+            onSuccess={(role) => landAfterLogin(role ?? 'customer', redirectTo)}
+          />
+        </Box>
+      ) : (
+        <>
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={signInWithGoogle}
+            startIcon={<GoogleIcon />}
+            sx={{
+              py: 1.3,
+              mb: 2.5,
+              borderRadius: '14px',
+              borderColor: '#E2E8F0',
+              bgcolor: 'rgba(255, 255, 255, 0.9)',
+              color: '#2D3748',
+              fontWeight: 700,
+              fontSize: '14px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+              transition: 'all 0.2s ease',
+              '&:hover': {
+                borderColor: '#CBD5E0',
+                bgcolor: '#FFFFFF',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.06)',
+                transform: 'translateY(-1px)',
+              },
+            }}
+          >
+            Continue with Google
+          </Button>
+
+          <Divider
+            sx={{
+              mb: 2.5,
+              fontSize: '11px',
+              fontWeight: 800,
+              color: 'text.secondary',
+              letterSpacing: 1,
+              '&::before, &::after': { borderColor: '#F0E4D8' },
+            }}
+          >
+            OR LOGIN WITH EMAIL
+          </Divider>
+        </>
+      )}
 
       <Box component="form" onSubmit={handleLogin} noValidate>
         {formError && (

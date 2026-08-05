@@ -90,6 +90,7 @@ interface AuthContextType {
   authModalTab: 'login' | 'signup';
   signInWithEmail: (email: string, pass: string) => Promise<{ success: boolean; role?: UserRole }>;
   signUpWithEmail: (email: string, pass: string, name?: string, phone?: string) => Promise<{ success: boolean; role?: UserRole }>;
+  signInWithOtpPhoneUser: (phone: string, name?: string) => Promise<{ success: boolean; role?: UserRole }>;
   signInWithGoogle: () => Promise<void>;
   signOutUser: () => Promise<void>;
   fetchUserRole: (u: User) => Promise<UserRole>;
@@ -332,6 +333,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 
 
+  const signInWithOtpPhoneUser = useCallback(async (
+    phone: string, name?: string
+  ): Promise<{ success: boolean; role?: UserRole }> => {
+    try {
+      const cleanedPhone = phone.replace(/\D/g, '');
+      const dummyEmail = `phone_${cleanedPhone}@palapitta.internal`;
+      const dummyPassword = `PPR_Otp_${cleanedPhone}_AuthKey!`;
+
+      let { data, error } = await supabase.auth.signInWithPassword({
+        email: dummyEmail,
+        password: dummyPassword,
+      });
+
+      if (error && (error.message.toLowerCase().includes('invalid login credentials') || error.message.toLowerCase().includes('user not found'))) {
+        const signUpRes = await supabase.auth.signUp({
+          email: dummyEmail,
+          password: dummyPassword,
+          options: {
+            data: {
+              full_name: name || `Customer ${cleanedPhone.slice(-4)}`,
+              phone: phone,
+            },
+          },
+        });
+        data = signUpRes.data;
+        error = signUpRes.error;
+      }
+
+      if (error) {
+        toast.error(error.message || 'OTP Login session initialization failed');
+        return { success: false };
+      }
+
+      const u = data.user;
+      let role: UserRole = 'customer';
+      if (u) {
+        role = await fetchAndSetUserRole(u, dispatch);
+        roleForUserId.current = u.id;
+        cachedRole.current = role;
+      }
+
+      toast.success('Mobile OTP verified! Welcome back 👋');
+      dispatch(closeAuthModal());
+      return { success: true, role };
+    } catch (err) {
+      toast.error(getErrorMessage(err) || 'OTP session error');
+      return { success: false };
+    }
+  }, [dispatch]);
+
   const signInWithGoogle = useCallback(async () => {
     try {
       // Mark the hand-off so the SIGNED_IN listener knows the return trip is a
@@ -391,13 +442,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // every useAuth() consumer — the whole POS included — on each render pass.
   const contextValue = useMemo(() => ({
     user, session, userRole, loading, isAuthModalOpen, authModalTab,
-    signInWithEmail, signUpWithEmail, signInWithGoogle, signOutUser,
+    signInWithEmail, signUpWithEmail, signInWithOtpPhoneUser, signInWithGoogle, signOutUser,
     fetchUserRole,
     openAuthModal: openModal,
     closeAuthModal: closeModal,
   }), [
     user, session, userRole, loading, isAuthModalOpen, authModalTab,
-    signInWithEmail, signUpWithEmail, signInWithGoogle, signOutUser,
+    signInWithEmail, signUpWithEmail, signInWithOtpPhoneUser, signInWithGoogle, signOutUser,
     fetchUserRole, openModal, closeModal,
   ]);
 
