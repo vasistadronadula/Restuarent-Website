@@ -73,7 +73,9 @@ export default function PhoneOtpAuth({
     } catch (err: any) {
       console.error('[Firebase OTP Error]:', err);
       let msg = 'Failed to send OTP. Please try again.';
-      if (err.code === 'auth/invalid-phone-number') {
+      if (err.code === 'auth/operation-not-allowed' || err.message?.includes('auth/operation-not-allowed')) {
+        msg = 'Phone authentication or SMS region (India +91) is not enabled in Firebase Console. Please enable Phone Sign-in & India region in Firebase Console > Authentication > Sign-in method.';
+      } else if (err.code === 'auth/invalid-phone-number') {
         msg = 'Invalid phone number format.';
       } else if (err.code === 'auth/too-many-requests') {
         msg = 'Too many OTP requests. Please wait a few minutes.';
@@ -81,7 +83,7 @@ export default function PhoneOtpAuth({
         msg = err.message;
       }
       setErrorMsg(msg);
-      toast.error(msg);
+      toast.error('Firebase SMS Region Not Enabled');
     } finally {
       setLoading(false);
     }
