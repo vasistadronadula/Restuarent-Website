@@ -2,13 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, Typography, Box, Avatar, Stack, Chip, Divider, CircularProgress,
-} from '@mui/material';
-import {
-  GetApp, PhoneIphone, Android, CheckCircle, Share, AddBox,
-  NotificationsActive, NotificationsOff, Print, Bluetooth, InfoOutlined,
-} from '@mui/icons-material';
+  Download, Smartphone, CheckCircle2, Share2, PlusSquare,
+  Bell, BellOff, Printer, Bluetooth, Info, Loader2,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { receivesNotifications } from '@/lib/roleAccess';
 import { roleAppFor, type RoleApp } from '@/lib/roleApps';
@@ -19,8 +15,11 @@ import {
 } from '@/lib/thermalPrinter';
 import type { UserRole } from '@/types';
 import toast from 'react-hot-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
-// Define typed BeforeInstallPromptEvent interface for PWA prompt
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
@@ -31,48 +30,28 @@ interface Props {
   onClose: () => void;
 }
 
-/** One numbered setup step, so the dialog reads as a checklist. */
 function Step({
   index, title, done, children,
 }: {
   index: number; title: string; done: boolean; children: React.ReactNode;
 }) {
   return (
-    <Box
-      sx={{
-        p: 2,
-        borderRadius: '16px',
-        border: `1px solid ${done ? '#BBF7D0' : 'rgba(0,0,0,0.08)'}`,
-        bgcolor: done ? '#F0FDF4' : '#FFFFFF',
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+    <div className={`p-4 rounded-2xl border transition-all ${done ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800' : 'bg-white dark:bg-stone-900 border-stone-200/80 dark:border-stone-800'}`}>
+      <div className="flex items-center gap-2 mb-2">
         {done ? (
-          <CheckCircle sx={{ fontSize: 20, color: '#15803D' }} />
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
         ) : (
-          <Box
-            sx={{
-              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-              bgcolor: 'rgba(0,0,0,0.06)', color: '#44403C',
-              fontSize: 11, fontWeight: 800,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}
-          >
+          <div className="w-5 h-5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-black flex items-center justify-center flex-shrink-0">
             {index}
-          </Box>
+          </div>
         )}
-        <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: '#1C1917' }}>{title}</Typography>
-      </Box>
+        <h4 className="text-sm font-extrabold text-stone-900 dark:text-stone-100">{title}</h4>
+      </div>
       {children}
-    </Box>
+    </div>
   );
 }
 
-/**
- * The steps themselves. Mounted only while the dialog is open, so permission
- * and printer state are read fresh on every open through state initialisers
- * rather than being pushed in from an effect.
- */
 function SetupSteps({
   app, userRole, userId, installed, deferredPrompt, isIOS, onInstall,
 }: {
@@ -94,17 +73,12 @@ function SetupSteps({
   );
   const [connectingPrinter, setConnectingPrinter] = useState(false);
 
-  // A printer paired on an earlier visit is still granted to this browser —
-  // pick it back up so the step shows "connected" instead of asking the
-  // cashier to pair the same device again.
   useEffect(() => {
     if (!isCashier || printerName) return;
     void reconnectSavedPrinter().then((ok) => {
       if (ok) setPrinterName(savedPrinterName() || 'Bluetooth printer');
     });
-    // Runs once per open; printerName is deliberately not a dependency.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCashier]);
+  }, [isCashier, printerName]);
 
   const handleEnableAlerts = async () => {
     if (!userId) return;
@@ -145,164 +119,138 @@ function SetupSteps({
   const printerStepIndex = wantsAlerts ? 3 : 2;
 
   return (
-    <Stack spacing={1.5}>
-      <Box sx={{ p: 1.75, bgcolor: `${app.themeColor}0D`, borderRadius: '14px', border: `1px solid ${app.themeColor}33` }}>
+    <div className="space-y-3">
+      <div className="p-3 bg-amber-500/10 dark:bg-amber-950/20 rounded-xl border border-amber-500/20 space-y-1">
         {app.highlights.map((line) => (
-          <Typography key={line} variant="caption" sx={{ display: 'block', lineHeight: 1.7, color: '#44403C' }}>
+          <p key={line} className="text-xs text-stone-700 dark:text-stone-300 leading-relaxed">
             • {line}
-          </Typography>
+          </p>
         ))}
-      </Box>
+      </div>
 
-      {/* ── Step 1 — install ───────────────────────────────────────────── */}
       <Step index={1} title="Install on this phone" done={installed}>
         {installed ? (
-          <Typography variant="caption" color="text.secondary">
+          <p className="text-xs text-stone-500">
             Installed. Launch it any time from your home screen.
-          </Typography>
+          </p>
         ) : deferredPrompt ? (
           <Button
-            variant="contained" size="medium" fullWidth
             onClick={onInstall}
-            startIcon={<GetApp />}
-            sx={{
-              py: 1.1, borderRadius: '12px', fontWeight: 800, textTransform: 'none',
-              bgcolor: app.themeColor, color: 'white', boxShadow: 'none',
-              '&:hover': { bgcolor: app.themeColor, filter: 'brightness(0.92)' },
-            }}
+            className="w-full h-10 font-extrabold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md"
           >
+            <Download className="w-4 h-4 mr-2" />
             Install {app.shortName}
           </Button>
         ) : isIOS ? (
-          <Stack spacing={0.75}>
-            <Typography variant="caption" sx={{ fontWeight: 700, color: '#B45309', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <PhoneIphone sx={{ fontSize: 16 }} /> On iPhone (Safari)
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-              Tap <Share sx={{ fontSize: 14, verticalAlign: 'middle' }} /> Share → <strong>Add to Home Screen</strong>
-              <AddBox sx={{ fontSize: 14, verticalAlign: 'middle', ml: 0.3 }} /> → <strong>Add</strong>.
-            </Typography>
-          </Stack>
+          <div className="space-y-1 text-xs text-stone-600 dark:text-stone-400">
+            <div className="font-bold text-amber-700 dark:text-amber-500 flex items-center gap-1">
+              <Smartphone className="w-4 h-4" /> On iPhone (Safari)
+            </div>
+            <p>
+              Tap <Share2 className="w-3.5 h-3.5 inline mx-0.5" /> Share → <strong>Add to Home Screen</strong> <PlusSquare className="w-3.5 h-3.5 inline mx-0.5" /> → <strong>Add</strong>.
+            </p>
+          </div>
         ) : (
-          <Stack spacing={0.75}>
-            <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Android sx={{ fontSize: 16 }} /> On Android (Chrome)
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+          <div className="space-y-1 text-xs text-stone-600 dark:text-stone-400">
+            <div className="font-bold text-emerald-700 dark:text-emerald-500 flex items-center gap-1">
+              <Smartphone className="w-4 h-4" /> On Android (Chrome)
+            </div>
+            <p>
               Open the browser menu <strong>(⋮)</strong> → <strong>Install app</strong> / <strong>Add to Home screen</strong>.
-            </Typography>
-          </Stack>
+            </p>
+          </div>
         )}
       </Step>
 
-      {/* ── Step 2 — notifications (only roles that receive them) ──────── */}
       {wantsAlerts && (
         <Step index={alertsStepIndex} title="Turn on instant alerts" done={pushState === 'granted'}>
           {pushState === 'granted' ? (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <NotificationsActive sx={{ fontSize: 15, color: '#15803D' }} />
+            <p className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 font-medium">
+              <Bell className="w-4 h-4" />
               Alerted the moment {userRole === 'waiter' ? 'a table is booked' : 'an order comes in'}.
-            </Typography>
+            </p>
           ) : pushState === 'denied' ? (
-            <Typography variant="caption" sx={{ color: '#B45309', display: 'flex', alignItems: 'flex-start', gap: 0.5, lineHeight: 1.6 }}>
-              <NotificationsOff sx={{ fontSize: 15, mt: 0.2 }} />
-              Notifications are blocked for this site. Turn them back on in your browser&apos;s site settings, then reopen this dialog.
-            </Typography>
+            <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1">
+              <BellOff className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              Notifications are blocked for this site. Turn them back on in your browser&apos;s site settings.
+            </p>
           ) : pushState === 'unsupported' ? (
-            <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-              This browser can&apos;t deliver background alerts. Install the app on an Android phone with Chrome to get them.
-            </Typography>
+            <p className="text-xs text-stone-500">
+              This browser can&apos;t deliver background alerts. Install the app on Android with Chrome.
+            </p>
           ) : (
             <>
               <Button
-                variant="contained" size="medium" fullWidth
                 onClick={handleEnableAlerts}
                 disabled={enablingPush || !userId}
-                startIcon={enablingPush ? <CircularProgress size={16} color="inherit" /> : <NotificationsActive />}
-                sx={{
-                  py: 1.1, borderRadius: '12px', fontWeight: 800, textTransform: 'none',
-                  bgcolor: '#15803D', boxShadow: 'none', '&:hover': { bgcolor: '#166534' },
-                }}
+                className="w-full h-10 font-extrabold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
               >
+                {enablingPush ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Bell className="w-4 h-4 mr-2" />}
                 Allow notifications
               </Button>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75, lineHeight: 1.5 }}>
+              <p className="text-[11px] text-stone-500 mt-1">
                 Your phone will ask for permission — tap <strong>Allow</strong>.
-              </Typography>
+              </p>
             </>
           )}
         </Step>
       )}
 
-      {/* ── Step 3 — receipt printer (cashier only) ────────────────────── */}
       {isCashier && (
-        <Step index={printerStepIndex} title="Connect the receipt printer" done={!!printerName}>
+        <Step index={printerStepIndex} title="Connect receipt printer" done={!!printerName}>
           {!isPrinterSupported() ? (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, lineHeight: 1.6 }}>
-              <InfoOutlined sx={{ fontSize: 15, mt: 0.2 }} />
-              This browser can&apos;t talk to Bluetooth printers, so new orders open the print dialog instead. Use Chrome on Android for automatic printing.
-            </Typography>
+            <p className="text-xs text-stone-500 flex items-start gap-1">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              This browser can&apos;t talk to Bluetooth printers. Use Chrome on Android for auto printing.
+            </p>
           ) : printerName ? (
-            <Stack spacing={1}>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Bluetooth sx={{ fontSize: 15, color: '#15803D' }} />
-                <strong>{printerName}</strong>
-                {isPrinterConnected() ? ' — orders print automatically' : ' — paired, reconnects when the app opens'}
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+            <div className="space-y-2 text-xs">
+              <p className="text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
+                <Bluetooth className="w-4 h-4" />
+                {printerName}
+                {isPrinterConnected() ? ' — orders print automatically' : ' — paired'}
+              </p>
+              <div className="flex gap-2">
                 <Button
-                  size="small" variant="outlined" startIcon={<Print />}
+                  variant="outline"
+                  size="sm"
                   onClick={() => printTestReceipt().then((ok) => (ok ? toast.success('Test slip sent') : toast.error('Printer not responding')))}
-                  sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700 }}
+                  className="font-bold text-xs"
                 >
+                  <Printer className="w-3.5 h-3.5 mr-1" />
                   Test print
                 </Button>
                 <Button
-                  size="small" color="inherit" onClick={handleForgetPrinter}
-                  sx={{ borderRadius: '10px', textTransform: 'none', fontWeight: 700, color: '#78716C' }}
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleForgetPrinter}
+                  className="text-stone-500 text-xs font-bold"
                 >
                   Disconnect
                 </Button>
-              </Box>
-            </Stack>
+              </div>
+            </div>
           ) : (
             <>
               <Button
-                variant="contained" size="medium" fullWidth
                 onClick={handleConnectPrinter}
                 disabled={connectingPrinter}
-                startIcon={connectingPrinter ? <CircularProgress size={16} color="inherit" /> : <Bluetooth />}
-                sx={{
-                  py: 1.1, borderRadius: '12px', fontWeight: 800, textTransform: 'none',
-                  bgcolor: '#1D4ED8', boxShadow: 'none', '&:hover': { bgcolor: '#1E40AF' },
-                }}
+                className="w-full h-10 font-extrabold rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
               >
+                {connectingPrinter ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Bluetooth className="w-4 h-4 mr-2" />}
                 Connect printer
               </Button>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75, lineHeight: 1.5 }}>
-                Switch the printer on, then pick it from the list. Every new order then prints on its own — no dialog to confirm.
-              </Typography>
+              <p className="text-[11px] text-stone-500 mt-1">
+                Switch printer on, pick it from list. Every new order prints on its own.
+              </p>
             </>
           )}
         </Step>
       )}
-    </Stack>
+    </div>
   );
 }
 
-/**
- * Role-aware install & setup dialog.
- *
- * Each role installs its own app (Kitchen, Billing, Tables …) that opens
- * straight onto the screen that role works in — see lib/roleApps.ts. The
- * dialog then walks through what that role actually needs: notification
- * permission for the roles that receive alerts, and a paired Bluetooth
- * receipt printer for the cashier.
- *
- * Notification permission is requested here, behind a button, rather than on
- * page load — a prompt the user opened is one browsers actually show and
- * staff understand, and a denial here is far less likely to be permanent.
- */
 export default function MobileAppInstallModal({ open, onClose }: Props) {
   const { user, userRole } = useAuth();
   const app = roleAppFor(userRole);
@@ -348,64 +296,42 @@ export default function MobileAppInstallModal({ open, onClose }: Props) {
   if (!app) return null;
 
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      fullWidth
-      maxWidth="xs"
-      slotProps={{
-        paper: {
-          sx: {
-            borderRadius: '24px',
-            p: 1,
-            background: 'linear-gradient(180deg, #FFFFFF 0%, #FBF8F5 100%)',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-          },
-        },
-      }}
-    >
-      <DialogTitle sx={{ textAlign: 'center', pb: 1 }}>
-        <Avatar
-          src="/logo.png"
-          alt={app.name}
-          sx={{
-            width: 68, height: 68, mx: 'auto', mb: 1.5,
-            boxShadow: `0 8px 24px ${app.themeColor}55`,
-            border: `3px solid ${app.themeColor}`,
-          }}
-        />
-        <Typography variant="h6" sx={{ fontWeight: 900, color: '#1C1917', lineHeight: 1.2 }}>
-          {app.name}
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mt: 0.5 }}>
-          Your own app — opens straight to your screen
-        </Typography>
-      </DialogTitle>
+    <Dialog open={open} onOpenChange={(val) => { if (!val) onClose(); }}>
+      <DialogContent className="max-w-sm p-0 overflow-hidden rounded-3xl bg-white dark:bg-stone-900 border-none shadow-2xl">
+        <DialogHeader className="p-6 pb-2 text-center flex flex-col items-center">
+          <Avatar className="w-16 h-16 mb-2 border-2 border-amber-500 shadow-lg">
+            <AvatarImage src="/logo.png" alt={app.name} />
+            <AvatarFallback className="bg-amber-600 text-white font-black text-xl">PP</AvatarFallback>
+          </Avatar>
+          <DialogTitle className="text-xl font-black text-stone-900 dark:text-stone-100">
+            {app.name}
+          </DialogTitle>
+          <p className="text-xs text-stone-500 font-semibold mt-1">
+            Your own app — opens straight to your screen
+          </p>
+        </DialogHeader>
 
-      <DialogContent sx={{ px: 2.5 }}>
-        <SetupSteps
-          app={app}
-          userRole={userRole}
-          userId={user?.id}
-          installed={isStandalone || installed}
-          deferredPrompt={deferredPrompt}
-          isIOS={isIOS}
-          onInstall={handleInstallClick}
-        />
+        <div className="px-6 py-2">
+          <SetupSteps
+            app={app}
+            userRole={userRole}
+            userId={user?.id}
+            installed={isStandalone || installed}
+            deferredPrompt={deferredPrompt}
+            isIOS={isIOS}
+            onInstall={handleInstallClick}
+          />
+        </div>
+
+        <DialogFooter className="p-4 bg-stone-50 dark:bg-stone-800/40 border-t border-stone-200/80 dark:border-stone-800 flex flex-row items-center justify-between">
+          <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold border-amber-500/20">
+            {app.shortName}
+          </Badge>
+          <Button variant="ghost" onClick={onClose} className="font-bold text-xs">
+            Done
+          </Button>
+        </DialogFooter>
       </DialogContent>
-
-      <Divider sx={{ my: 1 }} />
-
-      <DialogActions sx={{ px: 2.5, pb: 2, justifyContent: 'space-between' }}>
-        <Chip
-          label={app.shortName}
-          size="small"
-          sx={{ fontWeight: 800, fontSize: 10.5, bgcolor: `${app.themeColor}14`, color: app.themeColor }}
-        />
-        <Button onClick={onClose} sx={{ color: '#78716C', fontWeight: 700, textTransform: 'none' }}>
-          Done
-        </Button>
-      </DialogActions>
     </Dialog>
   );
 }

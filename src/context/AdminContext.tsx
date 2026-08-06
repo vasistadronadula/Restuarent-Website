@@ -1,26 +1,26 @@
 /**
  * AdminContext.tsx — Compatibility Adapter
  *
- * This provides backward-compatible `useAdmin()` hook for all existing admin pages.
- * Internally it delegates to Redux/RTK Query so all data flows through the single store.
- * This means zero re-writes of admin page code while getting all Redux benefits.
+ * Provides the `useAdmin()` hook every admin page already consumes. Internally
+ * it delegates to TanStack Query (server data) and the Zustand admin store (UI
+ * state), so the pages keep one shared, deduplicated cache without each of them
+ * having to know which hook owns which table.
  */
 
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { selectActiveRole, setActiveRole, showNotification, clearNotification, selectAdminNotification } from '@/store/adminSlice';
+import { toast } from 'sonner';
+
+import { useAdminStore } from '@/store/useAdminStore';
 import {
-  useGetOrdersQuery, useGetReservationsQuery, useGetMenuItemsQuery,
-  useGetInventoryQuery, useGetEmployeesQuery,
-  useUpdateOrderStatusMutation, useUpdateReservationStatusMutation,
-  useAddMenuItemMutation, useUpdateMenuItemMutation, useDeleteMenuItemMutation,
-  useAddInventoryItemMutation, useUpdateInventoryItemMutation, useDeleteInventoryItemMutation,
-  useCreateOrderMutation, useCreateReservationMutation,
-} from '@/store/supabaseApi';
+  useOrders, useReservations, useMenuItems, useInventory, useEmployees,
+  useUpdateOrderStatus, useUpdateReservationStatus,
+  useAddMenuItem, useUpdateMenuItem, useDeleteMenuItem,
+  useAddInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem,
+  useCreateOrder, useCreateReservation,
+} from '@/lib/queries';
 import { Order, Reservation, MenuItem, InventoryItem, Employee, Customer } from '@/types';
-import toast from 'react-hot-toast';
 
 interface AdminContextType {
   orders: Order[];
@@ -55,30 +55,29 @@ interface AdminContextType {
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 export const AdminProvider = ({ children }: { children: ReactNode }) => {
-  const dispatch = useAppDispatch();
-  const activeRole = useAppSelector(selectActiveRole) as 'admin' | 'manager' | 'cashier';
-  const notificationState = useAppSelector(selectAdminNotification);
+  const activeRole = useAdminStore((s) => s.activeRole);
+  const setActiveRole = useAdminStore((s) => s.setActiveRole);
+  const notificationState = useAdminStore((s) => s.notification);
 
-  // RTK Query data hooks — data is cached, deduplicated, and auto-refreshed
-  const { data: orders = [], isLoading: ordersLoading } = useGetOrdersQuery();
-  const { data: reservations = [], isLoading: resLoading } = useGetReservationsQuery();
-  const { data: menuItems = [], isLoading: menuLoading } = useGetMenuItemsQuery();
-  const { data: inventory = [], isLoading: invLoading } = useGetInventoryQuery();
-  const { data: employees = [], isLoading: empLoading } = useGetEmployeesQuery();
+  // Server data — cached, deduplicated, and kept fresh by RealtimeProvider.
+  const { data: orders = [], isLoading: ordersLoading } = useOrders();
+  const { data: reservations = [], isLoading: resLoading } = useReservations();
+  const { data: menuItems = [], isLoading: menuLoading } = useMenuItems();
+  const { data: inventory = [], isLoading: invLoading } = useInventory();
+  const { data: employees = [], isLoading: empLoading } = useEmployees();
 
   const isLoadingDB = ordersLoading || resLoading || menuLoading || invLoading || empLoading;
 
-  // RTK Query mutation hooks
-  const [updateOrderStatusMutation] = useUpdateOrderStatusMutation();
-  const [updateReservationStatusMutation] = useUpdateReservationStatusMutation();
-  const [addMenuItemMutation] = useAddMenuItemMutation();
-  const [updateMenuItemMutation] = useUpdateMenuItemMutation();
-  const [deleteMenuItemMutation] = useDeleteMenuItemMutation();
-  const [addInventoryItemMutation] = useAddInventoryItemMutation();
-  const [updateInventoryItemMutation] = useUpdateInventoryItemMutation();
-  const [deleteInventoryItemMutation] = useDeleteInventoryItemMutation();
-  const [createOrderMutation] = useCreateOrderMutation();
-  const [createReservationMutation] = useCreateReservationMutation();
+  const updateOrderStatusMutation = useUpdateOrderStatus();
+  const updateReservationStatusMutation = useUpdateReservationStatus();
+  const addMenuItemMutation = useAddMenuItem();
+  const updateMenuItemMutation = useUpdateMenuItem();
+  const deleteMenuItemMutation = useDeleteMenuItem();
+  const addInventoryItemMutation = useAddInventoryItem();
+  const updateInventoryItemMutation = useUpdateInventoryItem();
+  const deleteInventoryItemMutation = useDeleteInventoryItem();
+  const createOrderMutation = useCreateOrder();
+  const createReservationMutation = useCreateReservation();
 
   // Derive customers from orders (same logic as before)
   const customers: Customer[] = useMemo(() => {
@@ -93,7 +92,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
           : name.slice(0, 2).toUpperCase();
         customerMap[key] = {
           id: key, name, phone: o.customerPhone || '',
-          email: o.customerId.includes('@') ? o.customerId : `${key.replace(/\D/g, '') || 'guest'}@palapitta.com`,
+          email: (o.customerId && o.customerId.includes('@')) ? o.customerId : `${key.replace(/\D/g, '') || 'guest'}@palapitta.com`,
           address: o.customerAddress || 'Hyderabad', city: 'Hyderabad',
           totalOrders: 0, totalSpent: 0, loyaltyPoints: 0,
           joinDate: o.orderDate || '2026-07-01', lastVisit: o.orderDate || '2026-07-22',
@@ -110,10 +109,10 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     return Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent);
   }, [orders]);
 
-  const notifyDispatch = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
-    dispatch(showNotification({ message, type }));
+  const notify = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    useAdminStore.getState().showNotification(message, type);
     setTimeout(() => {
-      dispatch(clearNotification());
+      useAdminStore.getState().clearNotification();
     }, 2500);
   };
 
@@ -122,104 +121,111 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   // tell the customer/cashier the write actually failed instead of showing
   // a false "success" screen while nothing was saved.
   const addOrderLocallyAndDB = async (newOrder: Order) => {
-    const result = await createOrderMutation(newOrder);
-    if ('error' in result && result.error) {
-      const message = (result.error as { error?: string })?.error || 'Failed to save order';
-      notifyDispatch(`❌ ${message}`, 'error');
+    try {
+      await createOrderMutation.mutateAsync(newOrder);
+    } catch (err) {
+      const message = (err as Error).message || 'Failed to save order';
+      notify(message, 'error');
       throw new Error(message);
     }
-    notifyDispatch(`🆕 New order ${newOrder.id} placed!`, 'success');
+    notify(`New order ${newOrder.id} placed`, 'success');
   };
 
   const addReservationLocallyAndDB = async (newRes: Reservation) => {
-    const result = await createReservationMutation(newRes);
-    if ('error' in result && result.error) {
-      const message = (result.error as { error?: string })?.error || 'Failed to save reservation';
-      notifyDispatch(`❌ ${message}`, 'error');
+    try {
+      await createReservationMutation.mutateAsync(newRes);
+    } catch (err) {
+      const message = (err as Error).message || 'Failed to save reservation';
+      notify(message, 'error');
       throw new Error(message);
     }
-    notifyDispatch(`📅 Reservation ${newRes.id} confirmed!`, 'success');
+    notify(`Reservation ${newRes.id} confirmed`, 'success');
   };
 
   // These two report their own outcome (they're wired to bare onClick
   // handlers all over the admin, so they must never reject) and also return
   // whether the write landed, for callers that chain further work off it.
   const updateOrderStatus = async (id: string, status: Order['status']): Promise<boolean> => {
-    const result = await updateOrderStatusMutation({ id, status });
-    if ('error' in result && result.error) {
-      notifyDispatch(`❌ Failed to update order ${id}`, 'error');
+    try {
+      await updateOrderStatusMutation.mutateAsync({ id, status });
+    } catch {
+      notify(`Failed to update order ${id}`, 'error');
       return false;
     }
-    notifyDispatch(`Order ${id} updated to ${status}`);
+    notify(`Order ${id} updated to ${status}`);
     return true;
   };
 
-  const updateReservationStatus = async (id: string, status: Reservation['status']): Promise<boolean> => {
-    const result = await updateReservationStatusMutation({ id, status });
-    if ('error' in result && result.error) {
-      notifyDispatch(`❌ Failed to update reservation ${id}`, 'error');
+  const updateReservationStatus = async (
+    id: string, status: Reservation['status']
+  ): Promise<boolean> => {
+    try {
+      await updateReservationStatusMutation.mutateAsync({ id, status });
+    } catch {
+      notify(`Failed to update reservation ${id}`, 'error');
       return false;
     }
-    notifyDispatch(`Reservation ${id} set to ${status}`);
+    notify(`Reservation ${id} set to ${status}`);
     return true;
   };
 
   // ── CRUD adapters ─────────────────────────────────────────────────────────
-  // Every one of these awaits the write and throws the server's own message
+  // Every one of these awaits the write and surfaces the server's own message
   // on failure. The page that triggered the action owns the messaging — that
   // way a failed save can't be announced as a success, which is exactly what
-  // the fire-and-forget versions below used to do: they dispatched "Added
-  // to inventory!" in the same tick the request left the browser, so an RLS
+  // the fire-and-forget versions used to do: they announced "Added to
+  // inventory!" in the same tick the request left the browser, so an RLS
   // rejection or a dropped connection still read as a win.
-  const runWrite = async (
-    result: { error?: unknown },
-    fallbackMessage: string
-  ): Promise<void> => {
-    if ('error' in result && result.error) {
-      throw new Error((result.error as { error?: string })?.error || fallbackMessage);
-    }
+  const addMenuItem = async (item: MenuItem) => {
+    await addMenuItemMutation.mutateAsync(item);
   };
 
-  const addMenuItem = async (item: MenuItem) =>
-    runWrite(await addMenuItemMutation(item), 'Failed to add menu item');
+  const updateMenuItem = async (item: MenuItem) => {
+    await updateMenuItemMutation.mutateAsync(item);
+  };
 
-  const updateMenuItem = async (item: MenuItem) =>
-    runWrite(await updateMenuItemMutation(item), 'Failed to update menu item');
-
-  const deleteMenuItem = async (id: string) =>
-    runWrite(await deleteMenuItemMutation(id), 'Failed to delete menu item');
+  const deleteMenuItem = async (id: string) => {
+    await deleteMenuItemMutation.mutateAsync(id);
+  };
 
   const toggleMenuItemAvailability = async (id: string) => {
     const target = menuItems.find((m) => m.id === id);
     if (!target) return;
-    await runWrite(
-      await updateMenuItemMutation({ ...target, isAvailable: !target.isAvailable }),
-      'Failed to update availability'
-    );
+    await updateMenuItemMutation.mutateAsync({ ...target, isAvailable: !target.isAvailable });
   };
 
-  const addInventoryItem = async (item: InventoryItem) =>
-    runWrite(await addInventoryItemMutation(item), `Failed to add ${item.name}`);
+  const addInventoryItem = async (item: InventoryItem) => {
+    await addInventoryItemMutation.mutateAsync(item);
+  };
 
-  const updateInventoryItem = async (item: InventoryItem) =>
-    runWrite(await updateInventoryItemMutation(item), `Failed to update ${item.name}`);
+  const updateInventoryItem = async (item: InventoryItem) => {
+    await updateInventoryItemMutation.mutateAsync(item);
+  };
 
   const deleteInventoryItem = async (id: string) => {
-    const item = inventory.find((i) => i.id === id);
-    await runWrite(await deleteInventoryItemMutation(id), `Failed to remove ${item?.name || 'item'}`);
+    await deleteInventoryItemMutation.mutateAsync(id);
   };
 
   const adjustInventoryQuantity = async (id: string, delta: number) => {
     const target = inventory.find((i) => i.id === id);
     if (!target) return;
     const newQty = Math.max(0, target.quantity + delta);
-    const updated = { ...target, quantity: newQty, lastUpdated: new Date().toISOString().split('T')[0] };
+    const updated = {
+      ...target,
+      quantity: newQty,
+      // `currentStock` is the alias the inventory table actually renders. Only
+      // `quantity` used to be patched, so the optimistic cache update changed
+      // a field nothing displayed and the number on screen sat still until the
+      // refetch landed — which is what made the +/- buttons feel broken.
+      currentStock: newQty,
+      lastUpdated: new Date().toISOString().split('T')[0],
+    };
 
     // The cache patch already moved the number on screen; this only reports
     // the outcome, and only once it's known. It used to celebrate the new
     // quantity before the request had even been sent.
     try {
-      await runWrite(await updateInventoryItemMutation(updated), `Failed to update ${target.name}`);
+      await updateInventoryItemMutation.mutateAsync(updated);
       toast.success(`${target.name}: ${newQty} ${target.unit}`, { id: `stock-${id}` });
     } catch (err) {
       toast.error((err as Error).message, { id: `stock-${id}` });
@@ -236,8 +242,8 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     updateOrderStatus, updateReservationStatus,
     addMenuItem, updateMenuItem, deleteMenuItem, toggleMenuItemAvailability,
     addInventoryItem, updateInventoryItem, deleteInventoryItem, adjustInventoryQuantity,
-    activeRole, setActiveRole: (role: 'admin' | 'manager' | 'cashier') => dispatch(setActiveRole(role)),
-    notification, showNotification: notifyDispatch, isLoadingDB,
+    activeRole, setActiveRole,
+    notification, showNotification: notify, isLoadingDB,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [orders, reservations, customers, employees, menuItems, inventory, activeRole, notification, isLoadingDB]);
 

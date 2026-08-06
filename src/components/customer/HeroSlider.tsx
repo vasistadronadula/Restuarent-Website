@@ -2,20 +2,19 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import {
-  Box, Container, Typography, Button, Stack, Chip, Grid, IconButton,
-} from '@mui/material';
-import {
-  ArrowForward, Star, Add, ChevronLeft, ChevronRight,
-  EmojiEvents, TableRestaurant, Timer,
-} from '@mui/icons-material';
 import Link from 'next/link';
+import {
+  ArrowRight, Star, Plus, ChevronLeft, ChevronRight,
+  Trophy, UtensilsCrossed, Clock,
+} from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { flyToCart } from '@/lib/flyToCart';
 import type { VegStatus } from '@/types';
 import toast from 'react-hot-toast';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const SLIDE_MS = 5500;
-/** Horizontal travel, in px, that counts as a swipe rather than a tap or scroll. */
 const SWIPE_THRESHOLD = 45;
 
 const HERO_SLIDES = [
@@ -96,8 +95,6 @@ export default function HeroSlider() {
   const handlePrev = useCallback(() => goTo(currentSlide - 1), [goTo, currentSlide]);
   const handleNext = useCallback(() => goTo(currentSlide + 1), [goTo, currentSlide]);
 
-  // `currentSlide` is a dependency on purpose: any manual navigation restarts
-  // the countdown, so a slide the visitor just chose never flips away early.
   useEffect(() => {
     if (isPaused) return;
     const timer = setTimeout(() => {
@@ -117,8 +114,6 @@ export default function HeroSlider() {
     const dy = e.changedTouches[0].clientY - touchStartY.current;
     touchStartX.current = null;
     touchStartY.current = null;
-    // Only act on a mostly-horizontal gesture, otherwise a vertical scroll that
-    // drifts sideways would yank the carousel out from under the reader.
     if (Math.abs(dx) < SWIPE_THRESHOLD || Math.abs(dx) < Math.abs(dy)) return;
     if (dx < 0) handleNext();
     else handlePrev();
@@ -126,20 +121,8 @@ export default function HeroSlider() {
 
   const slide = HERO_SLIDES[currentSlide];
 
-  const arrowSx = {
-    color: 'white',
-    bgcolor: 'rgba(255,255,255,0.12)',
-    backdropFilter: 'blur(8px)',
-    border: '1px solid rgba(255,255,255,0.25)',
-    width: 40,
-    height: 40,
-    '&:hover': { bgcolor: '#C62828', borderColor: '#C62828' },
-    transition: 'background-color 0.25s ease, border-color 0.25s ease',
-  } as const;
-
   return (
-    <Box
-      component="section"
+    <section
       role="region"
       aria-roledescription="carousel"
       aria-label="Featured dishes"
@@ -147,53 +130,17 @@ export default function HeroSlider() {
       onMouseLeave={() => setIsPaused(false)}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      sx={{
-        position: 'relative',
-        // Content-driven on phones so nothing is ever clipped or overlapped;
-        // a capped viewport fraction on larger screens so the hero still fills
-        // the fold. dvh, not vh — vh is measured against the viewport with the
-        // mobile address bar retracted and overflows once it is showing.
-        minHeight: { xs: 'auto', md: 'min(82dvh, 760px)' },
-        display: 'flex',
-        alignItems: 'center',
-        overflow: 'hidden',
-        color: 'white',
-        bgcolor: '#160808',
-      }}
+      className="relative min-h-[580px] md:min-h-[min(82dvh,760px)] flex items-center overflow-hidden text-white bg-stone-950 w-full"
     >
-      {/* Background layer: one <Image> per slide, cross-faded. */}
       {HERO_SLIDES.map((s, idx) => {
         const isActive = idx === currentSlide;
         return (
-          <Box
+          <div
             key={s.id}
-            aria-hidden
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              opacity: isActive ? 1 : 0,
-              transition: 'opacity 900ms ease-in-out',
-              zIndex: 0,
-            }}
+            aria-hidden="true"
+            className={`absolute inset-0 transition-opacity duration-1000 ${isActive ? 'opacity-100' : 'opacity-0'} z-0`}
           >
-            {/* The push-in scales this wrapper rather than the <Image>, whose
-                own `fill` positioning must stay untouched.
-
-                Toggling animation-name between `none` and the keyframe is what
-                restarts the motion each time a slide comes back round — CSS
-                replays an animation whenever its name changes. Remounting via
-                `key` would restart it too, but it would also tear down and
-                rebuild the <Image> mid-crossfade. */}
-            <Box
-              sx={{
-                position: 'absolute',
-                inset: 0,
-                animationName: isActive ? 'ppr-ken-burns' : 'none',
-                animationDuration: `${SLIDE_MS + 1500}ms`,
-                animationTimingFunction: 'ease-out',
-                animationFillMode: 'both',
-              }}
-            >
+            <div className={`absolute inset-0 ${isActive ? 'scale-105 transition-transform duration-[7000ms] ease-out' : 'scale-100'}`}>
               <Image
                 src={s.img}
                 alt=""
@@ -202,212 +149,74 @@ export default function HeroSlider() {
                 sizes="100vw"
                 style={{ objectFit: 'cover' }}
               />
-            </Box>
-          </Box>
+            </div>
+          </div>
         );
       })}
 
-      {/* Legibility scrim. Sits above the photos, below every bit of content. */}
-      <Box
-        aria-hidden
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 1,
-          background: {
-            xs: 'linear-gradient(180deg, rgba(15,3,3,0.86) 0%, rgba(15,3,3,0.78) 45%, rgba(114,20,20,0.82) 100%)',
-            md: 'linear-gradient(105deg, rgba(15,3,3,0.94) 0%, rgba(15,3,3,0.80) 45%, rgba(198,40,40,0.62) 100%)',
-          },
-        }}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 z-1 bg-gradient-to-b from-stone-950/90 via-stone-950/80 to-amber-950/90 md:bg-gradient-to-r md:from-stone-950/95 md:via-stone-950/85 md:to-amber-900/60"
       />
 
-      <Container
-        maxWidth="lg"
-        sx={{
-          position: 'relative',
-          zIndex: 2,
-          px: { xs: 2.5, sm: 3, md: 4 },
-          py: { xs: 5, sm: 6, md: 8 },
-        }}
-      >
-        <Grid container spacing={{ xs: 4, md: 5 }} sx={{ alignItems: 'center' }}>
-          {/* Copy column */}
-          <Grid size={{ xs: 12, md: 7 }}>
-            {/* Keyed on the slide so the entrance replays on every change. */}
-            <Box key={slide.id} sx={{ animation: 'ppr-fade-up 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both' }}>
-              <Chip
-                icon={<EmojiEvents sx={{ color: '#FFB74D !important' }} />}
-                label={slide.badge}
-                sx={{
-                  bgcolor: 'rgba(255,152,0,0.20)',
-                  color: '#FFD54F',
-                  border: '1px solid rgba(255,152,0,0.45)',
-                  backdropFilter: 'blur(10px)',
-                  fontWeight: 800,
-                  mb: { xs: 2, md: 2.5 },
-                  fontSize: { xs: '10.5px', sm: '12px' },
-                  letterSpacing: 0.3,
-                  height: 28,
-                  maxWidth: '100%',
-                  '& .MuiChip-label': { px: 1, overflow: 'hidden', textOverflow: 'ellipsis' },
-                }}
-              />
+      <div className="relative z-2 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+          <div className="md:col-span-7">
+            <div key={slide.id} className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 backdrop-blur-md font-bold px-3 py-1 text-xs mb-4 inline-flex items-center gap-1.5 rounded-full">
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                {slide.badge}
+              </Badge>
 
-              <Typography
-                variant="h1"
-                sx={{
-                  fontWeight: 900,
-                  // clamp() keeps the headline proportional at every width in
-                  // between the breakpoints, including foldables and tablets.
-                  fontSize: { xs: 'clamp(1.9rem, 8.5vw, 2.6rem)', sm: '2.9rem', md: 'clamp(2.8rem, 4.4vw, 3.6rem)' },
-                  lineHeight: 1.12,
-                  mb: { xs: 1.5, md: 2 },
-                  letterSpacing: '-0.02em',
-                  textShadow: '0 4px 24px rgba(0,0,0,0.45)',
-                  textWrap: 'balance',
-                }}
-              >
+              <h1 className="font-black text-3xl sm:text-4xl md:text-5xl lg:text-6xl tracking-tight leading-none mb-4 text-balance">
                 {slide.titlePrefix}{' '}
-                <Box
-                  component="span"
-                  sx={{
-                    display: 'block',
-                    background: 'linear-gradient(135deg, #FF9800 0%, #FFD54F 50%, #FFA726 100%)',
-                    WebkitBackgroundClip: 'text',
-                    backgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    filter: 'drop-shadow(0 2px 10px rgba(255,152,0,0.35))',
-                  }}
-                >
+                <span className="block bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 bg-clip-text text-transparent drop-shadow-sm">
                   {slide.titleHighlight}
-                </Box>
-              </Typography>
+                </span>
+              </h1>
 
-              <Typography
-                sx={{
-                  color: 'rgba(255,255,255,0.86)',
-                  fontSize: { xs: '0.94rem', md: '1.06rem' },
-                  fontWeight: 400,
-                  lineHeight: 1.65,
-                  mb: { xs: 3, md: 3.5 },
-                  maxWidth: 560,
-                }}
-              >
+              <p className="text-stone-300 text-sm sm:text-base md:text-lg leading-relaxed mb-6 max-w-xl">
                 {slide.desc}
-              </Typography>
+              </p>
 
-              <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                spacing={1.5}
-                sx={{ mb: { xs: 3.5, md: 4 } }}
-              >
+              <div className="flex flex-col sm:flex-row gap-3 mb-8">
                 <Button
-                  component={Link}
-                  href="/menu"
-                  variant="contained"
-                  endIcon={<ArrowForward />}
-                  sx={{
-                    py: 1.35,
-                    px: 3.2,
-                    borderRadius: '12px',
-                    fontSize: '15px',
-                    fontWeight: 800,
-                    background: 'linear-gradient(135deg, #C62828 0%, #FF9800 100%)',
-                    boxShadow: '0 10px 30px rgba(198,40,40,0.45)',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #B71C1C 0%, #F57C00 100%)',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 14px 34px rgba(198,40,40,0.55)',
-                    },
-                    transition: 'transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease',
-                  }}
+                  asChild
+                  size="lg"
+                  className="bg-gradient-to-r from-amber-700 to-amber-600 hover:from-amber-800 hover:to-amber-700 text-white font-bold rounded-xl shadow-lg shadow-amber-900/30 text-base"
                 >
-                  Explore Full Menu
+                  <Link href="/menu" className="flex items-center gap-2">
+                    Explore Full Menu
+                    <ArrowRight className="w-5 h-5" />
+                  </Link>
                 </Button>
                 <Button
-                  component={Link}
-                  href="/reservation"
-                  variant="outlined"
-                  startIcon={<TableRestaurant />}
-                  sx={{
-                    py: 1.35,
-                    px: 3.2,
-                    borderRadius: '12px',
-                    fontSize: '15px',
-                    fontWeight: 700,
-                    color: 'white',
-                    borderColor: 'rgba(255,255,255,0.45)',
-                    backdropFilter: 'blur(8px)',
-                    bgcolor: 'rgba(255,255,255,0.08)',
-                    '&:hover': {
-                      borderColor: '#FF9800',
-                      color: '#FFD54F',
-                      bgcolor: 'rgba(255,152,0,0.16)',
-                      transform: 'translateY(-2px)',
-                    },
-                    transition: 'transform 0.25s ease, background-color 0.25s ease, border-color 0.25s ease',
-                  }}
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="bg-white/10 hover:bg-amber-500/20 text-white border-white/30 hover:border-amber-400 font-bold rounded-xl backdrop-blur-md text-base"
                 >
-                  Reserve Table
+                  <Link href="/reservation" className="flex items-center gap-2">
+                    <UtensilsCrossed className="w-5 h-5" />
+                    Reserve Table
+                  </Link>
                 </Button>
-              </Stack>
-            </Box>
+              </div>
+            </div>
 
-            {/* Stats sit outside the keyed block — they are the same on every
-                slide, so re-animating them on each change would be noise.
-                A 2×2 grid on phones instead of a wrapping row: fixed columns
-                can't leave one orphan stat stranded on its own line. */}
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(4, auto)' },
-                columnGap: { xs: 2, sm: 3.5, md: 4.5 },
-                rowGap: 2,
-                justifyContent: { sm: 'flex-start' },
-                pt: 2.5,
-                borderTop: '1px solid rgba(255,255,255,0.18)',
-              }}
-            >
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-white/20">
               {HERO_STATS.map((s) => (
-                <Box key={s.t} sx={{ minWidth: 0 }}>
-                  <Typography sx={{ color: '#FFD54F', fontWeight: 800, fontSize: { xs: '1.25rem', md: '1.45rem' }, lineHeight: 1.2 }}>
-                    {s.n}
-                  </Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.72)', fontSize: '12px', fontWeight: 500 }}>
-                    {s.t}
-                  </Typography>
-                </Box>
+                <div key={s.t}>
+                  <div className="text-amber-300 font-black text-xl md:text-2xl">{s.n}</div>
+                  <div className="text-stone-400 text-xs font-medium">{s.t}</div>
+                </div>
               ))}
-            </Box>
-          </Grid>
+            </div>
+          </div>
 
-          {/* Featured dish card — desktop only. On phones the same dish is one
-              tap away in the showcase below, and stacking it here would push
-              the primary CTAs off the fold. */}
-          <Grid size={{ xs: 12, md: 5 }} sx={{ display: { xs: 'none', md: 'block' } }}>
-            <Box
-              sx={{
-                bgcolor: 'rgba(255, 255, 255, 0.10)',
-                backdropFilter: 'blur(20px)',
-                borderRadius: '24px',
-                p: 2.5,
-                border: '1px solid rgba(255, 255, 255, 0.22)',
-                boxShadow: '0 24px 60px rgba(0,0,0,0.45)',
-                animation: 'ppr-float 5s ease-in-out infinite',
-              }}
-            >
-              <Box
-                key={slide.featuredDish.id}
-                sx={{
-                  position: 'relative',
-                  width: '100%',
-                  aspectRatio: '4 / 3',
-                  borderRadius: '16px',
-                  overflow: 'hidden',
-                  mb: 2,
-                  animation: 'ppr-fade-in 600ms ease both',
-                }}
-              >
+          <div className="hidden md:block md:col-span-5">
+            <div className="bg-white/10 backdrop-blur-xl rounded-3xl p-5 border border-white/20 shadow-2xl shadow-black/50 transition-all">
+              <div key={slide.featuredDish.id} className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden mb-4 animate-in fade-in duration-500">
                 <Image
                   src={slide.featuredDish.image}
                   alt={slide.featuredDish.name}
@@ -416,44 +225,32 @@ export default function HeroSlider() {
                   style={{ objectFit: 'cover' }}
                   priority={currentSlide === 0}
                 />
-                <Chip
-                  icon={<Timer sx={{ fontSize: 14, color: '#FFD54F !important' }} />}
-                  label={`${slide.featuredDish.prepTime} min`}
-                  size="small"
-                  sx={{
-                    position: 'absolute',
-                    bottom: 10,
-                    left: 10,
-                    bgcolor: 'rgba(0,0,0,0.62)',
-                    backdropFilter: 'blur(8px)',
-                    color: 'white',
-                    fontWeight: 700,
-                    fontSize: '11px',
-                  }}
-                />
-              </Box>
+                <Badge className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md text-white font-bold text-xs flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-amber-400" />
+                  {slide.featuredDish.prepTime} min
+                </Badge>
+              </div>
 
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5, mb: 0.5 }}>
-                <Box sx={{ minWidth: 0 }}>
-                  <Typography sx={{ fontWeight: 800, color: 'white', lineHeight: 1.3, fontSize: '1rem' }}>
+              <div className="flex justify-between items-start gap-3 mb-3">
+                <div>
+                  <h3 className="font-extrabold text-white text-lg leading-snug">
                     {slide.featuredDish.name}
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, mt: 0.5 }}>
-                    <Star sx={{ color: '#FF9800', fontSize: 16 }} />
-                    <Typography variant="caption" sx={{ fontWeight: 700, color: 'rgba(255,255,255,0.9)' }}>
+                  </h3>
+                  <div className="flex items-center gap-1 mt-1">
+                    <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    <span className="text-xs font-bold text-white/90">
                       {slide.featuredDish.rating} ({slide.featuredDish.reviewCount} reviews)
-                    </Typography>
-                  </Box>
-                </Box>
-                <Typography sx={{ fontWeight: 900, color: '#FFD54F', fontSize: '1.6rem', lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+                    </span>
+                  </div>
+                </div>
+                <div className="font-black text-amber-400 text-2xl">
                   ₹{slide.featuredDish.price}
-                </Typography>
-              </Box>
+                </div>
+              </div>
 
               <Button
-                fullWidth
-                variant="contained"
-                onClick={() => {
+                className="w-full bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-700 hover:to-amber-600 text-white font-extrabold rounded-xl py-3 shadow-md"
+                onClick={(e) => {
                   addItem({
                     id: slide.featuredDish.id,
                     name: slide.featuredDish.name,
@@ -470,98 +267,60 @@ export default function HeroSlider() {
                     vegStatus: slide.featuredDish.vegStatus as VegStatus,
                     tags: ['Special', 'Bestseller'],
                   });
-                  toast.success(`${slide.featuredDish.name} added to cart! 🛒`);
-                }}
-                startIcon={<Add />}
-                sx={{
-                  mt: 1.5,
-                  py: 1.2,
-                  borderRadius: '12px',
-                  fontWeight: 800,
-                  background: 'linear-gradient(135deg, #FF9800, #F57C00)',
-                  color: 'white',
-                  boxShadow: '0 6px 20px rgba(255,152,0,0.4)',
-                  '&:hover': { background: 'linear-gradient(135deg, #F57C00, #E65100)' },
+                  flyToCart({
+                    source: e.currentTarget,
+                    imageUrl: slide.featuredDish.image,
+                  });
+                  toast.success(`${slide.featuredDish.name} added to cart`, { duration: 1800 });
                 }}
               >
+                <Plus className="w-4 h-4 mr-2" />
                 Order Featured Dish
               </Button>
-            </Box>
-          </Grid>
-        </Grid>
+            </div>
+          </div>
+        </div>
 
-        {/* Carousel controls live in the content flow, not floated over it.
-            Absolutely-positioned side arrows used to sit directly on top of
-            the headline and the stats row at narrow widths. */}
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: { xs: 'center', md: 'space-between' },
-            gap: 2,
-            mt: { xs: 4, md: 5 },
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+        <div className="flex items-center justify-between gap-4 mt-8 md:mt-10">
+          <div className="flex items-center gap-2">
             {HERO_SLIDES.map((s, idx) => {
               const isActive = idx === currentSlide;
               return (
-                <Box
+                <button
                   key={s.id}
-                  role="button"
-                  tabIndex={0}
+                  type="button"
                   aria-label={`Go to slide ${idx + 1}`}
-                  aria-current={isActive}
                   onClick={() => goTo(idx)}
-                  onKeyDown={(e: React.KeyboardEvent) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      goTo(idx);
-                    }
-                  }}
-                  sx={{
-                    width: isActive ? 40 : 10,
-                    height: 10,
-                    borderRadius: 5,
-                    position: 'relative',
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                    bgcolor: isActive ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.38)',
-                    transition: 'width 0.35s cubic-bezier(0.22, 0.61, 0.36, 1), background-color 0.25s ease',
-                    '&:hover': { bgcolor: 'rgba(255,255,255,0.6)' },
-                    '&:focus-visible': { outline: '2px solid #FFD54F', outlineOffset: 3 },
-                  }}
-                >
-                  {isActive && (
-                    // Fills left-to-right over exactly one slide interval, so the
-                    // dot doubles as a countdown to the next change.
-                    <Box
-                      key={`progress-${currentSlide}`}
-                      sx={{
-                        position: 'absolute',
-                        inset: 0,
-                        bgcolor: '#FF9800',
-                        transformOrigin: 'left center',
-                        animation: `ppr-progress ${SLIDE_MS}ms linear both`,
-                        animationPlayState: isPaused ? 'paused' : 'running',
-                      }}
-                    />
-                  )}
-                </Box>
+                  className={`h-2.5 rounded-full transition-all duration-300 ${
+                    isActive ? 'w-10 bg-amber-500' : 'w-2.5 bg-white/40 hover:bg-white/70'
+                  }`}
+                />
               );
             })}
-          </Box>
+          </div>
 
-          <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 1 }}>
-            <IconButton onClick={handlePrev} aria-label="Previous slide" sx={arrowSx}>
-              <ChevronLeft />
-            </IconButton>
-            <IconButton onClick={handleNext} aria-label="Next slide" sx={arrowSx}>
-              <ChevronRight />
-            </IconButton>
-          </Box>
-        </Box>
-      </Container>
-    </Box>
+          <div className="hidden md:flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handlePrev}
+              aria-label="Previous slide"
+              className="bg-white/10 text-white border-white/20 hover:bg-amber-600 hover:border-amber-600 rounded-full w-10 h-10 backdrop-blur-md"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleNext}
+              aria-label="Next slide"
+              className="bg-white/10 text-white border-white/20 hover:bg-amber-600 hover:border-amber-600 rounded-full w-10 h-10 backdrop-blur-md"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

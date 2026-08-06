@@ -1,150 +1,86 @@
 'use client';
 
 import React from 'react';
-import { Box, Typography, Button } from '@mui/material';
-import { ArrowBack } from '@mui/icons-material';
 import Link from 'next/link';
+import { ArrowLeft, Headset } from 'lucide-react';
+import { restaurantInfo } from '@/data/restaurantInfo';
 import PalaPittaLogo from './PalaPittaLogo';
 
-/**
- * The frame around every account screen — log in, sign up, reset password.
- *
- * Deliberately not a card on a picture. This is the layout the ordering apps
- * themselves use: one centred column on a plain surface, the form sitting
- * directly on the page with nothing boxed around it. The gain is width — with
- * no card padding and no photo to stay clear of, the fields run the full
- * measure of the column on a phone, which is where nearly every signup on a
- * restaurant site actually happens.
- *
- * The only ornament is a brand strip along the top edge. It is 4px of
- * gradient, it costs no layout, and it keeps the screen from reading as an
- * unstyled form on white.
- */
-
 interface Props {
-  /** Card heading, e.g. "Welcome back". */
   title: string;
   subtitle: string;
   children: React.ReactNode;
-  /** Sits under the form — the "no account yet?" line. */
   footer?: React.ReactNode;
+  redirectTo?: string;
+  icon?: React.ReactNode;
 }
 
-export default function AuthShell({ title, subtitle, children, footer }: Props) {
+export default function AuthShell({
+  title, subtitle, children, footer, redirectTo, icon,
+}: Props) {
   return (
-    <Box
-      sx={{
-        position: 'relative',
-        minHeight: '100dvh',
-        bgcolor: '#FFFFFF',
-        display: 'flex',
-        flexDirection: 'column',
-        // A wide desktop window would otherwise be a 420px column stranded in
-        // white. Two very faint warm pools give the empty space a temperature
-        // without putting anything in it to read.
-        backgroundImage:
-          'radial-gradient(circle at 12% 8%, rgba(255,152,0,0.07) 0%, transparent 42%), ' +
-          'radial-gradient(circle at 88% 92%, rgba(198,40,40,0.06) 0%, transparent 45%)',
-      }}
-    >
-      <Box
-        aria-hidden
-        sx={{
-          height: 4,
-          flexShrink: 0,
-          background: 'linear-gradient(90deg, #C62828 0%, #FF9800 55%, #FFD54F 100%)',
-        }}
-      />
+    <div className="relative min-h-screen w-full flex flex-col justify-between overflow-hidden bg-stone-50 dark:bg-stone-950 font-sans transition-colors duration-300">
+      
+      {/* ── Background Glow Accents (Mesh Gradient Style) ───────────────── */}
+      <div className="pointer-events-none absolute -top-40 -left-40 size-96 rounded-full bg-amber-500/10 dark:bg-amber-500/5 blur-3xl animate-pulse duration-[6s]" />
+      <div className="pointer-events-none absolute -bottom-40 -right-40 size-96 rounded-full bg-red-500/15 dark:bg-red-500/5 blur-3xl animate-pulse duration-[8s]" />
 
-      {/* Top bar: the way out, and the brand. */}
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          width: '100%',
-          maxWidth: 1160,
-          mx: 'auto',
-          px: { xs: 2, sm: 3 },
-          py: 2,
-        }}
-      >
-        <Button
-          component={Link}
+      {/* ── Header Area ─────────────────────────────────────────────────── */}
+      <header className="relative z-10 flex items-center justify-between gap-4 px-6 py-5">
+        <Link
           href="/"
-          startIcon={<ArrowBack />}
-          sx={{
-            color: 'text.secondary',
-            fontWeight: 700,
-            fontSize: '13px',
-            px: 1,
-            ml: -1,
-            '&:hover': { color: 'primary.main', bgcolor: 'transparent' },
-          }}
+          className="inline-flex items-center gap-1.5 text-xs font-black text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 transition-colors"
         >
+          <ArrowLeft className="size-4 text-amber-600" />
           Back to site
-        </Button>
-
-        <Link href="/" aria-label="Pala Pitta Ruchulu — Home" style={{ display: 'inline-flex' }}>
-          <PalaPittaLogo size="small" />
         </Link>
-      </Box>
 
-      {/* The column. `justifyContent: center` only once there is room to spare,
-          so the tall signup form starts at the top and scrolls normally
-          instead of being centred into a clipped middle. */}
-      <Box
-        sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          px: { xs: 2.5, sm: 3 },
-          py: { xs: 2, sm: 5 },
-        }}
-      >
-        <Box sx={{ width: '100%', maxWidth: 400 }}>
-          <Typography
-            component="h1"
-            sx={{
-              fontWeight: 900,
-              fontSize: { xs: '1.75rem', sm: '2rem' },
-              letterSpacing: '-0.03em',
-              lineHeight: 1.15,
-              color: '#1A0C0C',
-              mb: 1,
-            }}
-          >
-            {title}
-          </Typography>
-          <Typography
-            sx={{
-              color: 'text.secondary',
-              fontSize: '14px',
-              lineHeight: 1.6,
-              mb: { xs: 3, sm: 3.5 },
-            }}
-          >
-            {subtitle}
-          </Typography>
+        <a
+          href={`tel:${restaurantInfo.phone.replace(/\s/g, '')}`}
+          className="inline-flex items-center gap-1.5 text-xs font-black text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 transition-colors"
+        >
+          <Headset className="size-4 text-amber-600" />
+          Support
+        </a>
+      </header>
 
-          {children}
+      {/* ── Main Container (Centered Card) ──────────────────────────────── */}
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-8 w-full">
+        <div className="w-full max-w-[430px] rounded-3xl border border-stone-200/60 dark:border-stone-850 bg-white/70 dark:bg-stone-900/65 backdrop-blur-xl shadow-2xl p-6 sm:p-8 space-y-6">
+          
+          {/* Logo & Intro */}
+          <div className="flex flex-col items-center text-center space-y-3">
+            {icon && (
+              <div className="w-12 h-12 bg-stone-100/80 dark:bg-stone-950/60 border border-stone-250 dark:border-stone-800 rounded-2xl flex items-center justify-center shadow-xs mb-1">
+                {icon}
+              </div>
+            )}
+            <div className="space-y-1">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-stone-900 dark:text-stone-50">
+                {title}
+              </h1>
+              <p className="text-xs text-stone-500 dark:text-stone-400 font-medium leading-relaxed max-w-xs mx-auto">
+                {subtitle}
+              </p>
+            </div>
+          </div>
+          <div className="w-full">
+            {children}
+          </div>
 
+          {/* Footer Area */}
           {footer && (
-            <Box
-              sx={{
-                mt: 3.5,
-                pt: 2.5,
-                borderTop: '1px solid rgba(0,0,0,0.07)',
-                textAlign: 'center',
-              }}
-            >
+            <div className="border-t border-stone-200/80 dark:border-stone-800/80 pt-4 text-center text-xs">
               {footer}
-            </Box>
+            </div>
           )}
-        </Box>
-      </Box>
-    </Box>
+        </div>
+      </main>
+
+      {/* ── Footer Info ─────────────────────────────────────────────────── */}
+      <footer className="relative z-10 py-5 text-center text-[10px] font-bold text-stone-400 dark:text-stone-500 px-6">
+        © {new Date().getFullYear()} {restaurantInfo.name} · Open 7 AM – 11 PM daily
+      </footer>
+    </div>
   );
 }

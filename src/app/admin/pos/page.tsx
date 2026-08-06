@@ -1,30 +1,32 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Box, Button, Chip, Drawer, IconButton, InputAdornment, Paper,
-  TextField, Typography, useMediaQuery,
-} from '@mui/material';
-import {
-  Clear, Fastfood, ReceiptLong, Search,
-  NotificationsActive, BluetoothConnected, Print,
-} from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import DishCard from '@/components/pos/DishCard';
+import DishListRow from '@/components/pos/DishListRow';
 import BillPanel, { type PosOrderType, type PosPaymentMode } from '@/components/pos/BillPanel';
 import OrderPlacedDialog from '@/components/pos/OrderPlacedDialog';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
-import { useGetMenuItemsQuery, useGetTablesQuery } from '@/store/supabaseApi';
+import { useMenuItems, useTables } from '@/lib/queries';
 import { usePosCart, type Portion } from '@/hooks/usePosCart';
 import { computeBillTotals, rupees } from '@/lib/billing';
 import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
 import { triggerNewOrderPush } from '@/lib/triggerPush';
 import { enablePushNotifications, getPushState, type PushState } from '@/lib/pushClient';
-import { connectPrinter, isPrinterConnected, isPrinterSupported, savedPrinterName } from '@/lib/thermalPrinter';
-import { pos } from '@/theme/posColors';
+import {
+  connectPrinter, isPrinterConnected, isPrinterSupported, printTestReceipt,
+  savedPaperWidth, savedPrinterName, setPaperWidth, type PaperWidth,
+} from '@/lib/thermalPrinter';
 import type { Category, MenuItem, Order } from '@/types';
 import toast from 'react-hot-toast';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import {
+  Search, X, ShoppingBag, LayoutGrid, List, Bell, Bluetooth, Printer, Check,
+} from 'lucide-react';
 
 const CATEGORIES: { label: string; value: Category | 'all'; icon: string }[] = [
   { label: 'All', value: 'all', icon: '🍱' },
@@ -41,32 +43,17 @@ const CATEGORIES: { label: string; value: Category | 'all'; icon: string }[] = [
   { label: 'Beverages', value: 'beverages', icon: '🥤' },
 ];
 
-const VEG_FILTERS = [
-  { value: 'all', label: 'All', color: pos.textMuted },
-  { value: 'veg', label: '🟢 Veg', color: pos.veg },
-  { value: 'non-veg', label: '🔴 Non-veg', color: pos.nonVeg },
-] as const;
-
-type VegFilter = (typeof VEG_FILTERS)[number]['value'];
-
-/**
- * Counter billing — Clean Light Theme POS.
- * Responsive for phone, tablet, and desktop.
- */
-export default function CounterBillingPage() {
-  const { addOrderLocallyAndDB } = useAdmin();
+export default function PosPage() {
   const { user } = useAuth();
-  const { data: menuItems = [], isLoading: menuLoading } = useGetMenuItemsQuery();
-  const { data: tables = [] } = useGetTablesQuery();
+  const { addOrderLocallyAndDB: createOrderContext } = useAdmin();
+  const { data: menuItems = [] } = useMenuItems();
+  const { data: tables = [] } = useTables();
 
-  const isPhone = useMediaQuery('(max-width:767.95px)');
-  const isDesktop = useMediaQuery('(min-width:1200px)');
-
-  const cart = usePosCart();
-
+  const [selectedCategory, setSelectedCategory] = useState<Category | 'all'>('all');
+  const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'non-veg' | 'egg'>('all');
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState<Category | 'all'>('all');
-  const [vegFilter, setVegFilter] = useState<VegFilter>('all');
+  const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('rows');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [orderType, setOrderType] = useState<PosOrderType>('counter');
   const [tableNumber, setTableNumber] = useState<number | ''>('');
@@ -74,555 +61,315 @@ export default function CounterBillingPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [paymentMode, setPaymentMode] = useState<PosPaymentMode>('cash');
 
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [isPlacing, setIsPlacing] = useState(false);
+  const {
+    lines, subtotal, totalUnits, quantityByMenuItem, quantityByPortion,
+    increment: incrementLine,
+    decrement: decrementLine,
+    setQuantity: setLineQuantity,
+    remove: removeLine,
+    add: addDish,
+    clear: clearCart,
+  } = usePosCart();
+
+  const quantityInBill = (itemId: string) => quantityByMenuItem[itemId] || 0;
+
+  const [placing, setPlacing] = useState(false);
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
-  const [placedInvoiceNo, setPlacedInvoiceNo] = useState('');
+  const [placedInvoiceNo, setPlacedInvoiceNo] = useState<string | undefined>(undefined);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [mobileBillOpen, setMobileBillOpen] = useState(false);
 
-  /* Notification & Printer setup state */
-  const [pushState, setPushState] = useState<PushState>(() => getPushState());
-  const [printerName, setPrinterName] = useState<string | null>(() => savedPrinterName());
-  const [printerConnected, setPrinterConnected] = useState<boolean>(() => isPrinterConnected());
+  const totals = useMemo(() => computeBillTotals(subtotal), [subtotal]);
 
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setPrinterConnected(isPrinterConnected());
-    setPrinterName(savedPrinterName());
-  }, []);
-
-  const handleEnablePush = async () => {
-    if (!user?.id) {
-      toast.error('Sign in required to enable notifications');
-      return;
-    }
-    const result = await enablePushNotifications(user.id);
-    setPushState(result);
-    if (result === 'granted') {
-      toast.success('🔔 Order notifications enabled for Cashier!');
-    } else if (result === 'denied') {
-      toast.error('Notification permission was blocked in browser settings');
-    }
-  };
-
-  const handleConnectPrinter = async () => {
-    if (!isPrinterSupported()) {
-      toast.error('Web Bluetooth is not supported in this browser. Use Chrome/Edge.');
-      return;
-    }
-    const name = await connectPrinter();
-    if (name) {
-      setPrinterName(name);
-      setPrinterConnected(true);
-      toast.success(`🖨️ Connected printer: ${name}`);
-    } else {
-      toast.error('Could not connect printer or connection was cancelled');
-    }
-  };
-
-  const activeTables = useMemo(() => tables.filter((t) => t.isActive), [tables]);
-  const totals = useMemo(
-    () => computeBillTotals(cart.subtotal, 0),
-    [cart.subtotal]
-  );
-
-  const categoryCounts = useMemo(() => {
-    const map: Record<string, number> = { all: 0 };
-    menuItems.forEach((item) => {
-      if (!item.isAvailable) return;
-      map.all = (map.all || 0) + 1;
-      map[item.category] = (map[item.category] || 0) + 1;
-    });
-    return map;
-  }, [menuItems]);
-
-  const dishes = useMemo(() => {
-    const q = search.trim().toLowerCase();
+  const filteredDishes = useMemo(() => {
     return menuItems.filter((item) => {
-      if (!item.isAvailable) return false;
-      if (category !== 'all' && item.category !== category) return false;
-      if (vegFilter !== 'all' && item.vegStatus !== vegFilter) return false;
-      if (!q) return true;
-      return (
-        item.name.toLowerCase().includes(q) ||
-        (item.tags || []).some((t) => t.toLowerCase().includes(q))
-      );
+      const q = search.toLowerCase().trim();
+      const matchSearch = !q || item.name.toLowerCase().includes(q) || (item.category && item.category.toLowerCase().includes(q));
+      const matchCategory = selectedCategory === 'all' || item.category === selectedCategory;
+      const matchVeg = vegFilter === 'all' || item.vegStatus === vegFilter;
+      return matchSearch && matchCategory && matchVeg && item.isAvailable !== false;
     });
-  }, [menuItems, search, category, vegFilter]);
+  }, [menuItems, search, selectedCategory, vegFilter]);
 
-  const handleAdd = useCallback(
-    (item: MenuItem, portion?: Portion) => {
-      const result = cart.add(item, portion);
-      if (!result.ok && result.reason) toast.error(result.reason);
-    },
-    [cart]
-  );
+  const handleAddDish = useCallback((item: MenuItem, portion?: Portion) => {
+    addDish(item, portion);
+  }, [addDish]);
 
-  const handleDecrement = useCallback(
-    (item: MenuItem) => {
-      cart.decrement(item.id);
-    },
-    [cart]
-  );
-
-  const resetBill = useCallback(() => {
-    cart.clear();
-    setCustomerName('');
-    setCustomerPhone('');
-    setTableNumber('');
-    setPaymentMode('cash');
-    setOrderType('counter');
-  }, [cart]);
-
-  const handlePlaceOrder = useCallback(async () => {
-    if (isPlacing) return;
-    if (cart.lines.length === 0) {
-      toast.error('Add at least one item to the bill.');
-      return;
+  const handleDecrementDish = useCallback((item: MenuItem) => {
+    const line = lines.find((l) => l.menuItemId === item.id);
+    if (line) {
+      decrementLine(line.key);
     }
-    if (orderType === 'dine-in' && !tableNumber) {
-      toast.error('Pick the table for this dine-in order.');
-      setSheetOpen(true);
+  }, [lines, decrementLine]);
+
+  const handlePlaceOrder = async () => {
+    if (lines.length === 0) return;
+    if (orderType === 'dine-in' && tableNumber === '') {
+      toast.error('Pick a table first');
       return;
     }
 
-    setIsPlacing(true);
-    const orderId = generateOrderId();
-    const invoiceNo = generateInvoiceNo(orderId);
-    const now = new Date();
-
-    const order: Order = {
-      id: orderId,
-      orderId,
-      customerId: customerPhone.trim() || 'WALK-IN',
-      customerName: customerName.trim() || 'Walk-in Customer',
-      customerPhone: customerPhone.trim(),
-      customerAddress: orderType === 'dine-in' ? `Dine-in · Table ${tableNumber}` : 'Counter sale',
-      orderType,
-      items: cart.lines.map((l) => ({
-        id: l.key,
-        menuItemId: l.menuItemId,
-        name: l.name,
-        price: l.unitPrice,
-        quantity: l.quantity,
-        vegStatus: l.vegStatus,
-        selectedPortion: l.portion,
-      })),
-      subtotal: totals.subtotal,
-      cgst: totals.cgst,
-      sgst: totals.sgst,
-      discount: 0,
-      deliveryCharge: 0,
-      grandTotal: totals.grandTotal,
-      status: 'pending',
-      paymentMode,
-      paymentStatus: 'paid',
-      orderDate: now.toISOString().split('T')[0],
-      orderTime: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-      tableNumber: orderType === 'dine-in' ? Number(tableNumber) : undefined,
-    };
-
+    setPlacing(true);
     try {
-      if (typeof window !== 'undefined') {
-        const w = window as unknown as { __ppr_seen_pos_orders?: Set<string> };
-        w.__ppr_seen_pos_orders = w.__ppr_seen_pos_orders || new Set();
-        w.__ppr_seen_pos_orders.add(orderId);
-      }
-      await addOrderLocallyAndDB(order);
-      triggerNewOrderPush(orderId);
-      setPlacedOrder(order);
+      const orderId = generateOrderId();
+      const invoiceNo = generateInvoiceNo();
+
+      const newOrder: Order = {
+        id: orderId,
+        orderId,
+        customerName: customerName.trim() || 'Walk-in Customer',
+        customerPhone: customerPhone.trim() || undefined,
+        tableNumber: orderType === 'dine-in' && tableNumber !== '' ? Number(tableNumber) : undefined,
+        orderType,
+        paymentMode,
+        paymentStatus: 'paid',
+        status: 'pending',
+        orderStatus: 'pending',
+        items: lines.map((l) => ({
+          id: l.menuItemId,
+          name: l.name,
+          price: l.unitPrice,
+          quantity: l.quantity,
+          portion: l.portion,
+        })),
+        subtotal: totals.subtotal,
+        discountAmount: totals.discountAmount,
+        cgst: totals.cgst,
+        sgst: totals.sgst,
+        grandTotal: totals.grandTotal,
+        createdAt: new Date().toISOString(),
+      };
+
+      await createOrderContext(newOrder);
+      triggerNewOrderPush(newOrder.id);
+
+      setPlacedOrder(newOrder);
       setPlacedInvoiceNo(invoiceNo);
-      setSheetOpen(false);
-      resetBill();
-    } catch (err) {
-      toast.error((err as Error).message || 'Could not save the order — nothing was billed.');
+      setConfirmOpen(true);
+
+      clearCart();
+      setCustomerName('');
+      setCustomerPhone('');
+      setTableNumber('');
+      setMobileBillOpen(false);
+      toast.success('Order placed successfully! 🛒');
+    } catch {
+      toast.error('Failed to place order');
     } finally {
-      setIsPlacing(false);
+      setPlacing(false);
     }
-  }, [
-    isPlacing, cart.lines, orderType, tableNumber, customerPhone, customerName,
-    totals.subtotal, totals.cgst, totals.sgst, totals.grandTotal,
-    paymentMode, addOrderLocallyAndDB, resetBill,
-  ]);
-
-  // ── Keyboard shortcuts ───────────────────────────────────────
-  useEffect(() => {
-    if (isPhone) return;
-    const onKey = (e: KeyboardEvent) => {
-      const typingElsewhere =
-        e.target instanceof HTMLElement &&
-        ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
-
-      if (e.key === '/' && !typingElsewhere) {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-      if (e.key === 'Escape' && document.activeElement === searchRef.current) {
-        setSearch('');
-        searchRef.current?.blur();
-      }
-      if (e.key === 'F2') {
-        e.preventDefault();
-        void handlePlaceOrder();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isPhone, handlePlaceOrder]);
-
-  const handleSearchEnter = (e: React.KeyboardEvent) => {
-    if (e.key !== 'Enter') return;
-    const [first] = dishes;
-    if (!first) return;
-    if (first.portionPrices) {
-      toast(`${first.name} — pick a portion`, { icon: '👆' });
-      return;
-    }
-    handleAdd(first);
-    setSearch('');
   };
-
-  const billPanel = (onClose?: () => void) => (
-    <BillPanel
-      lines={cart.lines}
-      totals={totals}
-      totalUnits={cart.totalUnits}
-      orderType={orderType}
-      onOrderType={setOrderType}
-      tables={activeTables}
-      tableNumber={tableNumber}
-      onTableNumber={setTableNumber}
-      customerName={customerName}
-      onCustomerName={setCustomerName}
-      customerPhone={customerPhone}
-      onCustomerPhone={setCustomerPhone}
-      paymentMode={paymentMode}
-      onPaymentMode={setPaymentMode}
-      onIncrement={cart.increment}
-      onDecrement={cart.decrement}
-      onSetQuantity={cart.setQuantity}
-      onRemove={cart.remove}
-      onClear={cart.clear}
-      onPlace={handlePlaceOrder}
-      isPlacing={isPlacing}
-      onClose={onClose}
-    />
-  );
 
   return (
-    <AdminLayout title="Counter Billing">
-      {/* Light Theme container */}
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 1.25,
-          height: {
-            xs: 'calc(100dvh - var(--admin-header-h) - (var(--admin-main-pad) * 2) - env(safe-area-inset-bottom, 0px))',
-            md: 'var(--admin-content-h)',
-          },
-          minHeight: { xs: 'auto', md: 420 },
-          overflow: 'hidden',
-          bgcolor: pos.bg,
-        }}
-      >
-        {/* ── Dishes Grid Side ───────────────────────────────────── */}
-        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {/* Top Filter & Search Card */}
-          <Paper
-            elevation={0}
-            sx={{
-              flexShrink: 0, p: 1, borderRadius: '12px',
-              bgcolor: pos.surface, border: `1px solid ${pos.border}`,
-              boxShadow: pos.shadowSm,
-            }}
-          >
-            {/* Cashier Setup Bar: Enable Notifications & Connect Bluetooth Printer */}
-            <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', mb: 0.75, flexWrap: 'wrap' }}>
-              {pushState !== 'granted' && (
-                <Button
-                  size="small"
-                  onClick={handleEnablePush}
-                  startIcon={<NotificationsActive sx={{ fontSize: 15 }} />}
-                  sx={{
-                    borderRadius: '8px', textTransform: 'none', fontWeight: 800, fontSize: 11,
-                    bgcolor: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D',
-                    py: 0.3, px: 1,
-                    '&:hover': { bgcolor: '#FDE68A' },
-                  }}
-                >
-                  Enable Order Notifications 🔔
-                </Button>
-              )}
-
-              <Button
-                size="small"
-                onClick={handleConnectPrinter}
-                startIcon={printerConnected ? <Print sx={{ fontSize: 15 }} /> : <BluetoothConnected sx={{ fontSize: 15 }} />}
-                sx={{
-                  borderRadius: '8px', textTransform: 'none', fontWeight: 800, fontSize: 11,
-                  bgcolor: printerConnected ? '#F0FDF4' : '#EFF6FF',
-                  color: printerConnected ? '#15803D' : '#1D4ED8',
-                  border: `1px solid ${printerConnected ? '#BBF7D0' : '#BFDBFE'}`,
-                  py: 0.3, px: 1,
-                  '&:hover': { bgcolor: printerConnected ? '#DCFCE7' : '#DBEAFE' },
-                }}
-              >
-                {printerConnected
-                  ? `Printer: ${printerName || 'Connected'} ✅`
-                  : 'Connect Thermal Printer 🔌'}
-              </Button>
-            </Box>
-
-            {/* Search row */}
-            <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', mb: 0.75 }}>
-              <TextField
-                inputRef={searchRef}
-                fullWidth
-                size="small"
+    <AdminLayout title="POS Cashier Terminal">
+      <div className="flex h-[calc(100vh-80px)] w-full max-w-full overflow-hidden text-stone-900 dark:text-stone-100">
+        {/* Left Catalog Area */}
+        <div className="flex-1 flex flex-col min-w-0 bg-stone-100/60 dark:bg-stone-950 p-3 sm:p-4 gap-3 overflow-hidden">
+          {/* Top Search & Filter Bar */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-xs">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+              <Input
+                ref={searchInputRef}
+                placeholder="Search dish or category..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                onKeyDown={handleSearchEnter}
-                placeholder={isPhone ? 'Search dishes…' : 'Search dishes…  ( / to focus, Enter to add )'}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: pos.bg, color: pos.text, borderRadius: '10px',
-                    '& fieldset': { borderColor: pos.border },
-                    '&:hover fieldset': { borderColor: pos.textMuted },
-                    '&.Mui-focused fieldset': { borderColor: pos.brand },
-                  },
-                }}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Search sx={{ fontSize: 18, color: pos.textMuted }} />
-                      </InputAdornment>
-                    ),
-                    endAdornment: search ? (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => setSearch('')} aria-label="Clear search">
-                          <Clear sx={{ fontSize: 16, color: pos.textMuted }} />
-                        </IconButton>
-                      </InputAdornment>
-                    ) : null,
-                  },
-                }}
+                className="pl-9 pr-9 bg-stone-50 dark:bg-stone-800 border-none rounded-xl text-xs font-bold"
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
 
-              {/* Veg filter pills */}
-              <Box sx={{ display: 'flex', gap: 0.4, flexShrink: 0 }}>
-                {VEG_FILTERS.map((v) => (
-                  <Chip
-                    key={v.value}
-                    label={isPhone ? (v.value === 'all' ? 'All' : v.value === 'veg' ? '🟢' : '🔴') : v.label}
-                    onClick={() => setVegFilter(v.value)}
-                    sx={{
-                      fontWeight: 800, fontSize: 11, cursor: 'pointer',
-                      height: { xs: 32, sm: 34 },
-                      bgcolor: vegFilter === v.value
-                        ? (v.value === 'veg' ? pos.veg : v.value === 'non-veg' ? pos.nonVeg : pos.brand)
-                        : pos.bg,
-                      color: vegFilter === v.value ? '#FFFFFF' : pos.textMuted,
-                      border: `1px solid ${vegFilter === v.value ? 'transparent' : pos.border}`,
-                      '&:hover': { opacity: 0.9 },
-                    }}
+            <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
+              {(['all', 'veg', 'non-veg', 'egg'] as const).map((v) => (
+                <Button
+                  key={v}
+                  type="button"
+                  variant={vegFilter === v ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setVegFilter(v)}
+                  className={`rounded-xl text-xs font-bold capitalize px-3 h-9 ${
+                    vegFilter === v ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''
+                  }`}
+                >
+                  {v}
+                </Button>
+              ))}
+
+              <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-xl ml-auto sm:ml-0">
+                <Button
+                  variant={layoutMode === 'rows' ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => setLayoutMode('rows')}
+                  className="h-7 w-7 rounded-lg"
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={layoutMode === 'cards' ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => setLayoutMode('cards')}
+                  className="h-7 w-7 rounded-lg"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Categories Pill Bar */}
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none flex-shrink-0">
+            {CATEGORIES.map((cat) => {
+              const isSelected = selectedCategory === cat.value;
+              return (
+                <Button
+                  key={cat.value}
+                  type="button"
+                  variant={isSelected ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setSelectedCategory(cat.value)}
+                  className={`rounded-full px-4 text-xs font-bold whitespace-nowrap h-9 ${
+                    isSelected ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-md' : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800'
+                  }`}
+                >
+                  <span className="mr-1.5">{cat.icon}</span>
+                  {cat.label}
+                </Button>
+              );
+            })}
+          </div>
+
+          {/* Catalog Dishes Grid/List */}
+          <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50 p-2 sm:p-3">
+            {filteredDishes.length === 0 ? (
+              <div className="text-center py-16 text-stone-400">
+                <div className="text-4xl mb-2">🍽️</div>
+                <h4 className="font-extrabold text-sm text-stone-700 dark:text-stone-300">
+                  No dishes match your filter
+                </h4>
+                <p className="text-xs text-stone-400 mt-0.5">
+                  Try clearing your search or switching categories
+                </p>
+              </div>
+            ) : layoutMode === 'rows' ? (
+              <div className="divide-y divide-stone-200/60 dark:divide-stone-800 bg-white dark:bg-stone-900 rounded-xl overflow-hidden shadow-xs">
+                {filteredDishes.map((item) => (
+                  <DishListRow
+                    key={item.id}
+                    item={item}
+                    inBill={quantityInBill(item.id)}
+                    quantityByPortion={quantityByPortion}
+                    onAdd={handleAddDish}
+                    onDecrement={handleDecrementDish}
                   />
                 ))}
-              </Box>
-            </Box>
-
-            {/* Horizontal Category Strip */}
-            <Box
-              sx={{
-                display: 'flex', gap: 0.5,
-                overflowX: 'auto',
-                WebkitOverflowScrolling: 'touch',
-                scrollbarWidth: 'none',
-                '&::-webkit-scrollbar': { display: 'none' },
-              }}
-            >
-              {CATEGORIES.map((c) => {
-                const count = categoryCounts[c.value] || 0;
-                const active = category === c.value;
-                return (
-                  <Chip
-                    key={c.value}
-                    label={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
-                        <span>{c.icon}</span>
-                        <span>{c.label}</span>
-                        <Box
-                          component="span"
-                          sx={{
-                            fontSize: 9.5, fontWeight: 900,
-                            bgcolor: active ? 'rgba(255,255,255,0.25)' : pos.borderSubtle,
-                            color: active ? '#FFFFFF' : pos.textMuted,
-                            borderRadius: '6px', px: 0.5, py: 0.05, ml: 0.2,
-                          }}
-                        >
-                          {count}
-                        </Box>
-                      </Box>
-                    }
-                    onClick={() => setCategory(c.value)}
-                    sx={{
-                      flexShrink: 0, cursor: 'pointer',
-                      height: { xs: 30, sm: 32 },
-                      fontWeight: active ? 800 : 600,
-                      fontSize: { xs: 11, sm: 12 },
-                      bgcolor: active ? pos.brand : pos.bg,
-                      color: active ? '#FFFFFF' : pos.textSecondary,
-                      border: `1px solid ${active ? pos.brand : pos.border}`,
-                      '&:hover': { bgcolor: active ? pos.brandDark : pos.surfaceHover },
-                    }}
-                  />
-                );
-              })}
-            </Box>
-          </Paper>
-
-          {/* Scrolling Grid Region */}
-          <Box
-            sx={{
-              flex: 1, minHeight: 0,
-              overflowY: 'auto',
-              overscrollBehavior: 'contain',
-              WebkitOverflowScrolling: 'touch',
-              pr: 0.25,
-              scrollbarWidth: 'thin',
-              scrollbarColor: `${pos.border} transparent`,
-              '&::-webkit-scrollbar': { width: 5 },
-              '&::-webkit-scrollbar-thumb': { background: pos.border, borderRadius: 4 },
-            }}
-          >
-            {menuLoading ? (
-              <Box sx={{ textAlign: 'center', py: 8, color: pos.textMuted }}>Loading menu…</Box>
-            ) : dishes.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 8, color: pos.textFaint }}>
-                <Fastfood sx={{ fontSize: 44, opacity: 0.35, mb: 1, color: pos.textMuted }} />
-                <Typography sx={{ fontWeight: 700, color: pos.textMuted }}>No dishes match</Typography>
-                <Typography sx={{ fontSize: 12.5, color: pos.textFaint }}>
-                  Try another category or clear search
-                </Typography>
-              </Box>
+              </div>
             ) : (
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: {
-                    xs: 'repeat(2, minmax(0, 1fr))',
-                    sm: 'repeat(auto-fill, minmax(135px, 1fr))',
-                    md: 'repeat(auto-fill, minmax(145px, 1fr))',
-                    lg: 'repeat(auto-fill, minmax(155px, 1fr))',
-                  },
-                  gap: { xs: 1, sm: 1.25 },
-                  alignItems: 'stretch',
-                  pb: 1,
-                }}
-              >
-                {dishes.map((item) => (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {filteredDishes.map((item) => (
                   <DishCard
                     key={item.id}
                     item={item}
-                    inBill={cart.quantityByMenuItem[item.id] || 0}
-                    quantityByPortion={cart.quantityByPortion}
-                    onAdd={handleAdd}
-                    onDecrement={handleDecrement}
+                    inBill={quantityInBill(item.id)}
+                    quantityByPortion={quantityByPortion}
+                    onAdd={handleAddDish}
+                    onDecrement={handleDecrementDish}
                   />
                 ))}
-              </Box>
+              </div>
             )}
-          </Box>
+          </div>
+        </div>
 
-          {/* ── Mobile: Clean Floating Action Bar ───────────────────── */}
-          {isPhone && (
-            <Box
-              sx={{
-                flexShrink: 0,
-                pt: 0.5,
-                pb: 'calc(6px + env(safe-area-inset-bottom, 0px))',
-              }}
+        {/* Desktop Bill Panel Sidebar */}
+        <div className="hidden md:block w-96 flex-shrink-0 h-full">
+          <BillPanel
+            lines={lines}
+            totals={totals}
+            totalUnits={totalUnits}
+            orderType={orderType}
+            onOrderType={setOrderType}
+            tables={tables}
+            tableNumber={tableNumber}
+            onTableNumber={setTableNumber}
+            customerName={customerName}
+            onCustomerName={setCustomerName}
+            customerPhone={customerPhone}
+            onCustomerPhone={setCustomerPhone}
+            paymentMode={paymentMode}
+            onPaymentMode={setPaymentMode}
+            onIncrement={incrementLine}
+            onDecrement={decrementLine}
+            onSetQuantity={setLineQuantity}
+            onRemove={removeLine}
+            onClear={clearCart}
+            onPlace={handlePlaceOrder}
+            isPlacing={placing}
+          />
+        </div>
+
+        {/* Mobile Bill Bottom Sheet */}
+        <Sheet open={mobileBillOpen} onOpenChange={setMobileBillOpen}>
+          <SheetContent side="bottom" className="p-0 h-[85vh] rounded-t-3xl border-none">
+            <BillPanel
+              lines={lines}
+              totals={totals}
+              totalUnits={totalUnits}
+              orderType={orderType}
+              onOrderType={setOrderType}
+              tables={tables}
+              tableNumber={tableNumber}
+              onTableNumber={setTableNumber}
+              customerName={customerName}
+              onCustomerName={setCustomerName}
+              customerPhone={customerPhone}
+              onCustomerPhone={setCustomerPhone}
+              paymentMode={paymentMode}
+              onPaymentMode={setPaymentMode}
+              onIncrement={incrementLine}
+              onDecrement={decrementLine}
+              onSetQuantity={setLineQuantity}
+              onRemove={removeLine}
+              onClear={clearCart}
+              onPlace={handlePlaceOrder}
+              isPlacing={placing}
+              onClose={() => setMobileBillOpen(false)}
+              compact={true}
+            />
+          </SheetContent>
+        </Sheet>
+
+        {/* Floating Cart Button on Phone */}
+        {lines.length > 0 && (
+          <div className="md:hidden fixed bottom-4 left-4 right-4 z-30">
+            <Button
+              onClick={() => setMobileBillOpen(true)}
+              className="w-full h-14 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-2xl shadow-2xl flex justify-between px-5 text-base"
             >
-              <Button
-                fullWidth
-                variant="contained"
-                onClick={() => setSheetOpen(true)}
-                startIcon={<ReceiptLong />}
-                sx={{
-                  minHeight: 46, borderRadius: '14px', textTransform: 'none',
-                  fontSize: 14, fontWeight: 900,
-                  display: 'flex', justifyContent: 'space-between', px: 2,
-                  bgcolor: cart.totalUnits > 0 ? pos.brand : '#57534E',
-                  color: '#FFFFFF',
-                  boxShadow: cart.totalUnits > 0 ? '0 4px 14px rgba(198,40,40,0.35)' : 'none',
-                  '&:hover': { bgcolor: cart.totalUnits > 0 ? pos.brandDark : '#44403C' },
-                }}
-              >
-                <Box component="span" sx={{ flex: 1, textAlign: 'left', ml: 0.5 }}>
-                  {cart.totalUnits > 0
-                    ? `View Cart (${cart.totalUnits})`
-                    : 'Cart Empty'}
-                </Box>
-                <Box component="span" sx={{ fontSize: 15, fontWeight: 900 }}>{rupees(totals.grandTotal)}</Box>
-              </Button>
-            </Box>
-          )}
-        </Box>
-
-        {/* ── Bill pane: tablet & desktop ─────────────────────────── */}
-        {!isPhone && (
-          <Paper
-            elevation={0}
-            sx={{
-              width: isDesktop ? 396 : 320,
-              flexShrink: 0,
-              height: '100%',
-              borderRadius: '12px',
-              border: `1px solid ${pos.border}`,
-              overflow: 'hidden',
-              boxShadow: pos.shadowMd,
-            }}
-          >
-            {billPanel()}
-          </Paper>
+              <div className="flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5" />
+                <span>{totalUnits} items</span>
+              </div>
+              <span>View Bill · {rupees(totals.grandTotal)}</span>
+            </Button>
+          </div>
         )}
-      </Box>
-
-      {/* ── Bill Sheet: Phone ────────────────────────────────────── */}
-      {isPhone && (
-        <Drawer
-          anchor="bottom"
-          open={sheetOpen}
-          onClose={() => setSheetOpen(false)}
-          slotProps={{
-            paper: {
-              sx: {
-                height: '90dvh',
-                borderTopLeftRadius: 20,
-                borderTopRightRadius: 20,
-                overflow: 'hidden',
-                bgcolor: pos.surface,
-              },
-            },
-          }}
-        >
-          {billPanel(() => setSheetOpen(false))}
-        </Drawer>
-      )}
+      </div>
 
       <OrderPlacedDialog
         order={placedOrder}
         invoiceNo={placedInvoiceNo}
-        open={!!placedOrder}
+        open={confirmOpen}
         onNewOrder={() => {
+          setConfirmOpen(false);
           setPlacedOrder(null);
-          setPlacedInvoiceNo('');
-          resetBill();
-          setTimeout(() => {
-            if (!isPhone && searchRef.current) {
-              searchRef.current.focus();
-            }
-          }, 50);
         }}
       />
     </AdminLayout>

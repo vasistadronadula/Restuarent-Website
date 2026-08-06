@@ -124,69 +124,83 @@ export async function POST(request: Request) {
 
   try {
     // ── 2. Find or create the Supabase account for this number ─────────────
-    let authUser: AuthUser | null = null;
-    let isNewUser = false;
+    //
+    // ORDER IS LOad-BEARING, and getting it wrong is a bug that already bit
+    // once. Changing a user's password invalidates any outstanding magic-link
+    // token for that user, so a token minted *before* the account is hardened
+    // is dead by the time the browser tries to redeem it — every phone sign-in
+    // failed on its first attempt with "Email link is invalid or has expired".
+    //
+    // So: settle the account first, mint the token last. Nothing may mutate
+    // auth.users between the generateLink call below and the response.
+    //
+    // `generateLink` doubles as find-or-create (it creates the user when the
+    // email is unknown), which is why the first call exists at all — its token
+    // is discarded, we only want the user record.
+    const lookup = await admin.auth.admin.generateLink({ type: 'magiclink', email });
 
-    // First try generating link (works for existing users)
-    let linkResult = await admin.auth.admin.generateLink({ type: 'magiclink', email });
+    if (lookup.error || !lookup.data?.user) {
+      console.error('[auth/phone] could not find or create account:', lookup.error?.message);
+      return NextResponse.json(
+        { error: 'Could not create your account. Please try again.' },
+        { status: 500 },
+      );
+    }
 
-    if (!linkResult.error && linkResult.data?.user) {
-      authUser = linkResult.data.user;
-    } else {
-      // User may not exist yet — create account
-      const created = await admin.auth.admin.createUser({
-        email,
-        email_confirm: true,
-        password: randomBytes(48).toString('base64url'),
-        user_metadata: {
-          full_name: requestedName || `Customer ${mobile.slice(-4)}`,
-          phone: mobile,
-          phone_e164: phoneNumber,
-          phone_auth_secured: true,
-        },
-      });
+    const authUser: AuthUser = lookup.data.user;
 
-      if (created.data?.user) {
-        authUser = created.data.user;
-        isNewUser = true;
-      } else if (created.error) {
-        // If user already exists, generate link again or fetch user
-        linkResult = await admin.auth.admin.generateLink({ type: 'magiclink', email });
-        if (linkResult.data?.user) {
-          authUser = linkResult.data.user;
-        }
+    // Hardening may rotate the password, so it happens before the real token
+    // is minted — and it reports back whether it did, since only a password
+    // change requires a fresh one.
+    const passwordRotated = await hardenAccount(admin, authUser, mobile, phoneNumber, requestedName);
+
+    let tokenHash = lookup.data.properties?.hashed_token;
+    if (passwordRotated) {
+      const reissued = await admin.auth.admin.generateLink({ type: 'magiclink', email });
+      if (reissued.error || !reissued.data?.properties?.hashed_token) {
+        console.error('[auth/phone] could not reissue link after hardening:', reissued.error?.message);
+        return NextResponse.json(
+          { error: 'Could not start your session. Please try again.' },
+          { status: 500 },
+        );
       }
+      tokenHash = reissued.data.properties.hashed_token;
     }
 
-    if (!authUser) {
-      console.error('[auth/phone] Could not find or create auth user for email:', email);
-      return NextResponse.json({ error: 'Could not create or find your account. Please try again.' }, { status: 500 });
+    if (!tokenHash) {
+      console.error('[auth/phone] generateLink returned no token hash');
+      return NextResponse.json(
+        { error: 'Could not start your session. Please try again.' },
+        { status: 500 },
+      );
     }
 
-    const tokenHash = linkResult.data?.properties?.hashed_token || null;
+    // Safe to run after the token is minted — a `profiles` write does not touch
+    // auth.users and leaves the token valid (unlike a password change).
+    const syncRes = await syncProfile(admin, authUser.id, email, mobile, requestedName);
 
-    // Set a fresh single-use temp password for fallback session establishment
-    const tempPassword = `PPR_Otp_${mobile}_${randomBytes(16).toString('hex')}!`;
-    await admin.auth.admin.updateUserById(authUser.id, {
-      password: tempPassword,
-      user_metadata: {
-        ...(authUser.user_metadata || {}),
-        full_name: (authUser.user_metadata?.full_name as string) || requestedName || `Customer ${mobile.slice(-4)}`,
-        phone: mobile,
-        phone_e164: phoneNumber,
-        phone_auth_secured: true,
-      },
-    });
+    // Sync metadata to authUser if details exist
+    if (syncRes.profile?.full_name || syncRes.profile?.email) {
+      await admin.auth.admin.updateUserById(authUser.id, {
+        user_metadata: {
+          full_name: syncRes.profile.full_name || authUser.user_metadata?.full_name,
+          email: syncRes.profile.email && !syncRes.profile.email.endsWith('@palapitta.internal')
+            ? syncRes.profile.email
+            : authUser.user_metadata?.email,
+          phone: mobile,
+        },
+      }).catch((e) => console.warn('[auth/phone] could not sync auth metadata:', e));
+    }
 
-    const isSyncedNewUser = await syncProfile(admin, authUser.id, email, mobile, requestedName);
-    if (isSyncedNewUser) isNewUser = true;
-
+    // Only the single-use hash crosses back. No password, and no account
+    // email: both would be credentials in a response body, which is precisely
+    // what this route was built to stop shipping.
     return NextResponse.json(
       {
         tokenHash,
-        email,
-        tempPassword,
-        isNewUser,
+        isNewUser: syncRes.isNewUser,
+        hasDetails: syncRes.hasDetails,
+        profile: syncRes.profile,
       },
       { headers: { 'Cache-Control': 'no-store' } },
     );
@@ -200,21 +214,29 @@ type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
 type AuthUser = { id: string; user_metadata?: Record<string, unknown> | null };
 
 /**
- * Rotates the password of an account created by the old derived-password flow.
+ * Settles the auth user before a session token is minted for it: gives the
+ * account an unguessable password and records the phone number in metadata.
  *
- * Runs once per account: the `phone_auth_secured` flag in user metadata records
- * that it has been done, so ordinary sign-ins after the first cost no extra
- * write. A failure here is logged and swallowed — the customer in front of us
- * has verified their SMS and should not be locked out because a background
- * hardening step had a bad minute; the next sign-in will retry it.
+ * Two kinds of account need the password set. Ones created by the old flow
+ * carry `PPR_Otp_<digits>_AuthKey!`, computed from the phone number, so anyone
+ * who knew a customer's mobile could sign in as them. Ones auto-created by
+ * `generateLink` have no password at all. Both end up with 48 random bytes that
+ * are never stored or sent anywhere — the OTP is the only way in.
+ *
+ * Runs once per account: the `phone_auth_secured` flag records that it is done,
+ * so later sign-ins skip it entirely and cost no extra write.
+ *
+ * @returns whether the password was changed — the caller must mint a fresh
+ *          magic-link token when it was, because a password change invalidates
+ *          any token already outstanding for that user.
  */
-async function hardenLegacyAccount(
+async function hardenAccount(
   admin: AdminClient,
   user: AuthUser,
   mobile: string,
   phoneE164: string,
   requestedName: string,
-) {
+): Promise<boolean> {
   const metadata = user.user_metadata ?? {};
   const alreadySecured = metadata.phone_auth_secured === true;
   const existingName = typeof metadata.full_name === 'string' ? metadata.full_name.trim() : '';
@@ -222,10 +244,12 @@ async function hardenLegacyAccount(
   // not have it overwritten by whatever was typed on a later sign-in form.
   const nameNeedsFilling = !existingName && Boolean(requestedName);
 
-  if (alreadySecured && !nameNeedsFilling) return;
+  if (alreadySecured && !nameNeedsFilling) return false;
+
+  const rotatePassword = !alreadySecured;
 
   const { error } = await admin.auth.admin.updateUserById(user.id, {
-    ...(alreadySecured ? {} : { password: randomBytes(48).toString('base64url') }),
+    ...(rotatePassword ? { password: randomBytes(48).toString('base64url') } : {}),
     user_metadata: {
       ...metadata,
       full_name: existingName || requestedName || `Customer ${mobile.slice(-4)}`,
@@ -235,60 +259,95 @@ async function hardenLegacyAccount(
     },
   });
 
-  if (error) console.warn('[auth/phone] could not harden account:', error.message);
+  if (error) {
+    // Swallowed on purpose: the customer in front of us has verified their SMS
+    // and should not be turned away because a hardening write had a bad
+    // moment. Reporting no rotation keeps the already-valid token in play, and
+    // the next sign-in retries this.
+    console.warn('[auth/phone] could not harden account:', error.message);
+    return false;
+  }
+
+  return rotatePassword;
+}
+
+interface SyncProfileResult {
+  isNewUser: boolean;
+  hasDetails: boolean;
+  profile: { full_name: string; email: string; phone: string } | null;
 }
 
 /**
- * Makes sure a `profiles` row exists for this account and returns whether one
- * had to be created (the caller uses that to tell a first-time customer from a
- * returning one).
- *
- * Runs with the service-role key, which bypasses RLS — so it is written to
- * touch exactly three columns and never `role`. Roles are assigned by an admin
- * through the staff tools; a customer signing in with their phone must not be
- * able to influence their own, and inserting an explicit 'customer' here is the
- * only value this path is ever allowed to write.
+ * Makes sure a `profiles` row exists for this account and returns profile status.
  */
 async function syncProfile(
   admin: AdminClient,
   userId: string,
-  email: string,
+  internalEmail: string,
   mobile: string,
   requestedName: string,
-): Promise<boolean> {
-  const { data: existing, error: readError } = await admin
+): Promise<SyncProfileResult> {
+  // 1. Try to find profile by ID or Phone
+  let { data: existing, error: readError } = await admin
     .from('profiles')
-    .select('id, full_name, phone')
+    .select('id, full_name, email, phone')
     .eq('id', userId)
     .maybeSingle();
 
-  if (readError) {
-    console.warn('[auth/phone] could not read profile:', readError.message);
-    return false;
+  if (!existing && !readError) {
+    const { data: phoneMatch } = await admin
+      .from('profiles')
+      .select('id, full_name, email, phone')
+      .eq('phone', mobile)
+      .maybeSingle();
+    if (phoneMatch) existing = phoneMatch;
   }
 
+  if (readError) {
+    console.warn('[auth/phone] could not read profile:', readError.message);
+  }
+
+  const isGenericName = (name?: string) => !name || name.trim().startsWith('Customer ');
+  const isInternalEmail = (email?: string) => !email || email.trim().endsWith('@palapitta.internal');
+
   if (!existing) {
+    const fullName = requestedName || `Customer ${mobile.slice(-4)}`;
     const { error } = await admin.from('profiles').insert({
       id: userId,
-      email,
-      full_name: requestedName || `Customer ${mobile.slice(-4)}`,
+      email: internalEmail,
+      full_name: fullName,
       phone: mobile,
       role: 'customer',
     });
     if (error) console.warn('[auth/phone] could not create profile:', error.message);
-    return !error;
+
+    const hasDetails = !isGenericName(requestedName);
+    return {
+      isNewUser: true,
+      hasDetails,
+      profile: { full_name: requestedName, email: '', phone: mobile },
+    };
   }
 
-  // Backfill only. An established profile's name and number are the customer's
-  // to change from their account page, not this route's to rewrite on login.
+  // 2. Profile exists
   const patch: { full_name?: string; phone?: string } = {};
-  if (!existing.full_name?.trim() && requestedName) patch.full_name = requestedName;
+  if (isGenericName(existing.full_name) && requestedName) patch.full_name = requestedName;
   if (!existing.phone?.trim()) patch.phone = mobile;
 
   if (Object.keys(patch).length > 0) {
-    const { error } = await admin.from('profiles').update(patch).eq('id', userId);
-    if (error) console.warn('[auth/phone] could not update profile:', error.message);
+    const { error: patchError } = await admin.from('profiles').update(patch).eq('id', existing.id);
+    if (patchError) {
+      console.warn('[auth/phone] profile patch error:', patchError.message);
+    }
   }
 
-  return false;
+  const finalName = patch.full_name || existing.full_name || '';
+  const finalEmail = isInternalEmail(existing.email) ? '' : existing.email;
+  const hasDetails = !isGenericName(finalName) && Boolean(finalEmail);
+
+  return {
+    isNewUser: false,
+    hasDetails,
+    profile: { full_name: finalName, email: finalEmail, phone: existing.phone || mobile },
+  };
 }

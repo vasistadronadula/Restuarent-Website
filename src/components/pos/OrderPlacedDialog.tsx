@@ -1,17 +1,14 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import {
-  Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
-  Typography, useMediaQuery, useTheme,
-} from '@mui/material';
-import { CheckCircle, Print, Bluetooth, ErrorOutlined, ReceiptLong } from '@mui/icons-material';
+import { CheckCircle2, Printer, Bluetooth, AlertCircle, Receipt, Loader2 } from 'lucide-react';
 import ThermalBill from '@/components/bill/ThermalBill';
 import PrintBillPortal from '@/components/bill/PrintBillPortal';
 import { isPrinterConnected, printOrder, savedPrinterName } from '@/lib/thermalPrinter';
 import { rupees } from '@/lib/billing';
-import { pos } from '@/theme/posColors';
 import type { Order } from '@/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 type PrintState = 'idle' | 'printing' | 'printed' | 'failed';
 
@@ -22,10 +19,6 @@ interface Props {
   onNewOrder: () => void;
 }
 
-/**
- * Dark-themed order confirmation dialog — matches the POS palette.
- * Shows confirmation, the bill, and print/new-order actions.
- */
 export default function OrderPlacedDialog({ order, invoiceNo, open, onNewOrder }: Props) {
   if (!order) return null;
   return (
@@ -42,14 +35,11 @@ export default function OrderPlacedDialog({ order, invoiceNo, open, onNewOrder }
 function PlacedDialog({
   order, invoiceNo, open, onNewOrder,
 }: Props & { order: Order }) {
-  const theme = useTheme();
-  const fullScreen = useMediaQuery(theme.breakpoints.down('sm'));
   const [printState, setPrintState] = useState<PrintState>(() =>
     isPrinterConnected() ? 'printing' : 'idle'
   );
   const [browserPrinting, setBrowserPrinting] = useState(false);
 
-  // Auto-print on Bluetooth if connected
   useEffect(() => {
     if (!isPrinterConnected()) return;
     let cancelled = false;
@@ -78,24 +68,24 @@ function PlacedDialog({
   const status = (() => {
     switch (printState) {
       case 'printing':
-        return { icon: <CircularProgress size={15} sx={{ color: pos.charge }} />, text: 'Sending to printer…', color: pos.textMuted };
+        return { icon: <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />, text: 'Sending to printer…', color: 'text-stone-500' };
       case 'printed':
         return {
-          icon: <Bluetooth sx={{ fontSize: 16, color: pos.charge }} />,
-          text: `Printed on ${savedPrinterName() || 'the counter printer'}`,
-          color: pos.charge,
+          icon: <Bluetooth className="w-4 h-4 text-emerald-600" />,
+          text: `Printed on ${savedPrinterName() || 'counter printer'}`,
+          color: 'text-emerald-600 dark:text-emerald-400',
         };
       case 'failed':
         return {
-          icon: <ErrorOutlined sx={{ fontSize: 16, color: pos.danger }} />,
-          text: 'Printer did not respond — print again or use the dialog',
-          color: pos.danger,
+          icon: <AlertCircle className="w-4 h-4 text-rose-600" />,
+          text: 'Printer did not respond — print again',
+          color: 'text-rose-600',
         };
       default:
         return {
-          icon: <ReceiptLong sx={{ fontSize: 16, color: pos.textMuted }} />,
+          icon: <Receipt className="w-4 h-4 text-stone-400" />,
           text: 'No printer paired — use Print bill',
-          color: pos.textMuted,
+          color: 'text-stone-500',
         };
     }
   })();
@@ -104,96 +94,51 @@ function PlacedDialog({
     <>
       {open && <PrintBillPortal order={order} invoiceNo={invoiceNo} />}
 
-      <Dialog
-        open={open}
-        fullScreen={fullScreen}
-        maxWidth="xs"
-        fullWidth
-        slotProps={{
-          paper: {
-            sx: {
-              borderRadius: fullScreen ? 0 : '16px',
-              overflow: 'hidden',
-              bgcolor: pos.surface,
-            },
-          },
-        }}
-      >
-        {/* Success header */}
-        <Box sx={{ px: 2.5, py: 2, bgcolor: pos.charge, color: '#FFFFFF' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CheckCircle sx={{ fontSize: 26 }} />
-            <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 900, fontSize: 16, lineHeight: 1.2 }}>
-                Order placed · {rupees(order.grandTotal)}
-              </Typography>
-              <Typography sx={{ fontSize: 12, opacity: 0.9 }}>
-                {order.id}{invoiceNo ? ` · Bill ${invoiceNo}` : ''}
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
+      <Dialog open={open} onOpenChange={(val) => { if (!val) onNewOrder(); }}>
+        <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl bg-white dark:bg-stone-900 border-none shadow-2xl">
+          <DialogHeader className="bg-emerald-600 text-white p-5 text-left">
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="w-8 h-8 flex-shrink-0" />
+              <div>
+                <DialogTitle className="text-white font-black text-lg leading-tight">
+                  Order placed · {rupees(order.grandTotal)}
+                </DialogTitle>
+                <p className="text-xs text-emerald-100 mt-0.5 font-medium">
+                  {order.id}{invoiceNo ? ` · Bill ${invoiceNo}` : ''}
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
 
-        {/* Printer status bar */}
-        <Box
-          sx={{
-            px: 2.5, py: 1, display: 'flex', alignItems: 'center', gap: 0.75,
-            bgcolor: pos.elevated, borderBottom: `1px solid ${pos.border}`,
-          }}
-        >
-          {status.icon}
-          <Typography sx={{ fontSize: 12, fontWeight: 600, color: status.color }}>
-            {status.text}
-          </Typography>
-        </Box>
+          <div className="px-5 py-2.5 bg-stone-50 dark:bg-stone-800/50 border-b border-stone-200/80 dark:border-stone-800 flex items-center gap-2 text-xs font-semibold">
+            {status.icon}
+            <span className={status.color}>{status.text}</span>
+          </div>
 
-        {/* Bill preview */}
-        <DialogContent sx={{ p: 2, bgcolor: pos.bg }}>
-          <Box
-            sx={{
-              bgcolor: '#FFFFFF', border: `1px dashed ${pos.border}`,
-              borderRadius: '10px', py: 1, overflowX: 'auto',
-            }}
-          >
-            <ThermalBill order={order} invoiceNo={invoiceNo} />
-          </Box>
+          <div className="p-4 bg-stone-100/50 dark:bg-stone-950/40 max-h-[60vh] overflow-y-auto">
+            <div className="bg-white dark:bg-stone-900 border border-dashed border-stone-300 dark:border-stone-700 rounded-xl p-2">
+              <ThermalBill order={order} invoiceNo={invoiceNo} />
+            </div>
+          </div>
+
+          <DialogFooter className="p-4 bg-stone-50 dark:bg-stone-800/40 border-t border-stone-200/80 dark:border-stone-800 flex flex-row gap-3">
+            <Button
+              variant="outline"
+              onClick={printAgain}
+              disabled={printState === 'printing' || browserPrinting}
+              className="flex-1 font-bold rounded-xl h-11 border-stone-300 dark:border-stone-700"
+            >
+              <Printer className="w-4 h-4 mr-2" />
+              {printState === 'printed' ? 'Print again' : 'Print bill'}
+            </Button>
+            <Button
+              onClick={onNewOrder}
+              className="flex-1 font-black rounded-xl h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20"
+            >
+              New order
+            </Button>
+          </DialogFooter>
         </DialogContent>
-
-        {/* Actions */}
-        <DialogActions
-          sx={{
-            px: 2, py: 1.5,
-            pb: fullScreen ? 'calc(14px + env(safe-area-inset-bottom, 0px))' : 1.5,
-            gap: 1, borderTop: `1px solid ${pos.border}`,
-            bgcolor: pos.elevated,
-          }}
-        >
-          <Button
-            onClick={printAgain}
-            disabled={printState === 'printing' || browserPrinting}
-            startIcon={<Print />}
-            sx={{
-              flex: 1, minHeight: 46, borderRadius: '12px', textTransform: 'none', fontWeight: 800,
-              color: pos.textSecondary, border: `1px solid ${pos.border}`,
-              '&:hover': { bgcolor: pos.surfaceHover },
-            }}
-          >
-            {printState === 'printed' ? 'Print again' : 'Print bill'}
-          </Button>
-          <Button
-            variant="contained"
-            onClick={onNewOrder}
-            autoFocus
-            sx={{
-              flex: 1, minHeight: 46, borderRadius: '12px', textTransform: 'none', fontWeight: 900,
-              bgcolor: pos.charge, color: '#FFFFFF',
-              boxShadow: '0 4px 16px rgba(16,185,129,0.3)',
-              '&:hover': { bgcolor: pos.chargeDark },
-            }}
-          >
-            New order
-          </Button>
-        </DialogActions>
       </Dialog>
     </>
   );

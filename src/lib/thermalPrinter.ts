@@ -1,6 +1,10 @@
 'use client';
 
-import { restaurantInfo } from '@/data/restaurantInfo';
+import {
+  BILL_FOOTNOTE, BILL_THANKS, BILL_TITLE, BILL_UNPAID_NOTICE,
+  billAmount, billCounts, billHeader, billItems, billMetaLines,
+  billPaymentLine, billSummaryLines,
+} from '@/lib/billDocument';
 import type { Order } from '@/types';
 
 /**
@@ -31,6 +35,33 @@ const KNOWN_PRINTER_SERVICES = [
 ];
 
 const DEVICE_NAME_KEY = 'pala_pitta_printer_name';
+const PAPER_WIDTH_KEY = 'pala_pitta_printer_paper';
+
+/** Roll width in millimetres. 80mm is the counter standard; 58mm is the
+ *  handheld/portable size some outlets keep as a spare. */
+export type PaperWidth = 58 | 80;
+
+/**
+ * Printable characters per line at Font A.
+ *
+ * This used to be hard-coded to 32 — the 58mm figure — on the reasoning that
+ * it is the safe common denominator. It is safe, but on the 80mm roll this
+ * counter actually uses it wastes a third of the paper and prints a receipt
+ * that looks like a parking ticket: the totals column stops a centimetre short
+ * of the edge and nothing lines up with the printed header. The width is a
+ * setting now, defaulting to 80mm, so the bill fills the paper it is on.
+ */
+export const COLUMNS: Record<PaperWidth, number> = { 58: 32, 80: 48 };
+
+export function savedPaperWidth(): PaperWidth {
+  if (typeof window === 'undefined') return 80;
+  return localStorage.getItem(PAPER_WIDTH_KEY) === '58' ? 58 : 80;
+}
+
+export function setPaperWidth(width: PaperWidth): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(PAPER_WIDTH_KEY, String(width));
+}
 
 // Minimal Web Bluetooth typings — TS's DOM lib doesn't ship them, and the
 // alternative (`any`) would hide real mistakes in the GATT plumbing below.
@@ -180,96 +211,210 @@ export function disconnectPrinter(): void {
 const ESC = 0x1b;
 const GS = 0x1d;
 
+/**
+ * Everything sent to the printer is reduced to plain ASCII first.
+ *
+ * TextEncoder produces UTF-8; an ESC/POS printer decodes bytes with a
+ * single-byte code page (CP437 by default). A rupee sign, an en-dash or a
+ * curly apostrophe therefore arrives as two or three bytes and prints as two
+ * or three pieces of line-noise — mid-way through a dish name, on a bill a
+ * customer is holding. Dish names come from Menu Management, so this is not
+ * hypothetical: one paste from a word processor is enough.
+ */
+function ascii(value: string): string {
+  return (value ?? '')
+    .replace(/[₹]/g, 'Rs.')
+    .replace(/[‐-―−]/g, '-')
+    .replace(/[‘’‛]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/[•·]/g, '-')
+    .replace(/…/g, '...')
+    // Strip accents to their base letter rather than dropping the letter.
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^\x20-\x7E]/g, '');
+}
+
 class EscPosBuilder {
   private parts: number[] = [];
   private encoder = new TextEncoder();
 
   raw(...bytes: number[]) { this.parts.push(...bytes); return this; }
-  text(value: string) { this.parts.push(...this.encoder.encode(value)); return this; }
-  line(value = '') { return this.text(`${value}\n`); }
-  init() { return this.raw(ESC, 0x40); }
+  text(value: string) { this.parts.push(...this.encoder.encode(ascii(value))); return this; }
+  /**
+   * The line feed is emitted as a raw byte *after* sanitising, not appended to
+   * the string beforehand. `ascii()` drops every character outside printable
+   * ASCII, and a line feed is one of them — appending it first meant every
+   * newline in the receipt was quietly deleted and the whole bill printed as
+   * one unbroken line of text. Keeping `ascii()` strict also means a dish name
+   * that somehow contains a newline cannot break the column alignment.
+   */
+  line(value = '') { return this.text(value).raw(0x0a); }
+  /** Reset, then pin the code page so a printer's own default can't reinterpret bytes. */
+  init() { return this.raw(ESC, 0x40).raw(ESC, 0x74, 0x00).raw(ESC, 0x52, 0x00); }
   align(where: 'left' | 'center' | 'right') {
     return this.raw(ESC, 0x61, where === 'left' ? 0 : where === 'center' ? 1 : 2);
   }
   bold(on: boolean) { return this.raw(ESC, 0x45, on ? 1 : 0); }
+  /** Double width *and* height — halves the characters that fit on a line. */
   double(on: boolean) { return this.raw(GS, 0x21, on ? 0x11 : 0x00); }
+  /** Double height only, so the line still holds a full-width row. */
+  tall(on: boolean) { return this.raw(GS, 0x21, on ? 0x01 : 0x00); }
   feed(lines = 1) { return this.raw(ESC, 0x64, lines); }
   cut() { return this.raw(GS, 0x56, 0x42, 0x00); }
   build() { return new Uint8Array(this.parts); }
 }
 
-// 32 characters is the printable width of a 58mm roll — the safe common
-// denominator, and it still looks right on 80mm paper.
-const WIDTH = 32;
-const divider = (char = '-') => char.repeat(WIDTH);
-
-function row(left: string, right: string): string {
-  const gap = Math.max(1, WIDTH - left.length - right.length);
-  return `${left}${' '.repeat(gap)}${right}`;
-}
-
-function wrapItemName(name: string, indent: number): string[] {
-  const max = WIDTH - indent;
-  const words = name.split(' ');
+/**
+ * Breaks a name to fit `max` columns.
+ *
+ * Splits inside a word when the word itself is longer than the line, which the
+ * previous version did not: it pushed the oversized word out whole, the
+ * printer wrapped it wherever it ran out of paper, and the amount that was
+ * supposed to be on that line landed in the middle of the next one. "Hyderabadi
+ * Chicken Biryani Family Pack" on a 58mm roll was enough to do it.
+ */
+function wrapText(name: string, max: number): string[] {
+  const width = Math.max(4, max);
   const lines: string[] = [];
   let current = '';
-  for (const word of words) {
-    if (`${current} ${word}`.trim().length > max) {
-      if (current) lines.push(current);
-      current = word;
+
+  for (const word of ascii(name).split(/\s+/).filter(Boolean)) {
+    let remaining = word;
+
+    // A word too long to ever fit is cut across as many lines as it needs.
+    while (remaining.length > width) {
+      if (current) { lines.push(current); current = ''; }
+      lines.push(remaining.slice(0, width));
+      remaining = remaining.slice(width);
+    }
+
+    if (!current) {
+      current = remaining;
+    } else if (current.length + 1 + remaining.length <= width) {
+      current = `${current} ${remaining}`;
     } else {
-      current = `${current} ${word}`.trim();
+      lines.push(current);
+      current = remaining;
     }
   }
+
   if (current) lines.push(current);
-  return lines;
+  return lines.length ? lines : ['Item'];
 }
 
-export function buildReceiptBytes(order: Order, invoiceNo?: string): Uint8Array {
+/** Builds the fixed-width text helpers for a given roll. */
+function layout(width: number) {
+  const divider = (char = '-') => char.repeat(width);
+
+  /**
+   * `left ......... right`, always exactly `width` columns.
+   *
+   * When the two sides cannot both fit, the left is truncated rather than
+   * allowed to push the right onto the next line — an amount that wraps is an
+   * amount the customer cannot read.
+   */
+  const row = (left: string, right: string): string => {
+    const r = ascii(right);
+    const available = Math.max(0, width - r.length - 1);
+    const l = ascii(left).slice(0, available);
+    return `${l}${' '.repeat(Math.max(1, width - l.length - r.length))}${r}`;
+  };
+
+  // QTY | ITEM | AMOUNT, with single spaces between the columns.
+  const QTY_W = 3;
+  const AMOUNT_W = 9;
+  const NAME_W = width - QTY_W - AMOUNT_W - 2;
+
+  const itemRow = (qty: string, nameLine: string, amount: string): string =>
+    `${ascii(qty).padStart(QTY_W)} ${ascii(nameLine).padEnd(NAME_W).slice(0, NAME_W)} ${ascii(amount).padStart(AMOUNT_W)}`;
+
+  const headerRow = (): string => itemRow('QTY', 'ITEM', 'AMOUNT');
+
+  const continuation = (nameLine: string): string =>
+    `${' '.repeat(QTY_W + 1)}${ascii(nameLine)}`;
+
+  return { divider, row, itemRow, headerRow, continuation, nameWidth: NAME_W };
+}
+
+export function buildReceiptBytes(
+  order: Order,
+  invoiceNo?: string,
+  paperWidth: PaperWidth = savedPaperWidth(),
+): Uint8Array {
+  const width = COLUMNS[paperWidth] ?? COLUMNS[80];
+  const { divider, row, itemRow, headerRow, continuation, nameWidth } = layout(width);
   const b = new EscPosBuilder();
-  const money = (n: number) => n.toFixed(2);
+
+  const shop = billHeader();
+  const items = billItems(order);
+  const counts = billCounts(order);
+
+  // ── Who is billing ────────────────────────────────────────────────────
+  // Wrapped here rather than left to the printer: a printer breaks an
+  // over-long line at whatever column it runs out of, which on a 58mm roll
+  // splits the address mid-word and leaves a two-character orphan line.
+  const centred = (value: string) => { for (const l of wrapText(value, width)) b.line(l); };
 
   b.init().align('center').bold(true).double(true)
-    .line(restaurantInfo.name)
-    .double(false)
-    .bold(false)
-    .line(restaurantInfo.addressLine)
-    .line(restaurantInfo.phoneDisplay);
-  if (restaurantInfo.gstin) b.line(`GSTIN: ${restaurantInfo.gstin}`);
+    .line(shop.name)
+    .double(false).bold(false);
+  centred(shop.tagline);
+  centred(shop.addressLine);
+  b.line(`Ph: ${shop.phone}`);
+  if (shop.gstin) b.line(`GSTIN: ${shop.gstin}`);
+  if (shop.fssai) b.line(`FSSAI: ${shop.fssai}`);
+
+  b.line(divider('='));
+  b.bold(true).line(BILL_TITLE).bold(false);
+  b.line(divider('='));
+
+  // ── Which bill, whose ─────────────────────────────────────────────────
+  b.align('left');
+  for (const line of billMetaLines(order, invoiceNo)) {
+    b.line(row(line.label, line.value));
+  }
   b.line(divider());
 
-  b.align('left')
-    .line(`Order : ${order.id}`);
-  if (invoiceNo) b.line(`Bill  : ${invoiceNo}`);
-  b.line(`Date  : ${order.orderDate || ''} ${order.orderTime || ''}`)
-    .line(`Guest : ${order.customerName || 'Walk-in'}`);
-  if (order.customerPhone) b.line(`Phone : ${order.customerPhone}`);
+  // ── What was sold ─────────────────────────────────────────────────────
+  b.bold(true).line(headerRow()).bold(false);
   b.line(divider());
 
-  for (const item of order.items || []) {
-    const qty = item.quantity || 1;
-    const amount = money((item.price || 0) * qty);
-    const nameLines = wrapItemName(item.name || 'Item', 4);
-    b.line(row(`${qty} x ${nameLines[0]}`, amount));
-    for (const extra of nameLines.slice(1)) b.line(`    ${extra}`);
+  for (const item of items) {
+    const [first, ...rest] = wrapText(item.name, nameWidth);
+    b.line(itemRow(String(item.qty), first, billAmount(item.amount)));
+    for (const extra of rest) b.line(continuation(extra));
+    // The unit rate, indented, so the multiplication can be checked.
+    b.line(continuation(`  @ ${billAmount(item.rate)}`));
   }
 
   b.line(divider());
-  b.line(row('Subtotal', money(order.subtotal || 0)));
-  if (order.discount) b.line(row('Discount', `-${money(order.discount)}`));
-  if (order.cgst) b.line(row('CGST 2.5%', money(order.cgst)));
-  if (order.sgst) b.line(row('SGST 2.5%', money(order.sgst)));
-  b.line(divider('='));
-  b.bold(true).line(row('TOTAL', money(order.grandTotal || order.subtotal || 0))).bold(false);
-  b.line(row(
-    `Payment ${(order.paymentMode || 'cash').toUpperCase()}`,
-    order.paymentStatus === 'paid' ? 'PAID' : 'UNPAID'
-  ));
+  b.line(row(`${counts.lines} item${counts.lines === 1 ? '' : 's'}`, `Total qty: ${counts.units}`));
+  b.line(divider());
+
+  // ── What it comes to ──────────────────────────────────────────────────
+  for (const line of billSummaryLines(order)) {
+    if (!line.strong) {
+      b.line(row(line.label, line.value));
+      continue;
+    }
+    b.line(divider('='));
+    b.bold(true).tall(true).line(row(line.label, `Rs.${line.value}`)).tall(false).bold(false);
+    b.line(divider('='));
+  }
+
+  // ── How it was settled ────────────────────────────────────────────────
+  const payment = billPaymentLine(order);
+  b.line(row(payment.label, payment.value));
+  if (order.paymentStatus !== 'paid') {
+    b.align('center').bold(true).line(BILL_UNPAID_NOTICE).bold(false).align('left');
+  }
   b.line(divider());
 
   b.align('center')
-    .line('Thank you, visit again!')
-    .line(restaurantInfo.website)
+    .bold(true).line(BILL_THANKS).bold(false)
+    .line(shop.website)
+    .line(BILL_FOOTNOTE)
     .feed(3)
     .cut();
 
@@ -306,17 +451,39 @@ export async function printOrder(order: Order, invoiceNo?: string): Promise<bool
   }
 }
 
-/** Small fixed ticket so a cashier can confirm the pairing works. */
+/**
+ * Small fixed ticket so a cashier can confirm the pairing works.
+ *
+ * It prints a full-width ruler line on purpose: if the roll is set to 80mm but
+ * the printer is a 58mm unit, the ruler wraps onto a second line and the
+ * cashier can see the mismatch immediately, instead of discovering it on a
+ * customer's bill.
+ */
 export async function printTestReceipt(): Promise<boolean> {
   if (!isPrinterConnected() || !characteristic) return false;
+
+  const paper = savedPaperWidth();
+  const width = COLUMNS[paper];
+  const { divider, row } = layout(width);
+  const shop = billHeader();
+
   const b = new EscPosBuilder();
-  b.init().align('center').bold(true).line(restaurantInfo.name).bold(false)
+  b.init().align('center').bold(true).double(true).line(shop.name).double(false).bold(false)
     .line('Printer connected')
-    .line(new Date().toLocaleString('en-IN'))
+    .line(divider('='))
+    .align('left')
+    .line(row('Paper', `${paper}mm`))
+    .line(row('Columns', String(width)))
+    .line(row('Time', new Date().toLocaleString('en-IN')))
     .line(divider())
+    // A ruler exactly one line wide. If it wraps, the paper setting is wrong.
+    .line('1234567890'.repeat(Math.ceil(width / 10)).slice(0, width))
+    .line(divider())
+    .align('center')
     .line('Orders will now print here')
     .feed(3)
     .cut();
+
   try {
     await characteristic.writeValue(b.build());
     return true;

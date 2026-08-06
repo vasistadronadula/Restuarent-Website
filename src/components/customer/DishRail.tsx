@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Box, Typography, Button, IconButton, Skeleton } from '@mui/material';
-import { Star, ChevronLeft, ChevronRight, Timer } from '@mui/icons-material';
 import Link from 'next/link';
+import { ChevronLeft, ChevronRight, Clock, Star, UtensilsCrossed } from 'lucide-react';
+
+import { cn, formatCurrency, FALLBACK_DISH_IMAGE } from '@/lib/utils';
 import type { MenuItem } from '@/types';
 import { useDishPortion } from '@/hooks/useDishPortion';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Skeleton } from '@/components/ui/skeleton';
 import CartStepper from './CartStepper';
-
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80';
 
 /* ─── One card ──────────────────────────────────────────────────────────── */
 
@@ -17,63 +18,45 @@ function RailCard({ item }: { item: MenuItem }) {
   const unavailable = !item.isAvailable;
 
   return (
-    <Box
-      sx={{
-        width: { xs: 158, sm: 186 },
-        flexShrink: 0,
-        scrollSnapAlign: 'start',
-        opacity: unavailable ? 0.55 : 1,
-      }}
+    <div
+      className={cn(
+        'w-39.5 shrink-0 snap-start sm:w-46.5',
+        unavailable && 'opacity-55'
+      )}
     >
-      <Box sx={{ position: 'relative', mb: 2 }}>
-        <Box
-          component={Link}
+      <div className="relative mb-8">
+        <Link
           href={`/menu?q=${encodeURIComponent(item.name)}`}
-          sx={{
-            display: 'block',
-            position: 'relative',
-            width: '100%',
-            aspectRatio: '1 / 1',
-            borderRadius: '18px',
-            overflow: 'hidden',
-            bgcolor: '#F5F5F5',
-            boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
-            cursor: 'pointer',
-          }}
+          className="bg-muted relative block aspect-square w-full overflow-hidden rounded-[18px] shadow-lg"
         >
-          <Box
-            component="img"
-            src={item.image || FALLBACK_IMAGE}
+          {/* eslint-disable-next-line @next/next/no-img-element -- see DishListItem */}
+          <img
+            src={item.image || FALLBACK_DISH_IMAGE}
             alt={item.name}
             loading="lazy"
             decoding="async"
-            onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+            onError={(e) => {
               const img = e.currentTarget;
-              if (img.src !== FALLBACK_IMAGE) img.src = FALLBACK_IMAGE;
+              if (img.src !== FALLBACK_DISH_IMAGE) img.src = FALLBACK_DISH_IMAGE;
             }}
-            sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            className="block size-full object-cover"
           />
 
           {(item.isSpecial || item.isPopular) && (
-            <Box
-              sx={{
-                position: 'absolute', top: 8, left: 8,
-                bgcolor: item.isSpecial ? 'secondary.main' : 'primary.main',
-                color: 'white',
-                px: 0.9, py: 0.25,
-                borderRadius: '7px',
-                fontSize: '9.5px', fontWeight: 900, letterSpacing: 0.4,
-                boxShadow: '0 3px 10px rgba(0,0,0,0.25)',
-              }}
+            <span
+              className={cn(
+                'absolute top-2 left-2 rounded-[7px] px-2 py-0.5 text-[9.5px] font-black tracking-wide text-white shadow-md',
+                item.isSpecial ? 'bg-accent' : 'bg-primary'
+              )}
             >
               {item.isSpecial ? "CHEF'S PICK" : 'BESTSELLER'}
-            </Box>
+            </span>
           )}
-        </Box>
+        </Link>
 
         {/* Same overhanging action as the list rows, so ADD is always in the
             same place relative to a dish photo wherever a dish is shown. */}
-        <Box sx={{ position: 'absolute', left: '50%', bottom: -16, transform: 'translateX(-50%)' }}>
+        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2">
           {cartItem ? (
             <CartStepper
               quantity={cartItem.quantity}
@@ -83,78 +66,62 @@ function RailCard({ item }: { item: MenuItem }) {
               label={item.name}
             />
           ) : (
-            <Button
+            <button
+              type="button"
               onClick={add}
               disabled={unavailable}
               aria-label={`Add ${item.name} to cart`}
-              sx={{
-                minWidth: 92, height: 32, px: 2,
-                bgcolor: 'white', color: 'success.main',
-                border: '1.5px solid', borderColor: 'success.main',
-                borderRadius: '12px',
-                fontWeight: 900, fontSize: '13px', letterSpacing: 0.5,
-                boxShadow: '0 4px 14px rgba(46,125,50,0.2)',
-                '&:hover': { bgcolor: 'rgba(46,125,50,0.06)' },
-                '&.Mui-disabled': { bgcolor: '#EEEEEE', color: '#9E9E9E', borderColor: 'transparent', boxShadow: 'none' },
-              }}
+              className={cn(
+                'h-8 min-w-23 rounded-xl border-[1.5px] px-4 text-[13px] font-black tracking-wide transition-all outline-none',
+                'focus-visible:ring-ring/40 focus-visible:ring-[3px]',
+                'border-success bg-card text-success shadow-[0_4px_14px_rgba(46,125,50,0.2)]',
+                'hover:bg-success hover:text-white',
+                'disabled:border-transparent disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none'
+              )}
             >
               ADD
-            </Button>
+            </button>
           )}
-        </Box>
-      </Box>
+        </div>
+      </div>
 
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, mb: 0.5 }}>
-        <Box
-          className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'}
+      <div className="mb-1 flex items-start gap-1.5">
+        <span
+          className={cn(
+            'mt-1 shrink-0',
+            item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'
+          )}
           role="img"
           aria-label={item.vegStatus === 'veg' ? 'Vegetarian' : 'Non-vegetarian'}
-          sx={{ mt: 0.35 }}
         />
-        <Typography
-          component={Link}
+        {/* Fixed two lines: without it a one-word dish name and a long one
+            sitting side by side push their prices onto different baselines. */}
+        <Link
           href={`/menu?q=${encodeURIComponent(item.name)}`}
-          sx={{
-            fontWeight: 700,
-            fontSize: { xs: '13.5px', sm: '14.5px' },
-            lineHeight: 1.32,
-            color: 'text.primary',
-            textDecoration: 'none',
-            '&:hover': { color: 'primary.main' },
-            // Fixed two lines: without it a one-word dish name and a long one
-            // sitting side by side push their prices onto different baselines.
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-            minHeight: { xs: 36, sm: 39 },
-          }}
+          className="hover:text-primary font-display line-clamp-2 min-h-9 text-[13.5px] leading-snug font-bold transition-colors sm:min-h-9.75 sm:text-[14.5px]"
         >
           {item.name}
-        </Typography>
-      </Box>
+        </Link>
+      </div>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.4 }}>
-        <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
-          <Star sx={{ fontSize: 13, color: 'success.main' }} />
-          <Typography sx={{ fontSize: '11.5px', fontWeight: 800, color: 'success.main' }}>
-            {item.rating}
-          </Typography>
-        </Box>
+      <div className="mb-1 flex items-center gap-2">
+        <span className="text-success inline-flex items-center gap-1 text-[11.5px] font-extrabold">
+          <Star className="fill-success size-3" />
+          {item.rating}
+        </span>
         {item.prepTime && (
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.3 }}>
-            <Timer sx={{ fontSize: 12, color: 'text.secondary' }} />
-            <Typography sx={{ fontSize: '11px', color: 'text.secondary', fontWeight: 600 }}>
-              {item.prepTime} min
-            </Typography>
-          </Box>
+          <span className="text-muted-foreground inline-flex items-center gap-1 text-[11px] font-semibold">
+            <Clock className="size-3" />
+            {item.prepTime} min
+          </span>
         )}
-      </Box>
+      </div>
 
-      <Typography sx={{ fontWeight: 800, fontSize: '14.5px', color: 'text.primary' }}>
-        {hasPortions ? 'From ' : ''}₹{activePrice}
-      </Typography>
-    </Box>
+      <p className="text-[14.5px] font-extrabold tabular-nums">
+        {hasPortions ? 'From ' : ''}
+        {formatCurrency(activePrice)}
+      </p>
+    </div>
   );
 }
 
@@ -182,11 +149,11 @@ export default function DishRail({ items, loading = false, ariaLabel }: Props) {
   }, []);
 
   useEffect(() => {
-    syncEdges();
     const el = trackRef.current;
     if (!el) return;
     // The track's own width changes with the viewport, and the item list
-    // changes when a category filter is applied — both move the edges.
+    // changes when a category filter is applied — both move the edges. The
+    // observer fires once on observe(), which covers the initial read too.
     const observer = new ResizeObserver(syncEdges);
     observer.observe(el);
     return () => observer.disconnect();
@@ -200,87 +167,68 @@ export default function DishRail({ items, loading = false, ariaLabel }: Props) {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', gap: { xs: 1.75, sm: 2.5 }, overflow: 'hidden' }}>
+      <div className="flex gap-3.5 overflow-hidden sm:gap-5" aria-busy="true">
         {Array.from({ length: 5 }).map((_, i) => (
-          <Box key={i} sx={{ width: { xs: 158, sm: 186 }, flexShrink: 0 }}>
-            <Skeleton variant="rounded" sx={{ width: '100%', aspectRatio: '1 / 1', borderRadius: '18px', mb: 2.5 }} />
-            <Skeleton width="90%" height={18} />
-            <Skeleton width="55%" height={18} />
-          </Box>
+          <div key={i} className="w-39.5 shrink-0 sm:w-46.5">
+            <Skeleton className="mb-5 aspect-square w-full rounded-[18px]" />
+            <Skeleton className="mb-2 h-4.5 w-[90%]" />
+            <Skeleton className="h-4.5 w-[55%]" />
+          </div>
         ))}
-      </Box>
+      </div>
     );
   }
 
   if (items.length === 0) {
     return (
-      <Box sx={{ py: 5, textAlign: 'center' }}>
-        <Typography sx={{ fontSize: '2rem', mb: 0.5 }}>🍽️</Typography>
-        <Typography sx={{ fontWeight: 700, color: 'text.primary' }}>Nothing on the pass right now</Typography>
-        <Typography sx={{ fontSize: '13px', color: 'text.secondary' }}>
-          This selection is being restocked — try another category.
-        </Typography>
-      </Box>
+      <EmptyState
+        icon={UtensilsCrossed}
+        title="Nothing on the pass right now"
+        description="This selection is being restocked — try another category."
+      />
     );
   }
 
   return (
-    <Box sx={{ position: 'relative' }}>
-      <Box
+    <div className="relative">
+      <div
         ref={trackRef}
         onScroll={syncEdges}
         role="region"
         aria-label={ariaLabel}
-        sx={{
-          display: 'flex',
-          gap: { xs: 1.75, sm: 2.5 },
-          overflowX: 'auto',
-          overscrollBehaviorX: 'contain',
-          scrollSnapType: 'x mandatory',
-          WebkitOverflowScrolling: 'touch',
+        className={cn(
+          'scrollbar-none flex snap-x snap-mandatory gap-3.5 overflow-x-auto overscroll-x-contain pb-2 sm:gap-5',
           // Bleeds to the screen edges on phones so the row visibly runs off
           // the side — the cue that tells a thumb there is more to swipe to.
-          mx: { xs: -2.5, md: 0 },
-          px: { xs: 2.5, md: 0 },
-          pb: 1,
-          scrollbarWidth: 'none',
-          '&::-webkit-scrollbar': { display: 'none' },
-        }}
+          '-mx-5 px-5 md:mx-0 md:px-0'
+        )}
       >
-        {items.map((item) => <RailCard key={item.id} item={item} />)}
-      </Box>
+        {items.map((item) => (
+          <RailCard key={item.id} item={item} />
+        ))}
+      </div>
 
-      {/* Desktop-only arrows. A mouse has no swipe, and a scrollbar is hidden. */}
-      {[-1, 1].map((dir) => {
+      {/* Desktop-only arrows. A mouse has no swipe, and the scrollbar is hidden. */}
+      {([-1, 1] as const).map((dir) => {
         const isPrev = dir === -1;
         const disabled = isPrev ? atStart : atEnd;
         return (
-          <IconButton
+          <button
             key={dir}
-            onClick={() => scrollBy(dir as 1 | -1)}
+            type="button"
+            onClick={() => scrollBy(dir)}
             disabled={disabled}
             aria-label={isPrev ? 'Scroll left' : 'Scroll right'}
-            sx={{
-              display: { xs: 'none', md: 'inline-flex' },
-              position: 'absolute',
-              top: '38%',
-              [isPrev ? 'left' : 'right']: -20,
-              transform: 'translateY(-50%)',
-              bgcolor: 'white',
-              color: 'primary.main',
-              border: '1px solid rgba(0,0,0,0.08)',
-              boxShadow: '0 6px 20px rgba(0,0,0,0.14)',
-              width: 40, height: 40,
-              opacity: disabled ? 0 : 1,
-              pointerEvents: disabled ? 'none' : 'auto',
-              transition: 'opacity .2s ease, background-color .2s ease',
-              '&:hover': { bgcolor: 'primary.main', color: 'white' },
-            }}
+            className={cn(
+              'bg-card text-primary hover:bg-primary hover:text-primary-foreground absolute top-[38%] hidden size-10 -translate-y-1/2 place-items-center rounded-full border shadow-lg transition-all md:grid',
+              isPrev ? '-left-5' : '-right-5',
+              disabled && 'pointer-events-none opacity-0'
+            )}
           >
-            {isPrev ? <ChevronLeft /> : <ChevronRight />}
-          </IconButton>
+            {isPrev ? <ChevronLeft className="size-5" /> : <ChevronRight className="size-5" />}
+          </button>
         );
       })}
-    </Box>
+    </div>
   );
 }

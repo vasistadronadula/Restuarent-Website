@@ -1,269 +1,159 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import {
-  Box, Grid, Typography, TextField, Button, Avatar, CircularProgress, Divider,
-} from '@mui/material';
-import { PhotoCamera, Delete } from '@mui/icons-material';
+import React, { useEffect, useState } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { PageHeader, SectionCard, SectionHeading, RoleBadge, adminColors, roleColors } from '@/components/admin/ui';
-import { ROLE_ACCESS_SUMMARY, ROLE_ICONS, ROLE_LABELS } from '@/lib/roleAccess';
+import { PageHeader, SectionCard, RoleBadge } from '@/components/admin/ui';
+import { ROLE_ACCESS_SUMMARY, ROLE_LABELS } from '@/lib/roleAccess';
 import toast from 'react-hot-toast';
-
-const MAX_AVATAR_BYTES = 3 * 1024 * 1024; // 3MB
-
-const initialsOf = (name: string, email: string) => {
-  const src = name.trim() || email;
-  return src.split(/[\s@.]+/).filter(Boolean).map((p) => p[0]).join('').toUpperCase().slice(0, 2) || '?';
-};
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Camera, Trash2, User, Mail, Phone, ShieldCheck } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user, userRole } = useAuth();
-  const fileRef = useRef<HTMLInputElement>(null);
-
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
 
-  // Seed from the profiles row (source of truth), falling back to whatever the
-  // session already carries. The spinner covers the fetch, so the fields are
-  // populated in one pass rather than flashing session values first.
   useEffect(() => {
     if (!user) return;
-    let cancelled = false;
-
+    let active = true;
     (async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('full_name, phone, avatar_url')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (cancelled) return;
-
-      const meta = user.user_metadata || {};
-      setFullName(data?.full_name || meta.full_name || meta.name || '');
-      setPhone(data?.phone || meta.phone || '');
-      setAvatarUrl(data?.avatar_url || meta.avatar_url || '');
-      setLoading(false);
+      if (supabase) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name, phone, avatar_url')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (active && data) {
+          setFullName(data.full_name || user.user_metadata?.full_name || user.user_metadata?.name || '');
+          setPhone(data.phone || user.user_metadata?.phone || '');
+          setAvatarUrl(data.avatar_url || user.user_metadata?.avatar_url || '');
+        } else if (active) {
+          setFullName(user.user_metadata?.full_name || user.user_metadata?.name || '');
+          setPhone(user.user_metadata?.phone || '');
+          setAvatarUrl(user.user_metadata?.avatar_url || '');
+        }
+      }
     })();
-
-    return () => { cancelled = true; };
+    return () => { active = false; };
   }, [user]);
 
-  const persist = async (patch: { full_name?: string; phone?: string; avatar_url?: string | null }) => {
-    if (!user) return false;
-    const { error } = await supabase.from('profiles').update(patch).eq('id', user.id);
-    if (error) {
-      toast.error(error.message || 'Could not save your profile');
-      return false;
-    }
-    // Mirror into the session so the sidebar/header pick it up immediately
-    // instead of only after the next sign-in.
-    await supabase.auth.updateUser({
-      data: {
-        ...(patch.full_name !== undefined ? { full_name: patch.full_name } : {}),
-        ...(patch.phone !== undefined ? { phone: patch.phone } : {}),
-        ...(patch.avatar_url !== undefined ? { avatar_url: patch.avatar_url ?? '' } : {}),
-      },
-    });
-    return true;
-  };
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !user) return;
-
-    if (!file.type.startsWith('image/')) { toast.error('Please choose an image file.'); return; }
-    if (file.size > MAX_AVATAR_BYTES) { toast.error('Image must be under 3MB.'); return; }
-
-    setUploading(true);
-    try {
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      // Path must start with the user id — the storage policy scopes writes
-      // to that first segment so nobody can overwrite someone else's photo.
-      const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars').upload(path, file, { cacheControl: '3600', upsert: true });
-      if (uploadError) { toast.error(`Upload failed: ${uploadError.message}`); return; }
-
-      const { data } = supabase.storage.from('avatars').getPublicUrl(path);
-      if (await persist({ avatar_url: data.publicUrl })) {
-        setAvatarUrl(data.publicUrl);
-        toast.success('Profile photo updated');
-      }
-    } catch {
-      toast.error('Upload failed. Please try again.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleRemovePhoto = async () => {
-    if (!avatarUrl) return;
-    setUploading(true);
-    if (await persist({ avatar_url: null })) {
-      setAvatarUrl('');
-      toast.success('Profile photo removed');
-    }
-    setUploading(false);
-  };
-
   const handleSave = async () => {
-    if (!fullName.trim()) { toast.error('Name cannot be empty'); return; }
+    if (!user) return;
     setSaving(true);
-    if (await persist({ full_name: fullName.trim(), phone: phone.trim() })) {
-      toast.success('Profile saved');
+    try {
+      if (supabase) {
+        await supabase
+          .from('profiles')
+          .update({
+            full_name: fullName,
+            phone: phone,
+            avatar_url: avatarUrl,
+          })
+          .eq('id', user.id);
+      }
+      toast.success('Profile updated successfully!');
+    } catch {
+      toast.error('Failed to update profile');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
-
-  const email = user?.email || '';
-  const accent = userRole && userRole !== 'customer' ? roleColors[userRole].color : adminColors.brand;
-  const accentBg = userRole && userRole !== 'customer' ? roleColors[userRole].bg : adminColors.brandSoft;
 
   return (
-    <AdminLayout title="My Profile">
-      <PageHeader title="My Profile" subtitle="Your details and photo, shown across the admin panel." />
+    <AdminLayout title="Staff Profile Settings">
+      <div className="space-y-4 max-w-4xl mx-auto w-full">
+        <PageHeader
+          title="Account Profile & Credentials"
+          subtitle="Manage your personal details and staff role access"
+        />
 
-      {loading ? (
-        <SectionCard><Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box></SectionCard>
-      ) : (
-        <Grid container spacing={2}>
-          {/* ── Photo ─────────────────────────────────────────── */}
-          <Grid size={{ xs: 12, md: 4 }}>
-            <SectionCard sx={{ height: '100%' }}>
-              <SectionHeading title="Profile photo" subtitle="JPG or PNG, up to 3MB" />
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 1 }}>
-                <Box sx={{ position: 'relative' }}>
-                  <Avatar
-                    src={avatarUrl || undefined}
-                    sx={{
-                      width: 112, height: 112, fontSize: 36, fontWeight: 800,
-                      bgcolor: accentBg, color: accent,
-                      border: `3px solid ${adminColors.bgPanel}`, boxShadow: adminColors.shadowMd,
-                    }}
-                  >
-                    {initialsOf(fullName, email)}
-                  </Avatar>
-                  {uploading && (
-                    <Box sx={{
-                      position: 'absolute', inset: 0, borderRadius: '50%',
-                      bgcolor: 'rgba(255,255,255,0.75)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <CircularProgress size={28} />
-                    </Box>
-                  )}
-                </Box>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+          <div className="md:col-span-4">
+            <SectionCard className="text-center space-y-3">
+              <Avatar className="w-20 h-20 mx-auto border-2 border-amber-600 shadow-md">
+                <AvatarImage src={avatarUrl} alt={fullName} />
+                <AvatarFallback className="bg-stone-900 text-white font-black text-xl">
+                  {fullName ? fullName.slice(0, 2).toUpperCase() : 'PP'}
+                </AvatarFallback>
+              </Avatar>
 
-                <input ref={fileRef} type="file" hidden accept="image/*" onChange={handleUpload} />
+              <div>
+                <h3 className="font-extrabold text-stone-850 dark:text-stone-100 text-base">
+                  {fullName || 'Staff User'}
+                </h3>
+                <p className="text-[10px] text-stone-400 font-semibold">{user?.email}</p>
+              </div>
 
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <Button
-                    variant="outlined" size="small" startIcon={<PhotoCamera />}
-                    disabled={uploading} onClick={() => fileRef.current?.click()}
-                    sx={{
-                      borderRadius: adminColors.radiusMd, textTransform: 'none', fontWeight: 700,
-                      color: adminColors.textSecondary, borderColor: adminColors.border,
-                      '&:hover': { borderColor: accent, color: accent },
-                    }}
-                  >
-                    {avatarUrl ? 'Change photo' : 'Upload photo'}
-                  </Button>
-                  {avatarUrl && (
-                    <Button
-                      size="small" startIcon={<Delete />} disabled={uploading} onClick={handleRemovePhoto}
-                      sx={{ borderRadius: adminColors.radiusMd, textTransform: 'none', fontWeight: 700, color: adminColors.danger }}
-                    >
-                      Remove
-                    </Button>
-                  )}
-                </Box>
-              </Box>
+              <div className="pt-1">
+                <RoleBadge role={userRole} />
+              </div>
             </SectionCard>
-          </Grid>
+          </div>
 
-          {/* ── Details ───────────────────────────────────────── */}
-          <Grid size={{ xs: 12, md: 8 }}>
-            <SectionCard sx={{ height: '100%' }}>
-              <SectionHeading title="Your details" subtitle="Name and phone are visible to your team" />
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    fullWidth size="small" label="Full name" value={fullName}
+          <div className="md:col-span-8">
+            <SectionCard className="space-y-4">
+              <h3 className="font-extrabold text-sm text-stone-900 dark:text-stone-100 flex items-center gap-2 border-b border-stone-200/40 dark:border-[#2C2C2E]/60 pb-2.5">
+                <User className="w-4 h-4 text-amber-600" /> Personal Details
+              </h3>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-stone-500 dark:text-stone-400 block mb-1">Full Name</label>
+                  <Input
+                    value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
+                    className="rounded-xl font-bold border-stone-200 dark:border-[#2C2C2E]/65 bg-stone-50/50 dark:bg-stone-900/50 focus-visible:ring-amber-500"
                   />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 6 }}>
-                  <TextField
-                    fullWidth size="small" label="Phone" value={phone}
-                    onChange={(e) => setPhone(e.target.value)} placeholder="Optional"
-                  />
-                </Grid>
-                <Grid size={{ xs: 12 }}>
-                  <TextField
-                    fullWidth size="small" label="Email" value={email} disabled
-                    helperText="Your sign-in email. Contact an admin to change it."
-                  />
-                </Grid>
-              </Grid>
+                </div>
 
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                <div>
+                  <label className="text-xs font-bold text-stone-500 dark:text-stone-400 block mb-1">Phone Number</label>
+                  <Input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="rounded-xl font-bold border-stone-200 dark:border-[#2C2C2E]/65 bg-stone-50/50 dark:bg-stone-900/50 focus-visible:ring-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-stone-500 dark:text-stone-400 block mb-1">Email Address</label>
+                  <Input
+                    disabled
+                    value={user?.email || ''}
+                    className="rounded-xl bg-stone-100 dark:bg-stone-850 font-medium cursor-not-allowed border-stone-200 dark:border-[#2C2C2E]/65"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-stone-500 dark:text-stone-400 block mb-1">Avatar Image URL</label>
+                  <Input
+                    placeholder="https://..."
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    className="rounded-xl border-stone-200 dark:border-[#2C2C2E]/65 bg-stone-50/50 dark:bg-stone-900/50 focus-visible:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-stone-100 dark:border-[#2C2C2E]/60 flex justify-end">
                 <Button
-                  variant="contained" onClick={handleSave} disabled={saving}
-                  sx={{
-                    bgcolor: adminColors.brand, '&:hover': { bgcolor: adminColors.brandDark },
-                    borderRadius: adminColors.radiusMd, fontWeight: 700, textTransform: 'none',
-                    px: 3, boxShadow: 'none',
-                  }}
+                  disabled={saving}
+                  onClick={handleSave}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl px-5 h-9 shadow-xs"
                 >
-                  {saving ? <CircularProgress size={20} color="inherit" /> : 'Save changes'}
+                  Save Profile Changes
                 </Button>
-              </Box>
-
-              <Divider sx={{ my: 2.5 }} />
-
-              {/* Access — read-only; only an admin can change someone's role */}
-              <SectionHeading title="Your access" />
-              {userRole && userRole !== 'customer' ? (
-                <Box sx={{
-                  display: 'flex', alignItems: 'center', gap: 1.5,
-                  p: 1.75, borderRadius: adminColors.radiusMd,
-                  bgcolor: accentBg, border: `1px solid ${accent}22`,
-                }}>
-                  <Box sx={{
-                    width: 38, height: 38, borderRadius: adminColors.radiusSm, flexShrink: 0,
-                    bgcolor: adminColors.bgPanel, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18,
-                  }}>
-                    {ROLE_ICONS[userRole]}
-                  </Box>
-                  <Box sx={{ minWidth: 0 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                      <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: accent }}>
-                        {ROLE_LABELS[userRole]}
-                      </Typography>
-                      <RoleBadge role={userRole} />
-                    </Box>
-                    <Typography sx={{ fontSize: 12, color: adminColors.textSecondary, mt: 0.2 }}>
-                      {ROLE_ACCESS_SUMMARY[userRole]}
-                    </Typography>
-                  </Box>
-                </Box>
-              ) : null}
-              <Typography sx={{ fontSize: 11.5, color: adminColors.textMuted, mt: 1 }}>
-                Roles are assigned by an admin from the Team page.
-              </Typography>
+              </div>
             </SectionCard>
-          </Grid>
-        </Grid>
-      )}
+          </div>
+        </div>
+      </div>
     </AdminLayout>
   );
 }

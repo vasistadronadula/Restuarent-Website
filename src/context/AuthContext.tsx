@@ -2,28 +2,21 @@
 
 /**
  * AuthContext.tsx
- * Thin Supabase Auth bridge — listens to auth state changes and dispatches to Redux authSlice.
- * Components consume auth state via useAppSelector (selectUser, selectUserRole, etc.) or useAuth().
+ * Thin Supabase Auth bridge — listens to auth state changes and writes them
+ * into the Zustand auth store. Components can consume either this context
+ * (`useAuth()`, for the action methods) or `useAuthStore` directly (for state,
+ * with a selector so a component only re-renders on the slice it reads).
  */
 
-import React, {
-  createContext, useContext, ReactNode, useCallback, useEffect, useMemo, useRef,
-} from 'react';
-import { supabase } from '@/lib/supabase';
-import { endFirebaseSession } from '@/lib/firebase';
-import toast from 'react-hot-toast';
+import React, { createContext, useContext, ReactNode, useCallback, useEffect, useMemo, useRef } from 'react';
 import { User } from '@supabase/supabase-js';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import type { AppDispatch } from '@/store';
+import { toast } from 'sonner';
+
+import { supabase } from '@/lib/supabase';
 import { getErrorMessage } from '@/lib/errors';
 import { getRoleHome, isStaffRole } from '@/lib/roleAccess';
 import type { UserRole } from '@/types';
-import {
-  setUser, setSession, setUserRole, authResolved, openAuthModal, closeAuthModal,
-  signOutStarted, signOut,
-  selectUser, selectSession, selectUserRole, selectAuthLoading,
-  selectIsAuthModalOpen, selectAuthModalTab,
-} from '@/store/authSlice';
+import { useAuthStore } from '@/store/useAuthStore';
 
 export type { UserRole };
 
@@ -68,9 +61,9 @@ const takeOAuthPendingFlag = (): boolean => {
  *
  * This is a deliberate full page load, not `router.replace`, and that is the
  * point: these are shared terminals. A hard navigation guarantees the incoming
- * user gets a clean Redux store, a clean RTK Query cache and a realtime socket
- * opened with their own token, instead of inheriting whatever the previous
- * shift left in memory.
+ * user gets a clean Zustand store, a clean TanStack Query cache and a realtime
+ * socket opened with their own token, instead of inheriting whatever the
+ * previous shift left in memory.
  *
  * `replace` rather than `href` so the login form is dropped from history —
  * pressing Back from the dashboard must not return an already-signed-in user
@@ -92,7 +85,14 @@ interface AuthContextType {
   signInWithEmail: (email: string, pass: string) => Promise<{ success: boolean; role?: UserRole }>;
   signUpWithEmail: (email: string, pass: string, name?: string, phone?: string) => Promise<{ success: boolean; role?: UserRole }>;
   /** Takes a Firebase ID token from the OTP screen, not a phone number — see the implementation. */
-  signInWithPhoneToken: (idToken: string, name?: string) => Promise<{ success: boolean; role?: UserRole }>;
+  signInWithPhoneToken: (idToken: string, name?: string) => Promise<{
+    success: boolean;
+    role?: UserRole;
+    isNewUser?: boolean;
+    hasDetails?: boolean;
+    profile?: { full_name: string; email: string; phone: string } | null;
+  }>;
+  updateUserProfile: (fullName: string, email: string, phone?: string) => Promise<boolean>;
   signInWithGoogle: () => Promise<void>;
   signOutUser: () => Promise<void>;
   fetchUserRole: (u: User) => Promise<UserRole>;
@@ -110,12 +110,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // with a trigger blocking self-escalation) is the only source of truth here.
 // `u.app_metadata` is safe (only settable server-side) but isn't populated
 // by anything in this app, so it's not read either — one source of truth.
-async function fetchAndSetUserRole(u: User, dispatch: AppDispatch): Promise<UserRole> {
+async function fetchAndSetUserRole(u: User): Promise<UserRole> {
+  const { setUserRole } = useAuthStore.getState();
   try {
     const email = (u.email || '').toLowerCase().trim();
 
     if (ADMIN_EMAILS.includes(email)) {
-      dispatch(setUserRole('admin'));
+      setUserRole('admin');
       return 'admin';
     }
 
@@ -132,7 +133,7 @@ async function fetchAndSetUserRole(u: User, dispatch: AppDispatch): Promise<User
     if (data?.role) {
       const raw = data.role.toString().toLowerCase().trim();
       const role: UserRole = isKnownRole(raw) ? raw : 'customer';
-      dispatch(setUserRole(role));
+      setUserRole(role);
       return role;
     }
 
@@ -143,29 +144,28 @@ async function fetchAndSetUserRole(u: User, dispatch: AppDispatch): Promise<User
     await supabase.from('profiles').insert([{
       id: u.id, email: u.email || '', full_name: fullName, phone, role: newRole,
     }]);
-    dispatch(setUserRole(newRole));
+    setUserRole(newRole);
     return newRole;
   } catch (err) {
     console.error('Error fetching user role:', err);
     const email = (u.email || '').toLowerCase().trim();
     if (ADMIN_EMAILS.includes(email)) {
-      dispatch(setUserRole('admin'));
+      setUserRole('admin');
       return 'admin';
     }
-    dispatch(setUserRole('customer'));
+    setUserRole('customer');
     return 'customer';
   }
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const dispatch = useAppDispatch();
-  const user = useAppSelector(selectUser);
-  const session = useAppSelector(selectSession);
-  const userRole = useAppSelector(selectUserRole);
-  const loading = useAppSelector(selectAuthLoading);
-  const isAuthModalOpen = useAppSelector(selectIsAuthModalOpen);
-  const authModalTab = useAppSelector(selectAuthModalTab);
+  const user = useAuthStore((s) => s.user);
+  const session = useAuthStore((s) => s.session);
+  const userRole = useAuthStore((s) => s.userRole);
+  const loading = useAuthStore((s) => s.loading);
+  const isAuthModalOpen = useAuthStore((s) => s.isAuthModalOpen);
+  const authModalTab = useAuthStore((s) => s.authModalTab);
 
   // Which user id the role in the store was fetched for, so a token refresh
   // for the same person doesn't trigger a redundant `profiles` round-trip.
@@ -176,12 +176,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     let settled = false;
 
+    const { setUser, setSession, setUserRole, authResolved } = useAuthStore.getState();
+
     /** Latch `authReady` exactly once, whichever source answers first. */
     function settle() {
       if (cancelled || settled) return;
       settled = true;
       clearTimeout(ceiling);
-      dispatch(authResolved());
+      authResolved();
     }
 
     // Last-resort ceiling so a hung network can never leave the app stuck
@@ -208,16 +210,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession()
       .then(async ({ data: { session: restored } }) => {
         if (cancelled) return;
-        dispatch(setSession(restored));
-        dispatch(setUser(restored?.user ?? null));
+        setSession(restored);
+        setUser(restored?.user ?? null);
 
         if (restored?.user) {
-          const role = await fetchAndSetUserRole(restored.user, dispatch);
+          const role = await fetchAndSetUserRole(restored.user);
           if (cancelled) return;
           roleForUserId.current = restored.user.id;
           cachedRole.current = role;
         } else {
-          dispatch(setUserRole(null));
+          setUserRole(null);
         }
         settle();
       })
@@ -230,12 +232,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (cancelled) return;
 
-      dispatch(setSession(nextSession));
+      setSession(nextSession);
       const currentUser = nextSession?.user ?? null;
-      dispatch(setUser(currentUser));
+      setUser(currentUser);
 
       if (!currentUser) {
-        dispatch(setUserRole(null));
+        setUserRole(null);
         roleForUserId.current = null;
         cachedRole.current = null;
         settle();
@@ -251,7 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const sameUser = roleForUserId.current === currentUser.id;
       const role = isRefresh && sameUser && cachedRole.current
         ? cachedRole.current
-        : await fetchAndSetUserRole(currentUser, dispatch);
+        : await fetchAndSetUserRole(currentUser);
 
       if (cancelled) return;
       roleForUserId.current = currentUser.id;
@@ -272,7 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearTimeout(ceiling);
       subscription.unsubscribe();
     };
-  }, [dispatch]);
+  }, []);
 
   // ─── Auth Methods ──────────────────────────────────────────────────────────
 
@@ -290,18 +292,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const u = data.user;
       let role: UserRole = 'customer';
       if (u) {
-        role = await fetchAndSetUserRole(u, dispatch);
+        role = await fetchAndSetUserRole(u);
         roleForUserId.current = u.id;
         cachedRole.current = role;
       }
-      toast.success(`Welcome back, ${u?.email || 'User'}! 👋`);
-      dispatch(closeAuthModal());
+      toast.success(`Welcome back, ${u?.email || 'User'}!`);
+      useAuthStore.getState().closeAuthModal();
       return { success: true, role };
     } catch (err) {
       toast.error(getErrorMessage(err) || 'Login error');
       return { success: false };
     }
-  }, [dispatch]);
+  }, []);
 
   const signUpWithEmail = useCallback(async (
     email: string, pass: string, name?: string, phone?: string
@@ -320,20 +322,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await supabase.from('profiles').insert([{
           id: u.id, email: u.email || email, full_name: name || '', phone: phone || '', role,
         }]);
-        dispatch(setUserRole(role));
+        useAuthStore.getState().setUserRole(role);
         roleForUserId.current = u.id;
         cachedRole.current = role;
       }
-      toast.success('Account created successfully! 🎉');
-      dispatch(closeAuthModal());
+      toast.success('Account created successfully');
+      useAuthStore.getState().closeAuthModal();
       return { success: true, role };
     } catch (err) {
       toast.error(getErrorMessage(err) || 'Signup error');
       return { success: false };
     }
-  }, [dispatch]);
-
-
+  }, []);
 
   /**
    * Completes a phone sign-in from a Firebase ID token.
@@ -351,7 +351,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    */
   const signInWithPhoneToken = useCallback(async (
     idToken: string, name?: string
-  ): Promise<{ success: boolean; role?: UserRole }> => {
+  ): Promise<{
+    success: boolean;
+    role?: UserRole;
+    isNewUser?: boolean;
+    hasDetails?: boolean;
+    profile?: { full_name: string; email: string; phone: string } | null;
+  }> => {
     try {
       const response = await fetch('/api/auth/phone', {
         method: 'POST',
@@ -361,75 +367,113 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const payload = await response.json().catch(() => ({}));
 
-      if (!response.ok || (!payload?.tokenHash && !payload?.tempPassword)) {
+      if (!response.ok || !payload?.tokenHash) {
         toast.error(payload?.error || 'Could not complete sign-in. Please try again.');
         return { success: false };
       }
 
-      let user: any = null;
-      let sessionError: any = null;
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: payload.tokenHash as string,
+        type: 'magiclink',
+      });
 
-      // Stage 1: Try magiclink token hash verification
-      if (payload.tokenHash) {
-        const magicRes = await supabase.auth.verifyOtp({
-          token_hash: payload.tokenHash as string,
-          type: 'magiclink',
-        });
-        if (magicRes.data?.user) {
-          user = magicRes.data.user;
-        } else {
-          // Stage 2: Try email token hash verification
-          const emailRes = await supabase.auth.verifyOtp({
-            token_hash: payload.tokenHash as string,
-            type: 'email',
-          });
-          if (emailRes.data?.user) {
-            user = emailRes.data.user;
-          }
-        }
-      }
-
-      // Stage 3: Direct fallback via tempPassword sign-in
-      if (!user && payload.email && payload.tempPassword) {
-        const passRes = await supabase.auth.signInWithPassword({
-          email: payload.email as string,
-          password: payload.tempPassword as string,
-        });
-        if (passRes.data?.user) {
-          user = passRes.data.user;
-        } else {
-          sessionError = passRes.error;
-        }
-      }
-
-      if (!user) {
-        console.error('[auth] phone session exchange failed:', sessionError?.message);
-        toast.error('Could not start your session. Please try again.');
+      const signedInUser = data?.user;
+      if (error || !signedInUser) {
+        console.error('[auth] phone session exchange failed:', error?.message);
+        toast.error('Could not sign you in. Please request a new code.');
         return { success: false };
       }
 
-      // Firebase has served its purpose; don't leave a second identity behind.
+      // Imported here rather than at the top of the file on purpose. This
+      // provider is mounted by the root layout, so a static import puts the
+      // whole Firebase auth SDK in the JavaScript every page ships — the menu,
+      // the cart, the home page — for a module only ever reached at the end of
+      // a phone sign-in. By this line the OTP screen has already loaded it, so
+      // the import resolves from cache and costs nothing.
+      const { endFirebaseSession } = await import('@/lib/firebase');
       await endFirebaseSession();
 
-      const role = await fetchAndSetUserRole(user, dispatch);
-      roleForUserId.current = user.id;
+      const role = await fetchAndSetUserRole(signedInUser);
+      roleForUserId.current = signedInUser.id;
       cachedRole.current = role;
 
-      toast.success(payload.isNewUser ? 'Welcome to Pala Pitta Ruchulu! 🎉' : 'Welcome back! 👋');
-      dispatch(closeAuthModal());
-      return { success: true, role };
+      if (payload.hasDetails) {
+        toast.success(
+          payload.isNewUser
+            ? 'Welcome to Pala Pitta Ruchulu!'
+            : `Welcome back${payload.profile?.full_name ? `, ${payload.profile.full_name}` : ''}!`
+        );
+        useAuthStore.getState().closeAuthModal();
+      }
+
+      return {
+        success: true,
+        role,
+        isNewUser: payload.isNewUser,
+        hasDetails: payload.hasDetails,
+        profile: payload.profile,
+      };
     } catch (err) {
       console.error('[auth] phone sign-in error:', err);
       toast.error(getErrorMessage(err) || 'Sign-in failed. Please try again.');
       return { success: false };
     }
-  }, [dispatch]);
+  }, []);
+
+  /**
+   * Saves the customer's own name, email and phone.
+   *
+   * The access token is read from the Supabase client at call time rather than
+   * from the store copy. Those two disagree for a moment right after a phone
+   * sign-in: `verifyOtp` has already produced a session, but the SIGNED_IN
+   * event that copies it into the store has not been delivered yet — which is
+   * exactly when the "complete your profile" step submits. Reading it live
+   * means the request always carries a token, so the route can insist on one.
+   */
+  const updateUserProfile = useCallback(async (
+    fullName: string, email: string, phone?: string
+  ): Promise<boolean> => {
+    try {
+      const { data: { session: current } } = await supabase.auth.getSession();
+      const accessToken = current?.access_token;
+
+      if (!accessToken) {
+        toast.error('Your session has expired. Please sign in again.');
+        return false;
+      }
+
+      const response = await fetch('/api/auth/update-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ fullName, email, phone }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        toast.error(payload?.error || 'Could not update profile. Please try again.');
+        return false;
+      }
+
+      if (payload.user) {
+        useAuthStore.getState().setUser(payload.user);
+      }
+
+      toast.success('Profile updated');
+      useAuthStore.getState().closeAuthModal();
+      return true;
+    } catch (err) {
+      console.error('[auth] update profile error:', err);
+      toast.error(getErrorMessage(err) || 'Profile update failed.');
+      return false;
+    }
+  }, []);
 
   const signInWithGoogle = useCallback(async () => {
     try {
-      // Mark the hand-off so the SIGNED_IN listener knows the return trip is a
-      // login and not an ordinary page visit. Set before the call, because
-      // signInWithOAuth navigates away and never resolves here.
       if (typeof window !== 'undefined') {
         try { window.sessionStorage.setItem(OAUTH_PENDING_KEY, '1'); } catch { /* storage disabled */ }
       }
@@ -438,7 +482,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: { redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined },
       });
       if (error) {
-        takeOAuthPendingFlag(); // Never left the page — clear the flag again.
+        takeOAuthPendingFlag();
         toast.error(error.message || 'Google sign in failed');
       }
     } catch (err) {
@@ -448,11 +492,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOutUser = useCallback(async () => {
-    // Flag first: clearing the user is about to make every route guard
-    // observe a signed-out session. Without this they fire "Please log in
-    // with your staff account" as an error toast on top of a successful
-    // logout, and race the navigation below with one of their own.
-    dispatch(signOutStarted());
+    useAuthStore.getState().signOutStarted();
     const wasStaff = isStaffRole(cachedRole.current);
     try {
       await supabase.auth.signOut();
@@ -460,37 +500,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cachedRole.current = null;
       toast.success('Logged out successfully');
 
-      // Staff leave via a full page load so the next person on this terminal
-      // starts with an empty store instead of the previous shift's cached
-      // orders, bills and customer records.
       if (wasStaff && typeof window !== 'undefined') {
         window.location.replace('/');
         return;
       }
-      dispatch(signOut());
+      useAuthStore.getState().signOut();
     } catch {
-      dispatch(signOut()); // Clears `signingOut` so guards go live again.
+      useAuthStore.getState().signOut();
       toast.error('Logout error');
     }
-  }, [dispatch]);
+  }, []);
 
-  const openModal = useCallback((tab?: 'login' | 'signup') => { dispatch(openAuthModal(tab)); }, [dispatch]);
-  const closeModal = useCallback(() => { dispatch(closeAuthModal()); }, [dispatch]);
-  const fetchUserRole = useCallback((u: User) => fetchAndSetUserRole(u, dispatch), [dispatch]);
+  const openModal = useCallback((tab?: 'login' | 'signup') => {
+    useAuthStore.getState().openAuthModal(tab);
+  }, []);
+  const closeModal = useCallback(() => {
+    useAuthStore.getState().closeAuthModal();
+  }, []);
+  const fetchUserRole = useCallback((u: User) => fetchAndSetUserRole(u), []);
 
-  // Every method is a stable useCallback, so this value only changes when auth
-  // state actually changes. It used to list state in the deps while rebuilding
-  // the methods inline each render, which made the memo a no-op and re-rendered
-  // every useAuth() consumer — the whole POS included — on each render pass.
   const contextValue = useMemo(() => ({
     user, session, userRole, loading, isAuthModalOpen, authModalTab,
-    signInWithEmail, signUpWithEmail, signInWithPhoneToken, signInWithGoogle, signOutUser,
+    signInWithEmail, signUpWithEmail, signInWithPhoneToken, updateUserProfile, signInWithGoogle, signOutUser,
     fetchUserRole,
     openAuthModal: openModal,
     closeAuthModal: closeModal,
   }), [
     user, session, userRole, loading, isAuthModalOpen, authModalTab,
-    signInWithEmail, signUpWithEmail, signInWithPhoneToken, signInWithGoogle, signOutUser,
+    signInWithEmail, signUpWithEmail, signInWithPhoneToken, updateUserProfile, signInWithGoogle, signOutUser,
     fetchUserRole, openModal, closeModal,
   ]);
 

@@ -1,762 +1,571 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any -- ColumnDef's first type
+   parameter is the table feature set; `any` there is how this codebase spells
+   "the default features" at every DataTable call site. */
+import { useCallback, useMemo, useState } from 'react';
+import Image from 'next/image';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
 import {
-  Box, Button, TextField, Select, MenuItem as MuiMenuItem,
-  FormControl, InputLabel, Table, TableBody, TableCell, TableHead, TableRow,
-  IconButton, Chip, Dialog, DialogTitle, DialogContent, DialogActions,
-  Grid, Switch, InputAdornment, Tooltip, Avatar, Stack, Typography,
-  useMediaQuery, useTheme, CircularProgress,
-} from '@mui/material';
-import {
-  Add, Edit, Delete, Search, UploadFile, Close, Link as LinkIcon,
-} from '@mui/icons-material';
+  Edit2, Flame, Plus, Sparkles, Trash2, Utensils,
+} from 'lucide-react';
+
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
-import { supabase } from '@/lib/supabase';
-import { MenuItem as MenuItemType, Category, VegStatus } from '@/types';
+import { MenuItem as MenuItemType, PortionPrices } from '@/types';
 import { categoryLabels } from '@/data/menuData';
-import toast from 'react-hot-toast';
-import { PageHeader, StatCard, SectionCard, EmptyState, adminColors } from '@/components/admin/ui';
+import { generateMenuItemId } from '@/lib/idGenerator';
+import { FALLBACK_DISH_IMAGE } from '@/lib/utils';
+import {
+  CATEGORY_VALUES, VEG_STATUS_VALUES, menuItemSchema,
+  type MenuItemFormOutput, type MenuItemFormValues,
+} from '@/lib/adminSchemas';
+import { PageHeader, StatCard, SectionCard } from '@/components/admin/ui';
+import {
+  ConfirmDeleteDialog, FormDialog, NumberField, SelectField, SwitchField,
+  TextAreaField, TextField,
+} from '@/components/admin/form-fields';
+import { DataTable } from '@/components/ui/data-table';
+import { ColumnDef } from '@tanstack/react-table';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5MB
+const CATEGORY_OPTIONS = CATEGORY_VALUES.map((value) => ({
+  value,
+  label: categoryLabels[value],
+}));
+
+const VEG_OPTIONS: { value: (typeof VEG_STATUS_VALUES)[number]; label: string }[] = [
+  { value: 'veg', label: '🟢 Veg' },
+  { value: 'non-veg', label: '🔴 Non-Veg' },
+  { value: 'egg', label: '🟡 Egg' },
+];
+
+const BLANK_FORM: MenuItemFormValues = {
+  name: '',
+  category: 'biryani',
+  vegStatus: 'non-veg',
+  price: '' as unknown as number,
+  portionSingle: '',
+  portionFull: '',
+  portionLarge: '',
+  prepTime: 20,
+  image: '',
+  description: '',
+  isAvailable: true,
+  isSpecial: false,
+  isPopular: false,
+};
+
+/** `{}` rather than `{ single: undefined }` — an all-blank portion set means
+ *  the dish has no sizes, and the storefront checks for the key's presence. */
+function toPortionPrices(v: MenuItemFormOutput): PortionPrices | undefined {
+  const portions: PortionPrices = {};
+  if (v.portionSingle !== undefined) portions.single = v.portionSingle;
+  if (v.portionFull !== undefined) portions.full = v.portionFull;
+  if (v.portionLarge !== undefined) portions.large = v.portionLarge;
+  return Object.keys(portions).length > 0 ? portions : undefined;
+}
 
 export default function MenuManagementPage() {
-  const { menuItems, addMenuItem, updateMenuItem, deleteMenuItem } = useAdmin();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const {
+    menuItems, addMenuItem, updateMenuItem, deleteMenuItem, toggleMenuItemAvailability,
+  } = useAdmin();
 
-  const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [isEdit, setIsEdit] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [fetchingUrl, setFetchingUrl] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<MenuItemType | null>(null);
+  const [deleting, setDeleting] = useState<MenuItemType | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
-  const emptyForm: Partial<MenuItemType> = {
-    name: '',
-    description: '',
-    price: 200,
-    category: 'starters',
-    vegStatus: 'non-veg',
-    image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&q=80',
-    isAvailable: true,
-    isPopular: false,
-    isSpecial: false,
-    prepTime: 20,
-    portionPrices: { single: 150, full: 200, large: 550 },
-  };
-
-  const [editItem, setEditItem] = useState<Partial<MenuItemType>>(emptyForm);
-
-  // ─── Image Upload ─────────────────────────────────────────────────────────
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = ''; // allow re-selecting the same file later
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please choose an image file.');
-      return;
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      toast.error('Image must be under 5MB.');
-      return;
-    }
-
-    setUploadingImage(true);
-    try {
-      const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-      const uuid =
-        typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      const path = `${uuid}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('menu-images')
-        .upload(path, file, {
-          contentType: file.type,
-          cacheControl: '31536000',
-          upsert: true,
-        });
-
-      // A failed upload used to fall back to embedding the file as a base64
-      // data URL in menu_items.image, and still report "attached
-      // successfully". That row then shipped megabytes of image data to
-      // every customer loading the menu — the exact problem the storage
-      // bucket exists to solve. Fail loudly instead: the dish keeps its
-      // previous image and the admin knows to retry.
-      if (uploadError) {
-        console.error('Menu image upload failed:', uploadError.message);
-        toast.error(`Upload failed: ${uploadError.message}`);
-        return;
-      }
-
-      const { data } = supabase.storage.from('menu-images').getPublicUrl(path);
-      setEditItem((prev) => ({ ...prev, image: data.publicUrl }));
-      toast.success('Image uploaded');
-    } catch (err) {
-      console.error('Menu image upload failed:', err);
-      toast.error('Upload failed. Check your connection and try again.');
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
-  const handleUrlUpload = async () => {
-    const url = editItem.image?.trim();
-    if (!url) {
-      toast.error('Please enter an image URL first');
-      return;
-    }
-    if (url.startsWith('data:')) {
-      toast.success('Image already attached');
-      return;
-    }
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      toast.error('Invalid URL. Must start with http:// or https://');
-      return;
-    }
-
-    setFetchingUrl(true);
-    const toastId = toast.loading('Fetching image from URL & saving to storage...');
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP error ${response.status}`);
-      const blob = await response.blob();
-      if (!blob.type.startsWith('image/')) {
-        throw new Error('URL does not point to a valid image file');
-      }
-
-      const ext = blob.type.split('/')[1] || 'jpg';
-      const file = new File([blob], `url_img_${Date.now()}.${ext}`, { type: blob.type });
-      const path = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('menu-images')
-        .upload(path, file, {
-          contentType: file.type,
-          cacheControl: '31536000',
-          upsert: true,
-        });
-
-      if (uploadError) {
-        toast.success('Image URL attached directly!', { id: toastId });
-        return;
-      }
-
-      const { data } = supabase.storage.from('menu-images').getPublicUrl(path);
-      setEditItem((prev) => ({ ...prev, image: data.publicUrl }));
-      toast.success('🎉 Image fetched & saved to storage!', { id: toastId });
-    } catch (err) {
-      console.warn('URL fetch warning:', err);
-      toast.success('Image URL linked successfully!', { id: toastId });
-    } finally {
-      setFetchingUrl(false);
-    }
-  };
-
-  // ─── Dialog open/close ────────────────────────────────────────────────────
-
-  const openAdd = () => {
-    setIsEdit(false);
-    setEditItem({ ...emptyForm });
-    setDialogOpen(true);
-  };
-
-  const openEdit = (item: MenuItemType) => {
-    setIsEdit(true);
-    setEditItem({
-      ...item,
-      portionPrices: item.portionPrices || { single: item.price - 50, full: item.price },
-    });
-    setDialogOpen(true);
-  };
-
-  // ─── Strip zero/falsy portion prices ──────────────────────────────────────
-
-  const cleanPortionPrices = (prices?: MenuItemType['portionPrices']) => {
-    if (!prices) return undefined;
-    const cleaned: Record<string, number> = {};
-    for (const [key, val] of Object.entries(prices)) {
-      if (typeof val === 'number' && val > 0) cleaned[key] = val;
-    }
-    return Object.keys(cleaned).length > 0 ? cleaned : undefined;
-  };
-
-  // ─── Save (Add / Edit) ───────────────────────────────────────────────────
-
-  const handleSave = useCallback(async () => {
-    if (saving) return; // Prevent double-submit
-
-    if (!editItem.name?.trim()) {
-      toast.error('Dish name is required');
-      return;
-    }
-    if (!editItem.price || Number(editItem.price) <= 0) {
-      toast.error('Please enter a valid price');
-      return;
-    }
-
-    const portionPrices = cleanPortionPrices(editItem.portionPrices);
-
-    const finalItem: MenuItemType = {
-      id: editItem.id || `m-${Date.now()}`,
-      name: editItem.name.trim(),
-      description: editItem.description || '',
-      price: Number(editItem.price) || 200,
-      category: editItem.category || 'starters',
-      vegStatus: editItem.vegStatus || 'veg',
-      rating: editItem.rating || 4.5,
-      reviewCount: editItem.reviewCount || 0,
-      image: editItem.image || 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&q=80',
-      isPopular: editItem.isPopular ?? false,
-      isAvailable: editItem.isAvailable ?? true,
-      isSpecial: editItem.isSpecial ?? false,
-      tags: editItem.tags || ['palapitta'],
-      prepTime: editItem.prepTime || 20,
-      portionPrices,
-    };
-
-    setSaving(true);
-    const toastId = toast.loading(isEdit ? '💾 Saving changes...' : '➕ Adding new dish...');
-    try {
-      if (isEdit) {
-        await updateMenuItem(finalItem);
-        toast.success(`✅ "${finalItem.name}" updated successfully!`, { id: toastId, duration: 1800 });
-      } else {
-        await addMenuItem(finalItem);
-        toast.success(`🎉 "${finalItem.name}" added to the menu!`, { id: toastId, duration: 1800 });
-      }
-      setDialogOpen(false);
-    } catch {
-      toast.error(`❌ Failed to ${isEdit ? 'update' : 'add'} dish. Please try again.`, { id: toastId, duration: 3000 });
-    } finally {
-      setSaving(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editItem, isEdit, saving]);
-
-  // ─── Delete ───────────────────────────────────────────────────────────────
-
-  const handleDelete = useCallback(async (item: MenuItemType) => {
-    if (deletingId) return; // Already deleting something
-
-    if (!confirm(`Are you sure you want to delete "${item.name}"?\n\nThis action cannot be undone.`)) return;
-
-    setDeletingId(item.id);
-    const toastId = toast.loading(`🗑️ Deleting "${item.name}"...`);
-    try {
-      await deleteMenuItem(item.id);
-      toast.success(`✅ "${item.name}" removed from menu`, { id: toastId, duration: 1800 });
-    } catch {
-      toast.error(`❌ Failed to delete "${item.name}". Please try again.`, { id: toastId, duration: 3000 });
-    } finally {
-      setDeletingId(null);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deletingId]);
-
-  // ─── Availability Toggle (optimistic + subtle feedback) ───────────────────
-
-  const handleToggleAvailability = useCallback(async (item: MenuItemType, checked: boolean) => {
-    const toastId = toast.loading(
-      checked ? `✅ Marking "${item.name}" available...` : `⏸️ Marking "${item.name}" unavailable...`
-    );
-    try {
-      await updateMenuItem({ ...item, isAvailable: checked });
-      toast.success(
-        checked
-          ? `✅ "${item.name}" is now available`
-          : `⏸️ "${item.name}" marked unavailable`,
-        { id: toastId, duration: 1500 }
-      );
-    } catch {
-      toast.error(`❌ Failed to update availability`, { id: toastId, duration: 2500 });
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ─── Filtering ────────────────────────────────────────────────────────────
-
-  const filtered = menuItems.filter((i) => {
-    const matchCat = categoryFilter === 'all' || i.category === categoryFilter;
-    const matchSearch = !search || i.name.toLowerCase().includes(search.toLowerCase());
-    return matchCat && matchSearch;
+  const form = useForm<MenuItemFormValues>({
+    resolver: zodResolver(menuItemSchema),
+    defaultValues: BLANK_FORM,
+    // Validate once a field has been touched and left, then live as it is
+    // corrected. Validating on every keystroke from the start flags "Dish name
+    // is required" on the first character typed, which reads as the form
+    // fighting you.
+    mode: 'onTouched',
   });
 
-  const availableCount = menuItems.filter((i) => i.isAvailable).length;
-  const popularCount = menuItems.filter((i) => i.isPopular).length;
+  const filteredItems = useMemo(
+    () => menuItems.filter((i) => categoryFilter === 'all' || i.category === categoryFilter),
+    [menuItems, categoryFilter]
+  );
 
-  return (
-    <AdminLayout title="Menu Catalog & Pricing Management">
-      <PageHeader
-        title="Menu Catalog"
-        subtitle="Every dish, its portion pricing, and live availability."
-        action={
-          <Button variant="contained" startIcon={<Add />} onClick={openAdd}
-            sx={{ borderRadius: '12px', fontWeight: 700, px: 2.5, bgcolor: adminColors.accentRed, '&:hover': { bgcolor: adminColors.accentRedDark } }}>
-            Add New Dish
-          </Button>
-        }
-      />
+  const openAdd = () => {
+    setEditing(null);
+    form.reset(BLANK_FORM);
+    setDialogOpen(true);
+  };
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard icon="🍽️" label="Total Dishes" value={menuItems.length} accent={adminColors.info} />
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard icon="✅" label="Available" value={availableCount} accent={adminColors.success} />
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard icon="🔥" label="Popular" value={popularCount} accent={adminColors.accentOrange} />
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard icon="📁" label="Categories" value={Object.keys(categoryLabels).length} accent={adminColors.accentRed} />
-        </Grid>
-      </Grid>
+  const openEdit = useCallback((item: MenuItemType) => {
+    setEditing(item);
+    form.reset({
+      name: item.name,
+      category: item.category,
+      vegStatus: item.vegStatus,
+      price: item.price,
+      // Blank, not 0 — an empty portion box means "this dish doesn't come in
+      // that size", and prefilling 0 would offer a free Large on the menu.
+      portionSingle: item.portionPrices?.single ?? '',
+      portionFull: item.portionPrices?.full ?? '',
+      portionLarge: item.portionPrices?.large ?? '',
+      prepTime: item.prepTime ?? 20,
+      image: item.image ?? '',
+      description: item.description ?? '',
+      isAvailable: item.isAvailable,
+      isSpecial: item.isSpecial,
+      isPopular: item.isPopular,
+    });
+    setDialogOpen(true);
+  }, [form]);
 
-      {/* Filter & Search Bar */}
-      <SectionCard sx={{ mb: 3 }}>
-        <Grid container spacing={2} sx={{ alignItems: 'center' }}>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <TextField
-              fullWidth size="small" placeholder="Search dishes by name..."
-              value={search} onChange={(e) => setSearch(e.target.value)}
-              slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ color: '#9E9E9E' }} /></InputAdornment> } }}
-            />
-          </Grid>
-          <Grid size={{ xs: 12, md: 6 }}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Filter Category</InputLabel>
-              <Select value={categoryFilter} label="Filter Category" onChange={(e) => setCategoryFilter(e.target.value)}>
-                <MuiMenuItem value="all">All Categories</MuiMenuItem>
-                {Object.entries(categoryLabels).map(([k, v]) => (
-                  <MuiMenuItem key={k} value={k}>{v}</MuiMenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </SectionCard>
+  const handleSubmit = async (values: MenuItemFormOutput) => {
+    // Spreading the record being edited preserves the fields this form does
+    // not show — rating, reviewCount, tags. Rebuilding the object from the
+    // form alone reset every dish's rating to 4.5 and wiped its tags on save.
+    const payload: MenuItemType = {
+      ...(editing ?? {}),
+      id: editing?.id ?? generateMenuItemId(),
+      name: values.name,
+      category: values.category,
+      vegStatus: values.vegStatus,
+      price: values.price,
+      portionPrices: toPortionPrices(values),
+      prepTime: values.prepTime,
+      image: values.image || FALLBACK_DISH_IMAGE,
+      description: values.description,
+      isAvailable: values.isAvailable,
+      isSpecial: values.isSpecial,
+      isPopular: values.isPopular,
+      rating: editing?.rating ?? 4.5,
+      reviewCount: editing?.reviewCount ?? 0,
+      tags: editing?.tags ?? [],
+    };
 
-      {/* Items */}
-      <SectionCard noPadding>
-        {filtered.length === 0 ? (
-          <EmptyState emoji="🍽️" title="No dishes found" subtitle="Try a different search or category." />
-        ) : isTablet ? (
-          <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
-            <Stack spacing={1.5}>
-              {filtered.map((item) => (
-                <Box key={item.id} sx={{
-                  p: 1.75, borderRadius: adminColors.radiusMd, border: `1px solid ${adminColors.borderSubtle}`, bgcolor: adminColors.bgSubtle,
-                  opacity: deletingId === item.id ? 0.5 : 1, transition: 'opacity 0.2s',
-                }}>
-                  <Box sx={{ display: 'flex', gap: 1.5 }}>
-                    <Avatar src={item.image} variant="rounded" sx={{ width: 52, height: 52, borderRadius: '10px', flexShrink: 0 }} />
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6 }}>
-                        <Box className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'} />
-                        <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>{item.name}</Typography>
-                      </Box>
-                      <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>{item.description}</Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                        {item.portionPrices?.full ? (
-                          <Chip label={`₹${item.portionPrices.full}`} size="small" sx={{ bgcolor: adminColors.accentRed, color: 'white', fontWeight: 700, fontSize: '10px', height: 20 }} />
-                        ) : (
-                          <Typography variant="body2" sx={{ fontWeight: 800, color: adminColors.accentRed }}>₹{item.price}</Typography>
-                        )}
-                        {item.isPopular && <Chip label="Popular" size="small" sx={{ bgcolor: adminColors.accentRed, color: 'white', fontWeight: 700, fontSize: '9px', height: 20 }} />}
-                        {item.isSpecial && <Chip label="Special" size="small" sx={{ bgcolor: adminColors.accentOrange, color: 'white', fontWeight: 700, fontSize: '9px', height: 20 }} />}
-                      </Box>
-                    </Box>
-                    <Switch
-                      checked={item.isAvailable}
-                      onChange={(e) => handleToggleAvailability(item, e.target.checked)}
-                      color="success" size="small"
-                    />
-                  </Box>
-                  <Box sx={{ display: 'flex', gap: 1, mt: 1.25 }}>
-                    <Button size="small" startIcon={<Edit sx={{ fontSize: 16 }} />} onClick={() => openEdit(item)}
-                      sx={{ flex: 1, borderRadius: adminColors.radiusSm, fontSize: '11px', bgcolor: 'white', border: `1px solid ${adminColors.border}` }}>
-                      Edit
-                    </Button>
-                    <IconButton
-                      size="small"
-                      disabled={deletingId === item.id}
-                      onClick={() => handleDelete(item)}
-                      sx={{ bgcolor: 'white', border: `1px solid ${adminColors.border}`, color: adminColors.accentRed }}
-                    >
-                      {deletingId === item.id ? <CircularProgress size={16} /> : <Delete fontSize="small" />}
-                    </IconButton>
-                  </Box>
-                </Box>
-              ))}
-            </Stack>
-          </Box>
-        ) : (
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table sx={{ minWidth: 750 }}>
-              <TableHead sx={{ bgcolor: adminColors.bgSubtle }}>
-                <TableRow>
-                  {['Item Name', 'Category', 'Portion Prices (S/F/L)', 'Status', 'Availability', 'Actions'].map((h) => (
-                    <TableCell key={h} sx={{ fontWeight: 700, fontSize: '12px', color: '#616161', py: 1.5 }}>{h}</TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filtered.map((item) => (
-                  <TableRow key={item.id} hover sx={{
-                    opacity: deletingId === item.id ? 0.5 : 1,
-                    transition: 'opacity 0.2s',
-                  }}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Avatar src={item.image} variant="rounded" sx={{ width: 44, height: 44, borderRadius: '8px' }} />
-                        <Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-                            <Box className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'} />
-                            <Typography variant="body2" sx={{ fontWeight: 700 }}>{item.name}</Typography>
-                          </Box>
-                          <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', maxWidth: 220 }}>
-                            {item.description}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </TableCell>
+    try {
+      if (editing) {
+        await updateMenuItem(payload);
+        toast.success(`${payload.name} updated`);
+      } else {
+        await addMenuItem(payload);
+        toast.success(`${payload.name} added to the menu`);
+      }
+      setDialogOpen(false);
+    } catch (err) {
+      // The server's own words, not "Failed to save menu item" — an RLS
+      // rejection and a duplicate id are different problems with different fixes.
+      toast.error((err as Error).message || 'Could not save this dish');
+    }
+  };
 
-                    <TableCell>
-                      <Chip label={categoryLabels[item.category] || item.category} size="small" sx={{ bgcolor: adminColors.bgSubtle, fontWeight: 600, fontSize: '11px' }} />
-                    </TableCell>
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    try {
+      await deleteMenuItem(deleting.id);
+      toast.success(`${deleting.name} removed from the menu`);
+      setDeleting(null);
+    } catch (err) {
+      toast.error((err as Error).message || 'Could not delete this dish');
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
 
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                        {item.portionPrices?.single != null && item.portionPrices.single > 0 && (
-                          <Chip label={`Single: ₹${item.portionPrices.single}`} size="small" color="primary" variant="outlined" sx={{ fontWeight: 700 }} />
-                        )}
-                        {item.portionPrices?.full != null && item.portionPrices.full > 0 && (
-                          <Chip label={`Full: ₹${item.portionPrices.full}`} size="small" color="error" sx={{ fontWeight: 700 }} />
-                        )}
-                        {item.portionPrices?.large != null && item.portionPrices.large > 0 && (
-                          <Chip label={`Large: ₹${item.portionPrices.large}`} size="small" color="secondary" variant="outlined" sx={{ fontWeight: 700 }} />
-                        )}
-                        {(!item.portionPrices || (!item.portionPrices.single && !item.portionPrices.full && !item.portionPrices.large)) && (
-                          <Typography variant="body2" sx={{ fontWeight: 800, color: adminColors.accentRed }}>₹{item.price}</Typography>
-                        )}
-                      </Box>
-                    </TableCell>
+  const priceLabel = (item: MenuItemType) => {
+    const p = item.portionPrices;
+    if (!p) return null;
+    return [
+      p.single !== undefined && `S ₹${p.single}`,
+      p.full !== undefined && `F ₹${p.full}`,
+      p.large !== undefined && `L ₹${p.large}`,
+    ].filter(Boolean).join('  ');
+  };
 
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        {item.isSpecial && <Chip label="Special" size="small" sx={{ bgcolor: adminColors.accentOrange, color: 'white', fontWeight: 700, fontSize: '10px' }} />}
-                        {item.isPopular && <Chip label="Popular" size="small" sx={{ bgcolor: adminColors.accentRed, color: 'white', fontWeight: 700, fontSize: '10px' }} />}
-                      </Box>
-                    </TableCell>
-
-                    <TableCell>
-                      <Switch
-                        checked={item.isAvailable}
-                        onChange={(e) => handleToggleAvailability(item, e.target.checked)}
-                        color="success" size="small"
-                      />
-                    </TableCell>
-
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Tooltip title="Edit Dish">
-                          <IconButton size="small" onClick={() => openEdit(item)}>
-                            <Edit sx={{ fontSize: 18, color: '#1565C0' }} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete Dish">
-                          <span>
-                            <IconButton
-                              size="small"
-                              disabled={deletingId === item.id}
-                              onClick={() => handleDelete(item)}
-                            >
-                              {deletingId === item.id
-                                ? <CircularProgress size={16} />
-                                : <Delete sx={{ fontSize: 18, color: adminColors.accentRed }} />
-                              }
-                            </IconButton>
-                          </span>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Box>
-        )}
-      </SectionCard>
-
-      {/* Add / Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} maxWidth="md" fullWidth fullScreen={isMobile}>
-        <DialogTitle sx={{ fontWeight: 800, bgcolor: '#FAF5EF', color: adminColors.accentRed, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          {isEdit ? '✏️ Edit Menu Dish & Pricing' : '➕ Add New Dish to Menu'}
-          {isMobile && (
-            <IconButton size="small" onClick={() => !saving && setDialogOpen(false)} aria-label="Close" disabled={saving}>
-              <Close fontSize="small" />
-            </IconButton>
+  // `ColumnDef` in this version takes the table's feature set first, so the
+  // row type is the second argument, not the first.
+  const columns = useMemo<ColumnDef<any, MenuItemType>[]>(() => [
+    {
+      accessorKey: 'image',
+      header: 'Image',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="relative size-12 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-800">
+          <Image
+            src={row.original.image || FALLBACK_DISH_IMAGE}
+            alt=""
+            fill
+            sizes="48px"
+            className="object-cover"
+          />
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'name',
+      header: 'Dish Name',
+      cell: ({ row }) => (
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 font-extrabold text-stone-900 dark:text-stone-100">
+            <span className="truncate">{row.original.name}</span>
+            {row.original.isSpecial && <Sparkles className="size-3.5 shrink-0 text-amber-500" />}
+            {row.original.isPopular && <Flame className="size-3.5 shrink-0 text-rose-500" />}
+          </div>
+          <div className="line-clamp-1 text-xs font-medium text-stone-400">
+            {row.original.description}
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'category',
+      header: 'Category',
+      cell: ({ row }) => (
+        <Badge variant="outline" className="text-[10px] font-bold uppercase">
+          {categoryLabels[row.original.category] || row.original.category}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'price',
+      header: 'Price',
+      cell: ({ row }) => (
+        <div>
+          <span className="text-sm font-black text-amber-700 dark:text-amber-500">
+            ₹{row.original.price}
+          </span>
+          {priceLabel(row.original) && (
+            <div className="text-[10px] font-semibold tabular-nums text-stone-400">
+              {priceLabel(row.original)}
+            </div>
           )}
-        </DialogTitle>
-        <DialogContent sx={{ mt: 1 }}>
-          <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
-            <Grid size={{ xs: 12, sm: 8 }}>
-              <TextField
-                fullWidth
-                label="Dish Name *"
-                value={editItem.name || ''}
-                onChange={(e) => setEditItem({ ...editItem, name: e.target.value })}
-                disabled={saving}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 4 }}>
-              <FormControl fullWidth>
-                <InputLabel>Veg Status</InputLabel>
-                <Select
-                  value={editItem.vegStatus || 'veg'}
-                  label="Veg Status"
-                  onChange={(e) => setEditItem({ ...editItem, vegStatus: e.target.value as VegStatus })}
-                  disabled={saving}
-                >
-                  <MuiMenuItem value="veg">🌿 Vegetarian</MuiMenuItem>
-                  <MuiMenuItem value="non-veg">🍗 Non-Vegetarian</MuiMenuItem>
-                  <MuiMenuItem value="egg">🥚 Contains Egg</MuiMenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid size={{ xs: 12 }}>
-              <TextField
-                fullWidth
-                label="Description"
-                multiline
-                rows={2}
-                value={editItem.description || ''}
-                onChange={(e) => setEditItem({ ...editItem, description: e.target.value })}
-                disabled={saving}
-              />
-            </Grid>
-
-            {/* Portion Prices (S / F / L) */}
-            <Grid size={{ xs: 12 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: adminColors.accentRed, mb: 1 }}>
-                🍽️ Portion Sizing & Pricing (Single S / Full F / Large L):
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 6, sm: 4 }}>
-                  <TextField
-                    fullWidth
-                    label="Single (S) Price (₹)"
-                    type="number"
-                    value={editItem.portionPrices?.single || ''}
-                    onChange={(e) => {
-                      const val = Math.max(0, Number(e.target.value) || 0);
-                      setEditItem({
-                        ...editItem,
-                        portionPrices: { ...editItem.portionPrices, single: val },
-                      });
-                    }}
-                    disabled={saving}
-                    slotProps={{ htmlInput: { min: 0 } }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 6, sm: 4 }}>
-                  <TextField
-                    fullWidth
-                    label="Full (F) Price (₹) *"
-                    type="number"
-                    value={editItem.portionPrices?.full || editItem.price || ''}
-                    onChange={(e) => {
-                      const val = Math.max(0, Number(e.target.value) || 0);
-                      setEditItem({
-                        ...editItem,
-                        price: val,
-                        portionPrices: { ...editItem.portionPrices, full: val },
-                      });
-                    }}
-                    disabled={saving}
-                    slotProps={{ htmlInput: { min: 0 } }}
-                  />
-                </Grid>
-                <Grid size={{ xs: 12, sm: 4 }}>
-                  <TextField
-                    fullWidth
-                    label="Large (L) Price (₹)"
-                    type="number"
-                    value={editItem.portionPrices?.large || ''}
-                    onChange={(e) => {
-                      const val = Math.max(0, Number(e.target.value) || 0);
-                      setEditItem({
-                        ...editItem,
-                        portionPrices: { ...editItem.portionPrices, large: val },
-                      });
-                    }}
-                    disabled={saving}
-                    slotProps={{ htmlInput: { min: 0 } }}
-                  />
-                </Grid>
-              </Grid>
-            </Grid>
-
-            <Grid size={{ xs: 6 }}>
-              <FormControl fullWidth>
-                <InputLabel>Category</InputLabel>
-                <Select
-                  value={editItem.category || 'starters'}
-                  label="Category"
-                  onChange={(e) => setEditItem({ ...editItem, category: e.target.value as Category })}
-                  disabled={saving}
-                >
-                  {Object.entries(categoryLabels).map(([k, v]) => (
-                    <MuiMenuItem key={k} value={k}>
-                      {v}
-                    </MuiMenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid size={{ xs: 6 }}>
-              <TextField
-                fullWidth
-                label="Prep Time (min)"
-                type="number"
-                value={editItem.prepTime || 20}
-                onChange={(e) => {
-                  const val = Math.max(1, Number(e.target.value) || 15);
-                  setEditItem({ ...editItem, prepTime: val });
-                }}
-                disabled={saving}
-                slotProps={{ htmlInput: { min: 1 } }}
-              />
-            </Grid>
-
-            {/* Image Upload Option (File Upload + URL Upload) */}
-            <Grid size={{ xs: 12 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                🖼️ Dish Image (Upload File or Enter Web URL):
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Button
-                  variant="outlined"
-                  component="label"
-                  disabled={uploadingImage || fetchingUrl || saving}
-                  startIcon={uploadingImage ? <CircularProgress size={16} color="inherit" /> : <UploadFile />}
-                  sx={{ borderRadius: '10px', fontWeight: 700, textTransform: 'none', height: 40 }}
-                >
-                  {uploadingImage ? 'Uploading File...' : 'Upload File'}
-                  <input type="file" hidden accept="image/*" onChange={handleImageUpload} disabled={uploadingImage || fetchingUrl || saving} />
-                </Button>
-
-                <TextField
-                  size="small"
-                  label="Image Web URL"
-                  value={editItem.image || ''}
-                  onChange={(e) => setEditItem({ ...editItem, image: e.target.value })}
-                  placeholder="Paste https://image-link.jpg..."
-                  sx={{ flex: 1, minWidth: 180 }}
-                  disabled={saving || uploadingImage || fetchingUrl}
-                />
-
-                <Button
-                  variant="contained"
-                  onClick={handleUrlUpload}
-                  disabled={!editItem.image || fetchingUrl || uploadingImage || saving}
-                  startIcon={fetchingUrl ? <CircularProgress size={16} color="inherit" /> : <LinkIcon />}
-                  sx={{
-                    borderRadius: '10px', fontWeight: 800, textTransform: 'none', height: 40, px: 2,
-                    bgcolor: adminColors.accentRed, color: 'white',
-                    '&:hover': { bgcolor: '#B71C1C' },
-                  }}
-                >
-                  {fetchingUrl ? 'Fetching...' : 'Upload from URL'}
-                </Button>
-              </Box>
-
-              {editItem.image && (
-                <Box sx={{ mt: 1.5, p: 1.25, borderRadius: adminColors.radiusSm, border: `1px solid ${adminColors.borderSubtle}`, bgcolor: adminColors.bgSubtle, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <Avatar src={editItem.image} variant="rounded" sx={{ width: 52, height: 52, borderRadius: '8px', border: `1px solid ${adminColors.border}` }} />
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 700, display: 'block', color: adminColors.textPrimary }}>
-                      ✓ Image preview ready
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', maxWidth: 320, fontSize: '11px' }}>
-                      {editItem.image.startsWith('data:') ? 'Base64 Local Image Attached' : editItem.image}
-                    </Typography>
-                  </Box>
-                  <Button
-                    size="small"
-                    color="error"
-                    onClick={() => setEditItem((prev) => ({ ...prev, image: '' }))}
-                    sx={{ textTransform: 'none', fontSize: '11px', fontWeight: 700, borderRadius: '6px' }}
-                    disabled={saving}
-                  >
-                    Remove
-                  </Button>
-                </Box>
-              )}
-            </Grid>
-
-            <Grid size={{ xs: 4 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Switch
-                  checked={editItem.isAvailable ?? true}
-                  onChange={(e) => setEditItem({ ...editItem, isAvailable: e.target.checked })}
-                  color="success"
-                  disabled={saving}
-                />
-                <Typography variant="body2">Available</Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 4 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Switch
-                  checked={editItem.isPopular ?? false}
-                  onChange={(e) => setEditItem({ ...editItem, isPopular: e.target.checked })}
-                  color="warning"
-                  disabled={saving}
-                />
-                <Typography variant="body2">🔥 Popular</Typography>
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 4 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Switch
-                  checked={editItem.isSpecial ?? false}
-                  onChange={(e) => setEditItem({ ...editItem, isSpecial: e.target.checked })}
-                  color="error"
-                  disabled={saving}
-                />
-                <Typography variant="body2">Chef Special</Typography>
-              </Box>
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions sx={{ p: 2.5, pb: isMobile ? 'max(20px, env(safe-area-inset-bottom, 0px))' : 2.5, gap: 1, bgcolor: '#FAFAFA' }}>
-          <Button onClick={() => setDialogOpen(false)} variant="outlined" sx={{ borderRadius: '10px' }} disabled={saving}>
-            Cancel
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'isAvailable',
+      header: 'Availability',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={row.original.isAvailable}
+            onCheckedChange={() => toggleMenuItemAvailability(row.original.id)}
+            aria-label={`${row.original.name} availability`}
+          />
+          <span
+            className={`text-xs font-bold ${row.original.isAvailable ? 'text-emerald-600' : 'text-stone-400'}`}
+          >
+            {row.original.isAvailable ? 'In Stock' : 'Out of Stock'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            aria-label={`Edit ${row.original.name}`}
+            onClick={() => openEdit(row.original)}
+          >
+            <Edit2 className="size-4 text-stone-600" />
           </Button>
           <Button
-            onClick={handleSave}
-            variant="contained"
-            color="primary"
-            disabled={saving}
-            startIcon={saving ? <CircularProgress size={18} color="inherit" /> : undefined}
-            sx={{ borderRadius: '10px', fontWeight: 700, minWidth: 140 }}
+            variant="ghost"
+            size="icon"
+            className="size-8 text-rose-600"
+            aria-label={`Delete ${row.original.name}`}
+            onClick={() => setDeleting(row.original)}
           >
-            {saving ? (isEdit ? 'Saving...' : 'Adding...') : (isEdit ? 'Save Changes' : 'Add Dish')}
+            <Trash2 className="size-4" />
           </Button>
-        </DialogActions>
-      </Dialog>
+        </div>
+      ),
+    },
+  ], [toggleMenuItemAvailability, openEdit]);
+
+  /** The same record as a phone card: photo and name first, then the two
+   *  things a manager changes from this screen — price and availability. */
+  const renderMobileCard = useCallback((item: MenuItemType) => (
+    <div className="flex gap-3">
+      <div className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-800">
+        <Image
+          src={item.image || FALLBACK_DISH_IMAGE}
+          alt=""
+          fill
+          sizes="64px"
+          className="object-cover"
+        />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="truncate text-sm font-extrabold text-stone-900 dark:text-stone-100">
+                {item.name}
+              </span>
+              {item.isSpecial && <Sparkles className="size-3 shrink-0 text-amber-500" />}
+              {item.isPopular && <Flame className="size-3 shrink-0 text-rose-500" />}
+            </div>
+            <div className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-stone-400">
+              {categoryLabels[item.category] || item.category}
+            </div>
+          </div>
+          <span className="shrink-0 text-sm font-black text-amber-700 dark:text-amber-500">
+            ₹{item.price}
+          </span>
+        </div>
+
+        {priceLabel(item) && (
+          <div className="mt-1 text-[10px] font-semibold tabular-nums text-stone-400">
+            {priceLabel(item)}
+          </div>
+        )}
+
+        <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-stone-100 pt-2.5 dark:border-[#2C2C2E]/60">
+          <label className="flex items-center gap-2">
+            <Switch
+              checked={item.isAvailable}
+              onCheckedChange={() => toggleMenuItemAvailability(item.id)}
+              aria-label={`${item.name} availability`}
+            />
+            <span
+              className={`text-[11px] font-bold ${item.isAvailable ? 'text-emerald-600' : 'text-stone-400'}`}
+            >
+              {item.isAvailable ? 'In Stock' : 'Sold out'}
+            </span>
+          </label>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 rounded-lg px-2.5 text-xs font-bold"
+              onClick={() => openEdit(item)}
+            >
+              <Edit2 className="size-3.5" /> Edit
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-8 text-rose-600"
+              aria-label={`Delete ${item.name}`}
+              onClick={() => setDeleting(item)}
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  ), [toggleMenuItemAvailability, openEdit]);
+
+  return (
+    <AdminLayout title="Menu Management">
+      <div className="w-full max-w-full space-y-4">
+        <PageHeader
+          title="Restaurant Menu Management"
+          subtitle="Add dishes, set portion pricing and control what the storefront can sell"
+          action={
+            <Button
+              onClick={openAdd}
+              className="h-9 w-full rounded-lg bg-amber-600 px-3 text-xs font-extrabold text-white shadow-xs hover:bg-amber-700 sm:w-auto"
+            >
+              <Plus className="size-3.5" />
+              Add New Dish
+            </Button>
+          }
+        />
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatCard
+            icon={<Utensils className="size-5" />}
+            label="Total Menu Items"
+            value={menuItems.length}
+            sub="Active catalog count"
+            accent="#D97706"
+          />
+          <StatCard
+            icon={<Sparkles className="size-5" />}
+            label="Chef Specials"
+            value={menuItems.filter((i) => i.isSpecial).length}
+            sub="Featured items"
+            accent="#059669"
+          />
+          <StatCard
+            icon={<Flame className="size-5" />}
+            label="Bestsellers"
+            value={menuItems.filter((i) => i.isPopular).length}
+            sub="High demand dishes"
+            accent="#DC2626"
+          />
+        </div>
+
+        <SectionCard noPadding className="p-3">
+          <div className="scrollbar-none mb-3 flex gap-2 overflow-x-auto border-b border-stone-100 pb-2.5 dark:border-[#2C2C2E]/60">
+            <Button
+              variant={categoryFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCategoryFilter('all')}
+              className={`shrink-0 rounded-full text-xs font-bold ${categoryFilter === 'all' ? 'bg-amber-600 text-white hover:bg-amber-700' : ''}`}
+            >
+              All Items ({menuItems.length})
+            </Button>
+            {CATEGORY_OPTIONS.map(({ value, label }) => (
+              <Button
+                key={value}
+                variant={categoryFilter === value ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setCategoryFilter(value)}
+                className={`shrink-0 rounded-full whitespace-nowrap text-xs font-bold ${
+                  categoryFilter === value ? 'bg-amber-600 text-white hover:bg-amber-700' : ''
+                }`}
+              >
+                {label} ({menuItems.filter((i) => i.category === value).length})
+              </Button>
+            ))}
+          </div>
+
+          <DataTable
+            columns={columns}
+            data={filteredItems}
+            searchKey="name"
+            searchPlaceholder="Search dish name or description..."
+            height="550px"
+            rowHeight={64}
+            emptyMessage="No dishes match this filter."
+            renderMobileCard={renderMobileCard}
+            getRowId={(item) => item.id}
+          />
+        </SectionCard>
+      </div>
+
+      <FormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        form={form}
+        onSubmit={handleSubmit}
+        title={editing ? 'Edit Dish' : 'Add New Dish'}
+        description={
+          editing
+            ? 'Changes go live on the storefront as soon as you save.'
+            : 'This dish becomes orderable the moment it is saved and marked available.'
+        }
+        submitLabel={editing ? 'Update Dish' : 'Add to Menu'}
+        size="lg"
+      >
+        <TextField
+          control={form.control}
+          name="name"
+          label="Dish Name"
+          placeholder="e.g. Hyderabadi Mutton Biryani"
+          autoFocus
+        />
+
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          <SelectField
+            control={form.control}
+            name="category"
+            label="Category"
+            options={CATEGORY_OPTIONS}
+          />
+          <SelectField
+            control={form.control}
+            name="vegStatus"
+            label="Veg Status"
+            options={VEG_OPTIONS}
+          />
+        </div>
+
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          <NumberField
+            control={form.control}
+            name="price"
+            label="Base Price"
+            prefix="₹"
+            placeholder="0"
+            hint="Charged when no portion is chosen"
+          />
+          <NumberField
+            control={form.control}
+            name="prepTime"
+            label="Prep Time"
+            suffix="min"
+            placeholder="20"
+          />
+        </div>
+
+        <div className="rounded-xl border border-stone-200/60 bg-stone-50/60 p-3 dark:border-[#2C2C2E]/50 dark:bg-stone-900/40">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-stone-500 dark:text-stone-400">
+            Portion Pricing
+          </p>
+          <p className="mt-0.5 mb-3 text-[11px] text-stone-400">
+            Leave blank for dishes that come one size. Filling two or more shows
+            size pills on the storefront.
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <NumberField control={form.control} name="portionSingle" label="Single" prefix="₹" placeholder="—" />
+            <NumberField control={form.control} name="portionFull" label="Full" prefix="₹" placeholder="—" />
+            <NumberField control={form.control} name="portionLarge" label="Large" prefix="₹" placeholder="—" />
+          </div>
+        </div>
+
+        <TextField
+          control={form.control}
+          name="image"
+          label="Image URL"
+          type="url"
+          placeholder="https://..."
+          hint="Leave blank to use the default dish photo"
+        />
+
+        <TextAreaField
+          control={form.control}
+          name="description"
+          label="Description"
+          rows={3}
+          placeholder="Ingredients, cooking style, what makes it worth ordering..."
+        />
+
+        <SwitchField
+          control={form.control}
+          name="isAvailable"
+          label="Available to order"
+          hint="Turn off to keep the dish listed but unorderable"
+        />
+        <SwitchField
+          control={form.control}
+          name="isSpecial"
+          label="Chef's Special"
+          hint="Features the dish in the top showcase"
+        />
+        <SwitchField
+          control={form.control}
+          name="isPopular"
+          label="Bestseller"
+          hint="Adds the popular badge"
+        />
+      </FormDialog>
+
+      <ConfirmDeleteDialog
+        open={!!deleting}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        onConfirm={handleDelete}
+        busy={deleteBusy}
+        title={`Delete ${deleting?.name}?`}
+        description="This permanently removes the dish from the menu catalog. Past orders that included it are not affected."
+      />
     </AdminLayout>
   );
 }

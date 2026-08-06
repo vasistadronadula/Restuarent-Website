@@ -2,23 +2,21 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Box, Typography, IconButton, Button, Chip, Skeleton,
-} from '@mui/material';
-import {
-  ChevronLeft, ChevronRight, Add, Star, LocalFireDepartment,
-  Timer, Favorite, FavoriteBorder, AutoAwesome, PlayCircle, PauseCircle,
-} from '@mui/icons-material';
+  ChevronLeft, ChevronRight, Plus, Minus, Star, Flame,
+  Clock, Heart, Sparkles, Play, Pause,
+} from 'lucide-react';
 
 import { useCart } from '@/context/CartContext';
 import { useAdmin } from '@/context/AdminContext';
+import { flyToCart } from '@/lib/flyToCart';
 import toast from 'react-hot-toast';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const SLIDE_MS = 4500;
 const SWIPE_THRESHOLD = 45;
-/** Beyond this many dishes the dot row stops fitting; a counter replaces it. */
 const MAX_DOTS = 8;
-
-const spiceLevelColors = ['#FF9800', '#FF5722', '#C62828'];
 
 const CATEGORIES = [
   { id: 'all', label: '🔥 All Bestsellers' },
@@ -49,10 +47,6 @@ export default function FoodMenuSlider() {
   }, [activeCategory, liveMenuItems]);
 
   const maxIndex = Math.max(0, filteredDishes.length - 1);
-
-  // A category switch — or a realtime menu update that pulls a dish — can
-  // shorten the list out from under the stored index. Clamping here, during
-  // render, means the track can never point at a slide that no longer exists.
   const currentIndex = Math.min(rawIndex, maxIndex);
 
   const goTo = useCallback((index: number) => {
@@ -60,8 +54,6 @@ export default function FoodMenuSlider() {
     setRawIndex(((index % count) + count) % count);
   }, [maxIndex]);
 
-  // `currentIndex` in the deps restarts the countdown after manual navigation,
-  // so a dish the visitor just picked never flips away early.
   useEffect(() => {
     if (isPaused || filteredDishes.length <= 1) return;
     const timer = setTimeout(() => {
@@ -99,556 +91,273 @@ export default function FoodMenuSlider() {
     setLikedIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const navButtonSx = {
-    bgcolor: 'white',
-    color: '#C62828',
-    border: '1px solid rgba(198,40,40,0.22)',
-    boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
-    width: 38,
-    height: 38,
-    '&:hover': { bgcolor: '#C62828', color: 'white', borderColor: '#C62828' },
-    '&.Mui-disabled': { bgcolor: 'rgba(0,0,0,0.04)', color: 'rgba(0,0,0,0.26)', borderColor: 'transparent' },
-    transition: 'background-color 0.25s ease, color 0.25s ease',
-  } as const;
-
   return (
-    <Box
-      component="section"
+    <section
       role="region"
       aria-roledescription="carousel"
       aria-label="Most loved dishes"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
-      sx={{ position: 'relative', width: '100%' }}
+      className="relative w-full"
     >
-      {/* Heading + category filter */}
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: { xs: 'column', lg: 'row' },
-          justifyContent: 'space-between',
-          alignItems: { xs: 'stretch', lg: 'center' },
-          gap: { xs: 2, lg: 3 },
-          mb: { xs: 2.5, md: 3.5 },
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
-          <Box
-            sx={{
-              width: 42,
-              height: 42,
-              borderRadius: '12px',
-              bgcolor: 'rgba(198,40,40,0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#C62828',
-              flexShrink: 0,
-            }}
-          >
-            <AutoAwesome />
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontWeight: 800, color: '#212121', lineHeight: 1.25, fontSize: { xs: '1.05rem', md: '1.25rem' } }}>
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="font-extrabold text-stone-900 dark:text-stone-100 text-xl md:text-2xl tracking-tight">
               Animated Dish Showcase
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
+            </h2>
+            <p className="text-xs text-stone-500 dark:text-stone-400">
               Swipe or slide through our mouth-watering specialties
-            </Typography>
-          </Box>
-        </Box>
+            </p>
+          </div>
+        </div>
 
-        {/* Horizontally scrollable pills. The mask fades the trailing edge so
-            there is a visible hint that the row continues past the viewport. */}
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 1,
-            overflowX: 'auto',
-            overscrollBehaviorX: 'contain',
-            scrollSnapType: 'x proximity',
-            WebkitOverflowScrolling: 'touch',
-            pb: 0.5,
-            mx: { xs: -0.5, lg: 0 },
-            px: 0.5,
-            WebkitMaskImage: { xs: 'linear-gradient(to right, #000 88%, transparent 100%)', lg: 'none' },
-            maskImage: { xs: 'linear-gradient(to right, #000 88%, transparent 100%)', lg: 'none' },
-            scrollbarWidth: 'none',
-            '&::-webkit-scrollbar': { display: 'none' },
-          }}
-        >
+        <div className="flex gap-2 overflow-x-auto pb-2 w-full lg:w-auto scrollbar-none">
           {CATEGORIES.map((cat) => {
             const isSelected = activeCategory === cat.id;
             return (
               <Button
                 key={cat.id}
-                size="small"
+                variant={isSelected ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => handleCategoryChange(cat.id)}
-                aria-pressed={isSelected}
-                sx={{
-                  borderRadius: '20px',
-                  px: 2,
-                  py: 0.7,
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  whiteSpace: 'nowrap',
-                  flexShrink: 0,
-                  scrollSnapAlign: 'start',
-                  transition: 'background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease',
-                  bgcolor: isSelected ? '#C62828' : 'white',
-                  color: isSelected ? 'white' : '#616161',
-                  boxShadow: isSelected ? '0 4px 14px rgba(198,40,40,0.35)' : '0 2px 8px rgba(0,0,0,0.06)',
-                  border: isSelected ? '1px solid #C62828' : '1px solid rgba(0,0,0,0.08)',
-                  '&:hover': {
-                    bgcolor: isSelected ? '#B71C1C' : 'rgba(198,40,40,0.06)',
-                    color: isSelected ? 'white' : '#C62828',
-                  },
-                }}
+                className={`rounded-full px-4 text-xs font-bold transition-all whitespace-nowrap ${
+                  isSelected
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/20'
+                    : 'bg-white dark:bg-stone-900 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-800'
+                }`}
               >
                 {cat.label}
               </Button>
             );
           })}
-        </Box>
-      </Box>
+        </div>
+      </div>
 
-      {/* Slider shell */}
-      <Box
+      <div
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        sx={{
-          position: 'relative',
-          borderRadius: '24px',
-          p: { xs: 1, sm: 1.5, md: 2 },
-          bgcolor: 'rgba(255, 248, 242, 0.75)',
-          border: '1px solid rgba(255, 152, 0, 0.18)',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.04)',
-          overflow: 'hidden',
-        }}
+        className="relative rounded-3xl p-3 sm:p-4 bg-amber-500/5 dark:bg-stone-900/60 border border-amber-500/20 shadow-sm overflow-hidden"
       >
-        {/* Countdown rail across the top of the shell. Keyed on the index so it
-            replays from zero on every slide, manual or automatic. */}
-        <Box aria-hidden sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: '3px', bgcolor: 'rgba(198,40,40,0.08)' }}>
-          <Box
+        <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500/10">
+          <div
             key={`rail-${activeCategory}-${currentIndex}`}
-            sx={{
-              height: '100%',
-              bgcolor: '#FF9800',
-              transformOrigin: 'left center',
-              animation: `ppr-progress ${SLIDE_MS}ms linear both`,
-              animationPlayState: isPaused || filteredDishes.length <= 1 ? 'paused' : 'running',
-            }}
+            className="h-full bg-amber-600 transition-all duration-300"
+            style={{ width: `${((currentIndex + 1) / filteredDishes.length) * 100}%` }}
           />
-        </Box>
+        </div>
 
         {isLoadingDB && filteredDishes.length === 0 ? (
-          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2, p: { xs: 1, sm: 2 } }}>
-            <Skeleton variant="rounded" sx={{ width: { xs: '100%', md: '50%' }, aspectRatio: { xs: '16 / 10', md: 'auto' }, minHeight: { md: 320 }, borderRadius: '20px' }} />
-            <Box sx={{ width: { xs: '100%', md: '50%' }, py: 1 }}>
-              <Skeleton width="40%" height={22} />
-              <Skeleton width="80%" height={42} />
-              <Skeleton width="100%" height={20} />
-              <Skeleton width="90%" height={20} />
-              <Skeleton width="55%" height={56} sx={{ mt: 3 }} />
-            </Box>
-          </Box>
+          <div className="flex flex-col md:flex-row gap-4 p-4">
+            <Skeleton className="w-full md:w-1/2 h-64 rounded-2xl" />
+            <div className="w-full md:w-1/2 space-y-3">
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-10 w-2/3" />
+              <Skeleton className="h-16 w-full" />
+              <Skeleton className="h-12 w-1/2" />
+            </div>
+          </div>
         ) : filteredDishes.length === 0 ? (
-          <Box sx={{ textAlign: 'center', py: { xs: 6, md: 9 }, px: 3 }}>
-            <Typography sx={{ fontSize: '2.5rem', mb: 1 }}>🍽️</Typography>
-            <Typography sx={{ fontWeight: 800, color: '#212121', mb: 0.5 }}>
+          <div className="text-center py-12 px-4">
+            <div className="text-4xl mb-2">🍽️</div>
+            <h3 className="font-extrabold text-stone-900 dark:text-stone-100 mb-1">
               Nothing on the pass right now
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
+            </h3>
+            <p className="text-xs text-stone-500">
               This category is being restocked — try another one above.
-            </Typography>
-          </Box>
+            </p>
+          </div>
         ) : (
-          <Box
-            sx={{
-              display: 'flex',
-              transition: 'transform 0.55s cubic-bezier(0.25, 1, 0.5, 1)',
-              transform: `translateX(-${currentIndex * 100}%)`,
-              width: '100%',
-            }}
-          >
-            {filteredDishes.map((dish, idx) => {
-              const cartItem = cartState.items.find((i) => i.id === dish.id);
-              const isLiked = !!likedIds[dish.id];
+          <div className="overflow-hidden w-full">
+            <div
+              className="flex transition-transform duration-500 ease-out"
+              style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+            >
+              {filteredDishes.map((dish, idx) => {
+                const cartItem = cartState.items.find((i) => i.id === dish.id);
+                const isLiked = !!likedIds[dish.id];
 
-              return (
-                <Box
-                  key={dish.id}
-                  role="group"
-                  aria-roledescription="slide"
-                  aria-label={`${idx + 1} of ${filteredDishes.length}`}
-                  // `inert` rather than `aria-hidden` alone. Off-screen slides
-                  // still hold real buttons — wishlist, Add to Cart — and
-                  // tabbing into one makes the browser scroll it into view
-                  // inside the overflow-hidden shell, which knocks the track
-                  // permanently out of alignment with its own translateX.
-                  inert={idx !== currentIndex}
-                  sx={{
-                    minWidth: '100%',
-                    width: '100%',
-                    flexShrink: 0,
-                    px: { xs: 0.5, sm: 1.5, md: 2 },
-                    py: { xs: 1, sm: 1.5 },
-                    boxSizing: 'border-box',
-                  }}
-                >
-                  <Box
-                    sx={{
-                      bgcolor: 'white',
-                      borderRadius: '20px',
-                      overflow: 'hidden',
-                      boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
-                      display: 'flex',
-                      flexDirection: { xs: 'column', md: 'row' },
-                      alignItems: 'stretch',
-                      transition: 'box-shadow 0.3s ease',
-                      '&:hover': { boxShadow: '0 16px 40px rgba(198,40,40,0.14)' },
-                    }}
-                  >
-                    {/* Dish photo. An aspect ratio on phones and a stretched
-                        half on desktop — no fixed pixel height to overflow. */}
-                    <Box
-                      sx={{
-                        width: { xs: '100%', md: '48%' },
-                        flexShrink: 0,
-                        position: 'relative',
-                        aspectRatio: { xs: '16 / 11', md: 'auto' },
-                        minHeight: { md: 360 },
-                        overflow: 'hidden',
-                        '&:hover img': { transform: 'scale(1.07)' },
-                      }}
-                    >
-                      <Box
-                        component="img"
-                        src={dish.image}
-                        alt={dish.name}
-                        loading={idx === 0 ? 'eager' : 'lazy'}
-                        sx={{
-                          position: 'absolute',
-                          inset: 0,
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          transition: 'transform 0.6s ease',
-                        }}
-                        onError={(e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-                          const img = e.target as HTMLImageElement;
-                          // Guard against a fallback that itself 404s looping forever.
-                          if (img.src !== FALLBACK_IMAGE) img.src = FALLBACK_IMAGE;
-                        }}
-                      />
+                return (
+                  <div key={dish.id} className="min-w-full w-full flex-shrink-0 p-1 sm:p-2 box-border">
+                    <div className="bg-white dark:bg-stone-900 rounded-2xl overflow-hidden border border-stone-200/80 dark:border-stone-800 shadow-md flex flex-col md:flex-row items-stretch transition-shadow hover:shadow-xl">
+                      <div className="w-full md:w-1/2 relative aspect-[16/11] md:aspect-auto md:min-h-[340px] overflow-hidden group">
+                        <img
+                          src={dish.image || FALLBACK_IMAGE}
+                          alt={dish.name}
+                          className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+                          }}
+                        />
 
-                      <Box sx={{ position: 'absolute', top: 12, left: 12, right: 60, display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
-                        {dish.isSpecial && (
-                          <Chip
-                            label="🌟 Chef's Special"
-                            size="small"
-                            sx={{ bgcolor: '#FF9800', color: 'white', fontWeight: 800, fontSize: '11px', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}
+                        <div className="absolute top-3 left-3 flex gap-2 flex-wrap">
+                          {dish.isSpecial && (
+                            <Badge className="bg-amber-500 text-white font-bold text-xs">
+                              🌟 Chef&apos;s Special
+                            </Badge>
+                          )}
+                          {dish.isPopular && (
+                            <Badge className="bg-rose-600 text-white font-bold text-xs">
+                              🔥 Popular
+                            </Badge>
+                          )}
+                        </div>
+
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={(e) => toggleLike(dish.id, e)}
+                          className="absolute top-3 right-3 rounded-full bg-white/90 dark:bg-stone-900/90 border-none shadow-md hover:scale-110"
+                        >
+                          <Heart
+                            className={`w-4 h-4 ${isLiked ? 'fill-rose-600 text-rose-600' : 'text-stone-500'}`}
                           />
-                        )}
-                        {dish.isPopular && (
-                          <Chip
-                            label="🔥 Popular"
-                            size="small"
-                            sx={{ bgcolor: '#C62828', color: 'white', fontWeight: 800, fontSize: '11px', boxShadow: '0 4px 10px rgba(0,0,0,0.2)' }}
-                          />
-                        )}
-                      </Box>
+                        </Button>
 
-                      <IconButton
-                        onClick={(e) => toggleLike(dish.id, e)}
-                        aria-label={isLiked ? `Remove ${dish.name} from wishlist` : `Add ${dish.name} to wishlist`}
-                        aria-pressed={isLiked}
-                        sx={{
-                          position: 'absolute',
-                          top: 12,
-                          right: 12,
-                          bgcolor: 'rgba(255,255,255,0.92)',
-                          backdropFilter: 'blur(6px)',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                          '&:hover': { bgcolor: 'white', transform: 'scale(1.08)' },
-                          transition: 'transform 0.2s ease',
-                        }}
-                      >
-                        {isLiked
-                          ? <Favorite sx={{ color: '#C62828', fontSize: 20 }} />
-                          : <FavoriteBorder sx={{ color: '#616161', fontSize: 20 }} />}
-                      </IconButton>
+                        <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md text-white px-3 py-1 rounded-lg flex items-center gap-2 text-xs font-semibold">
+                          <Clock className="w-3.5 h-3.5 text-amber-400" />
+                          <span>{dish.prepTime || 25} min</span>
+                          {dish.spiceLevel && (
+                            <div className="flex items-center gap-0.5 ml-1">
+                              {Array.from({ length: dish.spiceLevel }).map((_, i) => (
+                                <Flame key={i} className="w-3 h-3 text-orange-500 fill-orange-500" />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
 
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          bottom: 12,
-                          left: 12,
-                          bgcolor: 'rgba(0,0,0,0.65)',
-                          backdropFilter: 'blur(8px)',
-                          color: 'white',
-                          px: 1.4,
-                          py: 0.5,
-                          borderRadius: '10px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1.4,
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Timer sx={{ fontSize: 14, color: '#FF9800' }} />
-                          <Typography variant="caption" sx={{ fontWeight: 600 }}>{dish.prepTime || 25} min</Typography>
-                        </Box>
-                        {dish.spiceLevel && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }} aria-label={`Spice level ${dish.spiceLevel} of 3`}>
-                            {Array.from({ length: dish.spiceLevel }).map((_, i) => (
-                              <LocalFireDepartment key={i} sx={{ fontSize: 13, color: spiceLevelColors[dish.spiceLevel! - 1] }} />
-                            ))}
-                          </Box>
-                        )}
-                      </Box>
-                    </Box>
+                      <div className="w-full md:w-1/2 p-6 flex flex-col justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${dish.vegStatus === 'veg' ? 'bg-emerald-500' : 'bg-rose-600'}`} />
+                            <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">
+                              {dish.category}
+                            </span>
+                          </div>
 
-                    {/* Details */}
-                    <Box
-                      sx={{
-                        width: { xs: '100%', md: '52%' },
-                        p: { xs: 2.25, sm: 3, md: 3.5 },
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        gap: 2,
-                        minWidth: 0,
-                      }}
-                    >
-                      <Box sx={{ minWidth: 0 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <Box className={dish.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'} />
-                          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            {dish.category}
-                          </Typography>
-                        </Box>
+                          <h3 className="font-extrabold text-stone-900 dark:text-stone-100 text-xl sm:text-2xl mb-2">
+                            {dish.name}
+                          </h3>
 
-                        <Typography
-                          component="h3"
-                          sx={{
-                            fontWeight: 800,
-                            color: '#212121',
-                            mb: 1,
-                            lineHeight: 1.25,
-                            fontSize: { xs: '1.3rem', sm: '1.6rem', md: '1.75rem' },
-                          }}
-                        >
-                          {dish.name}
-                        </Typography>
+                          <p className="text-stone-600 dark:text-stone-400 text-sm line-clamp-3 mb-4 leading-relaxed">
+                            {dish.description}
+                          </p>
 
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{
-                            mb: 2,
-                            lineHeight: 1.6,
-                            // Descriptions come from the admin console and can be
-                            // any length; clamping keeps every slide the same
-                            // height so the track doesn't jump between dishes.
-                            display: '-webkit-box',
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          {dish.description}
-                        </Typography>
+                          <div className="inline-flex items-center gap-1.5 bg-amber-500/10 px-3 py-1 rounded-lg text-amber-700 dark:text-amber-400 font-bold text-xs">
+                            <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                            <span>{dish.rating}</span>
+                            <span className="text-stone-400">({dish.reviewCount} reviews)</span>
+                          </div>
+                        </div>
 
-                        <Box
-                          sx={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            bgcolor: 'rgba(255,152,0,0.12)',
-                            px: 1.2,
-                            py: 0.5,
-                            borderRadius: '8px',
-                          }}
-                        >
-                          <Star sx={{ color: '#FF9800', fontSize: 16 }} />
-                          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#D84315' }}>
-                            {dish.rating}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            ({dish.reviewCount} reviews)
-                          </Typography>
-                        </Box>
-                      </Box>
+                        <div className="pt-4 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] font-bold text-stone-400 tracking-wider">PRICE</div>
+                            <div className="font-black text-amber-700 dark:text-amber-500 text-2xl sm:text-3xl">
+                              ₹{dish.price}
+                            </div>
+                          </div>
 
-                      <Box
-                        sx={{
-                          pt: 2,
-                          borderTop: '1px solid rgba(0,0,0,0.08)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          flexWrap: 'wrap',
-                          gap: 1.5,
-                        }}
-                      >
-                        <Box>
-                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', letterSpacing: 0.5 }}>
-                            PRICE
-                          </Typography>
-                          <Typography sx={{ fontWeight: 900, color: '#C62828', fontSize: { xs: '1.6rem', md: '1.9rem' }, lineHeight: 1.15 }}>
-                            ₹{dish.price}
-                          </Typography>
-                        </Box>
-
-                        {cartItem ? (
-                          <Box
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              bgcolor: 'rgba(198,40,40,0.08)',
-                              borderRadius: '12px',
-                              border: '1.5px solid #C62828',
-                              p: 0.5,
-                            }}
-                          >
-                            <IconButton size="small" onClick={() => decreaseQty(dish.id)} aria-label={`Remove one ${dish.name}`}>
-                              <Box sx={{ color: '#C62828', fontWeight: 800, fontSize: 18, lineHeight: 1, px: 0.5 }}>−</Box>
-                            </IconButton>
-                            <Typography sx={{ px: 1.5, fontWeight: 800, color: '#C62828', fontSize: 16 }}>
-                              {cartItem.quantity}
-                            </Typography>
-                            <IconButton size="small" onClick={() => increaseQty(dish.id)} aria-label={`Add one more ${dish.name}`}>
-                              <Add sx={{ color: '#C62828', fontSize: 20 }} />
-                            </IconButton>
-                          </Box>
-                        ) : (
-                          <Button
-                            variant="contained"
-                            onClick={() => {
-                              addItem(dish);
-                              toast.success(`${dish.name} added to cart! 🛒`, { icon: '🍽️' });
-                            }}
-                            startIcon={<Add />}
-                            sx={{
-                              borderRadius: '14px',
-                              px: { xs: 2.5, sm: 3.5 },
-                              py: 1.25,
-                              fontSize: '15px',
-                              fontWeight: 700,
-                              background: 'linear-gradient(135deg, #C62828, #EF5350)',
-                              boxShadow: '0 6px 20px rgba(198,40,40,0.35)',
-                              '&:hover': {
-                                background: 'linear-gradient(135deg, #B71C1C, #C62828)',
-                                boxShadow: '0 8px 24px rgba(198,40,40,0.45)',
-                                transform: 'translateY(-2px)',
-                              },
-                              transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                            }}
-                          >
-                            Add to Cart
-                          </Button>
-                        )}
-                      </Box>
-                    </Box>
-                  </Box>
-                </Box>
-              );
-            })}
-          </Box>
+                          {cartItem ? (
+                            <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-600/30 rounded-xl p-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+                                onClick={() => decreaseQty(dish.id)}
+                              >
+                                <Minus className="w-4 h-4" />
+                              </Button>
+                              <span className="font-extrabold text-amber-700 dark:text-amber-400 text-base px-2">
+                                {cartItem.quantity}
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+                                onClick={() => increaseQty(dish.id)}
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl px-5 py-2.5 shadow-md"
+                              onClick={(e) => {
+                                addItem(dish);
+                                flyToCart({ source: e.currentTarget, imageUrl: dish.image });
+                                toast.success(`${dish.name} added to cart`, { duration: 1800 });
+                              }}
+                            >
+                              <Plus className="w-4 h-4 mr-2" />
+                              Add to Cart
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
 
-        {/* Controls. Previously two absolutely-positioned arrows floated over
-            the dish photo and the Add to Cart button; grouped down here they
-            are reachable on every screen size and cover nothing. */}
         {filteredDishes.length > 1 && (
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              gap: 1.5,
-              px: { xs: 1, sm: 2 },
-              pt: 1,
-              pb: 0.5,
-            }}
-          >
-            <Box
-              role="button"
-              tabIndex={0}
+          <div className="flex justify-between items-center px-4 pt-3 pb-1">
+            <button
+              type="button"
               onClick={() => setIsPaused((p) => !p)}
-              onKeyDown={(e: React.KeyboardEvent) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setIsPaused((p) => !p);
-                }
-              }}
-              aria-label={isPaused ? 'Resume automatic sliding' : 'Pause automatic sliding'}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-                cursor: 'pointer',
-                color: 'text.secondary',
-                borderRadius: '8px',
-                flexShrink: 0,
-                '&:hover': { color: '#C62828' },
-                '&:focus-visible': { outline: '2px solid #C62828', outlineOffset: 3 },
-              }}
+              className="flex items-center gap-1.5 text-xs text-stone-500 hover:text-amber-600 font-semibold"
             >
-              {isPaused ? <PlayCircle fontSize="small" /> : <PauseCircle fontSize="small" />}
-              <Typography variant="caption" sx={{ fontWeight: 600, display: { xs: 'none', sm: 'block' } }}>
-                {isPaused ? 'Paused' : 'Auto-sliding'}
-              </Typography>
-            </Box>
+              {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+              <span>{isPaused ? 'Paused' : 'Auto-sliding'}</span>
+            </button>
 
             {filteredDishes.length <= MAX_DOTS ? (
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: 0 }}>
+              <div className="flex gap-1.5">
                 {filteredDishes.map((dish, idx) => (
-                  <Box
+                  <button
                     key={dish.id}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={`Show dish ${idx + 1}`}
-                    aria-current={currentIndex === idx}
+                    type="button"
                     onClick={() => goTo(idx)}
-                    onKeyDown={(e: React.KeyboardEvent) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        goTo(idx);
-                      }
-                    }}
-                    sx={{
-                      width: currentIndex === idx ? 24 : 8,
-                      height: 8,
-                      borderRadius: 4,
-                      bgcolor: currentIndex === idx ? '#C62828' : 'rgba(0,0,0,0.18)',
-                      cursor: 'pointer',
-                      flexShrink: 0,
-                      transition: 'width 0.3s ease, background-color 0.3s ease',
-                      '&:hover': { bgcolor: '#C62828' },
-                      '&:focus-visible': { outline: '2px solid #C62828', outlineOffset: 3 },
-                    }}
+                    className={`h-2 rounded-full transition-all ${
+                      currentIndex === idx ? 'w-6 bg-amber-600' : 'w-2 bg-stone-300 dark:bg-stone-700'
+                    }`}
                   />
                 ))}
-              </Box>
+              </div>
             ) : (
-              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', flexShrink: 0 }}>
+              <span className="text-xs font-bold text-stone-500">
                 {currentIndex + 1} / {filteredDishes.length}
-              </Typography>
+              </span>
             )}
 
-            <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
-              <IconButton onClick={handlePrev} aria-label="Previous dish" sx={navButtonSx}>
-                <ChevronLeft fontSize="small" />
-              </IconButton>
-              <IconButton onClick={handleNext} aria-label="Next dish" sx={navButtonSx}>
-                <ChevronRight fontSize="small" />
-              </IconButton>
-            </Box>
-          </Box>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handlePrev}
+                className="w-8 h-8 rounded-full border-stone-200 dark:border-stone-800"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleNext}
+                className="w-8 h-8 rounded-full border-stone-200 dark:border-stone-800"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
         )}
-      </Box>
-    </Box>
+      </div>
+    </section>
   );
 }

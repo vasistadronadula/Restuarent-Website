@@ -1,325 +1,279 @@
 'use client';
+
 import React, { useState, useMemo } from 'react';
-import {
-  Box, Grid, Typography, Chip, IconButton, Button, TextField,
-  Table, TableBody, TableCell, TableHead, TableRow, Avatar,
-  Dialog, DialogTitle, DialogContent, DialogActions, Divider,
-  InputAdornment, Tooltip, Stack, useMediaQuery, useTheme,
-} from '@mui/material';
-import {
-  Search, Visibility, CheckCircle, Close,
-  LocalShipping, Cancel, HourglassEmpty, Restaurant,
-} from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { Order, OrderStatus } from '@/types';
-import { PageHeader, StatCard, SectionCard, StatusChip, EmptyState, adminColors, orderStatusColors } from '@/components/admin/ui';
-
-const statusIcons: Record<OrderStatus, React.ReactElement> = {
-  pending: <HourglassEmpty sx={{ fontSize: 14 }} />,
-  preparing: <Restaurant sx={{ fontSize: 14 }} />,
-  ready: <CheckCircle sx={{ fontSize: 14 }} />,
-  delivered: <LocalShipping sx={{ fontSize: 14 }} />,
-  cancelled: <Cancel sx={{ fontSize: 14 }} />,
-};
+import { PageHeader, StatCard, SectionCard, StatusChip, orderStatusColors } from '@/components/admin/ui';
+import { DataTable } from '@/components/ui/data-table';
+import { ColumnDef } from '@tanstack/react-table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  Search, Eye, CheckCircle2, Clock, Truck,
+  UtensilsCrossed, ArrowRight, X,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const nextStatus: Record<OrderStatus, OrderStatus | null> = {
-  pending: 'preparing', preparing: 'ready', ready: 'delivered', delivered: null, cancelled: null,
+  pending: 'preparing',
+  preparing: 'ready',
+  ready: 'delivered',
+  delivered: null,
+  cancelled: null,
 };
 
 export default function OrdersPage() {
   const { orders, updateOrderStatus } = useAdmin();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
-  const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
-      const matchSearch = !search || o.customerName.toLowerCase().includes(search.toLowerCase()) || o.orderId.toLowerCase().includes(search.toLowerCase());
       const matchStatus = filterStatus === 'all' || o.status === filterStatus;
-      return matchSearch && matchStatus;
+      return matchStatus;
     });
-  }, [orders, search, filterStatus]);
+  }, [orders, filterStatus]);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: orders.length };
-    orders.forEach(o => { counts[o.status] = (counts[o.status] || 0) + 1; });
+    orders.forEach((o) => {
+      counts[o.status] = (counts[o.status] || 0) + 1;
+    });
     return counts;
   }, [orders]);
 
-  const quickStats = [
-    { key: 'pending', label: 'Pending', emoji: '⏳', accent: orderStatusColors.pending.color },
-    { key: 'preparing', label: 'Preparing', emoji: '👨‍🍳', accent: orderStatusColors.preparing.color },
-    { key: 'ready', label: 'Ready', emoji: '🛎️', accent: orderStatusColors.ready.color },
-    { key: 'delivered', label: 'Delivered', emoji: '✅', accent: orderStatusColors.delivered.color },
-  ];
+  const handleAdvanceStatus = async (order: Order) => {
+    const next = nextStatus[order.status];
+    if (!next) return;
+    try {
+      await updateOrderStatus(order.id, next);
+      toast.success(`Order ${order.id} status updated to ${next}`);
+      if (selectedOrder?.id === order.id) {
+        setSelectedOrder({ ...selectedOrder, status: next });
+      }
+    } catch {
+      toast.error('Failed to update status');
+    }
+  };
 
-  return (
-    <AdminLayout title="Orders Management">
-      <PageHeader title="Orders" subtitle={`${filtered.length} of ${orders.length} orders`} />
-
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {quickStats.map((s) => (
-          <Grid key={s.key} size={{ xs: 6, md: 3 }}>
-            <StatCard icon={s.emoji} label={s.label} value={statusCounts[s.key] || 0} accent={s.accent} />
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* Status Filter Chips */}
-      <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
-        {(['all', 'pending', 'preparing', 'ready', 'delivered', 'cancelled'] as const).map((s) => (
-          <Chip
-            key={s}
-            label={`${s === 'all' ? 'All' : orderStatusColors[s]?.label} (${statusCounts[s] || 0})`}
-            onClick={() => setFilterStatus(s)}
-            sx={{
-              fontWeight: filterStatus === s ? 700 : 500,
-              bgcolor: filterStatus === s ? (s === 'all' ? adminColors.accentRed : orderStatusColors[s]?.color) : adminColors.bgPanel,
-              color: filterStatus === s ? 'white' : '#424242',
-              boxShadow: adminColors.shadowSm,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-            }}
-          />
-        ))}
-      </Box>
-
-      <SectionCard noPadding>
-        {/* Table Header */}
-        <Box sx={{ p: 2.5, display: 'flex', gap: 2, alignItems: 'center', borderBottom: `1px solid ${adminColors.divider}` }}>
-          <TextField
-            size="small" placeholder="Search orders or customers..."
-            value={search} onChange={(e) => setSearch(e.target.value)}
-            sx={{ flex: 1 }}
-            slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ color: '#9E9E9E', fontSize: 18 }} /></InputAdornment> } }}
-          />
-        </Box>
-
-        {filtered.length === 0 ? (
-          <EmptyState emoji="📦" title="No orders found" subtitle="Try a different search or filter." />
-        ) : isTablet ? (
-          /* ── Mobile / tablet: card list ─────────────────────────────── */
-          <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
-            <Stack spacing={1.5}>
-              {filtered.map((order) => {
-                const next = nextStatus[order.status];
-                return (
-                  <Box
-                    key={order.id}
-                    sx={{ p: 1.75, borderRadius: adminColors.radiusMd, border: `1px solid ${adminColors.borderSubtle}`, bgcolor: adminColors.bgSubtle }}
-                  >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', minWidth: 0 }}>
-                        <Avatar sx={{ width: 34, height: 34, bgcolor: adminColors.accentRed, fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>
-                          {order.customerName.split(' ').map(n => n[0]).join('')}
-                        </Avatar>
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>{order.customerName}</Typography>
-                          <Typography variant="caption" color="primary" sx={{ fontWeight: 700 }}>{order.orderId}</Typography>
-                        </Box>
-                      </Box>
-                      <Typography sx={{ fontWeight: 800, color: adminColors.textPrimary, flexShrink: 0 }}>
-                        ₹{order.grandTotal.toLocaleString()}
-                      </Typography>
-                    </Box>
-
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 1.25, gap: 1 }}>
-                      <StatusChip status={order.status} palette={orderStatusColors} />
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <IconButton size="small" onClick={() => setSelectedOrder(order)} sx={{ bgcolor: 'white', border: `1px solid ${adminColors.border}` }}>
-                          <Visibility fontSize="small" sx={{ color: '#616161' }} />
-                        </IconButton>
-                        {next && (
-                          <Button
-                            size="small" variant="contained"
-                            onClick={() => updateOrderStatus(order.id, next)}
-                            sx={{ fontSize: '11px', bgcolor: orderStatusColors[next].color, borderRadius: adminColors.radiusSm, fontWeight: 700 }}
-                          >
-                            {orderStatusColors[next].label}
-                          </Button>
-                        )}
-                      </Box>
-                    </Box>
-                  </Box>
-                );
-              })}
-            </Stack>
-          </Box>
-        ) : (
-          /* ── Desktop: table ──────────────────────────────────────────── */
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table sx={{ minWidth: 800 }}>
-              <TableHead sx={{ bgcolor: adminColors.bgSubtle }}>
-                <TableRow>
-                  {['Order ID', 'Customer', 'Items', 'Total', 'Payment', 'Status', 'Time', 'Actions'].map((h) => (
-                    <TableCell key={h} sx={{ fontWeight: 700, fontSize: '12px', color: '#616161', py: 1.5, whiteSpace: 'nowrap' }}>{h}</TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filtered.map((order) => {
-                  const next = nextStatus[order.status];
-                  return (
-                    <TableRow key={order.id} hover sx={{ '&:last-child td': { border: 0 } }}>
-                      <TableCell>
-                        <Typography variant="body2" color="primary" sx={{ fontWeight: 700 }}>{order.orderId}</Typography>
-                        {order.orderSource === 'swiggy' && (
-                          <Chip label="🟠 SWIGGY" size="small" sx={{ bgcolor: '#FFF3E0', color: '#E65100', fontSize: '9px', fontWeight: 800, height: 18 }} />
-                        )}
-                        {order.orderSource === 'zomato' && (
-                          <Chip label="🔴 ZOMATO" size="small" sx={{ bgcolor: '#FFEBEE', color: '#C62828', fontSize: '9px', fontWeight: 800, height: 18 }} />
-                        )}
-                        {order.tableNumber && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>Table {order.tableNumber}</Typography>}
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Avatar sx={{ width: 32, height: 32, bgcolor: adminColors.accentRed, fontSize: '11px', fontWeight: 700 }}>
-                            {order.customerName.split(' ').map(n => n[0]).join('')}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{order.customerName}</Typography>
-                            <Typography variant="caption" color="text.secondary">{order.customerPhone}</Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">{order.items.length} items</Typography>
-                        <Typography variant="caption" color="text.secondary">{order.items.map(i => i.name).slice(0, 2).join(', ')}{order.items.length > 2 ? '...' : ''}</Typography>
-                      </TableCell>
-                      <TableCell><Typography variant="body2" sx={{ fontWeight: 700 }}>₹{order.grandTotal.toLocaleString()}</Typography></TableCell>
-                      <TableCell>
-                        <Chip label={order.paymentMode.toUpperCase()} size="small"
-                          sx={{ bgcolor: 'rgba(0,0,0,0.06)', fontWeight: 600, fontSize: '10px' }} />
-                        <Typography variant="caption" color={order.paymentStatus === 'paid' ? 'success.main' : 'warning.main'} sx={{ display: 'block', fontWeight: 600 }}>
-                          {order.paymentStatus}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip icon={statusIcons[order.status]} label={orderStatusColors[order.status]?.label} size="small"
-                          sx={{ bgcolor: orderStatusColors[order.status]?.bg, color: orderStatusColors[order.status]?.color, fontWeight: 600, fontSize: '11px' }} />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="caption" color="text.secondary">{order.orderDate}</Typography>
-                        <Typography variant="caption" sx={{ display: 'block', fontWeight: 600 }}>{order.orderTime}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          <Tooltip title="View Details">
-                            <IconButton size="small" onClick={() => setSelectedOrder(order)}>
-                              <Visibility fontSize="small" sx={{ color: '#616161' }} />
-                            </IconButton>
-                          </Tooltip>
-                          {next && (
-                            <Tooltip title={`Mark as ${orderStatusColors[next].label}`}>
-                              <Button
-                                size="small" variant="contained"
-                                onClick={() => updateOrderStatus(order.id, next)}
-                                sx={{
-                                  fontSize: '10px', py: 0.3, px: 1, minWidth: 'unset',
-                                  bgcolor: orderStatusColors[next].color, borderRadius: '8px',
-                                  '&:hover': { opacity: 0.85 },
-                                }}
-                              >
-                                {orderStatusColors[next].label}
-                              </Button>
-                            </Tooltip>
-                          )}
-                          {order.status !== 'cancelled' && order.status !== 'delivered' && (
-                            <Tooltip title="Cancel Order">
-                              <IconButton size="small" onClick={() => updateOrderStatus(order.id, 'cancelled')}>
-                                <Cancel fontSize="small" sx={{ color: '#C62828' }} />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </Box>
-        )}
-      </SectionCard>
-
-      {/* Order Detail Dialog */}
-      {selectedOrder && (
-        <Dialog open={!!selectedOrder} onClose={() => setSelectedOrder(null)} maxWidth="sm" fullWidth fullScreen={isMobile}>
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 700, gap: 1 }}>
-            <Box sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              Order Details – {selectedOrder.orderId}
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-              <StatusChip status={selectedOrder.status} palette={orderStatusColors} />
-              {isMobile && (
-                <IconButton size="small" onClick={() => setSelectedOrder(null)} aria-label="Close">
-                  <Close fontSize="small" />
-                </IconButton>
-              )}
-            </Box>
-          </DialogTitle>
-          <DialogContent>
-            <Typography variant="subtitle2" color="text.secondary" sx={{fontWeight: 700, mb: 1}}>CUSTOMER</Typography>
-            <Typography sx={{fontWeight: 600}}>{selectedOrder.customerName}</Typography>
-            <Typography variant="body2" color="text.secondary">{selectedOrder.customerPhone}</Typography>
-            <Typography variant="body2" color="text.secondary">{selectedOrder.customerAddress}</Typography>
-
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" color="text.secondary" sx={{fontWeight: 700, mb: 1.5}}>ITEMS</Typography>
-            {selectedOrder.items.map((item, i) => (
-              <Box key={i} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Box className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'} />
-                  <Typography variant="body2">{item.name} × {item.quantity}</Typography>
-                </Box>
-                <Typography variant="body2" sx={{fontWeight: 600}}>₹{(item.price * item.quantity).toLocaleString()}</Typography>
-              </Box>
-            ))}
-
-            <Divider sx={{ my: 2 }} />
-            <Stack spacing={0.8}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" color="text.secondary">Subtotal</Typography>
-                <Typography variant="body2">₹{selectedOrder.subtotal.toLocaleString()}</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" color="text.secondary">CGST (2.5%)</Typography>
-                <Typography variant="body2">₹{selectedOrder.cgst.toFixed(2)}</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2" color="text.secondary">SGST (2.5%)</Typography>
-                <Typography variant="body2">₹{selectedOrder.sgst.toFixed(2)}</Typography>
-              </Box>
-              {selectedOrder.discount > 0 && (
-                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography variant="body2" color="success.main">Discount</Typography>
-                  <Typography variant="body2" color="success.main">-₹{selectedOrder.discount}</Typography>
-                </Box>
-              )}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 1, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-                <Typography variant="subtitle1" sx={{fontWeight: 800}}>Grand Total</Typography>
-                <Typography variant="subtitle1" color="primary" sx={{fontWeight: 800}}>₹{selectedOrder.grandTotal.toLocaleString()}</Typography>
-              </Box>
-            </Stack>
-          </DialogContent>
-          <DialogActions sx={{ p: 2.5, pb: isMobile ? 'max(20px, env(safe-area-inset-bottom, 0px))' : 2.5, gap: 1 }}>
-            <Button onClick={() => setSelectedOrder(null)} variant="outlined" sx={{ borderRadius: '10px' }}>Close</Button>
-            {nextStatus[selectedOrder.status] && (
+  const columns = useMemo<ColumnDef<any, Order>[]>(() => [
+    {
+      accessorKey: 'id',
+      header: 'Order ID',
+      cell: ({ row }) => (
+        <span className="font-extrabold text-stone-900 dark:text-stone-100">
+          {row.original.id}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'customerName',
+      header: 'Customer',
+      cell: ({ row }) => (
+        <div>
+          <div className="font-bold text-stone-900 dark:text-stone-100">
+            {row.original.customerName || 'Walk-in Customer'}
+          </div>
+          <div className="text-xs text-stone-400 font-medium">{row.original.customerPhone || 'N/A'}</div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'orderType',
+      header: 'Type',
+      cell: ({ row }) => (
+        <Badge variant="outline" className="uppercase text-[10px] font-black tracking-wider bg-stone-100 dark:bg-stone-800">
+          {row.original.orderType}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'items',
+      header: 'Items',
+      cell: ({ row }) => (
+        <div className="max-w-xs truncate text-stone-600 dark:text-stone-300 text-xs font-medium">
+          {row.original.items?.map((i) => `${i.name} (x${i.quantity})`).join(', ')}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'grandTotal',
+      header: 'Total',
+      cell: ({ row }) => (
+        <span className="font-black text-amber-700 dark:text-amber-500">
+          ₹{row.original.grandTotal}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ row }) => <StatusChip status={row.original.status} />,
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => {
+        const order = row.original;
+        const next = nextStatus[order.status];
+        return (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedOrder(order)}
+              className="h-8 px-2 text-xs font-bold"
+            >
+              <Eye className="w-3.5 h-3.5 mr-1" /> View
+            </Button>
+            {next && (
               <Button
-                variant="contained"
-                onClick={() => { updateOrderStatus(selectedOrder.id, nextStatus[selectedOrder.status]!); setSelectedOrder(null); }}
-                sx={{ borderRadius: '10px', bgcolor: orderStatusColors[nextStatus[selectedOrder.status]!].color }}
+                size="sm"
+                onClick={() => handleAdvanceStatus(order)}
+                className="h-8 px-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white"
               >
-                Mark as {orderStatusColors[nextStatus[selectedOrder.status]!].label}
+                Mark {next}
               </Button>
             )}
-          </DialogActions>
-        </Dialog>
-      )}
+          </div>
+        );
+      },
+    },
+  ], [selectedOrder]);
+
+  return (
+    <AdminLayout title="Live Orders Management">
+      <div className="space-y-4 w-full max-w-full">
+        <PageHeader
+          title="Live Orders Management"
+          subtitle="Real-time order tracking powered by TanStack Table & Virtualization"
+        />
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard
+            icon={<Clock className="w-5 h-5" />}
+            label="Pending"
+            value={statusCounts.pending || 0}
+            accent={orderStatusColors.pending.color}
+          />
+          <StatCard
+            icon={<UtensilsCrossed className="w-5 h-5" />}
+            label="Preparing"
+            value={statusCounts.preparing || 0}
+            accent={orderStatusColors.preparing.color}
+          />
+          <StatCard
+            icon={<CheckCircle2 className="w-5 h-5" />}
+            label="Ready"
+            value={statusCounts.ready || 0}
+            accent={orderStatusColors.ready.color}
+          />
+          <StatCard
+            icon={<Truck className="w-5 h-5" />}
+            label="Delivered"
+            value={statusCounts.delivered || 0}
+            accent={orderStatusColors.delivered.color}
+          />
+        </div>
+
+        <SectionCard noPadding className="p-3">
+          <div className="flex gap-2 overflow-x-auto pb-2.5 mb-3 border-b border-stone-100 dark:border-[#2C2C2E]/60 scrollbar-none">
+            {(['all', 'pending', 'preparing', 'ready', 'delivered', 'cancelled'] as const).map((st) => (
+              <Button
+                key={st}
+                variant={filterStatus === st ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterStatus(st)}
+                className={`rounded-full text-xs font-bold capitalize whitespace-nowrap ${
+                  filterStatus === st ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''
+                }`}
+              >
+                {st} ({statusCounts[st] || 0})
+              </Button>
+            ))}
+          </div>
+
+          <DataTable
+            columns={columns}
+            data={filtered}
+            searchKey="customerName"
+            searchPlaceholder="Search order ID or customer name..."
+            height="550px"
+            rowHeight={56}
+            enableVirtualization={true}
+          />
+        </SectionCard>
+      </div>
+
+      {/* Order Details Dialog */}
+      <Dialog open={!!selectedOrder} onOpenChange={(val) => { if (!val) setSelectedOrder(null); }}>
+        {selectedOrder && (
+          <DialogContent className="max-w-lg p-0 overflow-hidden rounded-3xl bg-white dark:bg-[#1C1C1E] border border-stone-200/50 dark:border-[#2C2C2E]/60 shadow-2xl">
+            <DialogHeader className="p-6 bg-white dark:bg-[#1C1C1E] text-stone-900 dark:text-white flex flex-row items-center justify-between border-b border-stone-100 dark:border-[#2C2C2E]/60">
+              <div>
+                <DialogTitle className="text-stone-900 dark:text-white font-black text-lg">
+                  Order Details: {selectedOrder.id}
+                </DialogTitle>
+                <p className="text-[10px] text-stone-400 font-semibold mt-0.5">
+                  Placed on {new Date(selectedOrder.createdAt || selectedOrder.orderDate || Date.now()).toLocaleString()}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setSelectedOrder(null)} className="text-stone-500 hover:bg-stone-100 dark:hover:bg-[#2C2C2E] rounded-xl">
+                <X className="w-5 h-5" />
+              </Button>
+            </DialogHeader>
+
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-3.5 bg-stone-50/50 dark:bg-stone-900/40 rounded-xl border border-stone-200/30 dark:border-[#2C2C2E]/40">
+                <div>
+                  <div className="text-[10px] text-stone-400 font-bold uppercase tracking-wider">Customer</div>
+                  <div className="text-xs font-black text-stone-850 dark:text-stone-100">
+                    {selectedOrder.customerName || 'Walk-in Customer'}
+                  </div>
+                  <div className="text-[10px] text-stone-500">{selectedOrder.customerPhone || 'No phone'}</div>
+                </div>
+                <StatusChip status={selectedOrder.status} />
+              </div>
+
+              <div>
+                <h4 className="text-[10px] font-black uppercase tracking-wider text-stone-400 mb-2">Order Items</h4>
+                <div className="space-y-2 border border-stone-200/50 dark:border-[#2C2C2E]/65 rounded-xl p-3 bg-stone-50/20 dark:bg-[#1C1C1E]/40">
+                  {selectedOrder.items?.map((item, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-xs">
+                      <div>
+                        <span className="font-bold text-stone-850 dark:text-stone-100">{item.name}</span>
+                        <span className="text-stone-400 ml-2 font-semibold">x{item.quantity}</span>
+                      </div>
+                      <span className="font-black text-amber-700 dark:text-amber-500">
+                        ₹{item.price * item.quantity}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-3.5 border-t border-stone-100 dark:border-[#2C2C2E]/60 text-xs font-black">
+                <span>Grand Total</span>
+                <span className="text-amber-700 dark:text-amber-500 text-base">₹{selectedOrder.grandTotal}</span>
+              </div>
+            </div>
+
+            <DialogFooter className="p-4 bg-stone-50/30 dark:bg-[#1C1C1E]/50 border-t border-stone-100 dark:border-[#2C2C2E]/60">
+              {nextStatus[selectedOrder.status] && (
+                <Button
+                  onClick={() => handleAdvanceStatus(selectedOrder)}
+                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-2xl h-11 shadow-sm"
+                >
+                  Advance to {nextStatus[selectedOrder.status]}
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        )}
+      </Dialog>
     </AdminLayout>
   );
 }

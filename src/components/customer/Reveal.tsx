@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
-import Box from '@mui/material/Box';
-import type { SxProps, Theme } from '@mui/material/styles';
+
+import { cn } from '@/lib/utils';
 
 export type RevealDirection = 'up' | 'down' | 'left' | 'right' | 'fade' | 'zoom';
 
@@ -16,8 +16,7 @@ const START_TRANSFORM: Record<RevealDirection, string> = {
   zoom: 'scale(0.95)',
 };
 
-interface RevealProps {
-  children: React.ReactNode;
+interface RevealProps extends React.ComponentProps<'div'> {
   /** Direction the content travels from. Defaults to a gentle rise. */
   direction?: RevealDirection;
   /** Stagger, in ms, for items revealed as a group. */
@@ -26,9 +25,7 @@ interface RevealProps {
   duration?: number;
   /** Fraction of the element that must be on screen before it reveals. */
   threshold?: number;
-  component?: React.ElementType;
-  sx?: SxProps<Theme>;
-  className?: string;
+  as?: React.ElementType;
 }
 
 /**
@@ -48,9 +45,10 @@ export default function Reveal({
   delay = 0,
   duration = 620,
   threshold = 0.12,
-  component = 'div',
-  sx,
+  as: Component = 'div',
   className,
+  style,
+  ...props
 }: RevealProps) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [shown, setShown] = useState(false);
@@ -79,7 +77,7 @@ export default function Reveal({
         // Hold the reveal until the element is a little way past the fold, so
         // it animates where the eye already is rather than off at the edge.
         rootMargin: '0px 0px -8% 0px',
-      },
+      }
     );
 
     observer.observe(el);
@@ -87,23 +85,21 @@ export default function Reveal({
   }, [threshold]);
 
   return (
-    <Box
+    <Component
       ref={ref}
-      component={component}
-      className={className}
-      sx={[
-        {
-          opacity: shown ? 1 : 0,
-          transform: shown ? 'none' : START_TRANSFORM[direction],
-          transition: `opacity ${duration}ms cubic-bezier(0.22, 0.61, 0.36, 1) ${delay}ms, transform ${duration}ms cubic-bezier(0.22, 0.61, 0.36, 1) ${delay}ms`,
-          // Without this the transformed subtree can be composited on its own
-          // layer permanently; clearing it after the reveal keeps text crisp.
-          willChange: shown ? 'auto' : 'opacity, transform',
-        },
-        ...(Array.isArray(sx) ? sx : [sx]),
-      ]}
+      className={cn(className)}
+      style={{
+        opacity: shown ? 1 : 0,
+        transform: shown ? 'none' : START_TRANSFORM[direction],
+        transition: `opacity ${duration}ms cubic-bezier(0.22, 0.61, 0.36, 1) ${delay}ms, transform ${duration}ms cubic-bezier(0.22, 0.61, 0.36, 1) ${delay}ms`,
+        // Without this the transformed subtree can be composited on its own
+        // layer permanently; clearing it after the reveal keeps text crisp.
+        willChange: shown ? 'auto' : 'opacity, transform',
+        ...style,
+      }}
+      {...props}
     >
       {children}
-    </Box>
+    </Component>
   );
 }

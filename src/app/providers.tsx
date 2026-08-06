@@ -1,90 +1,85 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { Provider } from 'react-redux';
-import { PersistGate } from 'redux-persist/integration/react';
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import { theme } from '@/theme/theme';
-import { store, persistor } from '@/store';
-import { REALTIME_INIT, REALTIME_TEARDOWN } from '@/store/realtimeMiddleware';
+import React, { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+import { ThemeProvider } from 'next-themes';
+
+import { QueryProvider } from '@/components/providers/QueryProvider';
+import { RealtimeProvider } from '@/components/providers/RealtimeProvider';
 import { AuthProvider } from '@/context/AuthContext';
 import { AdminProvider } from '@/context/AdminContext';
 import { CartProvider } from '@/context/CartContext';
-import AuthModal from '@/components/customer/AuthModal';
-import FloatingCartBar from '@/components/customer/FloatingCartBar';
 import MobileBottomNav from '@/components/customer/MobileBottomNav';
-import { Toaster } from 'react-hot-toast';
-import useMediaQuery from '@mui/material/useMediaQuery';
+import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { useAuthStore } from '@/store/useAuthStore';
 
-// Initializes Supabase Realtime subscriptions via Redux middleware
-function RealtimeInitializer() {
-  useEffect(() => {
-    store.dispatch({ type: REALTIME_INIT });
-    return () => {
-      store.dispatch({ type: REALTIME_TEARDOWN });
-    };
-  }, []);
-  return null;
+const AuthModal = dynamic(() => import('@/components/customer/AuthModal'), { ssr: false });
+
+function AuthModalHost() {
+  const isOpen = useAuthStore((s) => s.isAuthModalOpen);
+  const [mounted, setMounted] = useState(false);
+
+  if (isOpen && !mounted) setMounted(true);
+
+  return mounted ? <AuthModal /> : null;
 }
 
-/**
- * Toasts sit bottom-right on desktop, top-right on phones — where the thumb
- * isn't covering them and they don't collide with the fixed bottom nav.
- * noSsr defers the match to the client so the server doesn't render one
- * position and hydrate into the other.
- */
-function ResponsiveToaster() {
-  const isMobile = useMediaQuery('(max-width:899px)', { noSsr: true });
-  return (
-    <Toaster
-      position={isMobile ? 'top-right' : 'bottom-right'}
-      containerStyle={
-        isMobile
-          ? { top: 'calc(70px + env(safe-area-inset-top, 0px))', right: 12, left: 12 }
-          : { bottom: 24, right: 24 }
+function SessionScopedCart() {
+  const userId = useAuthStore((s) => s.user?.id ?? null);
+  const authReady = useAuthStore((s) => s.authReady);
+
+  useEffect(() => {
+    if (!authReady) return;
+    const key = 'ppr:cart-owner';
+    try {
+      const previous = window.localStorage.getItem(key);
+      const current = userId ?? 'guest';
+      if (previous && previous !== current) {
+        import('@/store/useCartStore').then(({ useCartStore }) => {
+          useCartStore.getState().clearCart();
+        });
       }
-      toastOptions={{
-        duration: 3000,
-        style: {
-          background: '#fff',
-          color: '#212121',
-          borderRadius: '12px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-          fontFamily: 'Poppins, sans-serif',
-          fontWeight: 500,
-          fontSize: '14px',
-          maxWidth: '100%',
-        },
-        success: { iconTheme: { primary: '#15803D', secondary: '#fff' } },
-        error: { iconTheme: { primary: '#C62828', secondary: '#fff' } },
-      }}
-    />
-  );
+      window.localStorage.setItem(key, current);
+    } catch {
+      // Storage disabled — cart not scoped
+    }
+  }, [userId, authReady]);
+
+  return null;
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          {/* AuthProvider is a thin Supabase bridge — dispatches to Redux authSlice */}
-          <AuthProvider>
-            {/* AdminProvider is an RTK Query adapter that provides useAdmin() backward compat */}
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <QueryProvider>
+        <AuthProvider>
+          <RealtimeProvider>
             <AdminProvider>
               <CartProvider>
-                <RealtimeInitializer />
-                {children}
-                <AuthModal />
-                <FloatingCartBar />
-                <MobileBottomNav />
-                <ResponsiveToaster />
+                <TooltipProvider>
+                  <SessionScopedCart />
+                  {children}
+                  <AuthModalHost />
+                  {/* No floating cart bar. The cart is reachable from the
+                      navbar icon and the phone bottom nav, both of which show
+                      a live count — a third persistent surface repeating the
+                      same number cost a strip of every screen and covered the
+                      footer. Adding to the cart is now acknowledged by the
+                      dish flying to that icon (lib/flyToCart). */}
+                  <MobileBottomNav />
+                  <Toaster />
+                </TooltipProvider>
               </CartProvider>
             </AdminProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </PersistGate>
-    </Provider>
+          </RealtimeProvider>
+        </AuthProvider>
+      </QueryProvider>
+    </ThemeProvider>
   );
 }

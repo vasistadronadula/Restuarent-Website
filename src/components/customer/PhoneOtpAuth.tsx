@@ -1,10 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
-import {
-  Alert, Box, Button, CircularProgress, InputAdornment, Stack, TextField, Typography,
-} from '@mui/material';
-import { ArrowBack, Person, Refresh, Sms } from '@mui/icons-material';
+import { CheckCircle2, Edit3, Loader2, Mail, RefreshCw, User } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import {
@@ -12,67 +9,44 @@ import {
   type ConfirmationResult,
 } from '@/lib/firebase';
 import { formatMobileForDisplay, isValidMobile, toE164 } from '@/lib/phoneIdentity';
+import { validateEmail, validateName } from '@/lib/validation';
 import { useAuth, landAfterLogin } from '@/context/AuthContext';
 import { isStaffRole } from '@/lib/roleAccess';
 import type { UserRole } from '@/types';
+import OtpInput from './OtpInput';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-/**
- * PhoneOtpAuth — the two-step SMS sign-in used by the login page, the signup
- * page and the auth modal.
- *
- * It owns the SMS half of the flow only. Confirming the code yields a Firebase
- * ID token, which is handed to AuthContext to be exchanged server-side for a
- * Supabase session; this component never decides who anyone is.
- *
- * Two limits are enforced here that the customer can feel:
- *  - a resend cooldown, so an unreceived SMS doesn't turn into ten sent ones;
- *  - a cap on wrong codes, after which a fresh code must be requested rather
- *    than the same one guessed indefinitely.
- * Neither is a security boundary — Firebase and the API route enforce the real
- * ones. These exist so the honest customer on a slow network isn't the person
- * who burns through the SMS quota.
- */
-
-/** Seconds before Resend becomes available. Long enough for a slow SMS to land. */
 const RESEND_COOLDOWN_SECONDS = 45;
-
-/** Wrong codes tolerated before the session is thrown away and a new one required. */
 const MAX_VERIFY_ATTEMPTS = 5;
-
 const OTP_LENGTH = 6;
 
-type Step = 'phone' | 'code';
+type Step = 'phone' | 'code' | 'details';
 
 interface Props {
-  /** Called after a customer signs in. Staff are routed by this component instead. */
   onSuccess?: (role?: UserRole) => void;
-  /** Shows the name field, so a first-time customer isn't left as "Customer 3210". */
   isSignUpMode?: boolean;
+  customSocials?: React.ReactNode;
 }
 
-export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false }: Props) {
-  const { signInWithPhoneToken } = useAuth();
-
-  // useId keeps the reCAPTCHA container unique even when two instances mount
-  // together — the modal and the page form can both be in the tree during a
-  // route transition, and Firebase refuses to render two widgets into one node.
-  // Non-alphanumerics are stripped because React's generated ids have carried
-  // punctuation (`:r0:`) across versions, and this string is used as a DOM id.
+export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSocials }: Props) {
+  const { signInWithPhoneToken, updateUserProfile } = useAuth();
   const containerId = `recaptcha-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
 
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [attemptsLeft, setAttemptsLeft] = useState(MAX_VERIFY_ATTEMPTS);
+  const [verifiedRole, setVerifiedRole] = useState<UserRole | undefined>();
+  const [codeRound, setCodeRound] = useState(0);
 
   const confirmationRef = useRef<ConfirmationResult | null>(null);
-  const codeRef = useRef<HTMLInputElement>(null);
-  // Guards the async handlers: a resolved promise must not call setState on a
-  // form the customer has already closed or navigated away from.
   const mountedRef = useRef(true);
 
   const e164 = toE164(phone);
@@ -82,8 +56,6 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false }: Props)
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      // Leaving the widget bound to a removed node is what makes a second
-      // visit to this form fail with "reCAPTCHA has already been rendered".
       clearRecaptcha(containerId);
     };
   }, [containerId]);
@@ -94,12 +66,6 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false }: Props)
     return () => clearInterval(timer);
   }, [cooldown]);
 
-  /**
-   * Android Chrome can read the code straight out of the SMS, with the
-   * customer's permission, when the message carries the site's origin. If the
-   * browser doesn't support it, or the customer dismisses the prompt, nothing
-   * happens and they type it in — so this is added without a fallback path.
-   */
   useEffect(() => {
     if (step !== 'code') return;
     if (typeof window === 'undefined' || !('OTPCredential' in window)) return;
@@ -109,23 +75,19 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false }: Props)
       .get({ otp: { transport: ['sms'] }, signal: abort.signal } as CredentialRequestOptions)
       .then((credential) => {
         const received = (credential as { code?: string } | null)?.code;
-        if (received && mountedRef.current) setCode(received.slice(0, OTP_LENGTH));
+        if (received && mountedRef.current) setCode(received.replace(/\D/g, '').slice(0, OTP_LENGTH));
       })
-      .catch(() => { /* dismissed, unsupported, or superseded — the field still works */ });
+      .catch(() => { /* dismissed, unsupported, or superseded */ });
 
     return () => abort.abort();
   }, [step]);
 
-  const handleSend = useCallback(async (isResend = false) => {
+  const handleSend = useCallback(async () => {
     if (busy) return;
     setError(null);
 
     if (!isValidMobile(phone)) {
       setError('Enter a valid 10-digit mobile number.');
-      return;
-    }
-    if (isSignUpMode && !isResend && name.trim().length < 2) {
-      setError('Please tell us your name so we know who the order is for.');
       return;
     }
 
@@ -136,12 +98,10 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false }: Props)
 
       setStep('code');
       setCode('');
+      setCodeRound((n) => n + 1);
       setAttemptsLeft(MAX_VERIFY_ATTEMPTS);
       setCooldown(RESEND_COOLDOWN_SECONDS);
       toast.success(`Code sent to ${formatMobileForDisplay(e164 ?? phone)}`);
-      // Autofocus after the step renders, so the keyboard opens on the field
-      // the customer needs rather than the one they just left.
-      setTimeout(() => codeRef.current?.focus(), 50);
     } catch (err) {
       console.error('[otp] send failed:', err);
       if (!mountedRef.current) return;
@@ -151,14 +111,13 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false }: Props)
     } finally {
       if (mountedRef.current) setBusy(false);
     }
-  }, [busy, phone, name, isSignUpMode, containerId, e164]);
+  }, [busy, phone, containerId, e164]);
 
-  const handleVerify = useCallback(async (event?: React.FormEvent) => {
-    event?.preventDefault();
+  const submitCode = useCallback(async (entered: string) => {
     if (busy) return;
     setError(null);
 
-    if (code.trim().length !== OTP_LENGTH) {
+    if (entered.length !== OTP_LENGTH) {
       setError(`Enter the ${OTP_LENGTH}-digit code from the SMS.`);
       return;
     }
@@ -171,9 +130,7 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false }: Props)
 
     setBusy(true);
     try {
-      // Firebase confirms the code and issues the ID token; the token is the
-      // only thing the server will accept as proof, so nothing else is sent.
-      const idToken = await verifyOtpCode(confirmation, code);
+      const idToken = await verifyOtpCode(confirmation, entered);
       const result = await signInWithPhoneToken(idToken, isSignUpMode ? name.trim() : undefined);
 
       if (!result.success) {
@@ -181,11 +138,23 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false }: Props)
         return;
       }
 
-      // Staff who sign in by phone go to their console; a full page load, for
-      // the shared-terminal reasons documented on landAfterLogin.
+      setVerifiedRole(result.role);
+
       if (result.role && isStaffRole(result.role)) {
         landAfterLogin(result.role);
-        return; // Navigating away — deliberately stays busy.
+        return;
+      }
+
+      if (!result.hasDetails) {
+        if (result.profile?.full_name && !result.profile.full_name.startsWith('Customer ')) {
+          setName(result.profile.full_name);
+        }
+        if (result.profile?.email && !result.profile.email.endsWith('@palapitta.internal')) {
+          setEmail(result.profile.email);
+        }
+        setStep('details');
+        if (mountedRef.current) setBusy(false);
+        return;
       }
 
       onSuccess?.(result.role);
@@ -199,8 +168,6 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false }: Props)
       setBusy(false);
 
       if (remaining <= 0) {
-        // The confirmation is spent — force a fresh code rather than leaving a
-        // dead session that returns the same error however often it's tried.
         confirmationRef.current = null;
         clearRecaptcha(containerId);
         setStep('phone');
@@ -212,9 +179,28 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false }: Props)
 
       const base = describeOtpError(err);
       setError(remaining <= 2 ? `${base} ${remaining} attempt${remaining === 1 ? '' : 's'} left.` : base);
-      codeRef.current?.select();
+      setCode('');
+      setCodeRound((n) => n + 1);
     }
-  }, [busy, code, attemptsLeft, containerId, isSignUpMode, name, onSuccess, signInWithPhoneToken]);
+  }, [busy, attemptsLeft, containerId, isSignUpMode, name, onSuccess, signInWithPhoneToken]);
+
+  const handleSaveProfile = useCallback(async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (busy) return;
+    setError(null);
+
+    const nameError = validateName(name);
+    if (nameError) { setError(nameError); return; }
+    const emailError = validateEmail(email);
+    if (emailError) { setError(emailError); return; }
+
+    setBusy(true);
+    const updated = await updateUserProfile(name.trim(), email.trim(), phone);
+    if (!mountedRef.current) return;
+
+    setBusy(false);
+    if (updated) onSuccess?.(verifiedRole);
+  }, [busy, name, email, phone, updateUserProfile, onSuccess, verifiedRole]);
 
   const startOver = useCallback(() => {
     confirmationRef.current = null;
@@ -228,184 +214,197 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false }: Props)
 
   if (!isFirebaseConfigured) {
     return (
-      <Alert severity="warning" sx={{ borderRadius: '12px', fontSize: '13px' }}>
-        Phone sign-in is unavailable right now. Please use email and password.
-      </Alert>
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-600 dark:text-amber-400">
+        Mobile sign-in is unavailable right now. Please use email and password.
+      </div>
     );
   }
 
   return (
-    <Box sx={{ width: '100%' }}>
-      {/* Firebase renders its invisible reCAPTCHA challenge into this node. */}
+    <div className="w-full">
       <div id={containerId} />
 
       {error && (
-        <Alert
-          severity="error"
-          role="alert"
-          sx={{ mb: 2, borderRadius: '12px', fontSize: '13px' }}
-        >
+        <div role="alert" className="mb-4 rounded-2xl border border-destructive/25 bg-destructive/5 dark:bg-destructive/10 p-3 text-xs font-semibold text-destructive leading-relaxed">
           {error}
-        </Alert>
+        </div>
       )}
 
-      {step === 'phone' ? (
-        <Box component="form" onSubmit={(e) => { e.preventDefault(); handleSend(); }} noValidate>
-          <Stack spacing={2}>
-            {isSignUpMode && (
-              <TextField
-                fullWidth
-                size="small"
-                label="Full name"
+      {/* ── Step 1: Phone Number ────────────────────────────────────────── */}
+      {step === 'phone' && (
+        <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="space-y-4">
+          {isSignUpMode && (
+            <div className="space-y-1.5">
+              <Label htmlFor="signup-name" className="text-xs font-black text-stone-600 dark:text-stone-400">Full Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+                <Input
+                  id="signup-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Rahul Sharma"
+                  autoComplete="name"
+                  maxLength={80}
+                  className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-500 text-xs font-bold"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="phone-input" className="text-xs font-black text-stone-600 dark:text-stone-400">Mobile Number</Label>
+            <div className="relative flex items-center">
+              <div className="absolute left-3 flex items-center border-r pr-2 font-black text-xs text-stone-500 dark:text-stone-450 border-stone-200 dark:border-stone-800">
+                +91
+              </div>
+              <Input
+                id="phone-input"
+                type="tel"
+                inputMode="numeric"
+                autoFocus={!isSignUpMode}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="9876543210"
+                autoComplete="tel-national"
+                maxLength={10}
+                className="pl-14 h-11 tracking-widest font-black bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-500 text-xs"
+              />
+            </div>
+            <p className="text-[10px] text-stone-400 dark:text-stone-500 font-semibold">
+              We&apos;ll text you a 6-digit code. Standard rates apply.
+            </p>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={busy || !phoneIsValid}
+            className="w-full h-11 font-extrabold shadow-md bg-stone-950 hover:bg-stone-900 text-white dark:bg-stone-50 dark:hover:bg-stone-200 dark:text-stone-950 rounded-xl transition-all text-xs"
+          >
+            {busy ? <Loader2 className="size-4 animate-spin" /> : 'Get Started'}
+          </Button>
+        </form>
+      )}
+
+      {step === 'phone' && customSocials}
+
+      {/* ── Step 2: OTP Code ────────────────────────────────────────────── */}
+      {step === 'code' && (
+        <form onSubmit={(e) => { e.preventDefault(); submitCode(code); }} className="space-y-5">
+          <div className="flex items-center justify-between gap-2 rounded-2xl bg-stone-50 dark:bg-stone-950/40 p-3 border border-stone-200 dark:border-stone-850">
+            <div className="min-w-0">
+              <p className="text-[10px] text-stone-400 font-semibold">Code sent to</p>
+              <p className="text-xs font-black text-stone-900 dark:text-stone-100">{formatMobileForDisplay(e164 ?? phone)}</p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={startOver}
+              disabled={busy}
+              className="text-xs font-extrabold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 shrink-0 gap-1 h-8 rounded-full"
+            >
+              <Edit3 className="size-3.5" />
+              Change
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-black text-stone-600 dark:text-stone-400">Enter the 6-digit code</Label>
+            <OtpInput
+              key={codeRound}
+              value={code}
+              onChange={setCode}
+              onComplete={submitCode}
+              length={OTP_LENGTH}
+              disabled={busy}
+              error={Boolean(error)}
+              autoFocus
+              label="6-digit verification code"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={busy || code.length !== OTP_LENGTH}
+            className="w-full h-11 font-extrabold shadow-md bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all text-xs"
+          >
+            {busy ? <Loader2 className="size-4 animate-spin text-white" /> : 'Verify & Continue'}
+          </Button>
+
+          <div className="text-center">
+            <span className="text-xs text-stone-500">Didn&apos;t get it? </span>
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              onClick={handleSend}
+              disabled={cooldown > 0 || busy}
+              className="text-xs font-black text-amber-600 dark:text-amber-400 p-0 h-auto gap-1"
+            >
+              {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Code'}
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {/* ── Step 3: Details ────────────────────────────────────────────── */}
+      {step === 'details' && (
+        <form onSubmit={handleSaveProfile} className="space-y-4">
+          <div className="flex gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3.5">
+            <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-black text-emerald-800 dark:text-emerald-300">Mobile number verified</p>
+              <p className="text-[11px] text-stone-500 dark:text-stone-400 font-semibold leading-relaxed">
+                Last step — tell us who you are so we can put a name on your orders.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="details-name" className="text-xs font-black text-stone-600 dark:text-stone-400">Full Name</Label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+              <Input
+                id="details-name"
+                autoFocus
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Rahul Sharma"
                 autoComplete="name"
-                slotProps={{
-                  htmlInput: { maxLength: 80 },
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Person fontSize="small" sx={{ color: 'primary.main' }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
+                maxLength={80}
+                className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-500 text-xs font-bold"
               />
-            )}
+            </div>
+          </div>
 
-            <TextField
-              fullWidth
-              size="small"
-              type="tel"
-              label="Mobile number"
-              required
-              autoFocus={!isSignUpMode}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-              placeholder="10-digit mobile number"
-              autoComplete="tel-national"
-              helperText="We'll text you a 6-digit code. Standard SMS rates apply."
-              slotProps={{
-                htmlInput: { inputMode: 'numeric', maxLength: 10 },
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Typography sx={{ fontWeight: 800, fontSize: '14px', color: 'primary.main', mr: 0.5 }}>
-                        +91
-                      </Typography>
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
+          <div className="space-y-1.5">
+            <Label htmlFor="details-email" className="text-xs font-black text-stone-600 dark:text-stone-400">Email Address</Label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+              <Input
+                id="details-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="e.g. rahul@example.com"
+                autoComplete="email"
+                className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-500 text-xs font-bold"
+              />
+            </div>
+            <p className="text-[10px] text-stone-450 dark:text-stone-500 font-semibold">
+              Where your order receipts and booking confirmations go.
+            </p>
+          </div>
 
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              disabled={busy || !phoneIsValid}
-              sx={{
-                py: 1.3,
-                borderRadius: '12px',
-                fontWeight: 800,
-                fontSize: '14px',
-                background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
-                boxShadow: '0 4px 16px rgba(198, 40, 40, 0.25)',
-                '&:hover': { background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)' },
-              }}
-            >
-              {busy ? <CircularProgress size={22} color="inherit" /> : 'Send code'}
-            </Button>
-          </Stack>
-        </Box>
-      ) : (
-        <Box component="form" onSubmit={handleVerify} noValidate>
-          <Stack spacing={2}>
-            <Box sx={{ bgcolor: '#FFF8F2', p: 1.8, borderRadius: '12px', border: '1px solid #FFE0B2' }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.25 }}>
-                Code sent to
-              </Typography>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#C62828' }}>
-                {formatMobileForDisplay(e164 ?? phone)}
-              </Typography>
-            </Box>
-
-            <TextField
-              fullWidth
-              size="small"
-              inputRef={codeRef}
-              // Deliberately `text`, not `number`: a number input accepts `e`,
-              // `+` and `-`, drops leading zeros, and puts spinner arrows next
-              // to a field where they mean nothing.
-              type="text"
-              label={`${OTP_LENGTH}-digit code`}
-              required
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH))}
-              placeholder="••••••"
-              // The pairing iOS and Android look for to offer the code from the
-              // SMS above the keyboard.
-              autoComplete="one-time-code"
-              slotProps={{
-                htmlInput: {
-                  inputMode: 'numeric',
-                  maxLength: OTP_LENGTH,
-                  pattern: '[0-9]*',
-                  style: { letterSpacing: '0.4em', fontWeight: 700 },
-                },
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Sms fontSize="small" sx={{ color: 'primary.main' }} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
-
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              disabled={busy || code.length !== OTP_LENGTH}
-              sx={{
-                py: 1.3,
-                borderRadius: '12px',
-                fontWeight: 800,
-                fontSize: '14px',
-                background: 'linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%)',
-                boxShadow: '0 4px 16px rgba(46, 125, 50, 0.25)',
-                '&:hover': { background: 'linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%)' },
-              }}
-            >
-              {busy ? <CircularProgress size={22} color="inherit" /> : 'Verify & continue'}
-            </Button>
-
-            <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-              <Button
-                size="small"
-                onClick={startOver}
-                disabled={busy}
-                startIcon={<ArrowBack sx={{ fontSize: 16 }} />}
-                sx={{ fontSize: '12px', color: 'text.secondary', textTransform: 'none' }}
-              >
-                Change number
-              </Button>
-
-              <Button
-                size="small"
-                onClick={() => handleSend(true)}
-                disabled={cooldown > 0 || busy}
-                startIcon={<Refresh sx={{ fontSize: 16 }} />}
-                sx={{ fontSize: '12px', fontWeight: 700, color: 'primary.main', textTransform: 'none' }}
-              >
-                {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend code'}
-              </Button>
-            </Stack>
-          </Stack>
-        </Box>
+          <Button
+            type="submit"
+            disabled={busy || !name.trim() || !email.trim()}
+            className="w-full h-11 font-extrabold shadow-md bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition-all text-xs"
+          >
+            {busy ? <Loader2 className="size-4 animate-spin text-white" /> : 'Finish & Continue'}
+          </Button>
+        </form>
       )}
-    </Box>
+    </div>
   );
 }

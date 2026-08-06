@@ -1,349 +1,230 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import {
-  Box, Grid, Typography, Chip, Button, TextField,
-  Table, TableBody, TableCell, TableHead, TableRow,
-  Dialog, DialogContent, DialogActions, InputAdornment, Stack,
-  Paper, IconButton, Tooltip,
-} from '@mui/material';
-import {
-  Search, Print, Visibility, PointOfSale, ReceiptLong, Close,
-} from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { Order } from '@/types';
-import { PageHeader, StatCard, SectionCard, adminColors } from '@/components/admin/ui';
+import { PageHeader, StatCard, SectionCard } from '@/components/admin/ui';
+import { DataTable } from '@/components/ui/data-table';
+import { ColumnDef } from '@tanstack/react-table';
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Receipt, Printer, Eye, FileText, DollarSign } from 'lucide-react';
 import ThermalBill from '@/components/bill/ThermalBill';
-import PrintBillPortal from '@/components/bill/PrintBillPortal';
+import PrintBillPortal, { type BillFormat } from '@/components/bill/PrintBillPortal';
+import { generateInvoiceNo } from '@/lib/idGenerator';
 import { rupees } from '@/lib/billing';
 
 export default function GeneratedBillsPage() {
   const { orders } = useAdmin();
-  const [search, setSearch] = useState('');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'cash' | 'upi' | 'card'>('all');
   const [selectedBillOrder, setSelectedBillOrder] = useState<Order | null>(null);
-  const [reprintOrder, setReprintOrder] = useState<Order | null>(null);
+  const [reprint, setReprint] = useState<{ order: Order; format: BillFormat } | null>(null);
 
-  // Filter bills
   const filteredBills = useMemo(() => {
     return orders.filter((o) => {
-      const q = search.toLowerCase().trim();
-      const matchSearch =
-        !q ||
-        o.id.toLowerCase().includes(q) ||
-        (o.orderId && o.orderId.toLowerCase().includes(q)) ||
-        (o.customerName && o.customerName.toLowerCase().includes(q)) ||
-        (o.customerPhone && o.customerPhone.includes(q));
-
       const matchPayment = paymentFilter === 'all' || o.paymentMode === paymentFilter;
-
-      return matchSearch && matchPayment;
+      return matchPayment;
     });
-  }, [orders, search, paymentFilter]);
+  }, [orders, paymentFilter]);
 
-  // Statistics
-  const stats = useMemo(() => {
-    let totalRevenue = 0;
-    let cashRevenue = 0;
-    let upiRevenue = 0;
-    let cardRevenue = 0;
-
-    orders.forEach((o) => {
-      const amount = o.grandTotal || 0;
-      totalRevenue += amount;
-      if (o.paymentMode === 'cash') cashRevenue += amount;
-      else if (o.paymentMode === 'upi') upiRevenue += amount;
-      else if (o.paymentMode === 'card') cardRevenue += amount;
-    });
-
-    return {
-      totalCount: orders.length,
-      totalRevenue,
-      cashRevenue,
-      upiRevenue,
-      cardRevenue,
-    };
+  const totalBilledRevenue = useMemo(() => {
+    return orders.reduce((sum, o) => sum + (o.grandTotal || 0), 0);
   }, [orders]);
 
-  const handlePrint = (order: Order) => {
-    setReprintOrder(order);
+  /**
+   * The counter reprints an 80mm roll; a customer asking for "the bill" wants
+   * the A4 tax invoice. Both come from the same order, so the format is a
+   * parameter rather than two separate paths.
+   */
+  const handlePrint = (order: Order, format: BillFormat) => {
+    setReprint({ order, format });
     requestAnimationFrame(() => {
       window.print();
-      setTimeout(() => setReprintOrder(null), 2000);
+      setTimeout(() => setReprint(null), 1000);
     });
   };
 
+  const columns = useMemo<ColumnDef<any, Order>[]>(() => [
+    {
+      accessorKey: 'id',
+      header: 'Bill No / ID',
+      cell: ({ row }) => (
+        <div>
+          <div className="font-extrabold text-stone-900 dark:text-stone-100">{row.original.id}</div>
+          <div className="text-[10px] text-stone-400 font-semibold">{new Date(row.original.createdAt || row.original.orderDate || Date.now()).toLocaleString()}</div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'customerName',
+      header: 'Customer',
+      cell: ({ row }) => (
+        <div>
+          <div className="font-bold text-stone-900 dark:text-stone-100">{row.original.customerName || 'Walk-in'}</div>
+          <div className="text-xs text-stone-400">{row.original.customerPhone || 'N/A'}</div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'paymentMode',
+      header: 'Payment Mode',
+      cell: ({ row }) => (
+        <Badge variant="outline" className="font-black text-[10px] uppercase bg-stone-100 dark:bg-stone-800">
+          {row.original.paymentMode || 'Cash'}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'grandTotal',
+      header: 'Amount Paid',
+      cell: ({ row }) => (
+        <span className="font-black text-amber-700 dark:text-amber-500 text-sm">
+          {rupees(row.original.grandTotal)}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => {
+        const order = row.original;
+        return (
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedBillOrder(order)}
+              className="h-8 px-2 text-xs font-bold"
+            >
+              <Eye className="size-3.5" /> View
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => handlePrint(order, 'thermal')}
+              className="h-8 bg-amber-600 px-2 text-xs font-bold text-white hover:bg-amber-700"
+              title="Print 80mm thermal printer bill"
+            >
+              <Printer className="size-3.5" /> 80mm Bill
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePrint(order, 'a4')}
+              className="h-8 px-2 text-xs font-bold"
+              title="Full-page A4 tax invoice"
+            >
+              <FileText className="size-3.5" /> A4 Invoice
+            </Button>
+          </div>
+        );
+      },
+    },
+  ], []);
+
   return (
-    <AdminLayout title="Generated Bills History">
-      {/* Mounted while re-printing to direct output to 80mm thermal receipt */}
-      {reprintOrder && <PrintBillPortal order={reprintOrder} invoiceNo={reprintOrder.id} />}
+    <AdminLayout title="Generated Bills & Receipts">
+      <div className="space-y-4 w-full max-w-full">
+        {reprint && (
+          <PrintBillPortal
+            order={reprint.order}
+            format={reprint.format}
+            invoiceNo={generateInvoiceNo(reprint.order.id)}
+            copyLabel={reprint.format === 'a4' ? 'DUPLICATE' : undefined}
+          />
+        )}
 
-      <PageHeader
-        title="Generated Bills & Revenue"
-        subtitle={`Viewing ${filteredBills.length} of ${orders.length} generated bills`}
-      />
+        <PageHeader
+          title="Cashier Bills & Transaction Log"
+          subtitle="Reprint the counter receipt or issue a full A4 tax invoice for any order"
+        />
 
-      {/* Summary Stat Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 6, sm: 3 }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <StatCard
-            icon="📑"
-            label="Total Bills"
-            value={stats.totalCount}
-            accent={adminColors.brand}
-          />
-        </Grid>
-        <Grid size={{ xs: 6, sm: 3 }}>
-          <StatCard
-            icon="💵"
-            label="Cash Collections"
-            value={rupees(stats.cashRevenue)}
-            accent={adminColors.success}
-          />
-        </Grid>
-        <Grid size={{ xs: 6, sm: 3 }}>
-          <StatCard
-            icon="📱"
-            label="UPI Collections"
-            value={rupees(stats.upiRevenue)}
-            accent="#7C3AED"
-          />
-        </Grid>
-        <Grid size={{ xs: 6, sm: 3 }}>
-          <StatCard
-            icon="💳"
-            label="Card Collections"
-            value={rupees(stats.cardRevenue)}
+            icon={<Receipt className="w-5 h-5" />}
+            label="Total Receipts Issued"
+            value={orders.length}
+            sub="Register transactions"
             accent="#2563EB"
           />
-        </Grid>
-      </Grid>
-
-      {/* Filter and Search Bar */}
-      <SectionCard noPadding>
-        <Box
-          sx={{
-            p: 2,
-            display: 'flex',
-            gap: 1.5,
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            borderBottom: `1px solid ${adminColors.divider}`,
-            bgcolor: adminColors.bgPanel,
-          }}
-        >
-          <TextField
-            size="small"
-            placeholder="Search by Bill No, Order ID, Customer or Phone..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{ flex: '1 1 240px', minWidth: 200 }}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search sx={{ color: '#9E9E9E', fontSize: 18 }} />
-                  </InputAdornment>
-                ),
-              },
-            }}
+          <StatCard
+            icon={<DollarSign className="w-5 h-5" />}
+            label="Total Register Receipts Sum"
+            value={rupees(totalBilledRevenue)}
+            sub="All payment modes"
+            accent="#059669"
           />
+        </div>
 
-          {/* Payment filter chips */}
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {(
-              [
-                { mode: 'all', label: 'All Payments', emoji: '🏬' },
-                { mode: 'cash', label: 'Cash', emoji: '💵' },
-                { mode: 'upi', label: 'UPI', emoji: '📱' },
-                { mode: 'card', label: 'Card', emoji: '💳' },
-              ] as const
-            ).map((p) => (
-              <Chip
-                key={p.mode}
-                label={`${p.emoji} ${p.label}`}
-                onClick={() => setPaymentFilter(p.mode)}
-                sx={{
-                  fontWeight: paymentFilter === p.mode ? 800 : 500,
-                  bgcolor: paymentFilter === p.mode ? adminColors.brand : adminColors.neutralBg,
-                  color: paymentFilter === p.mode ? '#FFFFFF' : adminColors.textSecondary,
-                  cursor: 'pointer',
-                }}
-              />
+        <SectionCard noPadding className="p-3">
+          <div className="flex gap-2 overflow-x-auto pb-2.5 mb-3 border-b border-stone-100 dark:border-[#2C2C2E]/60 scrollbar-none">
+            {(['all', 'cash', 'upi', 'card'] as const).map((mode) => (
+              <Button
+                key={mode}
+                variant={paymentFilter === mode ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPaymentFilter(mode)}
+                className={`rounded-full text-xs font-bold uppercase ${
+                  paymentFilter === mode ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''
+                }`}
+              >
+                {mode} ({orders.filter((o) => mode === 'all' || o.paymentMode === mode).length})
+              </Button>
             ))}
-          </Box>
-        </Box>
+          </div>
 
-        {/* Bills Table */}
-        {filteredBills.length === 0 ? (
-          <Box sx={{ p: 6, textAlign: 'center', color: adminColors.textMuted }}>
-            <ReceiptLong sx={{ fontSize: 48, opacity: 0.3, mb: 1 }} />
-            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-              No bills found
-            </Typography>
-            <Typography variant="body2" sx={{ fontSize: 13 }}>
-              Try adjusting your search query or payment filter
-            </Typography>
-          </Box>
-        ) : (
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table>
-              <TableHead sx={{ bgcolor: adminColors.bgSubtle }}>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 800 }}>Bill / Order No</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Date & Time</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Customer</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Type</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Payment Mode</TableCell>
-                  <TableCell sx={{ fontWeight: 800 }}>Items</TableCell>
-                  <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Amount</TableCell>
-                  <TableCell sx={{ fontWeight: 800, textAlign: 'center' }}>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredBills.map((order) => (
-                  <TableRow key={order.id} hover>
-                    <TableCell>
-                      <Typography sx={{ fontWeight: 800, fontSize: 13, color: adminColors.textPrimary }}>
-                        {order.id}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell>
-                      <Typography sx={{ fontSize: 12.5, color: adminColors.textSecondary }}>
-                        {order.orderDate} {order.orderTime}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell>
-                      <Typography sx={{ fontSize: 13, fontWeight: 700, color: adminColors.textPrimary }}>
-                        {order.customerName || 'Walk-in'}
-                      </Typography>
-                      {order.customerPhone && (
-                        <Typography sx={{ fontSize: 11, color: adminColors.textMuted }}>
-                          {order.customerPhone}
-                        </Typography>
-                      )}
-                    </TableCell>
-
-                    <TableCell>
-                      <Chip
-                        label={order.orderType === 'dine-in' ? `Table ${order.tableNumber || ''}` : 'Counter'}
-                        size="small"
-                        sx={{
-                          fontWeight: 700, fontSize: 11,
-                          bgcolor: order.orderType === 'dine-in' ? '#EFF6FF' : '#F5F5F4',
-                          color: order.orderType === 'dine-in' ? '#1D4ED8' : '#44403C',
-                        }}
-                      />
-                    </TableCell>
-
-                    <TableCell>
-                      <Chip
-                        label={(order.paymentMode || 'cash').toUpperCase()}
-                        size="small"
-                        sx={{
-                          fontWeight: 800, fontSize: 11,
-                          bgcolor:
-                            order.paymentMode === 'cash'
-                              ? '#F0FDF4'
-                              : order.paymentMode === 'upi'
-                              ? '#F5F3FF'
-                              : '#EFF6FF',
-                          color:
-                            order.paymentMode === 'cash'
-                              ? '#15803D'
-                              : order.paymentMode === 'upi'
-                              ? '#7C3AED'
-                              : '#1D4ED8',
-                        }}
-                      />
-                    </TableCell>
-
-                    <TableCell>
-                      <Typography sx={{ fontSize: 12.5, color: adminColors.textSecondary }}>
-                        {(order.items || []).length} item{(order.items || []).length === 1 ? '' : 's'}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell sx={{ textAlign: 'right' }}>
-                      <Typography sx={{ fontWeight: 900, fontSize: 13.5, color: adminColors.brand }}>
-                        {rupees(order.grandTotal || 0)}
-                      </Typography>
-                    </TableCell>
-
-                    <TableCell sx={{ textAlign: 'center' }}>
-                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                        <Tooltip title="View Receipt Details">
-                          <IconButton
-                            size="small"
-                            onClick={() => setSelectedBillOrder(order)}
-                            sx={{ color: adminColors.textSecondary }}
-                          >
-                            <Visibility fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-
-                        <Tooltip title="Reprint 80mm Receipt">
-                          <IconButton
-                            size="small"
-                            onClick={() => handlePrint(order)}
-                            sx={{ color: adminColors.brand }}
-                          >
-                            <Print fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Box>
-        )}
-      </SectionCard>
+          <DataTable
+            columns={columns}
+            data={filteredBills}
+            searchKey="customerName"
+            searchPlaceholder="Search bill ID or customer name..."
+            height="550px"
+            rowHeight={56}
+            enableVirtualization={true}
+          />
+        </SectionCard>
+      </div>
 
       {/* Bill View Modal */}
-      {selectedBillOrder && (
-        <Dialog
-          open={!!selectedBillOrder}
-          onClose={() => setSelectedBillOrder(null)}
-          maxWidth="xs"
-          fullWidth
-          slotProps={{ paper: { sx: { borderRadius: '16px', overflow: 'hidden' } } }}
-        >
-          <Box sx={{ p: 2, bgcolor: adminColors.textPrimary, color: '#FFFFFF', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <PointOfSale sx={{ color: adminColors.accent }} />
-              <Typography sx={{ fontWeight: 800, fontSize: 15 }}>Bill Preview</Typography>
-            </Box>
-            <IconButton size="small" onClick={() => setSelectedBillOrder(null)} sx={{ color: '#FFFFFF' }}>
-              <Close fontSize="small" />
-            </IconButton>
-          </Box>
+      <Dialog open={!!selectedBillOrder} onOpenChange={(val) => { if (!val) setSelectedBillOrder(null); }}>
+        {selectedBillOrder && (
+          <DialogContent className="max-w-sm gap-0 overflow-hidden p-0">
+            <DialogHeader className="border-b border-stone-100 px-5 py-4 text-left dark:border-[#2C2C2E]/60">
+              <DialogTitle className="text-base font-black">
+                Bill {selectedBillOrder.id}
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                Counter receipt preview — {rupees(selectedBillOrder.grandTotal)}
+              </DialogDescription>
+            </DialogHeader>
 
-          <DialogContent sx={{ p: 2, bgcolor: '#F5F5F4' }}>
-            <Box sx={{ bgcolor: '#FFFFFF', border: '1px dashed #CBD5E1', borderRadius: '10px', py: 1 }}>
-              <ThermalBill order={selectedBillOrder} invoiceNo={selectedBillOrder.id} />
-            </Box>
+            <div className="max-h-[55dvh] overflow-y-auto bg-stone-50/60 p-4 dark:bg-stone-950/40">
+              <div className="rounded-xl border border-dashed border-stone-300 bg-white py-2 dark:border-[#2C2C2E]/60">
+                <ThermalBill order={selectedBillOrder} />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 border-t border-stone-100 bg-stone-50/40 px-5 py-3.5 dark:border-[#2C2C2E]/60 dark:bg-stone-950/30 sm:flex-row">
+              <Button
+                onClick={() => handlePrint(selectedBillOrder, 'thermal')}
+                className="flex-1 rounded-xl bg-amber-600 text-xs font-black text-white hover:bg-amber-700"
+              >
+                <Printer className="size-3.5" /> Print 80mm Bill
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handlePrint(selectedBillOrder, 'a4')}
+                className="flex-1 rounded-xl text-xs font-bold"
+              >
+                <FileText className="size-3.5" /> A4 Invoice
+              </Button>
+            </div>
           </DialogContent>
-
-          <DialogActions sx={{ p: 2, gap: 1, borderTop: `1px solid ${adminColors.border}` }}>
-            <Button
-              fullWidth variant="contained"
-              onClick={() => {
-                handlePrint(selectedBillOrder);
-                setSelectedBillOrder(null);
-              }}
-              startIcon={<Print />}
-              sx={{ minHeight: 44, borderRadius: '10px', fontWeight: 800, bgcolor: adminColors.brand }}
-            >
-              Print Bill
-            </Button>
-          </DialogActions>
-        </Dialog>
-      )}
+        )}
+      </Dialog>
     </AdminLayout>
   );
 }

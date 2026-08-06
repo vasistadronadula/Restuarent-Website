@@ -1,220 +1,244 @@
 'use client';
 
 import React from 'react';
-import { restaurantInfo } from '@/data/restaurantInfo';
+import {
+  BILL_FOOTNOTE, BILL_THANKS, BILL_TITLE, BILL_UNPAID_NOTICE,
+  billAmount, billCounts, billHeader, billItems, billMetaLines,
+  billPaymentLine, billSummaryLines,
+} from '@/lib/billDocument';
 import type { Order } from '@/types';
 
 /**
  * ThermalBill — the one 80mm bill used everywhere: the cashier's counter
- * receipt, the auto-print on a new order, and the copy a customer prints
- * from their order history. One component means a bill can't say different
- * things depending on where it was printed from.
+ * receipt, the auto-print on a new order, and the copy a customer prints from
+ * their order history. One component means a bill can't say different things
+ * depending on where it was printed from, and every line it prints comes from
+ * lib/billDocument, which the Bluetooth printer reads from too.
  *
  * Deliberately plain markup with explicit styles rather than MUI: this is
- * printed, not designed. Everything is monospace, black on white, sized in
- * millimetres, and every row is width-constrained so nothing can spill past
- * the edge of the paper. Long dish names wrap onto their own lines instead
- * of squeezing the amount column — the failure mode on a real printer is a
- * truncated total, which is worse than a taller bill.
+ * printed, not designed. Monospace, black on white, sized in millimetres.
  *
- * No QR code: it cost vertical roll on every ticket and nothing at the
- * counter scanned it.
+ * The item table is three columns — QTY, ITEM, AMOUNT — with the unit rate on
+ * its own indented line beneath the name. That shape is not arbitrary: 80mm
+ * paper has about 72mm of printable width, which at a legible monospace size
+ * is roughly 40 characters. A four-column layout with rate in its own column
+ * leaves a name column too narrow for "Chicken Dum Biryani (Full)", and the
+ * failure mode on a real printer is a squeezed or truncated amount — worse
+ * than a bill one line taller.
+ *
+ * The sheet declares its own width and padding, and the @media print block in
+ * globals.css matches them exactly, so the preview on the cashier's screen is
+ * the same width as the paper coming out of the printer.
+ *
+ * No QR code, deliberately. It cost vertical roll on every ticket and nothing
+ * at the counter ever scanned it.
  */
 
 const RUPEE = '₹';
 
-const money = (n: number) =>
-  n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
 export interface ThermalBillProps {
   order: Order;
   invoiceNo?: string;
-  /** e.g. "CUSTOMER COPY" — printed under the header when set. */
+  /** e.g. "CUSTOMER COPY" — printed under the title when set. */
   copyLabel?: string;
 }
 
 const styles: Record<string, React.CSSProperties> = {
   sheet: {
-    width: '72mm',
+    width: '80mm',
     margin: '0 auto',
-    padding: '2mm 0 4mm',
+    padding: '3mm 4mm 5mm',
     background: '#FFFFFF',
     color: '#000000',
     fontFamily: '"Courier New", Courier, ui-monospace, monospace',
-    fontSize: '11.5px',
+    fontSize: '11px',
     lineHeight: 1.35,
     boxSizing: 'border-box',
+    // Thermal output is one colour; anything mid-grey dithers into a smudge.
+    WebkitFontSmoothing: 'none',
   },
   center: { textAlign: 'center' },
-  shopName: { fontSize: '16px', fontWeight: 900, letterSpacing: '0.5px', margin: 0 },
-  tagline: { fontSize: '10px', margin: '1px 0 0' },
-  meta: { fontSize: '10.5px', margin: '1px 0 0', wordBreak: 'break-word' },
-  rule: { borderTop: '1px dashed #000', margin: '6px 0' },
-  ruleSolid: { borderTop: '1px solid #000', margin: '4px 0' },
-  row: { display: 'flex', justifyContent: 'space-between', gap: '6px' },
-  rowLabel: { flex: '1 1 auto', minWidth: 0, wordBreak: 'break-word' },
-  rowValue: { flexShrink: 0, textAlign: 'right', whiteSpace: 'nowrap' },
-  itemName: { fontWeight: 700, wordBreak: 'break-word' },
-  itemMathRow: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: '6px',
-    paddingLeft: '4mm',
+  shopName: {
+    fontSize: '15px',
+    fontWeight: 900,
+    letterSpacing: '0.4px',
+    margin: 0,
+    lineHeight: 1.2,
   },
+  tagline: { fontSize: '9.5px', margin: '1px 0 0' },
+  meta: { fontSize: '10px', margin: '1px 0 0', wordBreak: 'break-word' },
+  title: {
+    fontSize: '11.5px',
+    fontWeight: 900,
+    letterSpacing: '2px',
+    textAlign: 'center',
+    margin: '1px 0',
+  },
+  copyLabel: {
+    fontSize: '10px',
+    fontWeight: 800,
+    letterSpacing: '1px',
+    textAlign: 'center',
+  },
+  ruleDashed: { borderTop: '1px dashed #000', margin: '5px 0' },
+  ruleSolid: { borderTop: '1px solid #000', margin: '4px 0' },
+  ruleDouble: { borderTop: '3px double #000', margin: '4px 0' },
+
+  /** Label left, value right — the meta block and the summary block. */
+  row: { display: 'flex', justifyContent: 'space-between', gap: '3mm' },
+  rowLabel: { flex: '0 0 auto', whiteSpace: 'nowrap' },
+  rowValue: {
+    flex: '1 1 auto',
+    minWidth: 0,
+    textAlign: 'right',
+    wordBreak: 'break-word',
+    fontWeight: 700,
+  },
+
+  /** The item table. Column widths are fixed so every amount lines up. */
+  itemGrid: {
+    display: 'grid',
+    gridTemplateColumns: '7mm 1fr 17mm',
+    columnGap: '1.5mm',
+    alignItems: 'start',
+  },
+  colHead: { fontWeight: 800, fontSize: '10px', letterSpacing: '0.3px' },
+  qtyCell: { textAlign: 'center', fontWeight: 800, fontVariantNumeric: 'tabular-nums' },
+  nameCell: { fontWeight: 700, wordBreak: 'break-word', lineHeight: 1.3 },
+  amountCell: {
+    textAlign: 'right',
+    fontWeight: 700,
+    fontVariantNumeric: 'tabular-nums',
+    whiteSpace: 'nowrap',
+  },
+  rateCell: {
+    gridColumn: '2 / 4',
+    fontSize: '10px',
+    paddingLeft: '2mm',
+    paddingBottom: '1.2mm',
+  },
+
   totalRow: {
     display: 'flex',
     justifyContent: 'space-between',
-    gap: '6px',
-    fontSize: '14px',
+    gap: '3mm',
+    fontSize: '14.5px',
     fontWeight: 900,
+    letterSpacing: '0.3px',
   },
-  footer: { textAlign: 'center', fontSize: '10px', marginTop: '4px' },
+  notice: {
+    textAlign: 'center',
+    fontSize: '10.5px',
+    fontWeight: 800,
+    margin: '3px 0 0',
+  },
+  footer: { textAlign: 'center', fontSize: '9.5px', marginTop: '2px', lineHeight: 1.45 },
 };
 
 export default function ThermalBill({ order, invoiceNo, copyLabel }: ThermalBillProps) {
-  const items = order.items || [];
-  const subtotal = order.subtotal || 0;
-  const discount = order.discount || 0;
-  const cgst = order.cgst || 0;
-  const sgst = order.sgst || 0;
-  const grandTotal = order.grandTotal || subtotal;
-
-  // The POS rounds the payable amount to whole rupees; showing the rounding
-  // as its own line is what makes the arithmetic on the bill add up, and is
-  // what a GST bill is expected to do.
-  const roundOff = Number((grandTotal - (subtotal - discount + cgst + sgst)).toFixed(2));
-
-  const orderTypeLabel = (order.orderType || 'takeaway').replace('-', ' ').toUpperCase();
+  const shop = billHeader();
+  const items = billItems(order);
+  const meta = billMetaLines(order, invoiceNo);
+  const summary = billSummaryLines(order);
+  const payment = billPaymentLine(order);
+  const counts = billCounts(order);
+  const unpaid = order.paymentStatus !== 'paid';
 
   return (
     <div className="thermal-bill" style={styles.sheet}>
+      {/* ── Who is billing ────────────────────────────────────────────── */}
       <div style={styles.center}>
-        <div style={styles.shopName}>{restaurantInfo.name.toUpperCase()}</div>
-        <div style={styles.tagline}>Authentic Telangana &amp; Hyderabadi Cuisine</div>
-        <div style={styles.meta}>{restaurantInfo.addressLine}</div>
-        <div style={styles.meta}>Ph: {restaurantInfo.phoneDisplay}</div>
-        {restaurantInfo.gstin && <div style={styles.meta}>GSTIN: {restaurantInfo.gstin}</div>}
-        {restaurantInfo.fssai && <div style={styles.meta}>FSSAI: {restaurantInfo.fssai}</div>}
-        {copyLabel && (
-          <div style={{ ...styles.meta, fontWeight: 800, marginTop: '3px' }}>{copyLabel}</div>
-        )}
+        <div style={styles.shopName}>{shop.name}</div>
+        <div style={styles.tagline}>{shop.tagline}</div>
+        <div style={styles.meta}>{shop.addressLine}</div>
+        <div style={styles.meta}>Ph: {shop.phone}</div>
+        {shop.gstin && <div style={styles.meta}>GSTIN: {shop.gstin}</div>}
+        {shop.fssai && <div style={styles.meta}>FSSAI: {shop.fssai}</div>}
       </div>
 
-      <div style={styles.rule} />
+      <div style={styles.ruleSolid} />
+      <div style={styles.title}>{BILL_TITLE}</div>
+      {copyLabel && <div style={styles.copyLabel}>{copyLabel}</div>}
+      <div style={styles.ruleSolid} />
 
+      {/* ── Which bill, whose ─────────────────────────────────────────── */}
       <div>
-        {invoiceNo && (
-          <div style={styles.row}>
-            <span style={styles.rowLabel}>Bill No</span>
-            <span style={styles.rowValue}>{invoiceNo}</span>
+        {meta.map((line) => (
+          <div key={line.label} style={styles.row}>
+            <span style={styles.rowLabel}>{line.label}</span>
+            <span style={styles.rowValue}>{line.value}</span>
           </div>
-        )}
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Order</span>
-          <span style={styles.rowValue}>{order.id}</span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Date</span>
-          <span style={styles.rowValue}>
-            {order.orderDate} {order.orderTime}
-          </span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Type</span>
-          <span style={styles.rowValue}>
-            {orderTypeLabel}
-            {order.tableNumber ? ` · TABLE ${order.tableNumber}` : ''}
-          </span>
-        </div>
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>Customer</span>
-          <span style={styles.rowValue}>{order.customerName || 'Walk-in'}</span>
-        </div>
-        {order.customerPhone && order.customerPhone !== 'Counter Sale' && (
-          <div style={styles.row}>
-            <span style={styles.rowLabel}>Phone</span>
-            <span style={styles.rowValue}>{order.customerPhone}</span>
-          </div>
-        )}
+        ))}
       </div>
 
-      <div style={styles.rule} />
+      <div style={styles.ruleDashed} />
 
-      <div style={{ ...styles.row, fontWeight: 800 }}>
-        <span style={styles.rowLabel}>ITEM</span>
-        <span style={styles.rowValue}>AMOUNT</span>
+      {/* ── What was sold ─────────────────────────────────────────────── */}
+      <div style={styles.itemGrid}>
+        <span style={{ ...styles.colHead, textAlign: 'center' }}>QTY</span>
+        <span style={styles.colHead}>ITEM</span>
+        <span style={{ ...styles.colHead, textAlign: 'right' }}>AMOUNT</span>
       </div>
       <div style={styles.ruleSolid} />
 
-      {items.map((item, idx) => {
-        const qty = item.quantity || 1;
-        const rate = item.price || 0;
-        return (
-          <div key={`${item.name}-${idx}`} style={{ marginBottom: '3px' }}>
-            <div style={styles.itemName}>
-              {idx + 1}. {item.name}
-            </div>
-            <div style={styles.itemMathRow}>
+      <div style={styles.itemGrid}>
+        {items.map((item) => (
+          <React.Fragment key={`${item.index}-${item.name}`}>
+            <span style={styles.qtyCell}>{item.qty}</span>
+            <span style={styles.nameCell}>{item.name}</span>
+            <span style={styles.amountCell}>{billAmount(item.amount)}</span>
+            {/* The unit rate, so the customer can check the multiplication. */}
+            <span style={styles.rateCell}>@ {billAmount(item.rate)}</span>
+          </React.Fragment>
+        ))}
+      </div>
+
+      <div style={styles.ruleSolid} />
+      <div style={{ ...styles.row, fontSize: '10px' }}>
+        <span style={styles.rowLabel}>
+          {counts.lines} item{counts.lines === 1 ? '' : 's'}
+        </span>
+        <span style={{ ...styles.rowValue, fontWeight: 400 }}>
+          Total qty: {counts.units}
+        </span>
+      </div>
+      <div style={styles.ruleDashed} />
+
+      {/* ── What it comes to ──────────────────────────────────────────── */}
+      {summary.map((line) =>
+        line.strong ? (
+          <React.Fragment key={line.label}>
+            <div style={styles.ruleDouble} />
+            <div style={styles.totalRow}>
+              <span>{line.label}</span>
               <span>
-                {qty} x {money(rate)}
+                {RUPEE}
+                {line.value}
               </span>
-              <span style={styles.rowValue}>{money(rate * qty)}</span>
             </div>
+            <div style={styles.ruleDouble} />
+          </React.Fragment>
+        ) : (
+          <div key={line.label} style={styles.row}>
+            <span style={styles.rowLabel}>{line.label}</span>
+            <span style={styles.rowValue}>{line.value}</span>
           </div>
-        );
-      })}
-
-      <div style={styles.rule} />
-
-      <div style={styles.row}>
-        <span style={styles.rowLabel}>Subtotal</span>
-        <span style={styles.rowValue}>{money(subtotal)}</span>
-      </div>
-      {discount > 0 && (
-        <div style={styles.row}>
-          <span style={styles.rowLabel}>
-            Discount{order.couponCode ? ` (${order.couponCode})` : ''}
-          </span>
-          <span style={styles.rowValue}>-{money(discount)}</span>
-        </div>
-      )}
-      <div style={styles.row}>
-        <span style={styles.rowLabel}>CGST 2.5%</span>
-        <span style={styles.rowValue}>{money(cgst)}</span>
-      </div>
-      <div style={styles.row}>
-        <span style={styles.rowLabel}>SGST 2.5%</span>
-        <span style={styles.rowValue}>{money(sgst)}</span>
-      </div>
-
-      <div style={styles.ruleSolid} />
-      <div style={styles.totalRow}>
-        <span>TOTAL</span>
-        <span>
-          {RUPEE}
-          {money(grandTotal)}
-        </span>
-      </div>
-      <div style={styles.ruleSolid} />
-
-      <div style={styles.row}>
-        <span style={styles.rowLabel}>Paid by {(order.paymentMode || 'cash').toUpperCase()}</span>
-        <span style={{ ...styles.rowValue, fontWeight: 800 }}>
-          {order.paymentStatus === 'paid' ? 'PAID' : 'UNPAID'}
-        </span>
-      </div>
-      {order.paymentStatus !== 'paid' && (
-        <div style={{ ...styles.meta, fontWeight: 800, marginTop: '2px' }}>
-          ** PAYMENT PENDING — COLLECT AT COUNTER **
-        </div>
+        ),
       )}
 
-      <div style={styles.rule} />
+      {/* ── How it was settled ────────────────────────────────────────── */}
+      <div style={styles.row}>
+        <span style={styles.rowLabel}>{payment.label}</span>
+        <span style={{ ...styles.rowValue, fontWeight: 900 }}>{payment.value}</span>
+      </div>
+      {unpaid && <div style={styles.notice}>{BILL_UNPAID_NOTICE}</div>}
+
+      <div style={styles.ruleDashed} />
 
       <div style={styles.footer}>
-        <div style={{ fontWeight: 800, fontSize: '11.5px' }}>Thank you! Visit again</div>
-        <div>{restaurantInfo.website}</div>
-        <div style={{ marginTop: '2px' }}>This is a computer generated bill</div>
+        <div style={{ fontWeight: 900, fontSize: '11px' }}>{BILL_THANKS}</div>
+        <div>{shop.website}</div>
+        <div style={{ marginTop: '2px' }}>{BILL_FOOTNOTE}</div>
       </div>
     </div>
   );

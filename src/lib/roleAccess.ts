@@ -32,6 +32,7 @@ export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[] | 'all'> = {
     '/admin/menu-management',
     '/admin/inventory',
     '/admin/coupons',
+    '/admin/performance',
   ],
   chef: ['/admin/kitchen'],
   // '/cashier' is an unlinked alias that renders the same POS billing screen
@@ -145,6 +146,7 @@ export function canManageStaffRole(
 
 export function canAccess(role: UserRole | null | undefined, pathname: string): boolean {
   if (!role || role === 'customer') return false;
+  if (pathname === '/admin') return true;
   const matches = (prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
 
   if (ROLE_DENIED_PREFIXES[role]?.some(matches)) return false;

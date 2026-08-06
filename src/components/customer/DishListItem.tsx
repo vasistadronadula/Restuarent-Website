@@ -1,14 +1,13 @@
 'use client';
 
 import React, { memo } from 'react';
-import { Box, Typography, Button, Chip } from '@mui/material';
-import { Star, Timer, LocalFireDepartment } from '@mui/icons-material';
 import Link from 'next/link';
+import { Clock, Flame, Star } from 'lucide-react';
+
+import { cn, formatCurrency, FALLBACK_DISH_IMAGE } from '@/lib/utils';
 import type { MenuItem } from '@/types';
 import { useDishPortion, PORTION_LABELS, type Portion } from '@/hooks/useDishPortion';
 import CartStepper from './CartStepper';
-
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80';
 
 interface Props {
   item: MenuItem;
@@ -40,204 +39,133 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
   const unavailable = !item.isAvailable;
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        gap: { xs: 1.5, sm: 2.5 },
-        py: { xs: 2, sm: 2.5 },
-        borderBottom: divider ? '1px dashed' : 'none',
-        borderColor: 'rgba(0,0,0,0.1)',
-        opacity: unavailable ? 0.55 : 1,
-      }}
+    <div
+      className={cn(
+        'flex gap-3 py-4 sm:gap-6 sm:py-5',
+        divider && 'border-b border-dashed',
+        unavailable && 'opacity-55'
+      )}
     >
       {/* ── Left: everything you read ───────────────────────────────────── */}
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75, flexWrap: 'wrap' }}>
-          <Box
+      <div className="min-w-0 flex-1">
+        <div className="mb-1.5 flex flex-wrap items-center gap-2">
+          <span
             className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'}
             role="img"
             aria-label={item.vegStatus === 'veg' ? 'Vegetarian' : 'Non-vegetarian'}
           />
           {item.isSpecial ? (
-            <Typography sx={{ fontSize: '11px', fontWeight: 800, color: '#E65100', letterSpacing: 0.3 }}>
-              ⭐ CHEF&apos;S SPECIAL
-            </Typography>
+            <span className="text-[11px] font-extrabold tracking-wide text-[#E65100] uppercase dark:text-warning">
+              ★ Chef&apos;s Special
+            </span>
           ) : item.isPopular ? (
-            <Typography sx={{ fontSize: '11px', fontWeight: 800, color: '#C62828', letterSpacing: 0.3 }}>
-              🔥 BESTSELLER
-            </Typography>
+            <span className="text-primary text-[11px] font-extrabold tracking-wide uppercase">
+              Bestseller
+            </span>
           ) : null}
-        </Box>
+        </div>
 
-        <Typography
-          component={Link}
+        <Link
           href={`/menu?q=${encodeURIComponent(item.name)}`}
-          sx={{
-            fontWeight: 700,
-            fontSize: { xs: '15px', sm: '16.5px' },
-            color: 'text.primary',
-            textDecoration: 'none',
-            '&:hover': { color: 'primary.main' },
-            display: 'block',
-            lineHeight: 1.3,
-            mb: 0.5,
-          }}
+          className="hover:text-primary font-display mb-1 block text-[15px] leading-snug font-bold transition-colors sm:text-[16.5px]"
         >
           {item.name}
-        </Typography>
+        </Link>
 
-        <Typography sx={{ fontWeight: 800, fontSize: { xs: '14.5px', sm: '15.5px' }, color: 'text.primary', mb: 0.75 }}>
-          ₹{activePrice}
-        </Typography>
+        <p className="mb-1.5 text-[14.5px] font-extrabold tabular-nums sm:text-[15.5px]">
+          {formatCurrency(activePrice)}
+        </p>
 
         {/* Rating and prep time. Both are quick scan signals — they sit on one
             line so the description keeps its two full lines below. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75, flexWrap: 'wrap' }}>
-          <Box
-            sx={{
-              display: 'inline-flex', alignItems: 'center', gap: 0.4,
-              border: '1px solid rgba(46,125,50,0.35)', borderRadius: '6px',
-              px: 0.7, py: 0.15,
-            }}
-          >
-            <Star sx={{ fontSize: 13, color: 'success.main' }} />
-            <Typography sx={{ fontSize: '12px', fontWeight: 800, color: 'success.main' }}>
-              {item.rating}
-            </Typography>
-            <Typography sx={{ fontSize: '11px', color: 'text.secondary' }}>
-              ({item.reviewCount})
-            </Typography>
-          </Box>
+        <div className="mb-1.5 flex flex-wrap items-center gap-3">
+          <span className="border-success/35 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5">
+            <Star className="fill-success text-success size-3" />
+            <span className="text-success text-xs font-extrabold">{item.rating}</span>
+            <span className="text-muted-foreground text-[11px]">({item.reviewCount})</span>
+          </span>
 
           {item.prepTime && (
-            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.35 }}>
-              <Timer sx={{ fontSize: 13, color: 'text.secondary' }} />
-              <Typography sx={{ fontSize: '11.5px', color: 'text.secondary', fontWeight: 600 }}>
-                {item.prepTime} min
-              </Typography>
-            </Box>
+            <span className="text-muted-foreground inline-flex items-center gap-1 text-[11.5px] font-semibold">
+              <Clock className="size-3" />
+              {item.prepTime} min
+            </span>
           )}
 
           {item.spiceLevel ? (
-            <Box sx={{ display: 'inline-flex', gap: 0.15 }} aria-label={`Spice level ${item.spiceLevel} of 3`}>
+            <span
+              className="inline-flex gap-px"
+              role="img"
+              aria-label={`Spice level ${item.spiceLevel} of 3`}
+            >
               {Array.from({ length: item.spiceLevel }).map((_, i) => (
-                <LocalFireDepartment key={i} sx={{ fontSize: 13, color: '#E65100' }} />
+                <Flame key={i} className="size-3 fill-[#E65100] text-[#E65100]" />
               ))}
-            </Box>
+            </span>
           ) : null}
-        </Box>
+        </div>
 
-        <Typography
-          sx={{
-            fontSize: { xs: '12.5px', sm: '13px' },
-            color: 'text.secondary',
-            lineHeight: 1.5,
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}
-        >
+        <p className="text-muted-foreground line-clamp-2 text-[12.5px] leading-relaxed sm:text-[13px]">
           {item.description}
-        </Typography>
+        </p>
 
         {/* Portion pills. Only rendered when a dish genuinely has more than one
             size — a lone "Full" pill is a control that can't do anything. */}
         {hasPortions && (
-          <Box sx={{ display: 'flex', gap: 0.75, mt: 1.25, flexWrap: 'wrap' }}>
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {availablePortions.map((portion: Portion) => {
               const selected = portion === selectedPortion;
               return (
-                <Box
+                <button
                   key={portion}
-                  component="button"
                   type="button"
                   onClick={() => setSelectedPortion(portion)}
                   aria-pressed={selected}
-                  sx={{
-                    font: 'inherit',
-                    cursor: 'pointer',
-                    px: 1.2, py: 0.4,
-                    borderRadius: '8px',
-                    fontSize: '11.5px',
-                    fontWeight: 700,
-                    border: '1.5px solid',
-                    borderColor: selected ? 'primary.main' : 'rgba(0,0,0,0.14)',
-                    bgcolor: selected ? 'rgba(198,40,40,0.07)' : 'white',
-                    color: selected ? 'primary.main' : 'text.secondary',
-                    transition: 'border-color .18s ease, background-color .18s ease',
-                  }}
+                  className={cn(
+                    'rounded-lg border-[1.5px] px-2.5 py-1 text-[11.5px] font-bold transition-colors outline-none',
+                    'focus-visible:ring-ring/40 focus-visible:ring-[3px]',
+                    selected
+                      ? 'border-primary bg-primary/8 text-primary'
+                      : 'border-border bg-card text-muted-foreground hover:border-foreground/25'
+                  )}
                 >
-                  {PORTION_LABELS[portion]} ₹{item.portionPrices?.[portion]}
-                </Box>
+                  {PORTION_LABELS[portion]} {formatCurrency(item.portionPrices?.[portion] ?? 0)}
+                </button>
               );
             })}
-          </Box>
+          </div>
         )}
-      </Box>
+      </div>
 
       {/* ── Right: photo with the action pinned to it ────────────────────── */}
-      <Box
-        sx={{
-          width: { xs: 112, sm: 132 },
-          flexShrink: 0,
-          position: 'relative',
-          // Room for the button that hangs off the bottom of the photo.
-          pb: 2.5,
-        }}
-      >
-        <Box
-          sx={{
-            position: 'relative',
-            width: '100%',
-            aspectRatio: '1 / 1',
-            borderRadius: '16px',
-            overflow: 'hidden',
-            bgcolor: '#F5F5F5',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
-          }}
-        >
-          <Box
-            component="img"
-            src={item.image || FALLBACK_IMAGE}
-            alt={item.name}
+      <div className="relative w-28 shrink-0 pb-5 sm:w-33">
+        <div className="bg-muted relative aspect-square w-full overflow-hidden rounded-2xl shadow-md">
+          {/* eslint-disable-next-line @next/next/no-img-element -- dish images
+              come from Supabase Storage and arbitrary admin-pasted URLs, which
+              next/image's loader would need a remotePatterns entry per host. */}
+          <img
+            src={item.image || FALLBACK_DISH_IMAGE}
+            alt=""
             loading="lazy"
             decoding="async"
-            onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+            onError={(e) => {
               const img = e.currentTarget;
               // Guard against a fallback that itself 404s looping forever.
-              if (img.src !== FALLBACK_IMAGE) img.src = FALLBACK_IMAGE;
+              if (img.src !== FALLBACK_DISH_IMAGE) img.src = FALLBACK_DISH_IMAGE;
             }}
-            sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            className="block size-full object-cover"
           />
 
           {unavailable && (
-            <Box
-              sx={{
-                position: 'absolute', inset: 0,
-                bgcolor: 'rgba(0,0,0,0.55)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              <Chip
-                label="Sold out"
-                size="small"
-                sx={{ bgcolor: 'white', fontWeight: 800, fontSize: '10px', height: 20 }}
-              />
-            </Box>
+            <div className="absolute inset-0 grid place-items-center bg-black/55">
+              <span className="rounded-md bg-white px-2 py-0.5 text-[10px] font-extrabold text-black">
+                Sold out
+              </span>
+            </div>
           )}
-        </Box>
+        </div>
 
-        <Box
-          sx={{
-            position: 'absolute',
-            left: '50%',
-            bottom: 0,
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
+        <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 justify-center">
           {cartItem ? (
             <CartStepper
               quantity={cartItem.quantity}
@@ -247,33 +175,25 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
               label={item.name}
             />
           ) : (
-            <Button
+            <button
+              type="button"
               onClick={add}
               disabled={unavailable}
               aria-label={`Add ${item.name} to cart`}
-              sx={{
-                minWidth: 92,
-                height: 32,
-                px: 2,
-                bgcolor: 'white',
-                color: 'success.main',
-                border: '1.5px solid',
-                borderColor: 'success.main',
-                borderRadius: '12px',
-                fontWeight: 900,
-                fontSize: '13px',
-                letterSpacing: 0.5,
-                boxShadow: '0 4px 14px rgba(46,125,50,0.18)',
-                '&:hover': { bgcolor: 'rgba(46,125,50,0.06)', boxShadow: '0 6px 18px rgba(46,125,50,0.26)' },
-                '&.Mui-disabled': { bgcolor: '#EEEEEE', color: '#9E9E9E', borderColor: 'transparent', boxShadow: 'none' },
-              }}
+              className={cn(
+                'h-8 min-w-23 rounded-xl border-[1.5px] px-4 text-[13px] font-black tracking-wide transition-all outline-none',
+                'focus-visible:ring-ring/40 focus-visible:ring-[3px]',
+                'border-success bg-card text-success shadow-[0_4px_14px_rgba(46,125,50,0.18)]',
+                'hover:bg-success hover:text-white hover:shadow-[0_6px_18px_rgba(46,125,50,0.26)]',
+                'disabled:border-transparent disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none'
+              )}
             >
               ADD
-            </Button>
+            </button>
           )}
-        </Box>
-      </Box>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
 });
 

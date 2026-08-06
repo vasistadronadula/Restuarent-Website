@@ -1,571 +1,529 @@
 'use client';
 
-import React, { useState } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any -- ColumnDef's first type
+   parameter is the table feature set; `any` there is how this codebase spells
+   "the default features" at every DataTable call site. */
+import { useCallback, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
 import {
-  Box, Paper, Typography, Grid, Chip, LinearProgress, Alert, Button, IconButton,
-  Table, TableBody, TableCell, TableHead, TableRow, Tooltip, TextField,
-  Dialog, DialogTitle, DialogContent, DialogActions, Select, MenuItem as MuiMenuItem,
-  FormControl, InputLabel, InputBase, useMediaQuery, useTheme,
-} from '@mui/material';
-import {
-  Warning, Add, Edit, Delete, Close,
-  Search, AddCircleOutlined, RemoveCircleOutlined,
-} from '@mui/icons-material';
+  AlertTriangle, CheckCircle2, Edit2, MinusCircle, Package, Plus, PlusCircle, Trash2,
+} from 'lucide-react';
+
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { InventoryItem } from '@/types';
 import { generateInventoryId } from '@/lib/idGenerator';
-import toast from 'react-hot-toast';
-import { PageHeader, StatCard, adminColors } from '@/components/admin/ui';
+import {
+  INVENTORY_CATEGORIES, INVENTORY_UNITS, inventoryItemSchema,
+  type InventoryFormOutput, type InventoryFormValues,
+} from '@/lib/adminSchemas';
+import { PageHeader, StatCard, SectionCard } from '@/components/admin/ui';
+import {
+  ConfirmDeleteDialog, FormDialog, NumberField, SelectField, TextField,
+} from '@/components/admin/form-fields';
+import { DataTable } from '@/components/ui/data-table';
+import { ColumnDef } from '@tanstack/react-table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
-const CATEGORIES = ['All', 'Poultry & Meat', 'Rice & Grains', 'Spices & Condiments', 'Dairy & Milk', 'Vegetables', 'Beverages'];
-const UNITS = ['Kg', 'Grams', 'Liters', 'Packs', 'Units', 'Bags', 'Tins'];
+const CATEGORY_OPTIONS = INVENTORY_CATEGORIES.map((c) => ({ value: c, label: c }));
+const UNIT_OPTIONS = INVENTORY_UNITS.map((u) => ({ value: u, label: u }));
+
+const BLANK_FORM: InventoryFormValues = {
+  name: '',
+  category: 'Poultry & Meat',
+  unit: 'Kg',
+  currentStock: '' as unknown as number,
+  minStockThreshold: 5,
+  unitCost: '' as unknown as number,
+  supplier: '',
+};
+
+const isLow = (i: InventoryItem) => i.currentStock <= i.minStockThreshold;
 
 export default function InventoryPage() {
-  const { inventory, addInventoryItem, updateInventoryItem, deleteInventoryItem, adjustInventoryQuantity } = useAdmin();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const {
+    inventory, addInventoryItem, updateInventoryItem, deleteInventoryItem, adjustInventoryQuantity,
+  } = useAdmin();
+
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<'all' | 'low' | 'good'>('all');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<InventoryItem | null>(null);
+  const [deleting, setDeleting] = useState<InventoryItem | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
-  // Modal States
-  const [openAddDialog, setOpenAddDialog] = useState(false);
-  const [openEditDialog, setOpenEditDialog] = useState(false);
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  // Guards every dialog action against a double-tap creating two rows.
-  const [saving, setSaving] = useState(false);
-
-  // Form State
-  const [form, setForm] = useState({
-    name: '',
-    category: 'Poultry & Meat',
-    quantity: '10',
-    unit: 'Kg',
-    minQuantity: '5',
-    costPerUnit: '100',
+  const form = useForm<InventoryFormValues>({
+    resolver: zodResolver(inventoryItemSchema),
+    defaultValues: BLANK_FORM,
+    mode: 'onTouched',
   });
 
-  const lowStock = inventory.filter((i) => i.quantity <= i.minQuantity);
-  const goodStock = inventory.filter((i) => i.quantity > i.minQuantity);
+  const lowStockCount = useMemo(() => inventory.filter(isLow).length, [inventory]);
 
-  // Filtered List
-  const filteredInventory = inventory.filter((item) => {
-    const matchesSearch = !searchQuery || item.name.toLowerCase().includes(searchQuery.toLowerCase()) || item.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || item.category === selectedCategory;
-    const isLow = item.quantity <= item.minQuantity;
-    const matchesStatus = statusFilter === 'all' || (statusFilter === 'low' && isLow) || (statusFilter === 'good' && !isLow);
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  const filteredInventory = useMemo(
+    () =>
+      inventory.filter((item) => {
+        const catMatch = selectedCategory === 'All' || item.category === selectedCategory;
+        const low = isLow(item);
+        const statusMatch =
+          statusFilter === 'all' ||
+          (statusFilter === 'low' && low) ||
+          (statusFilter === 'good' && !low);
+        return catMatch && statusMatch;
+      }),
+    [inventory, selectedCategory, statusFilter]
+  );
 
-  const getStockLevel = (item: InventoryItem) => {
-    const pct = (item.quantity / Math.max(item.minQuantity * 3, 1)) * 100;
-    if (pct >= 70) return { color: '#15803D', label: 'In Stock', pct: Math.min(pct, 100) };
-    if (pct >= 40) return { color: '#EA580C', label: 'Medium', pct };
-    return { color: '#C62828', label: 'Low Stock ⚠️', pct: Math.max(pct, 8) };
+  const openAdd = () => {
+    setEditing(null);
+    form.reset(BLANK_FORM);
+    setDialogOpen(true);
   };
 
-  const handleOpenAdd = () => {
-    setForm({ name: '', category: 'Poultry & Meat', quantity: '10', unit: 'Kg', minQuantity: '5', costPerUnit: '100' });
-    setOpenAddDialog(true);
-  };
-
-  const handleOpenEdit = (item: InventoryItem) => {
-    setSelectedItem(item);
-    setForm({
+  /**
+   * Opens the full form for editing, not a cut-down one.
+   *
+   * The edit dialog used to show only name, stock and threshold — so category,
+   * unit, unit cost and supplier could be set when an item was created and
+   * never corrected afterwards. Fixing a typo in a supplier name meant deleting
+   * the item and re-adding it.
+   */
+  const openEdit = useCallback((item: InventoryItem) => {
+    setEditing(item);
+    form.reset({
       name: item.name,
-      category: item.category,
-      quantity: String(item.quantity),
-      unit: item.unit,
-      minQuantity: String(item.minQuantity),
-      costPerUnit: String(item.costPerUnit),
+      category: (INVENTORY_CATEGORIES as readonly string[]).includes(item.category)
+        ? (item.category as InventoryFormValues['category'])
+        : 'Poultry & Meat',
+      unit: (INVENTORY_UNITS as readonly string[]).includes(item.unit)
+        ? (item.unit as InventoryFormValues['unit'])
+        : 'Kg',
+      currentStock: item.currentStock,
+      minStockThreshold: item.minStockThreshold,
+      unitCost: item.unitCost,
+      supplier: item.supplier ?? '',
     });
-    setOpenEditDialog(true);
-  };
+    setDialogOpen(true);
+  }, [form]);
 
-  const handleOpenDelete = (item: InventoryItem) => {
-    setSelectedItem(item);
-    setOpenDeleteDialog(true);
-  };
+  const handleSubmit = async (values: InventoryFormOutput) => {
+    const today = new Date().toISOString().split('T')[0];
 
-  // Shared validation — the quantity fields are free-text, so "abc" used to
-  // silently become 0 and a negative min-quantity was accepted outright.
-  const validateForm = (): string | null => {
-    if (!form.name.trim()) return 'Item name is required';
-    if (form.name.trim().length > 80) return 'Item name is too long';
-    const qty = Number(form.quantity);
-    const min = Number(form.minQuantity);
-    const cost = Number(form.costPerUnit);
-    if (!Number.isFinite(qty) || qty < 0) return 'Enter a valid quantity';
-    if (!Number.isFinite(min) || min < 0) return 'Enter a valid minimum quantity';
-    if (!Number.isFinite(cost) || cost < 0) return 'Enter a valid cost per unit';
-    return null;
-  };
+    // Both spellings of every field are written together. The InventoryItem
+    // model carries quantity/currentStock and unitCost/costPerUnit as aliases,
+    // and the write layer reads the first of each pair — so setting only one
+    // of them saved a stale number.
+    const payload: InventoryItem = {
+      ...(editing ?? {}),
+      id: editing?.id ?? generateInventoryId(),
+      name: values.name,
+      category: values.category,
+      unit: values.unit,
+      currentStock: values.currentStock,
+      quantity: values.currentStock,
+      minStockThreshold: values.minStockThreshold,
+      minQuantity: values.minStockThreshold,
+      unitCost: values.unitCost,
+      costPerUnit: values.unitCost,
+      supplier: values.supplier,
+      // Only a genuine increase counts as a restock; an edit that lowers or
+      // leaves the count alone keeps the date it already had.
+      lastRestocked:
+        !editing || values.currentStock > editing.currentStock
+          ? today
+          : editing.lastRestocked ?? today,
+      lastUpdated: today,
+    };
 
-  const buildItem = (base?: InventoryItem): InventoryItem => ({
-    ...(base ?? {}),
-    id: base?.id ?? generateInventoryId(),
-    name: form.name.trim(),
-    category: form.category,
-    quantity: Number(form.quantity),
-    unit: form.unit,
-    minQuantity: Number(form.minQuantity),
-    costPerUnit: Number(form.costPerUnit),
-    lastUpdated: new Date().toISOString().split('T')[0],
-  });
-
-  const handleAddSubmit = async () => {
-    const problem = validateForm();
-    if (problem) { toast.error(problem); return; }
-    if (saving) return;
-
-    const newItem = buildItem();
-    setSaving(true);
     try {
-      await addInventoryItem(newItem);
-      toast.success(`${newItem.name} added to inventory`);
-      setOpenAddDialog(false);
+      if (editing) {
+        await updateInventoryItem(payload);
+        toast.success(`${payload.name} updated`);
+      } else {
+        await addInventoryItem(payload);
+        toast.success(`${payload.name} added to inventory`);
+      }
+      setDialogOpen(false);
     } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setSaving(false);
+      toast.error((err as Error).message || 'Could not save this item');
     }
   };
 
-  const handleEditSubmit = async () => {
-    if (!selectedItem) return;
-    const problem = validateForm();
-    if (problem) { toast.error(problem); return; }
-    if (saving) return;
-
-    const updated = buildItem(selectedItem);
-    setSaving(true);
+  const handleDelete = async () => {
+    if (!deleting) return;
+    setDeleteBusy(true);
     try {
-      await updateInventoryItem(updated);
-      toast.success(`${updated.name} updated`);
-      setOpenEditDialog(false);
+      await deleteInventoryItem(deleting.id);
+      toast.success(`${deleting.name} deleted`);
+      setDeleting(null);
     } catch (err) {
-      toast.error((err as Error).message);
+      toast.error((err as Error).message || 'Could not delete this item');
     } finally {
-      setSaving(false);
+      setDeleteBusy(false);
     }
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!selectedItem || saving) return;
-    const name = selectedItem.name;
-    setSaving(true);
-    try {
-      await deleteInventoryItem(selectedItem.id);
-      toast.success(`${name} removed from inventory`);
-      setOpenDeleteDialog(false);
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const columns = useMemo<ColumnDef<any, InventoryItem>[]>(() => [
+    {
+      accessorKey: 'name',
+      header: 'Item Name',
+      cell: ({ row }) => (
+        <div className="min-w-0">
+          <div className="truncate font-extrabold text-stone-900 dark:text-stone-100">
+            {row.original.name}
+          </div>
+          <div className="truncate text-xs font-medium text-stone-400">
+            {row.original.supplier || 'No supplier recorded'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'category',
+      header: 'Category',
+      cell: ({ row }) => (
+        <Badge variant="outline" className="text-[10px] font-bold">
+          {row.original.category}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'currentStock',
+      header: 'Stock Level',
+      cell: ({ row }) => {
+        const item = row.original;
+        return (
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-sm font-black tabular-nums ${isLow(item) ? 'text-rose-600' : 'text-emerald-600'}`}
+            >
+              {item.currentStock} {item.unit}
+            </span>
+            {isLow(item) && (
+              <Badge className="border-rose-500/20 bg-rose-500/10 text-[10px] font-bold text-rose-600">
+                Low
+              </Badge>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'unitCost',
+      header: 'Unit Cost',
+      cell: ({ row }) => (
+        <span className="font-bold tabular-nums text-stone-800 dark:text-stone-200">
+          ₹{row.original.unitCost} / {row.original.unit}
+        </span>
+      ),
+    },
+    {
+      id: 'quickAdjust',
+      header: 'Adjust Stock',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-7 rounded-md"
+            aria-label={`Reduce ${row.original.name} by one ${row.original.unit}`}
+            // Nothing to decrement at zero, and the store would clamp it
+            // anyway — disabling says so instead of silently ignoring the tap.
+            disabled={row.original.currentStock <= 0}
+            onClick={() => adjustInventoryQuantity(row.original.id, -1)}
+          >
+            <MinusCircle className="size-3.5 text-stone-600" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-7 rounded-md"
+            aria-label={`Add one ${row.original.unit} of ${row.original.name}`}
+            onClick={() => adjustInventoryQuantity(row.original.id, 1)}
+          >
+            <PlusCircle className="size-3.5 text-stone-600" />
+          </Button>
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            aria-label={`Edit ${row.original.name}`}
+            onClick={() => openEdit(row.original)}
+          >
+            <Edit2 className="size-4 text-stone-600" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 text-rose-600"
+            aria-label={`Delete ${row.original.name}`}
+            onClick={() => setDeleting(row.original)}
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ], [adjustInventoryQuantity, openEdit]);
+
+  const renderMobileCard = useCallback((item: InventoryItem) => (
+    <div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="truncate text-sm font-extrabold text-stone-900 dark:text-stone-100">
+            {item.name}
+          </div>
+          <div className="mt-0.5 truncate text-[11px] font-medium text-stone-400">
+            {item.category}
+            {item.supplier ? ` · ${item.supplier}` : ''}
+          </div>
+        </div>
+        {isLow(item) && (
+          <Badge className="shrink-0 border-rose-500/20 bg-rose-500/10 text-[10px] font-bold text-rose-600">
+            Low stock
+          </Badge>
+        )}
+      </div>
+
+      <div className="mt-3 flex items-end justify-between gap-3">
+        <div>
+          <div
+            className={`text-lg font-black tabular-nums ${isLow(item) ? 'text-rose-600' : 'text-emerald-600'}`}
+          >
+            {item.currentStock}
+            <span className="ml-1 text-xs font-bold">{item.unit}</span>
+          </div>
+          <div className="text-[10.5px] font-semibold text-stone-400">
+            Min {item.minStockThreshold} · ₹{item.unitCost}/{item.unit}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 rounded-lg"
+            aria-label={`Reduce ${item.name} by one ${item.unit}`}
+            disabled={item.currentStock <= 0}
+            onClick={() => adjustInventoryQuantity(item.id, -1)}
+          >
+            <MinusCircle className="size-4 text-stone-600" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-9 rounded-lg"
+            aria-label={`Add one ${item.unit} of ${item.name}`}
+            onClick={() => adjustInventoryQuantity(item.id, 1)}
+          >
+            <PlusCircle className="size-4 text-stone-600" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2 border-t border-stone-100 pt-2.5 dark:border-[#2C2C2E]/60">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 flex-1 rounded-lg text-xs font-bold"
+          onClick={() => openEdit(item)}
+        >
+          <Edit2 className="size-3.5" /> Edit
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8 text-rose-600"
+          aria-label={`Delete ${item.name}`}
+          onClick={() => setDeleting(item)}
+        >
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+    </div>
+  ), [adjustInventoryQuantity, openEdit]);
 
   return (
-    <AdminLayout title="Raw Inventory & Stock Control">
-      <PageHeader title="Inventory" subtitle="Raw materials, safety thresholds, and stock valuation — updated in real time." />
-
-      {/* Low Stock Banner Alert */}
-      {lowStock.length > 0 && (
-        <Alert severity="error" sx={{ mb: 3, borderRadius: '16px', border: '1px solid rgba(198,40,40,0.3)', bgcolor: '#FEF2F2' }}>
-          <Typography sx={{ fontWeight: 800, color: adminColors.accentRed }}>
-            ⚠️ Urgent Action Needed: {lowStock.length} Raw Inventory Items Below Minimum Safety Threshold!
-          </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-            Items affected: {lowStock.map((i) => `${i.name} (${i.quantity} ${i.unit})`).join(', ')}
-          </Typography>
-        </Alert>
-      )}
-
-      {/* Stats Cards Header */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard icon="📦" label="Total Stocked Items" value={inventory.length} sub="Active inventory list" accent={adminColors.info} />
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard icon="⚠️" label="Low Stock Alerts" value={lowStock.length} sub="Refill needed" accent={adminColors.danger} />
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard icon="✅" label="Sufficient Stock" value={goodStock.length} sub="Optimal inventory levels" accent={adminColors.success} />
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard
-            icon="💰"
-            label="Total Inventory Value"
-            value={`₹${inventory.reduce((s, i) => s + i.quantity * i.costPerUnit, 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`}
-            sub="Capital invested in raw materials"
-            accent={adminColors.accentOrange}
-          />
-        </Grid>
-      </Grid>
-
-      {/* Main Content Table & Control Toolbar */}
-      <Paper elevation={0} sx={{ borderRadius: '24px', border: '1px solid #E7E5E4', bgcolor: 'white', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', overflow: 'hidden' }}>
-        <Box sx={{ p: 2.5, bgcolor: '#FAFAF9', borderBottom: '1px solid #E7E5E4' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#1C1917' }}>
-                Inventory Management & Quick Stock Adjuster ({filteredInventory.length})
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Add, edit, adjust stock quantities (+ / -), and set reorder thresholds in real-time
-              </Typography>
-            </Box>
-
+    <AdminLayout title="Inventory & Stock">
+      <div className="w-full max-w-full space-y-4">
+        <PageHeader
+          title="Inventory & Raw Materials"
+          subtitle="Track stock levels, costs and suppliers for every raw material"
+          action={
             <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={handleOpenAdd}
-              sx={{
-                bgcolor: '#C62828',
-                color: 'white',
-                borderRadius: '12px',
-                fontWeight: 800,
-                px: 2.5, py: 1,
-                boxShadow: '0 4px 14px rgba(198,40,40,0.4)',
-                '&:hover': { bgcolor: '#B71C1C' },
-              }}
+              onClick={openAdd}
+              className="h-9 w-full rounded-lg bg-amber-600 px-3 text-xs font-extrabold text-white shadow-xs hover:bg-amber-700 sm:w-auto"
             >
-              + Add Raw Item
+              <Plus className="size-3.5" />
+              Add Raw Material
             </Button>
-          </Box>
+          }
+        />
 
-          {/* Search Bar & Category Filter Pills */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-            <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
-              {CATEGORIES.map((cat) => (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatCard
+            icon={<Package className="size-5" />}
+            label="Total Raw Materials"
+            value={inventory.length}
+            sub="Tracked inventory items"
+            accent="#D97706"
+          />
+          <StatCard
+            icon={<AlertTriangle className="size-5" />}
+            label="Low Stock Alerts"
+            value={lowStockCount}
+            sub="At or below minimum"
+            accent="#DC2626"
+          />
+          <StatCard
+            icon={<CheckCircle2 className="size-5" />}
+            label="Stock Health"
+            value={`${Math.round(((inventory.length - lowStockCount) / Math.max(1, inventory.length)) * 100)}%`}
+            sub="Sufficient inventory"
+            accent="#059669"
+          />
+        </div>
+
+        <SectionCard noPadding className="p-3 sm:p-4">
+          <div className="mb-4 flex flex-col gap-3 border-b border-stone-100 pb-3 dark:border-[#2C2C2E]/60 lg:flex-row lg:items-center lg:justify-between">
+            <div className="scrollbar-none flex w-full gap-2 overflow-x-auto lg:w-auto">
+              {['All', ...INVENTORY_CATEGORIES].map((cat) => (
                 <Button
                   key={cat}
-                  size="small"
+                  variant={selectedCategory === cat ? 'default' : 'outline'}
+                  size="sm"
                   onClick={() => setSelectedCategory(cat)}
-                  sx={{
-                    borderRadius: '8px',
-                    px: 1.5, py: 0.4,
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    bgcolor: selectedCategory === cat ? '#1C1917' : 'white',
-                    color: selectedCategory === cat ? 'white' : '#78716C',
-                    border: '1px solid',
-                    borderColor: selectedCategory === cat ? '#1C1917' : '#E7E5E4',
-                    '&:hover': { bgcolor: selectedCategory === cat ? '#292524' : '#F1EFED' },
-                  }}
+                  className={`shrink-0 rounded-full whitespace-nowrap text-xs font-bold ${
+                    selectedCategory === cat ? 'bg-amber-600 text-white hover:bg-amber-700' : ''
+                  }`}
                 >
                   {cat}
                 </Button>
               ))}
-            </Box>
+            </div>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box sx={{ display: 'flex', bgcolor: 'white', borderRadius: '8px', px: 1.2, py: 0.4, border: '1px solid #E7E5E4', alignItems: 'center', gap: 1 }}>
-                <Search style={{ fontSize: 16, color: '#A8A29E' }} />
-                <InputBase
-                  placeholder="Search item or category..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  sx={{ fontSize: '12px', width: 170 }}
-                />
-              </Box>
+            <div className="flex w-full gap-1 rounded-xl bg-stone-100 p-1 dark:bg-stone-800 lg:w-auto">
+              {(['all', 'low', 'good'] as const).map((st) => (
+                <Button
+                  key={st}
+                  variant={statusFilter === st ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setStatusFilter(st)}
+                  className={`h-7 flex-1 rounded-lg text-xs font-bold capitalize lg:flex-none ${
+                    statusFilter === st ? 'bg-amber-600 text-white hover:bg-amber-700' : ''
+                  }`}
+                >
+                  {st}
+                </Button>
+              ))}
+            </div>
+          </div>
 
-              <Select
-                size="small"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as 'all' | 'low' | 'good')}
-                sx={{ fontSize: '11px', fontWeight: 800, height: 32, bgcolor: 'white', borderRadius: '8px' }}
-              >
-                <MuiMenuItem value="all">All Status</MuiMenuItem>
-                <MuiMenuItem value="low">Low Stock Only ⚠️</MuiMenuItem>
-                <MuiMenuItem value="good">Sufficient Stock ✅</MuiMenuItem>
-              </Select>
-            </Box>
-          </Box>
-        </Box>
+          <DataTable
+            columns={columns}
+            data={filteredInventory}
+            searchKey="name"
+            searchPlaceholder="Search material name or supplier..."
+            height="550px"
+            rowHeight={56}
+            emptyMessage="No materials match this filter."
+            renderMobileCard={renderMobileCard}
+            getRowId={(item) => item.id}
+          />
+        </SectionCard>
+      </div>
 
-        {/* Inventory Data Table */}
-        <Box sx={{ overflowX: 'auto' }}>
-          <Table sx={{ minWidth: 850 }}>
-            <TableHead sx={{ bgcolor: '#FAFAF9' }}>
-              <TableRow>
-                {['Item Name', 'Category', 'Quantity', 'Quick Adjust', 'Safety Threshold', 'Level', 'Cost/Unit', 'Total Valuation', 'Actions'].map((h) => (
-                  <TableCell key={h} sx={{ fontWeight: 800, fontSize: '11px', color: '#78716C', py: 1.5, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                    {h}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredInventory.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} sx={{ textAlign: 'center', py: 6 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 700 }}>
-                      No inventory items match your search.
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredInventory.map((item) => {
-                  const stock = getStockLevel(item);
-                  const isLow = item.quantity <= item.minQuantity;
-                  return (
-                    <TableRow key={item.id} hover sx={{ bgcolor: isLow ? 'rgba(239,68,68,0.03)' : 'transparent', '&:hover': { bgcolor: '#FAFAF9' } }}>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {isLow && <Warning style={{ fontSize: 16, color: '#B91C1C' }} />}
-                          <Box>
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#1C1917' }}>
-                              {item.name}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '10px' }}>
-                              Updated: {item.lastUpdated}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip label={item.category} size="small" sx={{ bgcolor: '#F1EFED', color: '#44403C', fontWeight: 700, fontSize: '10px' }} />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 900, color: isLow ? '#B91C1C' : '#1C1917' }}>
-                          {item.quantity} {item.unit}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Tooltip title="Subtract 1">
-                            <IconButton size="small" sx={{ color: '#B91C1C', p: 0.3 }} onClick={() => adjustInventoryQuantity(item.id, -1)}>
-                              <RemoveCircleOutlined fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Add 1">
-                            <IconButton size="small" sx={{ color: '#15803D', p: 0.3 }} onClick={() => adjustInventoryQuantity(item.id, 1)}>
-                              <AddCircleOutlined fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Add 5">
-                            <Button size="small" sx={{ minWidth: 28, height: 24, fontSize: '10px', fontWeight: 800, p: 0, color: '#1D4ED8' }} onClick={() => adjustInventoryQuantity(item.id, 5)}>
-                              +5
-                            </Button>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: '#78716C', fontWeight: 600 }}>
-                          {item.minQuantity} {item.unit}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ width: 120 }}>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
-                          <Chip label={stock.label} size="small" sx={{ bgcolor: `${stock.color}15`, color: stock.color, fontWeight: 800, fontSize: '10px', height: 20 }} />
-                          <LinearProgress variant="determinate" value={stock.pct} sx={{ height: 5, borderRadius: 3, bgcolor: '#F1EFED', '& .MuiLinearProgress-bar': { bgcolor: stock.color, borderRadius: 3 } }} />
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#44403C' }}>
-                          ₹{item.costPerUnit.toLocaleString()}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 800, color: '#15803D' }}>
-                          ₹{(item.quantity * item.costPerUnit).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          <Tooltip title="Edit Item">
-                            <IconButton size="small" sx={{ color: '#1D4ED8' }} onClick={() => handleOpenEdit(item)}>
-                              <Edit fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Delete Item">
-                            <IconButton size="small" sx={{ color: '#B91C1C' }} onClick={() => handleOpenDelete(item)}>
-                              <Delete fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </Box>
-      </Paper>
+      <FormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        form={form}
+        onSubmit={handleSubmit}
+        title={editing ? `Edit ${editing.name}` : 'Add Raw Material'}
+        description={
+          editing
+            ? 'Every field is editable — correct a unit, cost or supplier without deleting the item.'
+            : 'Stock below the minimum threshold raises a low-stock alert on the dashboard.'
+        }
+        submitLabel={editing ? 'Update Material' : 'Save Material'}
+      >
+        <TextField
+          control={form.control}
+          name="name"
+          label="Item Name"
+          placeholder="e.g. Sona Masoori Rice"
+          autoFocus
+        />
 
-      {/* Modal: Add Inventory Item */}
-      <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)} maxWidth="sm" fullWidth fullScreen={isMobile} slotProps={{ paper: { sx: { borderRadius: isMobile ? 0 : '20px' } } }}>
-        <DialogTitle sx={{ fontWeight: 800, color: '#C62828', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          📦 Add New Raw Inventory Item
-          {isMobile && (
-            <IconButton size="small" onClick={() => setOpenAddDialog(false)} aria-label="Close">
-              <Close fontSize="small" />
-            </IconButton>
-          )}
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField fullWidth label="Raw Material Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Bagara Rice, Natukodi Chicken" />
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel>Category</InputLabel>
-                  <Select value={form.category} label="Category" onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                    {CATEGORIES.filter((c) => c !== 'All').map((c) => (
-                      <MuiMenuItem key={c} value={c}>{c}</MuiMenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel>Measurement Unit</InputLabel>
-                  <Select value={form.unit} label="Measurement Unit" onChange={(e) => setForm({ ...form, unit: e.target.value })}>
-                    {UNITS.map((u) => (
-                      <MuiMenuItem key={u} value={u}>{u}</MuiMenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth label="Initial Quantity *" type="number"
-                  value={form.quantity}
-                  onChange={(e) => {
-                    const val = Math.max(0, Number(e.target.value) || 0);
-                    setForm({ ...form, quantity: String(val) });
-                  }}
-                  slotProps={{ htmlInput: { min: 0 } }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth label="Min Safety Threshold *" type="number"
-                  value={form.minQuantity}
-                  onChange={(e) => {
-                    const val = Math.max(0, Number(e.target.value) || 0);
-                    setForm({ ...form, minQuantity: String(val) });
-                  }}
-                  slotProps={{ htmlInput: { min: 0 } }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth label="Unit Cost (₹) *" type="number"
-                  value={form.costPerUnit}
-                  onChange={(e) => {
-                    const val = Math.max(0, Number(e.target.value) || 0);
-                    setForm({ ...form, costPerUnit: String(val) });
-                  }}
-                  slotProps={{ htmlInput: { min: 0 } }}
-                />
-              </Grid>
-            </Grid>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2.5, pb: isMobile ? 'max(20px, env(safe-area-inset-bottom, 0px))' : 2.5 }}>
-          <Button onClick={() => setOpenAddDialog(false)} sx={{ color: '#78716C' }}>Cancel</Button>
-          <Button variant="contained" disabled={saving} onClick={handleAddSubmit} sx={{ bgcolor: '#C62828', borderRadius: '10px', fontWeight: 800 }}>{saving ? 'Saving…' : 'Save Item'}</Button>
-        </DialogActions>
-      </Dialog>
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          <SelectField
+            control={form.control}
+            name="category"
+            label="Category"
+            options={CATEGORY_OPTIONS}
+          />
+          <SelectField
+            control={form.control}
+            name="unit"
+            label="Unit"
+            options={UNIT_OPTIONS}
+          />
+        </div>
 
-      {/* Modal: Edit Inventory Item */}
-      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth fullScreen={isMobile} slotProps={{ paper: { sx: { borderRadius: isMobile ? 0 : '20px' } } }}>
-        <DialogTitle sx={{ fontWeight: 800, color: '#1C1917', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          ✏️ Edit Inventory Item Details
-          {isMobile && (
-            <IconButton size="small" onClick={() => setOpenEditDialog(false)} aria-label="Close">
-              <Close fontSize="small" />
-            </IconButton>
-          )}
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField fullWidth label="Raw Material Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel>Category</InputLabel>
-                  <Select value={form.category} label="Category" onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                    {CATEGORIES.filter((c) => c !== 'All').map((c) => (
-                      <MuiMenuItem key={c} value={c}>{c}</MuiMenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6 }}>
-                <FormControl fullWidth>
-                  <InputLabel>Measurement Unit</InputLabel>
-                  <Select value={form.unit} label="Measurement Unit" onChange={(e) => setForm({ ...form, unit: e.target.value })}>
-                    {UNITS.map((u) => (
-                      <MuiMenuItem key={u} value={u}>{u}</MuiMenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth label="Quantity *" type="number"
-                  value={form.quantity}
-                  onChange={(e) => {
-                    const val = Math.max(0, Number(e.target.value) || 0);
-                    setForm({ ...form, quantity: String(val) });
-                  }}
-                  slotProps={{ htmlInput: { min: 0 } }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth label="Min Safety Threshold *" type="number"
-                  value={form.minQuantity}
-                  onChange={(e) => {
-                    const val = Math.max(0, Number(e.target.value) || 0);
-                    setForm({ ...form, minQuantity: String(val) });
-                  }}
-                  slotProps={{ htmlInput: { min: 0 } }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 4 }}>
-                <TextField
-                  fullWidth label="Unit Cost (₹) *" type="number"
-                  value={form.costPerUnit}
-                  onChange={(e) => {
-                    const val = Math.max(0, Number(e.target.value) || 0);
-                    setForm({ ...form, costPerUnit: String(val) });
-                  }}
-                  slotProps={{ htmlInput: { min: 0 } }}
-                />
-              </Grid>
-            </Grid>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2.5, pb: isMobile ? 'max(20px, env(safe-area-inset-bottom, 0px))' : 2.5 }}>
-          <Button onClick={() => setOpenEditDialog(false)} sx={{ color: '#78716C' }}>Cancel</Button>
-          <Button variant="contained" disabled={saving} onClick={handleEditSubmit} sx={{ bgcolor: '#1C1917', borderRadius: '10px', fontWeight: 800 }}>{saving ? 'Saving…' : 'Update Item'}</Button>
-        </DialogActions>
-      </Dialog>
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+          <NumberField
+            control={form.control}
+            name="currentStock"
+            label="Stock"
+            placeholder="0"
+            step={0.1}
+          />
+          <NumberField
+            control={form.control}
+            name="minStockThreshold"
+            label="Min Threshold"
+            placeholder="5"
+            step={0.1}
+            hint="Alert below this"
+          />
+          <NumberField
+            control={form.control}
+            name="unitCost"
+            label="Unit Cost"
+            prefix="₹"
+            placeholder="0"
+            step={0.01}
+          />
+        </div>
 
-      {/* Modal: Delete Confirmation */}
-      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)} slotProps={{ paper: { sx: { borderRadius: '16px', p: 1 } } }}>
-        <DialogTitle sx={{ fontWeight: 800, color: '#B91C1C' }}>🗑️ Delete Inventory Item?</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary">
-            Are you sure you want to delete <strong>{selectedItem?.name}</strong> from inventory records? This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setOpenDeleteDialog(false)}>Cancel</Button>
-          <Button variant="contained" color="error" disabled={saving} onClick={handleDeleteConfirm} sx={{ fontWeight: 800, borderRadius: '10px' }}>{saving ? 'Removing…' : 'Delete'}</Button>
-        </DialogActions>
-      </Dialog>
+        <TextField
+          control={form.control}
+          name="supplier"
+          label="Supplier"
+          placeholder="Who you buy this from"
+        />
+      </FormDialog>
+
+      <ConfirmDeleteDialog
+        open={!!deleting}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        onConfirm={handleDelete}
+        busy={deleteBusy}
+        title={`Delete ${deleting?.name}?`}
+        description="This removes the material and its stock record permanently. This cannot be undone."
+      />
     </AdminLayout>
   );
 }

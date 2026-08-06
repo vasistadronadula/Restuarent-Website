@@ -2,23 +2,24 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Box, Grid, Typography, Button, Chip, Avatar } from '@mui/material';
-import {
-  AreaChart, Area, ResponsiveContainer, XAxis, YAxis,
-  Tooltip as RechartsTooltip, CartesianGrid,
-} from 'recharts';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
+import { canAccess } from '@/lib/roleAccess';
 import {
   PageHeader, StatCard, SectionCard, SectionHeading, AlertTile,
-  StatusChip, EmptyState, adminColors, orderStatusColors, roleColors,
+  StatusChip, EmptyState, orderStatusColors,
 } from '@/components/admin/ui';
-import { ROLE_LABELS } from '@/lib/roleAccess';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  ShoppingBag, Calendar, Users, Package, ArrowRight,
+  TrendingUp, Clock, AlertTriangle, ShieldCheck, Flame, Utensils,
+  ClipboardList, CalendarDays, ChefHat, BookOpen, Calculator,
+  BarChart3, Receipt, Ticket, Briefcase, UserCircle, ChevronRight
+} from 'lucide-react';
 
 const dayKey = (d: Date) => {
-  // Local calendar date, not UTC — toISOString() would roll over at the wrong
-  // moment for IST and mislabel late-evening orders as "tomorrow".
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
@@ -33,24 +34,105 @@ const greetingFor = (hour: number) => {
   return 'Good evening';
 };
 
-// Billing lives with the cashier, so the dashboard's shortcuts stay on what
-// an admin actually opens from here.
-const QUICK_ACTIONS = [
-  { label: 'Orders', href: '/admin/orders', icon: '📋', primary: true },
-  { label: 'Kitchen', href: '/admin/kitchen', icon: '🔥' },
-  { label: 'Reservations', href: '/admin/reservations', icon: '📅' },
-  { label: 'Menu', href: '/admin/menu-management', icon: '🍽️' },
-];
-
-export default function AdminDashboard() {
+const LAUNCHPAD_PAGES = [
+  {
+    label: 'Cashier POS',
+    href: '/admin/pos',
+    icon: Calculator,
+    color: 'from-rose-500 to-red-600 dark:from-rose-600 dark:to-red-700',
+    description: 'Ring up walk-in counter sales, print receipts, and take payments',
+  },
+  {
+    label: 'Live Orders',
+    href: '/admin/orders',
+    icon: ClipboardList,
+    color: 'from-orange-500 to-amber-600 dark:from-orange-600 dark:to-amber-700',
+    description: 'Real-time order tracking, statuses, and kitchen updates',
+    badgeKey: 'pendingOrders',
+  },
+  {
+    label: 'Kitchen KDS',
+    href: '/admin/kitchen',
+    icon: ChefHat,
+    color: 'from-red-500 to-pink-600 dark:from-red-600 dark:to-pink-700',
+    description: 'Kitchen Display System cooking queues and lane progress trackers',
+  },
+  {
+    label: 'Table Bookings',
+    href: '/admin/reservations',
+    icon: CalendarDays,
+    color: 'from-emerald-500 to-teal-600 dark:from-emerald-600 dark:to-teal-700',
+    description: 'Manage guest reservations, table mappings, and walk-in seating',
+    badgeKey: 'todayBookings',
+  },
+  {
+    label: 'Inventory & Stock',
+    href: '/admin/inventory',
+    icon: Package,
+    color: 'from-yellow-500 to-amber-600 dark:from-yellow-600 dark:to-amber-700',
+    description: 'Ingredient stock levels, thresholds, alerts, and restock records',
+    badgeKey: 'lowStock',
+  },
+  {
+    label: 'Menu Management',
+    href: '/admin/menu-management',
+    icon: BookOpen,
+    color: 'from-violet-500 to-purple-600 dark:from-violet-600 dark:to-purple-700',
+    description: 'Edit restaurant menu dishes, prices, portions, and categories',
+  },
+  {
+    label: 'Customers Directory',
+    href: '/admin/customers',
+    icon: Users,
+    color: 'from-blue-500 to-indigo-600 dark:from-blue-600 dark:to-indigo-700',
+    description: 'Manage customer accounts, VIP status, and overall order histories',
+  },
+  {
+    label: 'Bills Ledger',
+    href: '/admin/bills',
+    icon: Receipt,
+    color: 'from-stone-500 to-stone-600 dark:from-stone-600 dark:to-stone-700',
+    description: 'Historical records, ledger and invoices of all generated bills',
+  },
+  {
+    label: 'Coupons & Offers',
+    href: '/admin/coupons',
+    icon: Ticket,
+    color: 'from-fuchsia-500 to-rose-600 dark:from-fuchsia-600 dark:to-rose-700',
+    description: 'Create and configure promo campaign coupon codes and flat discounts',
+  },
+  {
+    label: 'Reports & Stats',
+    href: '/admin/reports',
+    icon: BarChart3,
+    color: 'from-cyan-500 to-blue-600 dark:from-cyan-600 dark:to-blue-700',
+    description: 'Analytical dashboards of revenue streams, metrics, and top sellers',
+  },
+  {
+    label: 'Live Performance',
+    href: '/admin/performance',
+    icon: TrendingUp,
+    color: 'from-pink-500 to-rose-600 dark:from-pink-600 dark:to-rose-700',
+    description: 'Real-time sales performance graphs, incoming orders, and daily targets',
+  },
+  {
+    label: 'Employees & HR',
+    href: '/admin/employees',
+    icon: Briefcase,
+    color: 'from-slate-600 to-slate-700 dark:from-slate-700 dark:to-slate-800',
+    description: 'Track team payroll, system login credentials, and shift schedules',
+  },
+  {
+    label: 'My Profile',
+    href: '/admin/profile',
+    icon: UserCircle,
+    color: 'from-neutral-500 to-neutral-600 dark:from-neutral-600 dark:to-neutral-700',
+    description: 'Manage personal login account details, avatar, and staff notifications',
+  },
+];export default function AdminDashboard() {
   const { orders, reservations, inventory, employees } = useAdmin();
-  const { user } = useAuth();
-  const [chartMetric, setChartMetric] = useState<'revenue' | 'orders'>('revenue');
+  const { user, userRole } = useAuth();
 
-  // Reading the clock during render is impure (React 19 flags it), so the
-  // timestamp lives in state. Re-ticking every minute also means a screen left
-  // open on the counter overnight rolls over to the new day on its own instead
-  // of silently reporting yesterday's totals as "today".
   const [nowTs, setNowTs] = useState(0);
   useEffect(() => {
     const tick = () => setNowTs(Date.now());
@@ -59,399 +141,123 @@ export default function AdminDashboard() {
     return () => clearInterval(t);
   }, []);
 
-  const firstName = (user?.user_metadata?.full_name || user?.user_metadata?.name || '')
-    .toString().split(' ')[0] || 'there';
+  const todayStr = useMemo(() => {
+    if (!nowTs) return '';
+    return dayKey(new Date(nowTs));
+  }, [nowTs]);
 
-  const m = useMemo(() => {
-    const today = dayKey(new Date(nowTs));
-    const yesterday = dayKey(new Date(nowTs - 86_400_000));
+  const greeting = useMemo(() => {
+    if (!nowTs) return 'Welcome back';
+    return greetingFor(new Date(nowTs).getHours());
+  }, [nowTs]);
 
-    const sum = (list: typeof orders) => list.reduce((s, o) => s + (o.grandTotal || o.subtotal || 0), 0);
-    const billable = orders.filter((o) => o.status !== 'cancelled');
-
-    const todayOrders = billable.filter((o) => o.orderDate === today);
-    const yesterdayOrders = billable.filter((o) => o.orderDate === yesterday);
-
-    const todayRevenue = sum(todayOrders);
-    const yesterdayRevenue = sum(yesterdayOrders);
-
-    // Null when there's no prior-day baseline — the card then renders no trend
-    // chip at all rather than inventing a percentage.
-    const pctChange = (curr: number, prev: number) =>
-      prev > 0 ? Math.round(((curr - prev) / prev) * 100) : null;
-
-    const pending = orders.filter((o) => o.status === 'pending');
-    const preparing = orders.filter((o) => o.status === 'preparing');
-    const ready = orders.filter((o) => o.status === 'ready');
-    const pendingReservations = reservations.filter((r) => r.status === 'pending');
-    const lowStock = inventory.filter((i) => i.quantity <= i.minQuantity);
-    const activeReservations = reservations.filter((r) => r.status === 'confirmed');
-
-    // Revenue trend — last 7 calendar days, zero-filled so the chart shows a
-    // continuous week instead of only the days that happen to have orders.
-    const series: { date: string; label: string; revenue: number; orders: number }[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(nowTs - i * 86_400_000);
-      const key = dayKey(d);
-      const dayOrders = billable.filter((o) => o.orderDate === key);
-      series.push({
-        date: key,
-        label: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-        revenue: sum(dayOrders),
-        orders: dayOrders.length,
-      });
+  const stats = useMemo(() => {
+    if (!todayStr) {
+      return {
+        todayRevenue: 0, todayOrders: 0, pendingOrders: 0,
+        todayBookings: 0, lowStock: 0, totalEmployees: 0,
+      };
     }
-    const hasSeriesData = series.some((s) => s.orders > 0);
 
-    // Top dishes
-    const dishMap: Record<string, number> = {};
-    billable.forEach((o) => (o.items || []).forEach((it) => {
-      const n = it.name || 'Dish';
-      dishMap[n] = (dishMap[n] || 0) + (it.quantity || 1);
-    }));
-    const topDishes = Object.entries(dishMap)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-    const maxDish = topDishes[0]?.count || 1;
+    let todayRevenue = 0;
+    let todayOrders = 0;
+    let pendingOrders = 0;
 
-    const activeStaff = employees.filter((e) => e.isActive);
-    const staffByRole = (['admin', 'manager', 'chef', 'cashier', 'waiter'] as const)
-      .map((role) => ({ role, count: activeStaff.filter((e) => e.role === role).length }))
-      .filter((r) => r.count > 0);
+    for (let i = 0; i < orders.length; i++) {
+      const o = orders[i];
+      const isToday = o.createdAt && dayKey(new Date(o.createdAt)) === todayStr;
+      if (isToday) {
+        todayOrders++;
+        if (o.status !== 'cancelled') todayRevenue += o.grandTotal || 0;
+      }
+      if (o.status === 'pending' || o.status === 'preparing') {
+        pendingOrders++;
+      }
+    }
+
+    const todayBookings = reservations.filter(
+      (r) => r.date === todayStr && r.status !== 'cancelled'
+    ).length;
+    const lowStock = inventory.filter(
+      (i) => i.currentStock <= i.minStockThreshold
+    ).length;
+    const totalEmployees = employees.length;
 
     return {
-      todayRevenue, yesterdayRevenue,
-      revenueDelta: pctChange(todayRevenue, yesterdayRevenue),
-      todayOrderCount: todayOrders.length,
-      orderDelta: pctChange(todayOrders.length, yesterdayOrders.length),
-      avgOrderValue: todayOrders.length > 0 ? todayRevenue / todayOrders.length : 0,
-      pending, preparing, ready, pendingReservations, lowStock, activeReservations,
-      series, hasSeriesData, topDishes, maxDish, activeStaff, staffByRole,
-      recentOrders: [...orders].slice(0, 6),
+      todayRevenue, todayOrders, pendingOrders,
+      todayBookings, lowStock, totalEmployees,
     };
-  }, [orders, reservations, inventory, employees, nowTs]);
+  }, [orders, reservations, inventory, employees, todayStr]);
 
-  const trendChip = (delta: number | null) =>
-    delta === null ? null : { label: `${delta >= 0 ? '+' : ''}${delta}% vs yesterday`, up: delta >= 0 };
-
-  const attentionItems = [
-    m.pending.length > 0 && {
-      key: 'pending', icon: '⏳', label: 'Orders awaiting acceptance', tone: 'warning' as const,
-      detail: m.pending.map((o) => o.customerName).filter(Boolean).slice(0, 3).join(', '),
-      count: m.pending.length, href: '/admin/orders',
-    },
-    m.ready.length > 0 && {
-      key: 'ready', icon: '🛎️', label: 'Ready for pickup / serving', tone: 'info' as const,
-      detail: 'Waiting to be handed over', count: m.ready.length, href: '/admin/kitchen',
-    },
-    m.pendingReservations.length > 0 && {
-      key: 'res', icon: '📅', label: 'Reservations to confirm', tone: 'warning' as const,
-      detail: m.pendingReservations.map((r) => `${r.customerName} · ${r.time}`).slice(0, 2).join(', '),
-      count: m.pendingReservations.length, href: '/admin/reservations',
-    },
-    m.lowStock.length > 0 && {
-      key: 'stock', icon: '📦', label: 'Items below safety stock', tone: 'danger' as const,
-      detail: m.lowStock.map((i) => i.name).slice(0, 3).join(', '),
-      count: m.lowStock.length, href: '/admin/inventory',
-    },
-  ].filter(Boolean) as Array<{
-    key: string; icon: string; label: string; detail: string;
-    count: number; tone: 'warning' | 'danger' | 'info'; href: string;
-  }>;
+  // Filter launcher pages by user role permissions
+  const visiblePages = useMemo(() => {
+    return LAUNCHPAD_PAGES.filter((p) => canAccess(userRole, p.href));
+  }, [userRole]);
 
   return (
     <AdminLayout title="Dashboard">
-      <PageHeader
-        title={nowTs ? `${greetingFor(new Date(nowTs).getHours())}, ${firstName}` : `Welcome, ${firstName}`}
-        subtitle={nowTs
-          ? new Date(nowTs).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-          : undefined}
-        action={
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {QUICK_ACTIONS.map((a) => (
-              <Button
-                key={a.href}
-                component={Link}
-                href={a.href}
-                variant={a.primary ? 'contained' : 'outlined'}
-                size="small"
-                sx={{
-                  borderRadius: adminColors.radiusMd,
-                  fontWeight: 700, fontSize: 12.5, textTransform: 'none', px: 1.75,
-                  ...(a.primary
-                    ? { bgcolor: adminColors.brand, boxShadow: 'none', '&:hover': { bgcolor: adminColors.brandDark, boxShadow: 'none' } }
-                    : { color: adminColors.textSecondary, borderColor: adminColors.border, bgcolor: adminColors.bgPanel, '&:hover': { borderColor: adminColors.brand, color: adminColors.brand, bgcolor: adminColors.bgPanel } }),
-                }}
-              >
-                <Box component="span" sx={{ mr: 0.6 }}>{a.icon}</Box>{a.label}
-              </Button>
-            ))}
-          </Box>
-        }
-      />
+      <div className="space-y-8 w-full max-w-full">
+        
+        {/* Apple-Style Welcome Greeting Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 border-b border-stone-200/40 dark:border-stone-800/40">
+          <div>
+            <Badge className="bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/25 mb-1.5 font-bold">
+              {greeting}, {user?.user_metadata?.full_name || user?.user_metadata?.name || 'Staff Member'} 👋
+            </Badge>
+            <h2 className="text-xl font-black tracking-tight text-stone-900 dark:text-white leading-tight">
+              Dashboard Hub
+            </h2>
+            <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-0.5 max-w-xl">
+              Select an action from the grid below to manage and monitor restaurant services.
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-2 px-2.5 py-1 bg-white dark:bg-[#1C1C1E] border border-stone-200/50 dark:border-[#2C2C2E]/60 rounded-xl text-stone-600 dark:text-stone-300 text-[10px] font-extrabold shadow-sm flex-shrink-0 self-start md:self-auto">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Authorized: <span className="text-amber-700 dark:text-amber-500 capitalize">{userRole || 'staff'}</span></span>
+          </div>
+        </div>
 
-      {/* ── Today's numbers ─────────────────────────────────────── */}
-      <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
-        <Grid size={{ xs: 6, lg: 3 }}>
-          <StatCard
-            icon="💰" label="Revenue today" value={money(m.todayRevenue)}
-            sub={m.yesterdayRevenue > 0 ? `Yesterday ${money(m.yesterdayRevenue)}` : 'No sales yesterday'}
-            accent={adminColors.success} trend={trendChip(m.revenueDelta)}
-          />
-        </Grid>
-        <Grid size={{ xs: 6, lg: 3 }}>
-          <StatCard
-            icon="📋" label="Orders today" value={m.todayOrderCount}
-            sub={`${m.pending.length + m.preparing.length} still open`}
-            accent={adminColors.info} trend={trendChip(m.orderDelta)} href="/admin/orders"
-          />
-        </Grid>
-        <Grid size={{ xs: 6, lg: 3 }}>
-          <StatCard
-            icon="🎯" label="Avg order value" value={m.todayOrderCount > 0 ? money(m.avgOrderValue) : '—'}
-            sub={m.todayOrderCount > 0 ? `Across ${m.todayOrderCount} orders` : 'No orders yet today'}
-            accent={adminColors.accent}
-          />
-        </Grid>
-        <Grid size={{ xs: 6, lg: 3 }}>
-          <StatCard
-            icon="📅" label="Upcoming bookings" value={m.activeReservations.length}
-            sub={m.pendingReservations.length > 0 ? `${m.pendingReservations.length} need confirming` : 'All confirmed'}
-            accent={adminColors.brand} href="/admin/reservations"
-          />
-        </Grid>
-      </Grid>
+        {/* 1. App Launcher Grid */}
+        <div className="space-y-3">
+          <SectionHeading title="Restaurant Operations App Launcher" />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5">
+            {visiblePages.map((page) => {
+              const IconComponent = page.icon;
+              const badgeVal = page.badgeKey ? stats[page.badgeKey as keyof typeof stats] : 0;
+              
+              return (
+                <Link 
+                  key={page.label} 
+                  href={page.href}
+                  className="group relative flex flex-col items-start p-3.5 bg-white dark:bg-[#1C1C1E]/80 border border-stone-200/50 dark:border-[#2C2C2E]/60 rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.015)] dark:shadow-none hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-xs transition-all duration-150 overflow-hidden"
+                >
+                  {/* Apple Squircle Icon */}
+                  <div className={`w-9 h-9 rounded-xl bg-gradient-to-tr ${page.color} text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-150 flex-shrink-0`}>
+                    <IconComponent className="w-4.5 h-4.5 stroke-[1.8]" />
+                  </div>
 
-      {/* ── Needs attention + revenue trend ─────────────────────── */}
-      <Grid container spacing={1.5} sx={{ mb: 1.5 }}>
-        <Grid size={{ xs: 12, lg: 4 }}>
-          <SectionCard sx={{ height: '100%' }}>
-            <SectionHeading
-              title="Needs attention"
-              subtitle={attentionItems.length > 0 ? 'Tap any item to jump straight to it' : undefined}
-            />
-            {attentionItems.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography sx={{ fontSize: '2rem', mb: 0.5 }}>✅</Typography>
-                <Typography sx={{ fontWeight: 700, fontSize: 14, color: adminColors.textPrimary }}>
-                  Everything&apos;s handled
-                </Typography>
-                <Typography sx={{ fontSize: 12, color: adminColors.textMuted, mt: 0.3 }}>
-                  No pending orders, bookings, or stock alerts.
-                </Typography>
-              </Box>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {attentionItems.map((a) => (
-                  <AlertTile
-                    key={a.key} icon={a.icon} label={a.label} detail={a.detail}
-                    count={a.count} tone={a.tone} href={a.href}
-                  />
-                ))}
-              </Box>
-            )}
-          </SectionCard>
-        </Grid>
+                  {/* Launcher Page Title & Description */}
+                  <h3 className="font-extrabold text-xs text-stone-850 dark:text-stone-100 mt-3 group-hover:text-amber-700 dark:group-hover:text-amber-500 transition-colors">
+                    {page.label}
+                  </h3>
+                  <p className="text-[10px] font-semibold text-stone-400 dark:text-stone-500 mt-1 leading-normal">
+                    {page.description}
+                  </p>
 
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <SectionCard sx={{ height: '100%' }}>
-            <SectionHeading
-              title="Last 7 days"
-              subtitle={chartMetric === 'revenue' ? 'Daily revenue' : 'Daily order count'}
-              action={
-                <Box sx={{ display: 'flex', bgcolor: adminColors.bgSubtle, borderRadius: adminColors.radiusSm, p: '3px', gap: '2px' }}>
-                  {(['revenue', 'orders'] as const).map((k) => (
-                    <Box
-                      key={k}
-                      component="button"
-                      onClick={() => setChartMetric(k)}
-                      sx={{
-                        border: 'none', cursor: 'pointer', px: 1.5, py: 0.5,
-                        borderRadius: '6px', fontSize: 11.5, fontWeight: 700,
-                        textTransform: 'capitalize', fontFamily: 'inherit',
-                        bgcolor: chartMetric === k ? adminColors.bgPanel : 'transparent',
-                        color: chartMetric === k ? adminColors.brand : adminColors.textMuted,
-                        boxShadow: chartMetric === k ? adminColors.shadowSm : 'none',
-                      }}
-                    >
-                      {k}
-                    </Box>
-                  ))}
-                </Box>
-              }
-            />
-            {!m.hasSeriesData ? (
-              <EmptyState emoji="📊" title="No sales in the last 7 days" subtitle="The chart fills in as orders come through." />
-            ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <AreaChart data={m.series} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="dashArea" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={adminColors.brand} stopOpacity={0.22} />
-                      <stop offset="100%" stopColor={adminColors.brand} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={adminColors.borderSubtle} vertical={false} />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: adminColors.textMuted }} axisLine={false} tickLine={false} />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: adminColors.textMuted }} axisLine={false} tickLine={false}
-                    tickFormatter={(v) => (chartMetric === 'revenue' ? `₹${v >= 1000 ? `${Math.round(v / 1000)}k` : v}` : `${v}`)}
-                  />
-                  <RechartsTooltip
-                    cursor={{ stroke: adminColors.border }}
-                    formatter={(v: unknown) => [
-                      chartMetric === 'revenue' ? money(Number(v) || 0) : `${v} orders`,
-                      chartMetric === 'revenue' ? 'Revenue' : 'Orders',
-                    ]}
-                    contentStyle={{
-                      borderRadius: 12, background: adminColors.bgPanel,
-                      border: `1px solid ${adminColors.border}`, color: adminColors.textPrimary,
-                      boxShadow: adminColors.shadowLg, fontSize: 12,
-                    }}
-                  />
-                  <Area
-                    type="monotone" dataKey={chartMetric}
-                    stroke={adminColors.brand} strokeWidth={2.5} fill="url(#dashArea)"
-                    activeDot={{ r: 5, stroke: adminColors.bgPanel, strokeWidth: 2, fill: adminColors.brand }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </SectionCard>
-        </Grid>
-      </Grid>
-
-      {/* ── Recent orders + side panels ─────────────────────────── */}
-      <Grid container spacing={1.5}>
-        <Grid size={{ xs: 12, lg: 8 }}>
-          <SectionCard noPadding sx={{ height: '100%' }}>
-            <Box sx={{ p: { xs: 1.75, sm: 2 }, pb: 1.25 }}>
-              <SectionHeading
-                title="Recent orders"
-                subtitle="Newest first"
-                action={
-                  <Link href="/admin/orders" style={{ textDecoration: 'none' }}>
-                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: adminColors.brand }}>View all →</Typography>
-                  </Link>
-                }
-              />
-            </Box>
-            {m.recentOrders.length === 0 ? (
-              <EmptyState emoji="🧾" title="No orders yet" subtitle="Orders from the website, POS, and delivery apps land here." />
-            ) : (
-              <Box>
-                {m.recentOrders.map((o, i) => (
-                  <Box
-                    key={o.id}
-                    component={Link}
-                    href="/admin/orders"
-                    sx={{
-                      display: 'flex', alignItems: 'center', gap: 1.5,
-                      px: { xs: 1.75, sm: 2 }, py: 1.25, textDecoration: 'none',
-                      borderTop: i === 0 ? `1px solid ${adminColors.borderSubtle}` : 'none',
-                      borderBottom: `1px solid ${adminColors.borderSubtle}`,
-                      '&:last-of-type': { borderBottom: 'none' },
-                      '&:hover': { bgcolor: adminColors.bgSubtle },
-                    }}
-                  >
-                    <Avatar sx={{
-                      width: 36, height: 36, flexShrink: 0, fontSize: 13, fontWeight: 700,
-                      bgcolor: adminColors.brandSoft, color: adminColors.brand,
-                    }}>
-                      {(o.customerName || 'W').charAt(0).toUpperCase()}
-                    </Avatar>
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Typography sx={{ fontSize: 13.5, fontWeight: 700, color: adminColors.textPrimary }} noWrap>
-                        {o.customerName || 'Walk-in'}
-                      </Typography>
-                      <Typography sx={{ fontSize: 11.5, color: adminColors.textMuted }} noWrap>
-                        {o.orderId || o.id} · {(o.items || []).length} items · {o.orderTime || '—'}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
-                      <Typography sx={{ fontSize: 14, fontWeight: 800, color: adminColors.textPrimary }}>
-                        {money(o.grandTotal || o.subtotal || 0)}
-                      </Typography>
-                      <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
-                        <StatusChip status={o.status} palette={orderStatusColors} />
-                      </Box>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </SectionCard>
-        </Grid>
-
-        <Grid size={{ xs: 12, lg: 4 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%' }}>
-            {/* Top dishes */}
-            <SectionCard>
-              <SectionHeading title="🔥 Top dishes" subtitle="By quantity sold" />
-              {m.topDishes.length === 0 ? (
-                <Typography sx={{ fontSize: 12.5, color: adminColors.textMuted, textAlign: 'center', py: 2.5 }}>
-                  No dish data yet.
-                </Typography>
-              ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  {m.topDishes.map((d, i) => (
-                    <Box key={d.name}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.6, gap: 1 }}>
-                        <Typography sx={{ fontSize: 12.5, fontWeight: 600, color: adminColors.textSecondary, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {i + 1}. {d.name}
-                        </Typography>
-                        <Typography sx={{ fontSize: 12, fontWeight: 800, color: adminColors.textPrimary, flexShrink: 0 }}>
-                          {d.count}×
-                        </Typography>
-                      </Box>
-                      <Box sx={{ height: 5, borderRadius: 3, bgcolor: adminColors.bgSubtle, overflow: 'hidden' }}>
-                        <Box sx={{
-                          height: '100%', borderRadius: 3,
-                          width: `${Math.max(6, (d.count / m.maxDish) * 100)}%`,
-                          bgcolor: i === 0 ? adminColors.brand : i === 1 ? adminColors.accent : adminColors.info,
-                        }} />
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-            </SectionCard>
-
-            {/* Team */}
-            <SectionCard sx={{ flex: 1 }}>
-              <SectionHeading
-                title="👥 Team on the system"
-                subtitle={`${m.activeStaff.length} active ${m.activeStaff.length === 1 ? 'account' : 'accounts'}`}
-                action={
-                  <Link href="/admin/employees" style={{ textDecoration: 'none' }}>
-                    <Typography sx={{ fontSize: 12, fontWeight: 700, color: adminColors.brand }}>Manage →</Typography>
-                  </Link>
-                }
-              />
-              {m.staffByRole.length === 0 ? (
-                <Typography sx={{ fontSize: 12.5, color: adminColors.textMuted, textAlign: 'center', py: 2.5 }}>
-                  No staff accounts yet — add one from Team.
-                </Typography>
-              ) : (
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {m.staffByRole.map(({ role, count }) => (
-                    <Chip
-                      key={role}
-                      label={`${ROLE_LABELS[role]} · ${count}`}
-                      size="small"
-                      sx={{
-                        bgcolor: roleColors[role].bg, color: roleColors[role].color,
-                        fontWeight: 700, fontSize: 11.5,
-                      }}
-                    />
-                  ))}
-                </Box>
-              )}
-            </SectionCard>
-          </Box>
-        </Grid>
-      </Grid>
+                  {/* Absolute Notification Count Badge (Apple iOS style) */}
+                  {badgeVal > 0 && (
+                    <span className="absolute top-3.5 right-3.5 bg-rose-600 text-white rounded-full min-w-[18px] h-4.5 px-1 flex items-center justify-center text-[9px] font-black shadow-md border border-white dark:border-[#1C1C1E] animate-pulse">
+                      {badgeVal}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+        
+      </div>
     </AdminLayout>
   );
 }

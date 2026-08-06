@@ -1,10 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
+import type { MouseEvent } from 'react';
+import { toast } from 'sonner';
 import type { MenuItem } from '@/types';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { addItem, increaseQty, decreaseQty, selectCartItems } from '@/store/cartSlice';
+import { useCartStore } from '@/store/useCartStore';
+import { flyToCart } from '@/lib/flyToCart';
 
 export type Portion = 'single' | 'full' | 'large';
 
@@ -29,8 +30,6 @@ export const PORTION_LABELS: Record<Portion, string> = {
  * defined once, here.
  */
 export function useDishPortion(item: MenuItem) {
-  const dispatch = useAppDispatch();
-
   const availablePortions = useMemo<Portion[]>(
     () => (item.portionPrices
       ? PORTION_ORDER.filter((p) => item.portionPrices?.[p] !== undefined)
@@ -46,19 +45,39 @@ export function useDishPortion(item: MenuItem) {
   const hasPortions = availablePortions.length > 1;
   const activePrice = item.portionPrices?.[selectedPortion] ?? item.price;
 
-  const cartItems = useAppSelector(selectCartItems);
+  const cartItems = useCartStore((s) => s.items);
   const cartItem = cartItems.find(
     (i) => i.id === item.id && (i.selectedPortion || 'full') === selectedPortion,
   );
 
-  const add = () => {
+  /**
+   * Pass the click event through and the dish flies from the button that was
+   * pressed to the cart icon. Every surface that renders a dish goes through
+   * this one function, so wiring the animation here covers the menu grid, the
+   * home page rail and the dish list at once — and a caller that has no event
+   * to give (a keyboard-driven add, say) still adds the item, just without the
+   * flight.
+   */
+  const add = (event?: MouseEvent<HTMLElement>) => {
     const name = hasPortions ? `${item.name} (${selectedPortion.toUpperCase()})` : item.name;
-    dispatch(addItem({ ...item, price: activePrice, selectedPortion, selectedPrice: activePrice, name }));
-    toast.success(`${name} added to cart!`, { icon: '🍽️' });
+    useCartStore.getState().addItem({
+      ...item,
+      price: activePrice,
+      selectedPortion,
+      selectedPrice: activePrice,
+      name,
+    });
+
+    flyToCart({ source: event?.currentTarget, imageUrl: item.image });
+
+    // Shorter than the default and anchored to the dish, because the flight
+    // is now doing the work of saying "this went in the cart"; the toast is
+    // just the accessible, readable confirmation of the same event.
+    toast.success(`${name} added to cart`, { duration: 1800 });
   };
 
-  const increase = () => { if (cartItem) dispatch(increaseQty(cartItem.id)); };
-  const decrease = () => { if (cartItem) dispatch(decreaseQty(cartItem.id)); };
+  const increase = () => { if (cartItem) useCartStore.getState().increaseQty(cartItem.id); };
+  const decrease = () => { if (cartItem) useCartStore.getState().decreaseQty(cartItem.id); };
 
   return {
     availablePortions,

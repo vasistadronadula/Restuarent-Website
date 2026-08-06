@@ -1,48 +1,52 @@
 'use client';
 
 import React, { Suspense, useMemo, useRef, useState } from 'react';
-import {
-  Box, Typography, TextField, Button, InputAdornment, IconButton,
-  CircularProgress, Divider, Alert, Checkbox, FormControlLabel,
-  Link as MuiLink,
-} from '@mui/material';
-import { Email, Lock, Visibility, VisibilityOff, Person, Phone } from '@mui/icons-material';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { Eye, EyeOff, Loader2, Lock, Mail, Phone, User, UserPlus, Smartphone, Apple, LogIn } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 import { useAuth, landAfterLogin } from '@/context/AuthContext';
 import {
   validateEmail, validateName, validatePhone, validatePassword,
   normalizePhone, getPasswordStrength, safeRedirect, MIN_PASSWORD_LENGTH,
 } from '@/lib/validation';
+import { useRedirectIfSignedIn } from '@/hooks/useRedirectIfSignedIn';
 import AuthShell from '@/components/customer/AuthShell';
 import GoogleIcon from '@/components/customer/GoogleIcon';
 import PhoneOtpAuth from '@/components/customer/PhoneOtpAuth';
-
-/**
- * Account creation.
- *
- * Every field here is validated before Supabase is called, which is not
- * pedantry: a signup that round-trips only to come back "Password should be at
- * least 8 characters" has already cost the customer a wait, and on a phone it
- * usually costs the typed password too. The strength meter and the live rules
- * exist so the requirement is visible while the password is being chosen
- * rather than after it has been rejected.
- */
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type Field = 'name' | 'phone' | 'email' | 'password';
+type AuthMethod = 'email' | 'otp';
+
+function TermsNote() {
+  return (
+    <p className="mt-4 text-center text-[10px] text-stone-400 leading-relaxed font-semibold">
+      By continuing you agree to our{' '}
+      <Link href="/terms" target="_blank" className="font-extrabold text-amber-600 hover:underline dark:text-amber-400">
+        Terms of Service
+      </Link>{' '}
+      and{' '}
+      <Link href="/privacy-policy" target="_blank" className="font-extrabold text-amber-600 hover:underline dark:text-amber-400">
+        Privacy Policy
+      </Link>
+    </p>
+  );
+}
 
 function SignupForm() {
   const { signUpWithEmail, signInWithGoogle } = useAuth();
   const searchParams = useSearchParams();
 
-  // Where a new customer lands. Defaults to the menu — they came here to
-  // order, and an empty home page is not where that continues.
-  const redirectTo = safeRedirect(searchParams.get('redirect'), '/menu');
+  const explicitRedirect = safeRedirect(searchParams.get('redirect'), '');
+  const redirectTo = explicitRedirect || '/menu';
+  const leaving = useRedirectIfSignedIn(redirectTo);
 
-  // Phone first: a customer with a SIM can finish in two taps, where email
-  // signup asks them to invent and remember a password.
-  const [authMethod, setAuthMethod] = useState<'otp' | 'email'>('otp');
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('email');
   const [values, setValues] = useState({ name: '', phone: '', email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -51,15 +55,11 @@ function SignupForm() {
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Four separate refs rather than one object of them: reading `refs.email`
-  // while rendering counts as touching a ref during render, which React's
-  // lint rules reject outright.
   const nameRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
-  /** Called only from the submit handler, never during render. */
   const focusField = (field: Field) => {
     const target =
       field === 'name' ? nameRef
@@ -73,8 +73,6 @@ function SignupForm() {
 
   const setField = (field: Field, value: string) => {
     setValues((v) => ({ ...v, [field]: value }));
-    // Clearing as they type means a corrected field stops shouting immediately
-    // instead of waiting for another blur.
     if (errors[field]) setErrors((e) => ({ ...e, [field]: undefined }));
   };
 
@@ -106,9 +104,6 @@ function SignupForm() {
     const found = runValidation();
     setTouched({ name: true, phone: true, email: true, password: true });
 
-    // Focus the first thing that is wrong, top to bottom — otherwise on a long
-    // form the customer is told "something failed" with the offending field
-    // scrolled off screen.
     const firstBad = (['name', 'phone', 'email', 'password'] as Field[]).find((f) => found[f]);
     if (firstBad) { focusField(firstBad); return; }
 
@@ -127,9 +122,6 @@ function SignupForm() {
 
     if (!res.success) {
       setLoading(false);
-      // signUpWithEmail surfaces Supabase's own message as a toast (it is the
-      // one that knows whether this was a duplicate address or a rejected
-      // password); this keeps a persistent copy on screen after it fades.
       setFormError('We could not create that account. The email may already be registered — try logging in instead.');
       return;
     }
@@ -137,391 +129,246 @@ function SignupForm() {
     landAfterLogin(res.role ?? 'customer', redirectTo);
   };
 
-  const loginHref = redirectTo === '/menu' ? '/login' : `/login?redirect=${encodeURIComponent(redirectTo)}`;
+  const loginHref = explicitRedirect ? `/login?redirect=${encodeURIComponent(explicitRedirect)}` : '/login';
 
   return (
     <AuthShell
-      title="Create account"
-      subtitle="Join Pala Pitta Ruchulu in seconds. Track orders, earn rewards, and manage table reservations."
+      title={authMethod === 'email' ? 'Create your account' : 'Sign up with phone'}
+      subtitle="Order, track and book a table with one royal account."
+      icon={
+        authMethod === 'email' ? (
+          <UserPlus className="size-5 text-stone-700 dark:text-stone-300" />
+        ) : (
+          <Smartphone className="size-5 text-stone-700 dark:text-stone-300" />
+        )
+      }
+      redirectTo={explicitRedirect || undefined}
       footer={
-        <Typography sx={{ fontSize: '13.5px', color: 'text.secondary' }}>
+        <p className="text-xs text-stone-500 dark:text-stone-400">
           Already have an account?{' '}
-          <MuiLink
-            component={Link}
-            href={loginHref}
-            sx={{
-              color: 'primary.main',
-              fontWeight: 800,
-              textDecoration: 'none',
-              '&:hover': { textDecoration: 'underline' },
-            }}
-          >
+          <Link href={loginHref} prefetch className="font-extrabold text-amber-600 hover:underline dark:text-amber-400">
             Log in
-          </MuiLink>
-        </Typography>
+          </Link>
+        </p>
       }
     >
-      {/* Pill Segmented Tab Switcher */}
-      <Box
-        sx={{
-          display: 'flex',
-          bgcolor: 'rgba(245, 235, 225, 0.75)',
-          p: 0.5,
-          borderRadius: '16px',
-          mb: 3,
-          border: '1px solid rgba(255, 204, 188, 0.5)',
-        }}
-      >
-        <Button
-          fullWidth
-          component={Link}
-          href={loginHref}
-          sx={{
-            borderRadius: '12px',
-            py: 0.8,
-            fontWeight: 700,
-            fontSize: '13.5px',
-            color: 'text.secondary',
-            '&:hover': { color: 'primary.main', bgcolor: 'rgba(255,255,255,0.4)' },
-          }}
-        >
-          Log In
-        </Button>
-        <Button
-          fullWidth
-          disableRipple
-          sx={{
-            borderRadius: '12px',
-            py: 0.8,
-            fontWeight: 800,
-            fontSize: '13.5px',
-            bgcolor: '#FFFFFF',
-            color: 'primary.main',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-            cursor: 'default',
-          }}
-        >
-          Sign Up
-        </Button>
-      </Box>
+      {leaving && (
+        <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-medium text-amber-700 dark:text-amber-450">
+          Already signed in — redirecting…
+        </div>
+      )}
 
-      {/* Auth Method Switcher (Phone OTP vs Email) */}
-      <Box sx={{ mb: 2.5, display: 'flex', justifyContent: 'center' }}>
-        <Box
-          sx={{
-            display: 'inline-flex',
-            bgcolor: '#F5EBE6',
-            p: 0.4,
-            borderRadius: '12px',
-            gap: 0.5,
-          }}
-        >
-          <Button
-            size="small"
-            onClick={() => setAuthMethod('otp')}
-            sx={{
-              borderRadius: '9px',
-              px: 2,
-              py: 0.6,
-              fontWeight: 800,
-              fontSize: '12.5px',
-              textTransform: 'none',
-              bgcolor: authMethod === 'otp' ? '#FFFFFF' : 'transparent',
-              color: authMethod === 'otp' ? 'primary.main' : 'text.secondary',
-              boxShadow: authMethod === 'otp' ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
-            }}
-          >
-            📱 Phone OTP
-          </Button>
-          <Button
-            size="small"
-            onClick={() => setAuthMethod('email')}
-            sx={{
-              borderRadius: '9px',
-              px: 2,
-              py: 0.6,
-              fontWeight: 800,
-              fontSize: '12.5px',
-              textTransform: 'none',
-              bgcolor: authMethod === 'email' ? '#FFFFFF' : 'transparent',
-              color: authMethod === 'email' ? 'primary.main' : 'text.secondary',
-              boxShadow: authMethod === 'email' ? '0 2px 8px rgba(0,0,0,0.08)' : 'none',
-            }}
-          >
-            ✉️ Email & Password
-          </Button>
-        </Box>
-      </Box>
-
-      {/* One method at a time. Both used to render together, so a customer who
-          picked "Phone OTP" was still shown the full email form underneath —
-          two ways to create an account, on one screen, at once. */}
       {authMethod === 'otp' ? (
         <>
-          <PhoneOtpAuth isSignUpMode onSuccess={(role) => landAfterLogin(role ?? 'customer', redirectTo)} />
-          <Typography sx={{ fontSize: '11.5px', color: 'text.secondary', textAlign: 'center', mt: 2, lineHeight: 1.5 }}>
-            By continuing you agree to our{' '}
-            <MuiLink component={Link} href="/terms" target="_blank" underline="hover" sx={{ color: 'primary.main', fontWeight: 700 }}>
-              Terms of Service
-            </MuiLink>{' '}
-            and{' '}
-            <MuiLink component={Link} href="/privacy-policy" target="_blank" underline="hover" sx={{ color: 'primary.main', fontWeight: 700 }}>
-              Privacy Policy
-            </MuiLink>
-          </Typography>
+          <PhoneOtpAuth
+            isSignUpMode
+            onSuccess={(role) => landAfterLogin(role ?? 'customer', redirectTo)}
+            customSocials={
+              <div className="space-y-4 pt-1">
+                <div className="relative my-4 flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-200 dark:border-stone-800" /></div>
+                  <span className="relative bg-white/70 dark:bg-stone-900/65 px-3 text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase">
+                    Or sign up with
+                  </span>
+                </div>
+                <div className="flex items-center justify-center gap-4">
+                  <button
+                    type="button"
+                    onClick={signInWithGoogle}
+                    className="w-10 h-10 border border-stone-250 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-stone-950 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors shadow-xs"
+                    title="Sign up with Google"
+                  >
+                    <GoogleIcon />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMethod('email'); setFormError(null); }}
+                    className="w-10 h-10 border border-stone-250 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-stone-950 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors shadow-xs text-stone-600 dark:text-stone-400"
+                    title="Sign up with Email"
+                  >
+                    <Mail className="size-4 text-stone-550" />
+                  </button>
+                </div>
+              </div>
+            }
+          />
+          <TermsNote />
         </>
       ) : (
-        <>
-          <Button
-            fullWidth
-            variant="outlined"
-            onClick={signInWithGoogle}
-            startIcon={<GoogleIcon />}
-            sx={{
-              py: 1.3,
-              mb: 2.5,
-              borderRadius: '14px',
-              borderColor: '#E2E8F0',
-              bgcolor: 'rgba(255, 255, 255, 0.9)',
-              color: '#2D3748',
-              fontWeight: 700,
-              fontSize: '14px',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-              transition: 'all 0.2s ease',
-              '&:hover': {
-                borderColor: '#CBD5E0',
-                bgcolor: '#FFFFFF',
-                boxShadow: '0 4px 14px rgba(0,0,0,0.06)',
-                transform: 'translateY(-1px)',
-              },
-            }}
-          >
-            Sign up with Google
-          </Button>
-
-          <Divider
-            sx={{
-              mb: 2.5,
-              fontSize: '11px',
-              fontWeight: 800,
-              color: 'text.secondary',
-              letterSpacing: 1,
-              '&::before, &::after': { borderColor: '#F0E4D8' },
-            }}
-          >
-            OR SIGN UP WITH EMAIL
-          </Divider>
-
-          <Box component="form" onSubmit={handleSubmit} noValidate>
+        <div className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
             {formError && (
-              <Alert
-                severity="error"
-                role="alert"
-                sx={{
-                  mb: 2.5,
-                  borderRadius: '14px',
-                  fontSize: '13px',
-                  border: '1px solid rgba(211, 47, 47, 0.2)',
-                  bgcolor: 'rgba(211, 47, 47, 0.04)',
-                }}
-              >
+              <div role="alert" className="rounded-2xl border border-destructive/25 bg-destructive/5 dark:bg-destructive/10 p-3 text-xs font-semibold text-destructive leading-relaxed">
                 {formError}
-              </Alert>
+              </div>
             )}
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                fullWidth
-                inputRef={nameRef}
-                label="Full name"
-                name="name"
-                value={values.name}
-                onChange={(e) => setField('name', e.target.value)}
-                onBlur={() => handleBlur('name')}
-                error={Boolean(showError('name'))}
-                helperText={showError('name')}
-                autoComplete="name"
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Person sx={{ color: 'primary.main', fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
+            <div className="space-y-1.5">
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+                <Input
+                  id="signup-name"
+                  ref={nameRef}
+                  name="name"
+                  value={values.name}
+                  onChange={(e) => setField('name', e.target.value)}
+                  onBlur={() => handleBlur('name')}
+                  autoComplete="name"
+                  maxLength={80}
+                  placeholder="Full Name"
+                  className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-550 text-xs font-bold"
+                />
+              </div>
+              {showError('name') && <p className="text-[10px] font-bold text-destructive">{showError('name')}</p>}
+            </div>
 
-              <TextField
-                fullWidth
-                inputRef={phoneRef}
-                label="Mobile number"
-                name="phone"
-                type="tel"
-                value={values.phone}
-                onChange={(e) => setField('phone', e.target.value)}
-                onBlur={() => handleBlur('phone')}
-                error={Boolean(showError('phone'))}
-                helperText={showError('phone') ?? 'For delivery updates & table reservations'}
-                autoComplete="tel"
-                slotProps={{
-                  htmlInput: { inputMode: 'tel', maxLength: 15 },
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Phone sx={{ color: 'primary.main', fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
+            <div className="space-y-1.5">
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+                <Input
+                  id="signup-phone"
+                  ref={phoneRef}
+                  name="phone"
+                  type="tel"
+                  value={values.phone}
+                  onChange={(e) => setField('phone', e.target.value)}
+                  onBlur={() => handleBlur('phone')}
+                  autoComplete="tel"
+                  maxLength={15}
+                  placeholder="Mobile Number"
+                  className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-550 text-xs font-bold"
+                />
+              </div>
+              {showError('phone') && <p className="text-[10px] font-bold text-destructive">{showError('phone')}</p>}
+            </div>
 
-              <TextField
-                fullWidth
-                inputRef={emailRef}
-                label="Email address"
-                name="email"
-                type="email"
-                value={values.email}
-                onChange={(e) => setField('email', e.target.value)}
-                onBlur={() => handleBlur('email')}
-                error={Boolean(showError('email'))}
-                helperText={showError('email')}
-                autoComplete="email"
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Email sx={{ color: 'primary.main', fontSize: 20 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
+            <div className="space-y-1.5">
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+                <Input
+                  id="signup-email"
+                  ref={emailRef}
+                  name="email"
+                  type="email"
+                  value={values.email}
+                  onChange={(e) => setField('email', e.target.value)}
+                  onBlur={() => handleBlur('email')}
+                  autoComplete="email"
+                  placeholder="Email"
+                  className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-550 text-xs font-bold"
+                />
+              </div>
+              {showError('email') && <p className="text-[10px] font-bold text-destructive">{showError('email')}</p>}
+            </div>
 
-              <Box>
-                <TextField
-                  fullWidth
-                  inputRef={passwordRef}
-                  label="Password"
+            <div className="space-y-1.5">
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+                <Input
+                  id="signup-password"
+                  ref={passwordRef}
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   value={values.password}
                   onChange={(e) => setField('password', e.target.value)}
                   onBlur={() => handleBlur('password')}
-                  error={Boolean(showError('password'))}
-                  helperText={showError('password')}
                   autoComplete="new-password"
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Lock sx={{ color: 'primary.main', fontSize: 20 }} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            size="small"
-                            onClick={() => setShowPassword((s) => !s)}
-                            aria-label={showPassword ? 'Hide password' : 'Show password'}
-                            edge="end"
-                            sx={{ color: 'text.secondary' }}
-                          >
-                            {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
+                  placeholder="Password"
+                  className="pl-9 pr-10 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-550 text-xs font-bold"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+              {showError('password') ? (
+                <p className="text-[10px] font-bold text-destructive">{showError('password')}</p>
+              ) : values.password ? (
+                <div className="mt-2 space-y-1 px-1">
+                  <div className="flex gap-1.5">
+                    {[1, 2, 3, 4].map((segment) => (
+                      <div
+                        key={segment}
+                        className="h-1 flex-1 rounded-full transition-colors"
+                        style={{
+                          backgroundColor: strength.score >= segment ? strength.color : 'rgba(0,0,0,0.08)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[10px] font-black" style={{ color: strength.color }}>
+                    {strength.label}
+                    <span className="font-normal text-stone-400">
+                      {strength.hint ? ` · ${strength.hint}` : ' — strong password'}
+                    </span>
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[10px] text-stone-400 font-semibold">
+                  Must be at least {MIN_PASSWORD_LENGTH} characters long
+                </p>
+              )}
+            </div>
 
-                {/* Strength meter */}
-                {values.password ? (
-                  <Box sx={{ mt: 1.25, px: 0.5 }}>
-                    <Box sx={{ display: 'flex', gap: 0.8, mb: 0.75 }}>
-                      {[1, 2, 3, 4].map((segment) => (
-                        <Box
-                          key={segment}
-                          sx={{
-                            flex: 1,
-                            height: 4,
-                            borderRadius: 2,
-                            bgcolor: strength.score >= segment ? strength.color : 'rgba(0,0,0,0.08)',
-                            boxShadow: strength.score >= segment ? `0 0 6px ${strength.color}40` : 'none',
-                            transition: 'all .3s ease',
-                          }}
-                        />
-                      ))}
-                    </Box>
-                    <Typography aria-live="polite" sx={{ fontSize: '11.5px', fontWeight: 700, color: strength.color }}>
-                      {strength.label}
-                      <Box component="span" sx={{ fontWeight: 500, color: 'text.secondary' }}>
-                        {strength.hint ? ` · ${strength.hint}` : ' — good password'}
-                      </Box>
-                    </Typography>
-                  </Box>
-                ) : (
-                  <Typography sx={{ fontSize: '11.5px', color: 'text.secondary', mt: 0.75, ml: 1 }}>
-                    Must be at least {MIN_PASSWORD_LENGTH} characters long
-                  </Typography>
-                )}
-              </Box>
-
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={acceptedTerms}
-                    onChange={(e) => { setAcceptedTerms(e.target.checked); if (e.target.checked) setFormError(null); }}
-                    size="small"
-                    sx={{
-                      color: 'primary.main',
-                      '&.Mui-checked': { color: 'primary.main' },
-                      pt: 0.25,
-                    }}
-                  />
-                }
-                sx={{ alignItems: 'flex-start', mr: 0, ml: -0.5, mt: 0.5 }}
-                label={
-                  <Typography sx={{ fontSize: '12.5px', color: 'text.secondary', lineHeight: 1.5, mt: 0.4 }}>
-                    I agree to the{' '}
-                    <MuiLink component={Link} href="/terms" target="_blank" underline="hover" sx={{ color: 'primary.main', fontWeight: 700 }}>
-                      Terms of Service
-                    </MuiLink>{' '}
-                    and{' '}
-                    <MuiLink component={Link} href="/privacy-policy" target="_blank" underline="hover" sx={{ color: 'primary.main', fontWeight: 700 }}>
-                      Privacy Policy
-                    </MuiLink>
-                  </Typography>
-                }
-              />
-
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                disabled={loading}
-                sx={{
-                  py: 1.5,
-                  mt: 1,
-                  borderRadius: '14px',
-                  fontWeight: 800,
-                  fontSize: '15px',
-                  background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
-                  boxShadow: '0 6px 20px rgba(198, 40, 40, 0.25)',
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)',
-                    boxShadow: '0 8px 24px rgba(198, 40, 40, 0.35)',
-                    transform: 'translateY(-1px)',
-                  },
+            <div className="flex items-start space-x-2 pt-1">
+              <Checkbox
+                id="terms"
+                checked={acceptedTerms}
+                onCheckedChange={(checked) => {
+                  setAcceptedTerms(Boolean(checked));
+                  if (checked) setFormError(null);
                 }}
-              >
-                {loading ? <CircularProgress size={23} color="inherit" /> : 'Create account'}
-              </Button>
-            </Box>
-          </Box>
-        </>
+              />
+              <Label htmlFor="terms" className="text-xs leading-relaxed text-stone-500 dark:text-stone-400 font-bold select-none cursor-pointer">
+                I agree to the{' '}
+                <Link href="/terms" target="_blank" className="font-extrabold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 hover:underline">
+                  Terms of Service
+                </Link>{' '}
+                and{' '}
+                <Link href="/privacy-policy" target="_blank" className="font-extrabold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 hover:underline">
+                  Privacy Policy
+                </Link>
+              </Label>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full h-11 font-black bg-stone-950 hover:bg-stone-900 text-white dark:bg-stone-50 dark:hover:bg-stone-200 dark:text-stone-950 rounded-xl transition-all text-xs"
+            >
+              {loading ? <Loader2 className="size-4 animate-spin" /> : 'Get Started'}
+            </Button>
+          </form>
+
+          <div className="relative my-4 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-200 dark:border-stone-800" /></div>
+            <span className="relative bg-white/70 dark:bg-stone-900/65 px-3 text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase">
+              Or sign up with
+            </span>
+          </div>
+
+          <div className="flex items-center justify-center gap-4">
+            <button
+              type="button"
+              onClick={signInWithGoogle}
+              className="w-10 h-10 border border-stone-250 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-stone-950 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors shadow-xs"
+              title="Sign up with Google"
+            >
+              <GoogleIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAuthMethod('otp'); setFormError(null); }}
+              className="w-10 h-10 border border-stone-250 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-stone-950 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors shadow-xs text-stone-600 dark:text-stone-400"
+              title="Sign up with Mobile OTP"
+            >
+              <Phone className="size-4 text-stone-550" />
+            </button>
+          </div>
+        </div>
       )}
     </AuthShell>
   );
@@ -531,14 +378,12 @@ export default function SignupPage() {
   return (
     <Suspense
       fallback={
-        <Box sx={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#FAF4ED' }}>
-          <CircularProgress color="primary" />
-        </Box>
+        <div className="min-h-screen w-full flex items-center justify-center bg-background">
+          <Loader2 className="size-8 animate-spin text-primary" />
+        </div>
       }
     >
       <SignupForm />
     </Suspense>
   );
 }
-
-

@@ -1,150 +1,105 @@
 'use client';
 
-/**
- * Shared admin UI kit. Every /admin page composes from these instead of
- * re-declaring its own card/chip/empty-state styling — the redesign's
- * "production-grade structure" is this: one set of primitives, not a
- * bespoke implementation of the same patterns on every page.
- */
-
 import React from 'react';
 import Link from 'next/link';
-import { Box, Paper, Typography, Chip, type SxProps, type Theme } from '@mui/material';
 import { adminColors, roleColors, orderStatusColors, reservationStatusColors } from '@/theme/adminColors';
 import { ROLE_LABELS } from '@/lib/roleAccess';
 import type { UserRole } from '@/types';
+import { Badge } from '@/components/ui/badge';
 
 export { adminColors, roleColors, orderStatusColors, reservationStatusColors };
 
-// ── PageHeader ─────────────────────────────────────────────────────────────
 export function PageHeader({
   title, subtitle, action,
 }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <Box sx={{
-      display: 'flex', justifyContent: 'space-between',
-      alignItems: { xs: 'flex-start', sm: 'center' },
-      flexDirection: { xs: 'column', sm: 'row' },
-      gap: 1.5, mb: 2,
-    }}>
-      <Box>
-        <Typography sx={{ fontSize: { xs: 18, sm: 22 }, fontWeight: 900, color: adminColors.textPrimary, letterSpacing: '-0.5px', lineHeight: 1.2 }}>
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+      <div>
+        <h1 className="text-lg sm:text-xl font-black text-stone-850 dark:text-white tracking-tight leading-none">
           {title}
-        </Typography>
+        </h1>
         {subtitle && (
-          <Typography sx={{ fontSize: 12.5, color: adminColors.textMuted, mt: 0.3, fontWeight: 500 }}>
+          <p className="text-[11px] font-semibold text-stone-400 dark:text-stone-500 mt-1 max-w-xl">
             {subtitle}
-          </Typography>
+          </p>
         )}
-      </Box>
-      {action && <Box sx={{ width: { xs: '100%', sm: 'auto' } }}>{action}</Box>}
-    </Box>
+      </div>
+      {action && <div className="w-full sm:w-auto flex-shrink-0">{action}</div>}
+    </div>
   );
 }
 
-// ── StatCard ───────────────────────────────────────────────────────────────
 export function StatCard({
-  icon, label, value, sub, accent = adminColors.accent, trend, href,
+  icon, label, value, sub, accent = '#C62828', trend, href,
 }: {
   icon: React.ReactNode; label: string; value: React.ReactNode; sub?: React.ReactNode;
   accent?: string; trend?: { label: string; up: boolean } | null; href?: string;
 }) {
   const inner = (
-    <Paper
-      elevation={0}
-      sx={{
-        p: 1.75, borderRadius: adminColors.radiusMd,
-        border: `1px solid ${adminColors.border}`,
-        bgcolor: adminColors.bgPanel, boxShadow: adminColors.shadowSm,
-        height: '100%', display: 'flex', flexDirection: 'column', gap: 1,
-        transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
-        ...(href ? { cursor: 'pointer', '&:hover': { borderColor: accent, boxShadow: adminColors.shadowMd } } : {}),
-      }}
-    >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-        <Box sx={{
-          width: 32, height: 32, borderRadius: adminColors.radiusSm,
-          bgcolor: `${accent}14`, color: accent,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0, fontSize: '15px',
-        }}>
-          {icon}
-        </Box>
+    <div className={`p-3.5 rounded-2xl border border-stone-200/50 dark:border-[#2C2C2E]/60 bg-white dark:bg-[#1C1C1E]/80 shadow-[0_1.5px_2px_rgba(0,0,0,0.015)] dark:shadow-none h-full flex flex-col justify-between transition-all duration-150 ${href ? 'hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-xs cursor-pointer' : ''}`}>
+      <div className="flex items-center justify-between gap-1 mb-2.5">
+        <div
+          className="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold shadow-xs"
+          style={{ backgroundColor: `${accent}10`, color: accent }}
+        >
+          <div className="w-3.5 h-3.5 flex items-center justify-center scale-90">{icon}</div>
+        </div>
         {trend && (
-          <Chip
-            label={trend.label}
-            size="small"
-            sx={{
-              bgcolor: trend.up ? adminColors.successBg : adminColors.dangerBg,
-              color: trend.up ? adminColors.success : adminColors.danger,
-              fontWeight: 800, fontSize: '10px', height: 19, flexShrink: 0,
-            }}
-          />
+          <Badge className={`text-[9px] font-extrabold px-1.5 py-0 rounded border-none scale-95 origin-right ${trend.up ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'}`}>
+            {trend.label}
+          </Badge>
         )}
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: { xs: 20, sm: 24 }, fontWeight: 900, color: adminColors.textPrimary, lineHeight: 1.1, letterSpacing: '-0.6px' }}>
+      </div>
+      <div className="min-w-0">
+        <div className="text-lg font-black text-stone-850 dark:text-white leading-tight tracking-tight">
           {value}
-        </Typography>
-        <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: adminColors.textSecondary, mt: 0.3 }}>
+        </div>
+        <div className="text-[10px] font-bold text-stone-500 dark:text-stone-400 uppercase tracking-wider mt-0.5">
           {label}
-        </Typography>
+        </div>
         {sub && (
-          <Typography sx={{ fontSize: 10.5, color: adminColors.textMuted, mt: 0.15, fontWeight: 500 }}>
+          <div className="text-[10px] text-stone-400 dark:text-stone-500 font-semibold mt-0.5">
             {sub}
-          </Typography>
+          </div>
         )}
-      </Box>
-    </Paper>
+      </div>
+    </div>
   );
 
   if (href) {
-    return <Link href={href} style={{ textDecoration: 'none', display: 'block', height: '100%' }}>{inner}</Link>;
+    return <Link href={href} className="block h-full no-underline">{inner}</Link>;
   }
   return inner;
 }
 
-// ── SectionCard ────────────────────────────────────────────────────────────
 export function SectionCard({
-  children, sx, noPadding = false,
-}: { children: React.ReactNode; sx?: SxProps<Theme>; noPadding?: boolean }) {
+  children, noPadding = false, className = '',
+}: { children: React.ReactNode; noPadding?: boolean; className?: string }) {
   return (
-    <Paper
-      elevation={0}
-      sx={{
-        borderRadius: adminColors.radiusMd,
-        border: `1px solid ${adminColors.border}`,
-        bgcolor: adminColors.bgPanel, boxShadow: adminColors.shadowSm,
-        overflow: 'hidden',
-        ...(noPadding ? {} : { p: { xs: 1.75, sm: 2 } }),
-        ...sx,
-      }}
-    >
+    <div className={`rounded-2xl border border-stone-200/50 dark:border-[#2C2C2E]/60 bg-white dark:bg-[#1C1C1E]/80 shadow-[0_1.5px_2px_rgba(0,0,0,0.015)] dark:shadow-none overflow-hidden ${noPadding ? '' : 'p-3.5 sm:p-4'} ${className}`}>
       {children}
-    </Paper>
+    </div>
   );
 }
 
-// ── SectionHeading — in-card title row ─────────────────────────────────────
 export function SectionHeading({
   title, subtitle, action,
 }: { title: React.ReactNode; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5, mb: 1.5, flexWrap: 'wrap' }}>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: 13.5, fontWeight: 800, color: adminColors.textPrimary, letterSpacing: '-0.2px' }}>
+    <div className="flex justify-between items-start gap-3 mb-4 flex-wrap">
+      <div className="min-w-0">
+        <h3 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-stone-100">
           {title}
-        </Typography>
+        </h3>
         {subtitle && (
-          <Typography sx={{ fontSize: 11, color: adminColors.textMuted, mt: 0.15, fontWeight: 500 }}>{subtitle}</Typography>
+          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 font-medium">{subtitle}</p>
         )}
-      </Box>
+      </div>
       {action}
-    </Box>
+    </div>
   );
 }
 
-// ── AlertTile — a single actionable "needs attention" row ──────────────────
 export function AlertTile({
   icon, label, detail, count, tone = 'warning', href,
 }: {
@@ -152,90 +107,73 @@ export function AlertTile({
   tone?: 'warning' | 'danger' | 'info'; href: string;
 }) {
   const tones = {
-    warning: { color: adminColors.warning, bg: adminColors.warningBg, border: adminColors.warningBorder },
-    danger: { color: adminColors.danger, bg: adminColors.dangerBg, border: adminColors.dangerBorder },
-    info: { color: adminColors.info, bg: adminColors.infoBg, border: adminColors.infoBorder },
+    warning: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
+    danger: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20',
+    info: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20',
   }[tone];
 
   return (
-    <Link href={href} style={{ textDecoration: 'none' }}>
-      <Box sx={{
-        display: 'flex', alignItems: 'center', gap: 1.25,
-        p: 1.25, borderRadius: adminColors.radiusSm,
-        bgcolor: tones.bg, border: `1px solid ${tones.border}`,
-        transition: 'transform 0.12s ease',
-        '&:hover': { transform: 'translateX(2px)' },
-      }}>
-        <Box sx={{
-          width: 30, height: 30, borderRadius: '7px', flexShrink: 0,
-          bgcolor: '#FFFFFF', color: tones.color,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
-        }}>
+    <Link href={href} className="no-underline block">
+      <div className={`flex items-center gap-3 p-3 rounded-xl border transition-transform hover:translate-x-1 ${tones}`}>
+        <div className="w-8 h-8 rounded-lg bg-white dark:bg-stone-900 flex items-center justify-center text-sm shadow-xs flex-shrink-0">
           {icon}
-        </Box>
-        <Box sx={{ minWidth: 0, flex: 1 }}>
-          <Typography sx={{ fontSize: 12.5, fontWeight: 800, color: adminColors.textPrimary, lineHeight: 1.3 }}>
+        </div>
+        <div className="min-w-0 flex-1">
+          <h4 className="text-xs font-extrabold text-stone-900 dark:text-stone-100 leading-tight">
             {label}
-          </Typography>
+          </h4>
           {detail && (
-            <Typography sx={{ fontSize: 11, color: adminColors.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
+            <p className="text-[11px] text-stone-500 truncate font-medium mt-0.5">
               {detail}
-            </Typography>
+            </p>
           )}
-        </Box>
-        <Box sx={{
-          minWidth: 24, height: 22, px: 0.75, borderRadius: '11px', flexShrink: 0,
-          bgcolor: tones.color, color: '#FFFFFF',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, fontWeight: 800,
-        }}>
+        </div>
+        <Badge className="min-w-[24px] h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-extrabold">
           {count}
-        </Box>
-      </Box>
+        </Badge>
+      </div>
     </Link>
   );
 }
 
-// ── StatusChip ─────────────────────────────────────────────────────────────
 export function StatusChip({
   status, palette,
 }: { status: string; palette?: Record<string, { label: string; color: string; bg: string }> }) {
-  const p = (palette || orderStatusColors)[status] || { label: status, color: adminColors.neutral, bg: adminColors.neutralBg };
+  const p = (palette || orderStatusColors)[status] || { label: status, color: '#78716C', bg: '#F5F5F4' };
   return (
-    <Chip label={p.label} size="small" sx={{ bgcolor: p.bg, color: p.color, fontWeight: 800, fontSize: '10.5px' }} />
+    <Badge
+      className="font-extrabold text-[10px] px-2 py-0.5 border-none"
+      style={{ backgroundColor: p.bg, color: p.color }}
+    >
+      {p.label}
+    </Badge>
   );
 }
 
-// ── EmptyState ─────────────────────────────────────────────────────────────
 export function EmptyState({
   emoji = '📭', title, subtitle, action,
 }: { emoji?: string; title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <Box sx={{ textAlign: 'center', py: 4, px: 2 }}>
-      <Typography sx={{ fontSize: '2rem', mb: 0.75, opacity: 0.8 }}>{emoji}</Typography>
-      <Typography sx={{ fontWeight: 800, color: adminColors.textPrimary, fontSize: 14 }}>{title}</Typography>
+    <div className="text-center py-8 px-4">
+      <div className="text-3xl mb-2">{emoji}</div>
+      <h3 className="font-extrabold text-stone-900 dark:text-stone-100 text-sm">{title}</h3>
       {subtitle && (
-        <Typography sx={{ color: adminColors.textMuted, mt: 0.4, fontSize: 12.5, fontWeight: 500 }}>{subtitle}</Typography>
+        <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 font-medium">{subtitle}</p>
       )}
-      {action && <Box sx={{ mt: 2 }}>{action}</Box>}
-    </Box>
+      {action && <div className="mt-4">{action}</div>}
+    </div>
   );
 }
 
-// ── RoleBadge ──────────────────────────────────────────────────────────────
-export function RoleBadge({ role, size = 'small' }: { role: UserRole | null | undefined; size?: 'small' | 'medium' }) {
+export function RoleBadge({ role }: { role: UserRole | null | undefined }) {
   if (!role || role === 'customer') return null;
   const c = roleColors[role];
   return (
-    <Chip
-      label={ROLE_LABELS[role]}
-      size="small"
-      sx={{
-        bgcolor: c.bg, color: c.color, fontWeight: 800,
-        fontSize: size === 'small' ? '9px' : '10.5px',
-        textTransform: 'uppercase', letterSpacing: '0.4px',
-        height: size === 'small' ? 18 : 22,
-      }}
-    />
+    <Badge
+      className="font-extrabold text-[9px] uppercase tracking-wider px-2 py-0.5 border-none"
+      style={{ backgroundColor: c.bg, color: c.color }}
+    >
+      {ROLE_LABELS[role]}
+    </Badge>
   );
 }

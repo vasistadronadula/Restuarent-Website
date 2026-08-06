@@ -1,65 +1,91 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import {
-  Container, Box, Typography, Paper, Grid, Chip, Button, TextField,
-  InputAdornment, Divider, Stack, CircularProgress,
-} from '@mui/material';
-import {
-  Search, ShoppingBag, ReceiptLong, AccessTime,
-  Replay, LocalDining, Phone, Person, Payment, LocalAtm,
-} from '@mui/icons-material';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import {
+  Banknote, CreditCard, Phone, ReceiptText, RotateCcw, Search, ShoppingBag, User,
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+import { cn, formatCurrency } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import PrintBillButton from '@/components/bill/PrintBillButton';
+import { generateInvoiceNo } from '@/lib/idGenerator';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
-import { useCart } from '@/context/CartContext';
-import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
-import type { OrderItem } from '@/types';
+import { useCartStore } from '@/store/useCartStore';
+import type { Order, OrderItem } from '@/types';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+
+const STATUS_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'preparing', label: 'Preparing' },
+  { value: 'ready', label: 'Ready' },
+  { value: 'completed', label: 'Completed' },
+] as const;
+
+/**
+ * One mapping from order status to how it is shown. The previous page built
+ * these inline in a switch that also carried emoji in the label, so the same
+ * status read differently here and in the admin list.
+ */
+const STATUS_PRESENTATION: Record<
+  string,
+  { label: string; variant: 'soft-success' | 'soft-warning' | 'soft-info' | 'soft-destructive' | 'soft-muted' }
+> = {
+  completed: { label: 'Completed', variant: 'soft-success' },
+  preparing: { label: 'Preparing in kitchen', variant: 'soft-warning' },
+  ready: { label: 'Ready for pickup', variant: 'soft-info' },
+  cancelled: { label: 'Cancelled', variant: 'soft-destructive' },
+  pending: { label: 'Awaiting confirmation', variant: 'soft-muted' },
+};
 
 export default function OrderHistoryPage() {
   const { orders, isLoadingDB } = useAdmin();
   const { user } = useAuth();
-  const { addItem } = useCart();
   const router = useRouter();
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [phoneFilter, setPhoneFilter] = useState('');
 
-  // Filter orders for logged-in user or search.
   // RLS already restricts what `orders` can even contain here (a signed-in
   // customer's query only returns their own rows; admins get everything) —
   // this ownership check additionally keeps an admin who opens this
   // customer-facing page from seeing every order mixed together.
   const filteredOrders = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+
     return orders.filter((order) => {
       const userMatch = !user || order.userId === user.id;
 
-      // Search match by orderId, customerName, or item name
-      const searchLower = search.trim().toLowerCase();
-      const matchesSearch = !searchLower || (
-        order.id.toLowerCase().includes(searchLower) ||
-        order.customerName.toLowerCase().includes(searchLower) ||
-        order.customerPhone.includes(searchLower) ||
-        order.items.some((item) => item.name.toLowerCase().includes(searchLower))
-      );
+      const matchesSearch =
+        !needle ||
+        order.id.toLowerCase().includes(needle) ||
+        order.customerName.toLowerCase().includes(needle) ||
+        order.customerPhone?.includes(needle) ||
+        order.items.some((item) => item.name.toLowerCase().includes(needle));
 
-      // Phone query search for guest users
-      const matchesPhone = !phoneFilter.trim() || order.customerPhone.includes(phoneFilter.trim());
-
-      // Status filter
       const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
 
-      return userMatch && matchesSearch && matchesPhone && matchesStatus;
+      return userMatch && matchesSearch && matchesStatus;
     });
-  }, [orders, user, search, phoneFilter, filterStatus]);
+  }, [orders, user, search, filterStatus]);
 
   const handleReorder = (items: OrderItem[]) => {
     let addedCount = 0;
+    const addItem = useCartStore.getState().addItem;
+
     items.forEach((item) => {
       addItem({
         id: item.menuItemId,
@@ -79,245 +105,203 @@ export default function OrderHistoryPage() {
       });
       addedCount += item.quantity || 1;
     });
-    toast.success(`Re-ordered ${addedCount} items to your cart! 🛒`);
-    router.push('/checkout');
-  };
 
-  const getStatusChip = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Chip label="Delivered / Completed" color="success" size="small" sx={{ fontWeight: 800 }} />;
-      case 'preparing':
-        return <Chip label="Preparing in Kitchen 🔥" color="warning" size="small" sx={{ fontWeight: 800 }} />;
-      case 'ready':
-        return <Chip label="Ready for Serve / Pick" color="info" size="small" sx={{ fontWeight: 800 }} />;
-      case 'cancelled':
-        return <Chip label="Cancelled" color="error" size="small" sx={{ fontWeight: 800 }} />;
-      default:
-        return <Chip label="Pending Confirmation ⏳" color="secondary" size="small" sx={{ fontWeight: 800 }} />;
-    }
+    toast.success(`${addedCount} ${addedCount === 1 ? 'item' : 'items'} added to your cart`);
+    router.push('/checkout');
   };
 
   return (
     <>
       <Navbar />
-      <Box sx={{ bgcolor: '#FFF8F2', minHeight: '100vh', py: { xs: 4, md: 6 } }}>
-        <Container maxWidth="lg">
-          {/* Header */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4, flexWrap: 'wrap', gap: 2 }}>
-            <Box>
-              <Typography variant="h4" color="#C62828" sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <ReceiptLong sx={{ fontSize: 36 }} /> My Order History
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                Track your live food orders and view past dining receipts from Pala Pitta Ruchulu
-              </Typography>
-            </Box>
-            <Link href="/menu" style={{ textDecoration: 'none' }}>
-              <Button variant="contained" color="primary" startIcon={<LocalDining />} sx={{ borderRadius: '12px', fontWeight: 700 }}>
-                Order Fresh Food
-              </Button>
-            </Link>
-          </Box>
 
-          {/* Filters Bar */}
-          <Paper sx={{ p: 2.5, mb: 4, borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
-            <Grid container spacing={2} sx={{ alignItems: 'center' }}>
-              <Grid size={{ xs: 12, md: 5 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Search by Order ID or Dish name..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Search sx={{ color: '#9E9E9E' }} />
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Filter by Mobile Number..."
-                  value={phoneFilter}
-                  onChange={(e) => setPhoneFilter(e.target.value)}
-                  slotProps={{
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Phone sx={{ color: '#9E9E9E', fontSize: 18 }} />
-                        </InputAdornment>
-                      ),
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, md: 3 }}>
-                <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', py: 0.5 }}>
-                  {['all', 'pending', 'preparing', 'completed'].map((st) => (
-                    <Chip
-                      key={st}
-                      label={st.toUpperCase()}
-                      clickable
-                      color={filterStatus === st ? 'primary' : 'default'}
-                      onClick={() => setFilterStatus(st)}
-                      sx={{ fontWeight: 700, fontSize: '11px' }}
-                    />
-                  ))}
-                </Stack>
-              </Grid>
-            </Grid>
-          </Paper>
+      <main className="min-h-screen py-8 md:py-12">
+        <div className="mx-auto w-full max-w-none px-4 sm:px-8 md:px-12">
+          <header className="mb-6">
+            <h1 className="font-display flex items-center gap-2.5 text-2xl font-black tracking-tight md:text-3xl">
+              <ReceiptText className="text-primary size-7" />
+              My Orders
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {user
+                ? 'Every order placed on this account.'
+                : 'Sign in to see your full order history.'}
+            </p>
+          </header>
 
-          {/* Orders List */}
-          {isLoadingDB ? (
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <CircularProgress color="primary" />
-              <Typography sx={{ mt: 2, fontWeight: 600, color: 'text.secondary' }}>Loading your orders...</Typography>
-            </Box>
-          ) : filteredOrders.length === 0 ? (
-            <Paper sx={{ p: 6, borderRadius: '24px', textAlign: 'center', boxShadow: '0 8px 32px rgba(0,0,0,0.06)' }}>
-              <ShoppingBag sx={{ fontSize: 64, color: '#CCCCCC', mb: 2 }} />
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#424242', mb: 1 }}>
-                No Orders Found
-              </Typography>
-              <Typography color="text.secondary" sx={{ mb: 3 }}>
-                {search || phoneFilter ? 'No orders match your search filter.' : 'You haven’t placed any orders yet.'}
-              </Typography>
-              <Link href="/menu" style={{ textDecoration: 'none' }}>
-                <Button variant="contained" color="primary" size="large" sx={{ borderRadius: '12px', fontWeight: 700 }}>
-                  Explore Menu
-                </Button>
-              </Link>
-            </Paper>
-          ) : (
-            <Stack spacing={3}>
-              {filteredOrders.map((order) => (
-                <Paper
-                  key={order.id}
-                  sx={{
-                    p: { xs: 2.5, md: 3.5 },
-                    borderRadius: '20px',
-                    boxShadow: '0 6px 24px rgba(0,0,0,0.06)',
-                    border: '1px solid rgba(198,40,40,0.12)',
-                    transition: 'all 0.2s ease',
-                    '&:hover': {
-                      boxShadow: '0 12px 36px rgba(198,40,40,0.15)',
-                    },
-                  }}
-                >
-                  {/* Card Header */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
-                    <Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 800, color: '#C62828' }}>
-                          #{order.id}
-                        </Typography>
-                        {getStatusChip(order.status)}
-                      </Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                        <AccessTime sx={{ fontSize: 14 }} /> Placed on {order.orderDate} at {order.orderTime}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
-                      <Typography variant="h6" sx={{ fontWeight: 900, color: '#2E7D32' }}>
-                        ₹{order.grandTotal.toLocaleString()}
-                      </Typography>
-                      <Chip
-                        icon={order.paymentStatus === 'paid'
-                          ? <Payment sx={{ fontSize: '14px !important' }} />
-                          : <LocalAtm sx={{ fontSize: '14px !important' }} />}
-                        // Every order is prepaid online now, so the chip
-                        // reports whether the payment landed rather than
-                        // which method was chosen.
-                        label={order.paymentStatus === 'paid' ? 'PAID' : 'PAYMENT PENDING'}
-                        size="small"
-                        color={order.paymentStatus === 'paid' ? 'success' : 'warning'}
-                        variant="outlined"
-                        sx={{ fontWeight: 800, fontSize: '10px', mt: 0.5 }}
-                      />
-                    </Box>
-                  </Box>
+          {/* ── Filters ───────────────────────────────────────────────── */}
+          <div className="mb-6 grid gap-3">
+            <div className="relative">
+              <Search
+                className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2"
+                aria-hidden="true"
+              />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by order ID, dish or phone number"
+                aria-label="Search orders"
+                className="pl-10"
+              />
+            </div>
 
-                  <Divider sx={{ my: 2 }} />
-
-                  {/* Customer Info */}
-                  <Box sx={{ display: 'flex', gap: 3, mb: 2, flexWrap: 'wrap' }}>
-                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontWeight: 600 }}>
-                      <Person sx={{ fontSize: 16, color: '#616161' }} /> Customer: {order.customerName}
-                    </Typography>
-                    <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: 'text.secondary' }}>
-                      <Phone sx={{ fontSize: 16 }} /> {order.customerPhone}
-                    </Typography>
-                  </Box>
-
-                  {/* Items List */}
-                  <Box sx={{ bgcolor: '#FAF5EF', p: 2, borderRadius: '14px', mb: 2.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#616161', display: 'block', mb: 1, letterSpacing: 0.5 }}>
-                      ORDERED DISHES ({order.items.reduce((s, i) => s + i.quantity, 0)} ITEMS)
-                    </Typography>
-                    <Grid container spacing={1.5}>
-                      {order.items.map((item, idx) => (
-                        <Grid size={{ xs: 12, sm: 6 }} key={idx}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#FFFFFF', p: 1.2, px: 2, borderRadius: '10px' }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Box className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'} />
-                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                                {item.name} × {item.quantity}
-                              </Typography>
-                            </Box>
-                            <Typography variant="body2" sx={{ fontWeight: 800, color: '#C62828' }}>
-                              ₹{item.price * item.quantity}
-                            </Typography>
-                          </Box>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </Box>
-
-                  {/* Actions Footer */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      {order.customerAddress}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {/* Same 80mm bill the counter prints — "Save as PDF" in
-                          the print dialog gives a receipt-shaped PDF, not an
-                          A4 page with a receipt in the corner. */}
-                      <PrintBillButton
-                        order={order}
-                        variant="outlined"
-                        color="inherit"
-                        size="small"
-                        label="Bill"
-                        sx={{ borderRadius: '10px', fontWeight: 700, color: '#616161', borderColor: '#E0E0E0' }}
-                      />
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        size="small"
-                        startIcon={<Replay />}
-                        onClick={() => handleReorder(order.items)}
-                        sx={{ borderRadius: '10px', fontWeight: 700 }}
-                      >
-                        Re-Order Dishes
-                      </Button>
-                    </Box>
-                  </Box>
-                </Paper>
+            <ToggleGroup
+              type="single"
+              variant="soft"
+              value={filterStatus}
+              onValueChange={(v) => v && setFilterStatus(v)}
+              className="w-full max-w-full overflow-x-auto scrollbar-none"
+              aria-label="Filter by status"
+            >
+              {STATUS_FILTERS.map((f) => (
+                <ToggleGroupItem key={f.value} value={f.value} className="shrink-0">
+                  {f.label}
+                </ToggleGroupItem>
               ))}
-            </Stack>
+            </ToggleGroup>
+          </div>
+
+          {/* ── List ──────────────────────────────────────────────────── */}
+          {isLoadingDB ? (
+            <div className="grid gap-4" aria-busy="true">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-52 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <Card>
+              <CardContent>
+                <EmptyState
+                  icon={ShoppingBag}
+                  title={orders.length === 0 ? 'No orders yet' : 'No orders match that'}
+                  description={
+                    orders.length === 0
+                      ? 'Once you place an order it will appear here, with the bill.'
+                      : 'Try a different search term or clear the status filter.'
+                  }
+                  action={
+                    orders.length === 0 ? (
+                      <Button asChild variant="brand">
+                        <Link href="/menu">Browse Menu</Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setSearch('');
+                          setFilterStatus('all');
+                        }}
+                      >
+                        Clear filters
+                      </Button>
+                    )
+                  }
+                />
+              </CardContent>
+            </Card>
+          ) : (
+            <ul className="grid gap-4">
+              {filteredOrders.map((order) => (
+                <OrderCard key={order.id} order={order} onReorder={handleReorder} />
+              ))}
+            </ul>
           )}
-        </Container>
-      </Box>
+        </div>
+      </main>
+
       <Footer />
     </>
+  );
+}
+
+function OrderCard({
+  order,
+  onReorder,
+}: {
+  order: Order;
+  onReorder: (items: OrderItem[]) => void;
+}) {
+  const presentation = STATUS_PRESENTATION[order.status] ?? STATUS_PRESENTATION.pending;
+  const isPaid = order.paymentStatus === 'paid';
+
+  return (
+    <li>
+      <Card>
+        <CardContent className="grid gap-4">
+          {/* Header row */}
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-display text-base font-bold break-all">{order.id}</p>
+              <p className="text-muted-foreground mt-0.5 text-xs">
+                {order.orderDate} · {order.orderTime}
+              </p>
+            </div>
+            <Badge variant={presentation.variant} size="lg">
+              {presentation.label}
+            </Badge>
+          </div>
+
+          <Separator />
+
+          {/* Items */}
+          <ul className="grid gap-1.5 text-sm">
+            {order.items.map((item, i) => (
+              <li key={`${item.menuItemId}-${i}`} className="flex justify-between gap-4">
+                <span className="min-w-0">
+                  <span className="text-muted-foreground font-semibold tabular-nums">
+                    {item.quantity}×
+                  </span>{' '}
+                  {item.name}
+                </span>
+                <span className="shrink-0 font-semibold tabular-nums">
+                  {formatCurrency(item.price * item.quantity)}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <Separator />
+
+          {/* Meta */}
+          <div className="text-muted-foreground grid gap-2 text-xs sm:grid-cols-2">
+            <span className="flex items-center gap-1.5">
+              <User className="size-3.5 shrink-0" />
+              {order.customerName}
+            </span>
+            {order.customerPhone && (
+              <span className="flex items-center gap-1.5">
+                <Phone className="size-3.5 shrink-0" />
+                {order.customerPhone}
+              </span>
+            )}
+            <span className="flex items-center gap-1.5">
+              {order.paymentMode === 'cash' ? (
+                <Banknote className="size-3.5 shrink-0" />
+              ) : (
+                <CreditCard className="size-3.5 shrink-0" />
+              )}
+              {order.paymentMode}
+              <span className={cn('font-bold', isPaid ? 'text-success' : 'text-destructive')}>
+                · {isPaid ? 'Paid' : 'Unpaid'}
+              </span>
+            </span>
+          </div>
+
+          {/* Footer */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+            <p className="text-lg font-black">
+              <span className="text-muted-foreground mr-1.5 text-xs font-semibold">Total</span>
+              {formatCurrency(order.grandTotal)}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <PrintBillButton order={order} invoiceNo={generateInvoiceNo(order.id)} />
+              <Button variant="brand" size="sm" onClick={() => onReorder(order.items)}>
+                <RotateCcw />
+                Reorder
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </li>
   );
 }

@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Box, Typography, Rating, Avatar, Paper, IconButton, Chip,
-} from '@mui/material';
-import { ChevronLeft, ChevronRight, FormatQuote, Verified } from '@mui/icons-material';
+import { ChevronLeft, ChevronRight, Quote, CheckCircle2, Star } from 'lucide-react';
 import { reviews } from '@/data/mockData';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const SLIDE_MS = 5000;
 const SWIPE_THRESHOLD = 45;
@@ -16,7 +16,6 @@ export default function ReviewSlider() {
   const touchStartX = useRef<number | null>(null);
   const touchStartY = useRef<number | null>(null);
 
-  // `currentIndex` in the deps restarts the countdown after manual navigation.
   useEffect(() => {
     if (isPaused || reviews.length <= 1) return;
     const timer = setTimeout(() => {
@@ -51,20 +50,8 @@ export default function ReviewSlider() {
 
   const review = reviews[currentIndex];
 
-  const arrowSx = {
-    bgcolor: 'white',
-    border: '1px solid #FFCCBC',
-    color: '#C62828',
-    width: 38,
-    height: 38,
-    flexShrink: 0,
-    boxShadow: '0 3px 12px rgba(0,0,0,0.06)',
-    '&:hover': { bgcolor: '#C62828', color: 'white', borderColor: '#C62828' },
-    transition: 'background-color 0.2s ease, color 0.2s ease',
-  } as const;
-
   return (
-    <Box
+    <div
       role="region"
       aria-roledescription="carousel"
       aria-label="Customer reviews"
@@ -72,141 +59,87 @@ export default function ReviewSlider() {
       onMouseLeave={() => setIsPaused(false)}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
-      sx={{ position: 'relative', maxWidth: 880, mx: 'auto', width: '100%' }}
+      className="relative max-w-4xl mx-auto w-full"
     >
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 2.5, sm: 4, md: 5 },
-          borderRadius: '24px',
-          bgcolor: 'white',
-          boxShadow: '0 12px 40px rgba(0,0,0,0.07)',
-          border: '1px solid rgba(198,40,40,0.1)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Watermark. Clipped by the card's own overflow, and pushed behind the
-            copy by the content wrapper's z-index below. */}
-        <FormatQuote
-          aria-hidden
-          sx={{
-            position: 'absolute',
-            top: 12,
-            right: 16,
-            fontSize: { xs: 64, sm: 90 },
-            color: 'rgba(198,40,40,0.06)',
-            transform: 'rotate(180deg)',
-            pointerEvents: 'none',
-          }}
+      <div className="p-6 sm:p-10 rounded-3xl bg-white dark:bg-stone-900 border border-amber-900/10 dark:border-stone-800 shadow-xl shadow-amber-950/5 relative overflow-hidden transition-all">
+        <Quote
+          aria-hidden="true"
+          className="absolute top-4 right-6 w-20 h-20 sm:w-28 sm:h-28 text-amber-600/5 rotate-180 pointer-events-none select-none"
         />
 
-        {/* Keyed on the review so each one fades up as it arrives. */}
-        <Box key={review.id} sx={{ position: 'relative', zIndex: 2, animation: 'ppr-fade-up 500ms ease both' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-            <Rating value={review.rating} readOnly precision={0.5} size="small" />
-            <Chip
-              icon={<Verified sx={{ fontSize: 14, color: '#2E7D32 !important' }} />}
-              label={`${review.rating}.0 Verified Diner`}
-              size="small"
-              sx={{ bgcolor: 'rgba(46,125,50,0.1)', color: '#2E7D32', fontWeight: 700, fontSize: '11px' }}
-            />
-          </Box>
+        <div key={review.id} className="relative z-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <div className="flex items-center gap-1 text-amber-500">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star
+                  key={i}
+                  className={`w-4 h-4 ${i < review.rating ? 'fill-amber-400 text-amber-400' : 'text-stone-300 dark:text-stone-700'}`}
+                />
+              ))}
+            </div>
+            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20 font-semibold text-xs flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              {review.rating}.0 Verified Diner
+            </Badge>
+          </div>
 
-          {/* A floor under the quote keeps the card from resizing between a
-              one-line review and a four-line one, which would jolt the whole
-              section on every auto-advance. */}
-          <Typography
-            component="blockquote"
-            sx={{
-              fontWeight: 500,
-              color: '#333',
-              fontStyle: 'italic',
-              lineHeight: 1.7,
-              minHeight: { xs: 132, sm: 112 },
-              mb: 3,
-              fontSize: { xs: '0.98rem', sm: '1.15rem' },
-            }}
-          >
+          <blockquote className="font-medium text-stone-700 dark:text-stone-300 italic leading-relaxed min-h-[110px] mb-6 text-base sm:text-lg">
             &quot;{review.comment}&quot;
-          </Typography>
+          </blockquote>
 
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2,
-              pt: 2.5,
-              borderTop: '1px solid rgba(0,0,0,0.06)',
-            }}
-          >
-            <Avatar
-              sx={{
-                bgcolor: '#C62828',
-                width: 48,
-                height: 48,
-                fontSize: '17px',
-                fontWeight: 800,
-                flexShrink: 0,
-                boxShadow: '0 4px 12px rgba(198,40,40,0.3)',
-              }}
-            >
-              {review.avatar}
+          <div className="flex items-center gap-4 pt-4 border-t border-stone-100 dark:border-stone-800">
+            <Avatar className="w-12 h-12 border-2 border-amber-600 shadow-md">
+              <AvatarFallback className="bg-amber-700 text-white font-extrabold text-base">
+                {review.avatar}
+              </AvatarFallback>
             </Avatar>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontWeight: 800, color: '#212121', fontSize: '1rem' }}>
+            <div className="min-w-0">
+              <h4 className="font-extrabold text-stone-900 dark:text-stone-100 text-base">
                 {review.customerName}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.5 }}>
-                Ordered <Box component="strong" sx={{ color: '#C62828' }}>{review.dish}</Box> • {review.date}
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
-      </Paper>
+              </h4>
+              <p className="text-xs text-stone-500 dark:text-stone-400">
+                Ordered <strong className="text-amber-700 dark:text-amber-500">{review.dish}</strong> • {review.date}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      {/* Controls sit under the card, arrows flanking the dots. The previous
-          layout tucked them inside the card beside the diner's name, where they
-          collided with long names on narrow screens. */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, mt: 3 }}>
-        <IconButton onClick={handlePrev} aria-label="Previous review" sx={arrowSx}>
-          <ChevronLeft fontSize="small" />
-        </IconButton>
+      <div className="flex items-center justify-center gap-4 mt-6">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handlePrev}
+          aria-label="Previous review"
+          className="w-10 h-10 rounded-full border-amber-200 dark:border-stone-800 hover:bg-amber-600 hover:text-white dark:hover:bg-amber-600 text-amber-800 dark:text-stone-200 transition-all shadow-xs"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </Button>
 
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <div className="flex gap-2 items-center">
           {reviews.map((r, idx) => (
-            <Box
+            <button
               key={r.id}
-              role="button"
-              tabIndex={0}
+              type="button"
               aria-label={`Show review ${idx + 1}`}
-              aria-current={currentIndex === idx}
               onClick={() => setCurrentIndex(idx)}
-              onKeyDown={(e: React.KeyboardEvent) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setCurrentIndex(idx);
-                }
-              }}
-              sx={{
-                width: currentIndex === idx ? 22 : 8,
-                height: 8,
-                borderRadius: 4,
-                bgcolor: currentIndex === idx ? '#C62828' : 'rgba(0,0,0,0.18)',
-                cursor: 'pointer',
-                flexShrink: 0,
-                transition: 'width 0.3s ease, background-color 0.3s ease',
-                '&:hover': { bgcolor: '#C62828' },
-                '&:focus-visible': { outline: '2px solid #C62828', outlineOffset: 3 },
-              }}
+              className={`h-2.5 rounded-full transition-all duration-300 ${
+                currentIndex === idx ? 'w-7 bg-amber-600' : 'w-2.5 bg-stone-300 dark:bg-stone-700 hover:bg-amber-600'
+              }`}
             />
           ))}
-        </Box>
+        </div>
 
-        <IconButton onClick={handleNext} aria-label="Next review" sx={arrowSx}>
-          <ChevronRight fontSize="small" />
-        </IconButton>
-      </Box>
-    </Box>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={handleNext}
+          aria-label="Next review"
+          className="w-10 h-10 rounded-full border-amber-200 dark:border-stone-800 hover:bg-amber-600 hover:text-white dark:hover:bg-amber-600 text-amber-800 dark:text-stone-200 transition-all shadow-xs"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </Button>
+      </div>
+    </div>
   );
 }

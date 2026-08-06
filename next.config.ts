@@ -4,13 +4,22 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
   reactStrictMode: false, // Disabled to prevent double-renders in dev
+  // There is a stray package-lock.json in the user profile directory above
+  // this one, and Turbopack picks the outermost lockfile it finds as the
+  // workspace root — which put the build's module resolution one level above
+  // the app. Pinning it here removes the guess.
+  turbopack: {
+    root: __dirname,
+  },
   experimental: {
     optimizePackageImports: [
+      "lucide-react",
+      "recharts",
+      "@tanstack/react-table",
+      // Still listed because the admin and POS screens have not been converted
+      // off MUI yet — drop these two with the last `@mui/*` import.
       "@mui/material",
       "@mui/icons-material",
-      "recharts",
-      "@reduxjs/toolkit",
-      "react-redux",
     ],
   },
   images: {

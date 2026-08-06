@@ -1,47 +1,52 @@
-import React from 'react';
-import { Box } from '@mui/material';
+import Image from 'next/image';
+
+import { cn } from '@/lib/utils';
 
 interface LogoProps {
+  /**
+   * `light` puts the mark on its own dark plaque, for use over a light surface
+   * — the logo art is light-on-transparent and disappears otherwise.
+   */
   variant?: 'light' | 'dark';
   size?: 'small' | 'medium' | 'large';
+  className?: string;
+  priority?: boolean;
 }
 
-export default function PalaPittaLogo({ variant = 'dark', size = 'medium' }: LogoProps) {
-  const isLight = variant === 'light'; // Light background (Navbar)
-  
-  // Height options
-  const logoHeight = size === 'small' ? 42 : size === 'large' ? 80 : 58;
+const SIZES = {
+  small: { h: 42, w: 132 },
+  medium: { h: 58, w: 182 },
+  large: { h: 80, w: 250 },
+} as const;
+
+export default function PalaPittaLogo({
+  variant = 'dark',
+  size = 'medium',
+  className,
+  priority = false,
+}: LogoProps) {
+  const isLight = variant === 'light';
+  const { h, w } = SIZES[size];
 
   return (
-    <Box
-      sx={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        bgcolor: isLight ? '#0B0404' : 'transparent',
-        p: isLight ? '4px 12px' : 0,
-        borderRadius: isLight ? '12px' : '0px',
-        boxShadow: isLight ? '0 4px 16px rgba(0,0,0,0.25)' : 'none',
-        transition: 'all 0.2s ease',
-        border: isLight ? '1px solid rgba(255,152,0,0.2)' : 'none',
-        '&:hover': {
-          transform: 'scale(1.03)',
-        },
-      }}
+    <span
+      className={cn(
+        'inline-flex items-center justify-center transition-transform duration-200 hover:scale-[1.03]',
+        isLight && 'rounded-xl border border-accent/20 bg-[#0B0404] px-3 py-1 shadow-lg',
+        className
+      )}
     >
-      <Box
-        component="img"
+      {/* Explicit intrinsic size rather than `fill`: the navbar reserves this
+          box before the image decodes, so the bar doesn't jump on first paint. */}
+      <Image
         src="/logo.png"
-        alt="Pala Pitta Ruchulu Logo"
-        sx={{
-          height: logoHeight,
-          width: 'auto',
-          maxWidth: '100%',
-          objectFit: 'contain',
-          display: 'block',
-        }}
+        alt="Pala Pitta Ruchulu"
+        width={w}
+        height={h}
+        priority={priority}
+        className="block h-auto w-auto object-contain"
+        style={{ height: h }}
       />
-    </Box>
+    </span>
   );
 }

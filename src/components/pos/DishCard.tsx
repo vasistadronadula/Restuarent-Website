@@ -2,19 +2,16 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Box, Button, Paper, Typography } from '@mui/material';
-import { Add, Remove, Check } from '@mui/icons-material';
+import { Plus, Minus, Check } from 'lucide-react';
 import type { MenuItem } from '@/types';
 import { PORTION_LABEL, sellablePortions, type Portion } from '@/hooks/usePosCart';
-import { pos } from '@/theme/posColors';
+import { Button } from '@/components/ui/button';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80';
 
 interface Props {
   item: MenuItem;
-  /** How many of this dish are already on the bill. */
   inBill: number;
-  /** Quantity map for each portion (e.g. "dish123::single" => 1, "dish123::full" => 2) */
   quantityByPortion?: Record<string, number>;
   onAdd: (item: MenuItem, portion?: Portion) => void;
   onDecrement?: (item: MenuItem) => void;
@@ -26,97 +23,49 @@ function DishCard({ item, inBill, quantityByPortion, onAdd, onDecrement }: Props
   const portions = sellablePortions(item);
   const active = inBill > 0;
 
-  const vegColor = isVeg ? pos.veg : isEgg ? pos.egg : pos.nonVeg;
-
-  const surface = {
-    borderRadius: '10px',
-    border: `1.5px solid ${active ? pos.brand : pos.border}`,
-    boxShadow: active ? '0 2px 8px rgba(198,40,40,0.18)' : pos.shadowSm,
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-    bgcolor: pos.surface,
-    textAlign: 'left' as const,
-    transition: 'border-color 0.1s ease, box-shadow 0.1s ease',
-  };
+  const hasPortionChoice = portions.length > 1;
+  const unitPrice = portions.length === 1 ? portions[0].price : item.price;
+  const vegColorClass = isVeg ? 'bg-emerald-600 border-emerald-600' : isEgg ? 'bg-amber-600 border-amber-600' : 'bg-rose-600 border-rose-600';
 
   return (
-    <Paper elevation={0} sx={surface}>
-      {/* ── 1. Small Thumbnail + Veg Indicator ───────────────────── */}
-      <Box
-        sx={{
-          position: 'relative', width: '100%',
-          height: { xs: 62, sm: 76, lg: 86 },
-          bgcolor: pos.bg, overflow: 'hidden', flexShrink: 0,
-        }}
-      >
+    <div
+      className={`rounded-xl border flex flex-col h-full bg-white dark:bg-stone-900 overflow-hidden text-left transition-all ${
+        active
+          ? 'border-amber-600 shadow-md shadow-amber-600/10'
+          : 'border-stone-200 dark:border-stone-800 shadow-xs'
+      }`}
+    >
+      <div className="relative w-full h-16 sm:h-20 lg:h-22 bg-stone-100 dark:bg-stone-800 overflow-hidden flex-shrink-0">
         <Image
           src={item.image || FALLBACK_IMAGE}
           alt={item.name}
           fill
           sizes="(max-width:600px) 50vw, (max-width:1200px) 25vw, 160px"
-          style={{ objectFit: 'cover' }}
+          className="object-cover"
         />
 
-        {/* Veg/Non-veg dot badge */}
-        <Box
-          sx={{
-            position: 'absolute', top: 4, left: 4,
-            width: 12, height: 12, borderRadius: '2px',
-            bgcolor: '#FFFFFF', border: `1.5px solid ${vegColor}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-          }}
-        >
-          <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: vegColor }} />
-        </Box>
+        <div className="absolute top-1 left-1 w-3.5 h-3.5 rounded-sm bg-white border border-stone-200 flex items-center justify-center shadow-xs">
+          <div className={`w-1.5 h-1.5 rounded-full ${vegColorClass}`} />
+        </div>
 
-        {/* Total in bill badge */}
         {active && (
-          <Box
-            sx={{
-              position: 'absolute', top: 4, right: 4,
-              minWidth: 20, height: 20, px: 0.6,
-              borderRadius: '10px', bgcolor: pos.brand, color: '#FFFFFF',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11, fontWeight: 900,
-              boxShadow: '0 2px 6px rgba(198,40,40,0.4)',
-            }}
-          >
+          <div className="absolute top-1 right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[11px] font-black shadow-md">
             {inBill}
-          </Box>
+          </div>
         )}
-      </Box>
+      </div>
 
-      {/* ── 2. Name & 3. Price & 4. Portion Selection (Full/Half) ── */}
-      <Box sx={{ p: { xs: 0.7, sm: 0.85 }, display: 'flex', flexDirection: 'column', gap: 0.3, flex: 1, minWidth: 0 }}>
-        {/* Name */}
-        <Typography
-          sx={{
-            fontSize: { xs: 11.5, sm: 12.5 },
-            fontWeight: 700, color: pos.text,
-            lineHeight: 1.2, textAlign: 'left',
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}
-        >
+      <div className="p-2 flex flex-col gap-1 flex-1 min-w-0">
+        <h4 className="text-xs sm:text-sm font-bold text-stone-900 dark:text-stone-100 leading-tight line-clamp-2">
           {item.name}
-        </Typography>
+        </h4>
 
-        {/* Price */}
-        <Typography
-          sx={{
-            fontSize: { xs: 12.5, sm: 13.5 },
-            fontWeight: 900, color: pos.brand, textAlign: 'left',
-          }}
-        >
-          ₹{item.price}
-        </Typography>
+        <div className="text-xs sm:text-sm font-black text-amber-700 dark:text-amber-500">
+          ₹{unitPrice}
+        </div>
 
-        {/* 4. Portion Buttons (Full/Half) — Highlights active selection distinctly */}
-        {portions.length > 0 && (
-          <Box sx={{ mt: 'auto', display: 'flex', gap: 0.4, flexWrap: 'wrap', pt: 0.4 }}>
+        {hasPortionChoice && (
+          <div className="mt-auto flex gap-1 flex-wrap pt-1">
             {portions.map(({ portion, price }) => {
               const portionKey = `${item.id}::${portion}`;
               const portionQty = quantityByPortion ? quantityByPortion[portionKey] || 0 : 0;
@@ -125,95 +74,73 @@ function DishCard({ item, inBill, quantityByPortion, onAdd, onDecrement }: Props
               return (
                 <Button
                   key={portion}
-                  size="small"
-                  onClick={(e) => { e.stopPropagation(); onAdd(item, portion); }}
-                  sx={{
-                    flex: '1 1 auto', minWidth: 0, px: 0.75, py: 0.5, minHeight: 34,
-                    borderRadius: '7px', textTransform: 'none', fontWeight: 900,
-                    fontSize: { xs: 11, sm: 11.5 },
-                    bgcolor: isSelected ? pos.brand : '#F5F5F4',
-                    color: isSelected ? '#FFFFFF' : '#44403C',
-                    border: `2px solid ${isSelected ? pos.brandDark : pos.border}`,
-                    boxShadow: isSelected ? '0 2px 6px rgba(198,40,40,0.3)' : '0 1px 2px rgba(0,0,0,0.04)',
-                    '&:hover': {
-                      bgcolor: isSelected ? pos.brandDark : '#E7E5E4',
-                      color: isSelected ? '#FFFFFF' : '#1C1917',
-                    },
-                    '&:active': { transform: 'scale(0.95)' },
+                  size="sm"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAdd(item, portion);
                   }}
+                  className={`flex-1 min-w-0 h-7 px-1.5 text-[11px] font-black rounded-md ${
+                    isSelected
+                      ? 'bg-amber-600 text-white hover:bg-amber-700'
+                      : 'bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 hover:bg-stone-200'
+                  }`}
                 >
-                  {isSelected && <Check sx={{ fontSize: 13, mr: 0.3 }} />}
+                  {isSelected && <Check className="w-3 h-3 mr-0.5" />}
                   {PORTION_LABEL[portion]} ₹{price}
                   {portionQty > 0 ? ` (${portionQty})` : ''}
                 </Button>
               );
             })}
-          </Box>
+          </div>
         )}
-      </Box>
+      </div>
 
-      {/* ── 5. Bottom Stepper / Add Button (- QTY +) ──────────────── */}
-      <Box sx={{ borderTop: `1px solid ${pos.borderSubtle}`, mt: 'auto', flexShrink: 0 }}>
+      <div className="border-t border-stone-100 dark:border-stone-800 mt-auto flex-shrink-0">
         {active ? (
-          <Box
-            sx={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              py: 0.4, px: 0.5, bgcolor: pos.brandSoft,
-            }}
-          >
+          <div className="flex items-center justify-between py-1 px-1.5 bg-amber-50 dark:bg-amber-950/30">
             <Button
-              size="small"
-              onClick={(e) => { e.stopPropagation(); onDecrement?.(item); }}
-              sx={{
-                minWidth: 32, height: 32, borderRadius: '7px', p: 0,
-                color: pos.brand, bgcolor: '#FFFFFF',
-                border: `1.5px solid #FECACA`,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-                '&:hover': { bgcolor: '#FEE2E2' },
-                '&:active': { transform: 'scale(0.92)' },
+              variant="outline"
+              size="icon"
+              className="h-7 w-7 rounded-md border-amber-200 text-amber-700 hover:bg-amber-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDecrement?.(item);
               }}
               aria-label={`Decrease ${item.name}`}
             >
-              <Remove sx={{ fontSize: 18, fontWeight: 900 }} />
+              <Minus className="w-3.5 h-3.5" />
             </Button>
 
-            <Typography sx={{ fontSize: 13, fontWeight: 900, color: pos.brand, px: 0.5 }}>
+            <span className="text-xs font-black text-amber-800 dark:text-amber-400 px-1">
               {inBill}
-            </Typography>
+            </span>
 
             <Button
-              size="small"
-              onClick={(e) => { e.stopPropagation(); onAdd(item); }}
-              sx={{
-                minWidth: 32, height: 32, borderRadius: '7px', p: 0,
-                color: '#FFFFFF', bgcolor: pos.brand,
-                boxShadow: '0 2px 6px rgba(198,40,40,0.3)',
-                '&:hover': { bgcolor: pos.brandDark },
-                '&:active': { transform: 'scale(0.92)' },
+              size="icon"
+              className="h-7 w-7 rounded-md bg-amber-600 text-white hover:bg-amber-700"
+              onClick={(e) => {
+                e.stopPropagation();
+                onAdd(item);
               }}
               aria-label={`Increase ${item.name}`}
             >
-              <Add sx={{ fontSize: 18, fontWeight: 900 }} />
+              <Plus className="w-3.5 h-3.5" />
             </Button>
-          </Box>
+          </div>
         ) : (
           <Button
-            fullWidth
-            size="small"
+            variant="ghost"
+            size="sm"
+            className="w-full h-8 rounded-none text-xs font-bold text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
             onClick={() => onAdd(item)}
-            startIcon={<Add sx={{ fontSize: 16 }} />}
-            sx={{
-              py: 0.6, minHeight: 32, borderRadius: 0, textTransform: 'none',
-              fontWeight: 800, fontSize: 12,
-              color: pos.brand, bgcolor: pos.brandSoft,
-              '&:hover': { bgcolor: '#FEE2E2' },
-            }}
           >
+            <Plus className="w-3.5 h-3.5 mr-1" />
             Add
           </Button>
         )}
-      </Box>
-    </Paper>
+      </div>
+    </div>
   );
 }
 

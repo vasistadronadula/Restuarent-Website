@@ -1,20 +1,24 @@
 'use client';
 /**
- * CartContext.tsx — Backward-Compatible Redux Adapter
- * useCart() still works in all existing pages, but internally uses Redux cartSlice.
+ * CartContext.tsx — Backward-compatible adapter over the Zustand cart store.
+ *
+ * `useCart()` keeps working in every page that already calls it. New code
+ * should prefer `useCartStore` with a selector, which re-renders only on the
+ * slice it reads — this context re-renders all consumers on any cart change,
+ * which is why the floating bar used to repaint whenever a coupon was typed.
  */
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo } from 'react';
 import { MenuItem, CartItem } from '@/types';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
-  addItem as addItemAction, removeItem as removeItemAction,
-  increaseQty as increaseQtyAction, decreaseQty as decreaseQtyAction,
-  clearCart as clearCartAction, toggleCart as toggleCartAction,
-  openCart as openCartAction, closeCart as closeCartAction,
-  applyCoupon as applyCouponAction, removeCoupon as removeCouponAction,
-  selectCartItems, selectCartIsOpen, selectCouponCode, selectCouponDiscount,
-  selectTotalItems, selectSubtotal, selectDiscountAmount, selectCgst, selectSgst, selectGrandTotal,
-} from '@/store/cartSlice';
+  useCartStore,
+  getCartTotalItems,
+  getCartSubtotal,
+  getCartDiscountAmount,
+  getCartTaxableAmount,
+  getCartCgst,
+  getCartSgst,
+  getCartGrandTotal,
+} from '@/store/useCartStore';
 
 interface CartState {
   items: CartItem[];
@@ -47,40 +51,50 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const dispatch = useAppDispatch();
-  const items = useAppSelector(selectCartItems);
-  const isOpen = useAppSelector(selectCartIsOpen);
-  const couponCode = useAppSelector(selectCouponCode);
-  const couponDiscount = useAppSelector(selectCouponDiscount);
-  const totalItems = useAppSelector(selectTotalItems);
-  const subtotal = useAppSelector(selectSubtotal);
-  const discountAmount = useAppSelector(selectDiscountAmount);
-  const cgst = useAppSelector(selectCgst);
-  const sgst = useAppSelector(selectSgst);
-  const grandTotal = useAppSelector(selectGrandTotal);
+  const items = useCartStore((s) => s.items);
+  const isOpen = useCartStore((s) => s.isOpen);
+  const couponCode = useCartStore((s) => s.couponCode);
+  const couponDiscount = useCartStore((s) => s.couponDiscount);
+  const couponMaxDiscount = useCartStore((s) => s.couponMaxDiscount);
 
-  const state: CartState = { items, isOpen, couponCode, couponDiscount };
+  const totals = useMemo(() => {
+    const subtotal = getCartSubtotal(items);
+    const discountAmount = getCartDiscountAmount(subtotal, couponDiscount, couponMaxDiscount);
+    const taxable = getCartTaxableAmount(subtotal, discountAmount);
+    const cgst = getCartCgst(taxable);
+    const sgst = getCartSgst(taxable);
+    return {
+      totalItems: getCartTotalItems(items),
+      subtotal,
+      discountAmount,
+      cgst,
+      sgst,
+      grandTotal: getCartGrandTotal(taxable, cgst, sgst),
+    };
+  }, [items, couponDiscount, couponMaxDiscount]);
 
-  const value: CartContextType = {
-    state,
-    addItem: (item) => dispatch(addItemAction(item)),
-    removeItem: (id) => dispatch(removeItemAction(id)),
-    increaseQty: (id) => dispatch(increaseQtyAction(id)),
-    decreaseQty: (id) => dispatch(decreaseQtyAction(id)),
-    clearCart: () => dispatch(clearCartAction()),
-    toggleCart: () => dispatch(toggleCartAction()),
-    openCart: () => dispatch(openCartAction()),
-    closeCart: () => dispatch(closeCartAction()),
-    applyCoupon: (code, discount, maxDiscount) => dispatch(applyCouponAction({ code, discount, maxDiscount })),
-    removeCoupon: () => dispatch(removeCouponAction()),
-    totalItems,
-    subtotal,
-    cgst,
-    sgst,
-    discountAmount,
-    deliveryCharge: 0,
-    grandTotal,
-  };
+  // Actions are read off the store at call time rather than subscribed to.
+  // Zustand action identities are stable, so this keeps the context value from
+  // changing for a reason no consumer cares about.
+  const value: CartContextType = useMemo(
+    () => ({
+      state: { items, isOpen, couponCode, couponDiscount },
+      addItem: (item) => useCartStore.getState().addItem(item),
+      removeItem: (id) => useCartStore.getState().removeItem(id),
+      increaseQty: (id) => useCartStore.getState().increaseQty(id),
+      decreaseQty: (id) => useCartStore.getState().decreaseQty(id),
+      clearCart: () => useCartStore.getState().clearCart(),
+      toggleCart: () => useCartStore.getState().toggleCart(),
+      openCart: () => useCartStore.getState().openCart(),
+      closeCart: () => useCartStore.getState().closeCart(),
+      applyCoupon: (code, discount, maxDiscount) =>
+        useCartStore.getState().applyCoupon({ code, discount, maxDiscount }),
+      removeCoupon: () => useCartStore.getState().removeCoupon(),
+      deliveryCharge: 0,
+      ...totals,
+    }),
+    [items, isOpen, couponCode, couponDiscount, totals]
+  );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

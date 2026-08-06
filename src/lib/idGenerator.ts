@@ -63,3 +63,13 @@ export const generateEmployeeId = (): string =>
  */
 export const generateInventoryId = (): string =>
   `PPR-STK-${getDateStamp()}-${rand4()}`;
+
+/**
+ * Generates a Menu Item ID — PPR-DSH-20260725-4821
+ *
+ * Menu management used to build `item-${Date.now()}` inline, which is both
+ * unreadable in the database and collision-prone: two dishes saved in the same
+ * millisecond take the same primary key and the second insert fails.
+ */
+export const generateMenuItemId = (): string =>
+  `PPR-DSH-${getDateStamp()}-${rand4()}`;

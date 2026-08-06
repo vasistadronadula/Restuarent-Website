@@ -1,477 +1,389 @@
 'use client';
-import React, { useState, useEffect } from 'react';
-import {
-  AppBar, Toolbar, Box, Typography, Button, IconButton, Badge,
-  Drawer, List, ListItem, ListItemButton, ListItemText, Divider,
-  Avatar, Menu, MenuItem, Tooltip,
-} from '@mui/material';
-import {
-  Menu as MenuIcon, ShoppingCart, Phone,
-  Close, Home, Info, MenuBook, BookOnline, ContactMail, Logout,
-  Login, Dashboard, Receipt,
-} from '@mui/icons-material';
+
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { selectTotalItems, openCart, closeCart } from '@/store/cartSlice';
-import { selectUser, selectUserRole, openAuthModal } from '@/store/authSlice';
+import {
+  Home, BookOpen, CalendarDays, ChevronDown, Clock, Info, LayoutDashboard, LogIn, LogOut,
+  Mail, MapPin, Menu as MenuIcon, Phone, ReceiptText, ShoppingCart, User, UserPlus,
+} from 'lucide-react';
+
+import { cn } from '@/lib/utils';
+import { useCartStore, getCartTotalItems } from '@/store/useCartStore';
+import { CART_TARGET_ATTR } from '@/lib/flyToCart';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth } from '@/context/AuthContext';
 import { ROLE_LABELS, ROLE_ICONS, getRoleHome, isStaffRole, getRoleDashboardLabel } from '@/lib/roleAccess';
 import { accountDisplayName, accountIdentityLabel } from '@/lib/phoneIdentity';
-import CartDrawer from './CartDrawer';
+import { restaurantInfo } from '@/data/restaurantInfo';
 import PalaPittaLogo from './PalaPittaLogo';
 
-/**
- * Customer navbar.
- *
- * Kept to a single row on purpose. The bar carries four destinations and
- * nothing else; everything account-shaped lives behind the avatar and
- * everything else behind the drawer on mobile. Two things that used to sit
- * here have moved rather than been dropped:
- *
- * - "Home" — the logo is the Home link, which is the convention everywhere;
- *   a second one earned no space. It is still listed explicitly in the
- *   drawer, because a drawer reads as a full site index.
- * - "My Orders" — it was in the bar *and* in the account menu. Order history
- *   is account-scoped, so the account menu is the one that made sense.
- *
- * The separate red strip above the bar is gone: it cost a whole row of
- * chrome to show a phone number and a location. The phone survives as a
- * one-tap call button; the address and hours are in the drawer and footer.
- */
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
+} from '@/components/ui/sheet';
 
-const PHONE_DISPLAY = '+91 70326 82089';
-const PHONE_HREF = 'tel:+917032682089';
+const CartDrawer = dynamic(() => import('./CartDrawer'), { ssr: false });
+
+const PHONE_HREF = `tel:${restaurantInfo.phone.replace(/\s/g, '')}`;
 
 const NAV_LINKS = [
-  { label: 'Home',        href: '/',            icon: <Home fontSize="small" /> },
-  { label: 'Menu',        href: '/menu',        icon: <MenuBook fontSize="small" /> },
-  { label: 'Reservation', href: '/reservation', icon: <BookOnline fontSize="small" /> },
-  { label: 'About',       href: '/about',       icon: <Info fontSize="small" /> },
-  { label: 'Contact',     href: '/contact',     icon: <ContactMail fontSize="small" /> },
+  { label: 'Home', href: '/', icon: Home },
+  { label: 'Menu', href: '/menu', icon: BookOpen },
+  { label: 'Reservation', href: '/reservation', icon: CalendarDays },
+  { label: 'About', href: '/about', icon: Info },
+  { label: 'Contact', href: '/contact', icon: Mail },
 ];
 
-// The drawer is the whole index, including Dashboard and My Orders.
-const DRAWER_LINKS = [
-  ...NAV_LINKS,
-  { label: 'Dashboard', href: '/admin', icon: <Dashboard fontSize="small" /> },
-  { label: 'My Orders', href: '/orders', icon: <Receipt fontSize="small" /> },
+const ACCOUNT_LINKS = [
+  { label: 'My Profile', href: '/profile', icon: User },
+  { label: 'My Orders', href: '/orders', icon: ReceiptText },
 ];
-
-/** primary.main at low alpha — one definition instead of ~30 inline rgba(). */
-const tint = (alpha: number) => `rgba(198, 40, 40, ${alpha})`;
 
 export default function Navbar() {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [cartEverOpened, setCartEverOpened] = useState(false);
   const pathname = usePathname();
-  const dispatch = useAppDispatch();
+  const [lastPath, setLastPath] = useState(pathname);
 
-  // Fine-grained Redux selectors — each component only re-renders when its slice changes
-  const totalItems = useAppSelector(selectTotalItems);
-  const user = useAppSelector(selectUser);
-  const userRole = useAppSelector(selectUserRole);
+  const totalItems = useCartStore((s) => getCartTotalItems(s.items));
+  const cartIsOpen = useCartStore((s) => s.isOpen);
+  const user = useAuthStore((s) => s.user);
+  const userRole = useAuthStore((s) => s.userRole);
   const { signOutUser } = useAuth();
-  // Both derived through the identity helpers so a phone customer never sees
-  // the internal `phone_91…@palapitta.internal` address their account is keyed
-  // on — they get the number they signed in with.
+
   const userName = accountDisplayName(user);
   const accountLabel = accountIdentityLabel(user?.email, user?.user_metadata?.phone);
   const isStaff = isStaffRole(userRole);
 
-  const closeMenu = () => setAnchorEl(null);
-  const closeDrawer = () => setMobileOpen(false);
+  if (cartIsOpen && !cartEverOpened) setCartEverOpened(true);
+
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
+    setMobileOpen(false);
+  }
+
+  const closeDrawer = useCallback(() => setMobileOpen(false), []);
+
+  const authHref = useMemo(() => {
+    const isAuthPage = !pathname || ['/login', '/signup', '/reset-password'].some((p) => pathname.startsWith(p));
+    const suffix = isAuthPage || pathname === '/' ? '' : `?redirect=${encodeURIComponent(pathname)}`;
+    return { login: `/login${suffix}`, signup: `/signup${suffix}` };
+  }, [pathname]);
 
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 20);
+    let frame = 0;
+    const handler = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        setScrolled(window.scrollY > 15);
+      });
+    };
     window.addEventListener('scroll', handler, { passive: true });
-    return () => window.removeEventListener('scroll', handler);
+    return () => {
+      window.removeEventListener('scroll', handler);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   useEffect(() => {
-    setMobileOpen(false);
-    dispatch(closeCart());
-  }, [pathname, dispatch]);
+    useCartStore.getState().closeCart();
+  }, [pathname]);
 
-  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
+  const isActive = (href: string) =>
+    href === '/' ? pathname === '/' : Boolean(pathname?.startsWith(href));
+
+  const roleBadge = userRole
+    ? `${ROLE_ICONS[userRole] || ''} ${ROLE_LABELS[userRole]}`.trim()
+    : 'Customer';
 
   return (
     <>
-      <AppBar
-        position="sticky"
-        elevation={0}
-        sx={{
-          bgcolor: '#fff',
-          backdropFilter: scrolled ? 'blur(20px)' : 'none',
-          borderBottom: '1px solid',
-          borderColor: scrolled ? tint(0.14) : tint(0.08),
-          boxShadow: scrolled ? '0 2px 16px rgba(0,0,0,0.06)' : 'none',
-          transition: 'border-color .25s ease, box-shadow .25s ease',
-          top: 0,
-        }}
+      {/* Main Bar — Compact Apple-like glass navbar */}
+      <header
+        className={cn(
+          'sticky top-0 z-40 w-full transition-all duration-300 border-b',
+          scrolled
+            ? 'bg-white/80 dark:bg-stone-950/80 backdrop-blur-xl border-stone-200/80 dark:border-stone-850/80 shadow-md shadow-stone-100/40 dark:shadow-black/20'
+            : 'bg-white/95 dark:bg-stone-950/95 backdrop-blur-md border-stone-200/50 dark:border-stone-905'
+        )}
       >
-        <Toolbar
-          sx={{
-            maxWidth: 1200, mx: 'auto', width: '100%',
-            px: { xs: 1.5, md: 3 },
-            gap: 1,
-            minHeight: { xs: '60px !important', md: '68px !important' },
-          }}
-        >
-          <Link href="/" aria-label="Pala Pitta Ruchulu — Home" style={{ textDecoration: 'none', display: 'flex' }}>
-            <PalaPittaLogo variant="light" size="small" />
-          </Link>
+        <div className="mx-auto flex h-13 md:h-14 w-full max-w-none items-center justify-between px-4 sm:px-8 md:px-12">
+          {/* Logo & Home Link */}
+          <div className="flex items-center gap-4">
+            <Link href="/" aria-label={`${restaurantInfo.name} — Home`} className="flex items-center shrink-0">
+              <PalaPittaLogo variant="light" size="small" priority />
+            </Link>
+          </div>
 
-          {/* Links sit centred-ish, pushed off the logo, with the actions pinned right */}
-          <Box sx={{ flexGrow: 1 }} />
-
-          <Box
-            component="nav"
-            sx={{ display: { xs: 'none', md: 'flex' }, gap: 0.5, alignItems: 'center' }}
-          >
+          {/* Desktop Nav Links (Apple style pills) */}
+          <nav aria-label="Main" className="hidden items-center gap-1 md:flex bg-stone-100/80 dark:bg-stone-900/60 p-1 rounded-full border border-stone-200/80 dark:border-stone-800/60">
             {NAV_LINKS.map((link) => {
               const active = isActive(link.href);
+              const IconComponent = link.icon;
               return (
-                <Button
+                <Link
                   key={link.href}
-                  component={Link}
                   href={link.href}
                   prefetch
-                  disableRipple
-                  sx={{
-                    color: active ? 'primary.main' : 'text.primary',
-                    fontWeight: active ? 700 : 500,
-                    fontSize: '14.5px',
-                    px: 1.75, py: 0.75,
-                    borderRadius: '10px',
-                    position: 'relative',
-                    '&::after': {
-                      content: '""',
-                      position: 'absolute',
-                      bottom: 4, left: '50%',
-                      transform: `translateX(-50%) scaleX(${active ? 1 : 0})`,
-                      width: '42%', height: 2,
-                      bgcolor: 'primary.main',
-                      borderRadius: 2,
-                      transition: 'transform .2s ease',
-                    },
-                    '&:hover': { bgcolor: tint(0.06), color: 'primary.main' },
-                    '&:hover::after': { transform: 'translateX(-50%) scaleX(1)' },
-                  }}
-                >
-                  {link.label}
-                </Button>
-              );
-            })}
-          </Box>
-
-          {/* ── Actions ─────────────────────────────────────────────────── */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, md: 1 }, ml: { md: 1.5 } }}>
-            <Tooltip title={`Call ${PHONE_DISPLAY}`}>
-              <IconButton
-                component="a"
-                href={PHONE_HREF}
-                aria-label={`Call ${PHONE_DISPLAY}`}
-                sx={{ display: { xs: 'none', md: 'inline-flex' }, color: 'primary.main' }}
-              >
-                <Phone fontSize="small" />
-              </IconButton>
-            </Tooltip>
-
-            <Tooltip title="Cart">
-              <IconButton
-                component={Link}
-                href="/cart"
-                aria-label={`Cart, ${totalItems} item${totalItems === 1 ? '' : 's'}`}
-                sx={{ color: 'primary.main' }}
-              >
-                <Badge
-                  badgeContent={totalItems}
-                  color="primary"
-                  max={99}
-                  slotProps={{ badge: { sx: { fontSize: '10px', height: 17, minWidth: 17 } } }}
-                >
-                  <ShoppingCart fontSize="small" />
-                </Badge>
-              </IconButton>
-            </Tooltip>
-
-            {/* Admin / Staff Dashboard Button — Only displayed for staff/admin roles */}
-            {isStaff && (
-              <Button
-                component={Link}
-                href={getRoleHome(userRole)}
-                startIcon={<Dashboard fontSize="small" />}
-                sx={{
-                  display: { xs: 'none', md: 'inline-flex' },
-                  color: 'primary.main',
-                  fontWeight: 700,
-                  fontSize: '13px',
-                  px: 1.4,
-                  py: 0.5,
-                  borderRadius: '10px',
-                  bgcolor: tint(0.06),
-                  border: '1px solid',
-                  borderColor: tint(0.18),
-                  '&:hover': { bgcolor: tint(0.12), borderColor: tint(0.3) },
-                }}
-              >
-                Dashboard
-              </Button>
-            )}
-
-            {/* Log In Button — Displayed when user is NOT signed in */}
-            {!user && (
-              <Button
-                onClick={() => dispatch(openAuthModal('login'))}
-                startIcon={<Login fontSize="small" />}
-                sx={{
-                  display: { xs: 'none', sm: 'inline-flex' },
-                  color: 'primary.main',
-                  fontWeight: 600,
-                  fontSize: '13.5px',
-                  px: 1.5,
-                  py: 0.6,
-                  borderRadius: '10px',
-                  '&:hover': { bgcolor: tint(0.07) },
-                }}
-              >
-                Log In
-              </Button>
-            )}
-
-            {/* User Avatar & Account Menu */}
-            {user && (
-              <>
-                <Tooltip title={accountLabel || 'Account'}>
-                  <IconButton
-                    onClick={(e) => setAnchorEl(e.currentTarget)}
-                    aria-label="Account menu"
-                    sx={{ p: 0.4 }}
-                  >
-                    <Avatar
-                      sx={{
-                        width: 34, height: 34,
-                        bgcolor: 'primary.main',
-                        fontSize: '14px', fontWeight: 700,
-                        border: isStaff ? '2px solid' : 'none',
-                        borderColor: 'secondary.main',
-                      }}
-                    >
-                      {(userName || accountLabel || 'U').charAt(0).toUpperCase()}
-                    </Avatar>
-                  </IconButton>
-                </Tooltip>
-
-                <Menu
-                  anchorEl={anchorEl}
-                  open={Boolean(anchorEl)}
-                  onClose={closeMenu}
-                  slotProps={{ paper: { sx: { mt: 1.2, borderRadius: '14px', minWidth: 232, boxShadow: '0 8px 28px rgba(0,0,0,0.14)', p: 0.6 } } }}
-                >
-                  <Box sx={{ px: 1.6, py: 1.1 }}>
-                    <Typography sx={{ fontWeight: 700, fontSize: '14px', lineHeight: 1.3 }}>
-                      {userName || 'User'}
-                    </Typography>
-                    <Typography sx={{ color: 'primary.main', fontWeight: 700, fontSize: '11.5px', mt: 0.3 }}>
-                      {userRole ? `${ROLE_ICONS[userRole] || ''} ${ROLE_LABELS[userRole]}` : 'Customer'}
-                    </Typography>
-                    <Typography sx={{ color: 'text.secondary', fontSize: '11px', wordBreak: 'break-all', mt: 0.2 }}>
-                      {accountLabel}
-                    </Typography>
-                  </Box>
-
-                  <Divider sx={{ my: 0.5 }} />
-
-                  {isStaff && (
-                    <MenuItem
-                      component={Link}
-                      href={getRoleHome(userRole)}
-                      onClick={closeMenu}
-                      sx={{ borderRadius: '9px', my: 0.3, fontSize: '13.5px', fontWeight: 700, color: 'primary.main' }}
-                    >
-                      <Dashboard fontSize="small" sx={{ mr: 1.3 }} />
-                      {getRoleDashboardLabel(userRole, userName)}
-                    </MenuItem>
+                  aria-current={active ? 'page' : undefined}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-extrabold transition-all outline-none',
+                    active
+                      ? 'bg-amber-600 text-white shadow-sm'
+                      : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800/80'
                   )}
-
-                  <MenuItem
-                    component={Link}
-                    href="/orders"
-                    onClick={closeMenu}
-                    sx={{ borderRadius: '9px', my: 0.3, fontSize: '13.5px', fontWeight: 500 }}
-                  >
-                    <Receipt fontSize="small" sx={{ mr: 1.3, color: 'primary.main' }} />
-                    My Orders
-                  </MenuItem>
-
-                  <MenuItem
-                    onClick={() => { closeMenu(); signOutUser(); }}
-                    sx={{ borderRadius: '9px', my: 0.3, fontSize: '13.5px', fontWeight: 500, color: 'primary.main' }}
-                  >
-                    <Logout fontSize="small" sx={{ mr: 1.3 }} />
-                    Sign Out
-                  </MenuItem>
-                </Menu>
-              </>
-            )}
-
-            <Button
-              component={Link}
-              href="/menu"
-              variant="contained"
-              color="primary"
-              sx={{
-                display: { xs: 'none', sm: 'inline-flex' },
-                px: 2.4, py: 0.8,
-                borderRadius: '10px',
-                fontSize: '13.5px', fontWeight: 700,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              Order Now
-            </Button>
-
-            <IconButton
-              onClick={() => setMobileOpen(true)}
-              aria-label="Open menu"
-              sx={{ display: { xs: 'inline-flex', md: 'none' }, color: 'primary.main' }}
-            >
-              <MenuIcon />
-            </IconButton>
-          </Box>
-        </Toolbar>
-      </AppBar>
-
-      {/* ── Mobile drawer ───────────────────────────────────────────────── */}
-      <Drawer
-        anchor="right"
-        open={mobileOpen}
-        onClose={closeDrawer}
-        slotProps={{ paper: { sx: { width: 292, borderTopLeftRadius: 20, borderBottomLeftRadius: 20 } } }}
-      >
-        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-            <PalaPittaLogo size="small" />
-            <IconButton onClick={closeDrawer} aria-label="Close menu" size="small"><Close /></IconButton>
-          </Box>
-
-          {/* Who you are, right at the top — on a shared phone this is the
-              first thing worth knowing. */}
-          {user && (
-            <Box sx={{ p: 1.5, mb: 1.5, borderRadius: '12px', bgcolor: tint(0.06) }}>
-              <Typography sx={{ fontWeight: 700, fontSize: '13.5px' }}>{userName || 'User'}</Typography>
-              <Typography sx={{ color: 'primary.main', fontWeight: 700, fontSize: '11.5px' }}>
-                {userRole ? `${ROLE_ICONS[userRole] || ''} ${ROLE_LABELS[userRole]}` : 'Customer'}
-              </Typography>
-            </Box>
-          )}
-
-          <Divider sx={{ mb: 1.5 }} />
-
-          <List disablePadding sx={{ flexGrow: 1 }}>
-            {isStaff && (
-              <ListItem disablePadding>
-                <ListItemButton
-                  component={Link}
-                  href={getRoleHome(userRole)}
-                  onClick={closeDrawer}
-                  sx={{
-                    borderRadius: '12px', mb: 0.5,
-                    bgcolor: tint(0.1), color: 'primary.main',
-                    border: '1px solid', borderColor: tint(0.2),
-                  }}
                 >
-                  <Box sx={{ mr: 1.5, display: 'flex' }}><Dashboard fontSize="small" /></Box>
-                  <ListItemText
-                    primary={getRoleDashboardLabel(userRole, userName)}
-                    slotProps={{ primary: { sx: { fontWeight: 700, fontSize: '14px' } } }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            )}
-
-            {DRAWER_LINKS.map((link) => {
-              const active = isActive(link.href);
-              return (
-                <ListItem key={link.href} disablePadding>
-                  <ListItemButton
-                    component={Link}
-                    href={link.href}
-                    onClick={closeDrawer}
-                    sx={{
-                      borderRadius: '12px', mb: 0.5,
-                      bgcolor: active ? tint(0.08) : 'transparent',
-                      color: active ? 'primary.main' : 'text.primary',
-                    }}
-                  >
-                    <Box sx={{ mr: 1.5, display: 'flex', color: active ? 'primary.main' : 'text.secondary' }}>
-                      {link.icon}
-                    </Box>
-                    <ListItemText
-                      primary={link.label}
-                      slotProps={{ primary: { sx: { fontWeight: active ? 700 : 500, fontSize: '14.5px' } } }}
-                    />
-                  </ListItemButton>
-                </ListItem>
+                  <IconComponent className="w-3.5 h-3.5" />
+                  {link.label}
+                </Link>
               );
             })}
-          </List>
+          </nav>
 
-          <Divider sx={{ my: 1.5 }} />
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
 
-          <Button
-            component={Link}
-            href="/menu"
-            onClick={closeDrawer}
-            variant="contained"
-            color="primary"
-            fullWidth
-            sx={{ mb: 1, borderRadius: '12px', fontSize: '14.5px' }}
-          >
-            Order Now
-          </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button asChild variant="outline" size="sm" className="relative rounded-full h-8 w-8 p-0 border-stone-200 dark:border-stone-850 bg-stone-100 dark:bg-stone-900 text-stone-700 dark:text-stone-200 hover:bg-amber-600 dark:hover:bg-amber-600 hover:text-white hover:border-amber-600">
+                  {/* CART_TARGET_ATTR marks where an added dish flies to. See
+                      lib/flyToCart — it looks the target up at flight time so
+                      this and the phone bottom-nav tab can both claim it. */}
+                  <Link
+                    href="/cart"
+                    prefetch
+                    aria-label={`Cart, ${totalItems} items`}
+                    {...{ [CART_TARGET_ATTR]: '' }}
+                  >
+                    <ShoppingCart className="w-4 h-4" />
+                    {totalItems > 0 && (
+                      <Badge
+                        size="sm"
+                        className="absolute -top-1.5 -right-1.5 min-w-4 h-4 text-[10px] bg-amber-600 text-white justify-center rounded-full px-1 font-black"
+                      >
+                        {totalItems > 99 ? '99+' : totalItems}
+                      </Badge>
+                    )}
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Your Cart</TooltipContent>
+            </Tooltip>
 
-          {user ? (
-            <Button
-              onClick={() => { closeDrawer(); signOutUser(); }}
-              startIcon={<Logout fontSize="small" />}
-              fullWidth
-              sx={{ color: 'primary.main', fontWeight: 600, borderRadius: '12px' }}
-            >
-              Sign Out
+            {isStaff && (
+              <Button asChild variant="secondary" size="sm" className="hidden md:inline-flex h-8 rounded-full text-xs font-bold bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300 hover:bg-amber-500/20 dark:hover:bg-amber-500/30 border border-amber-500/20 dark:border-amber-500/30">
+                <Link href={getRoleHome(userRole)} className="flex items-center gap-1.5">
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  Dashboard
+                </Link>
+              </Button>
+            )}
+
+            {!user && (
+              <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex h-8 rounded-full text-xs font-bold border-stone-200 dark:border-stone-850 bg-stone-100 dark:bg-stone-900 text-stone-700 dark:text-stone-200 hover:bg-stone-200/80 dark:hover:bg-stone-800">
+                <Link href={authHref.login} prefetch className="flex items-center gap-1.5">
+                  <LogIn className="w-3.5 h-3.5" />
+                  Log In
+                </Link>
+              </Button>
+            )}
+
+            {user && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="h-8 gap-1.5 rounded-full px-2 text-xs text-stone-700 dark:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800"
+                    aria-label="Account menu"
+                  >
+                    <Avatar className="w-6 h-6 border border-amber-500">
+                      <AvatarFallback className="bg-amber-600 text-white text-[10px] font-black">
+                        {(userName || accountLabel || 'U').charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="hidden max-w-[90px] truncate font-extrabold md:block">
+                      {userName?.split(' ')[0] || 'Account'}
+                    </span>
+                    <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-56 p-0 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-white shadow-2xl overflow-hidden">
+                  <div className="bg-gradient-to-br from-stone-100 to-amber-50 dark:from-stone-900 dark:to-amber-955 p-3 text-stone-900 dark:text-white border-b border-stone-200 dark:border-stone-800">
+                    <p className="truncate text-xs font-black">{userName || 'User'}</p>
+                    <p className="mt-0.5 text-[10px] truncate text-stone-500 dark:text-stone-400">{accountLabel}</p>
+                    <Badge variant="outline" className="mt-1.5 border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold">
+                      {roleBadge}
+                    </Badge>
+                  </div>
+
+                  <div className="p-1 space-y-0.5 text-xs">
+                    {isStaff && (
+                      <DropdownMenuItem asChild className="rounded-xl font-bold text-amber-600 dark:text-amber-400 focus:bg-stone-100 dark:focus:bg-stone-800 focus:text-amber-700 dark:focus:text-amber-300">
+                        <Link href={getRoleHome(userRole)} className="flex items-center gap-2">
+                          <LayoutDashboard className="w-4 h-4" />
+                          {getRoleDashboardLabel(userRole, userName)}
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+
+                    {ACCOUNT_LINKS.map(({ label, href, icon: Icon }) => (
+                      <DropdownMenuItem key={href} asChild className="rounded-xl focus:bg-stone-100 dark:focus:bg-stone-800">
+                        <Link href={href} className="flex items-center gap-2">
+                          <Icon className="w-4 h-4 text-stone-500 dark:text-stone-400" />
+                          {label}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+
+                    <DropdownMenuItem asChild className="rounded-xl focus:bg-stone-100 dark:focus:bg-stone-800">
+                      <Link href="/reservation" className="flex items-center gap-2">
+                        <CalendarDays className="w-4 h-4 text-stone-500 dark:text-stone-400" />
+                        Book a Table
+                      </Link>
+                    </DropdownMenuItem>
+
+                    <DropdownMenuSeparator className="bg-stone-200 dark:bg-stone-800" />
+
+                    <DropdownMenuItem
+                      onClick={() => signOutUser()}
+                      className="rounded-xl text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/30 focus:text-rose-600 dark:focus:text-rose-400 font-bold"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            <Button asChild size="sm" className="hidden sm:inline-flex h-8 rounded-full text-xs font-black bg-amber-600 hover:bg-amber-700 text-white shadow-md px-4">
+              <Link href="/menu" prefetch>
+                Order Now
+              </Link>
             </Button>
-          ) : (
-            <Button
-              onClick={() => { closeDrawer(); dispatch(openAuthModal('login')); }}
-              startIcon={<Login fontSize="small" />}
-              fullWidth
-              sx={{ color: 'primary.main', fontWeight: 600, borderRadius: '12px' }}
-            >
-              Log In
-            </Button>
-          )}
 
-          <Box sx={{ mt: 2, p: 1.75, bgcolor: 'background.default', borderRadius: '12px' }}>
-            <Typography
-              component="a"
-              href={PHONE_HREF}
-              sx={{ display: 'block', color: 'primary.main', fontWeight: 700, fontSize: '13px', textDecoration: 'none' }}
-            >
-              📞 {PHONE_DISPLAY}
-            </Typography>
-            <Typography sx={{ display: 'block', color: 'text.secondary', fontSize: '12px', mt: 0.4 }}>
-              📍 Madhapur, Hyderabad
-            </Typography>
-            <Typography sx={{ display: 'block', color: 'text.secondary', fontSize: '12px' }}>
-              🕐 7 AM – 11 PM daily
-            </Typography>
-          </Box>
-        </Box>
-      </Drawer>
+            {/* Mobile Sheet Trigger */}
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden h-8 w-8 text-stone-700 dark:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800" aria-label="Open menu">
+                  <MenuIcon className="w-5 h-5" />
+                </Button>
+              </SheetTrigger>
 
-      <CartDrawer />
+              <SheetContent side="right" className="w-[280px] p-0 bg-white dark:bg-stone-950 border-stone-200 dark:border-stone-800 text-stone-900 dark:text-white flex flex-col justify-between">
+                <SheetHeader className="p-4 border-b border-stone-200 dark:border-stone-800">
+                  <SheetTitle className="sr-only">Site Menu</SheetTitle>
+                  <PalaPittaLogo variant="light" size="small" />
+                </SheetHeader>
+
+                <div className="p-4 space-y-3 flex-1 overflow-y-auto">
+                  <MobileSection label="Explore">
+                    {NAV_LINKS.map(({ label, href, icon: Icon }) => (
+                      <MobileLink key={href} href={href} icon={Icon} active={isActive(href)}>
+                        {label}
+                      </MobileLink>
+                    ))}
+                  </MobileSection>
+
+                  {!user ? (
+                    <MobileSection label="Account">
+                      <MobileLink href={authHref.login} icon={LogIn} active={pathname === '/login'}>
+                        Log In
+                      </MobileLink>
+                      <MobileLink href={authHref.signup} icon={UserPlus} active={pathname === '/signup'}>
+                        Sign Up
+                      </MobileLink>
+                    </MobileSection>
+                  ) : (
+                    <MobileSection label="Your Account">
+                      {ACCOUNT_LINKS.map(({ label, href, icon: Icon }) => (
+                        <MobileLink key={href} href={href} icon={Icon} active={isActive(href)}>
+                          {label}
+                        </MobileLink>
+                      ))}
+                      <div className="pt-2 px-1">
+                        <Separator className="bg-stone-200 dark:bg-stone-850 mb-2" />
+                        <button
+                          onClick={() => { signOutUser(); setMobileOpen(false); }}
+                          className="w-full flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold transition-all text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Sign Out
+                        </button>
+                      </div>
+                    </MobileSection>
+                  )}
+                </div>
+
+                <div className="p-4 border-t border-stone-200 dark:border-stone-800 space-y-2">
+                  <SheetClose asChild>
+                    <Button asChild size="lg" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl text-sm">
+                      <Link href="/menu">Order Now</Link>
+                    </Button>
+                  </SheetClose>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
+        </div>
+      </header>
+
+      {cartEverOpened && <CartDrawer />}
     </>
+  );
+}
+
+function MobileSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-[10px] font-black uppercase tracking-widest text-stone-500 px-2">
+        {label}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+function MobileLink({
+  href,
+  icon: Icon,
+  active,
+  children,
+}: {
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <SheetClose asChild>
+      <Link
+        href={href}
+        className={cn(
+          'flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold transition-all',
+          active
+            ? 'bg-amber-600 text-white shadow-xs'
+            : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-900 hover:text-stone-900 dark:hover:text-white'
+        )}
+      >
+        <Icon className="w-4 h-4" />
+        {children}
+      </Link>
+    </SheetClose>
   );
 }

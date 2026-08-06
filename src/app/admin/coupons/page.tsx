@@ -1,677 +1,396 @@
 'use client';
-import React, { useState, useMemo } from 'react';
-import {
-  Box, Paper, Typography, Grid, Chip, Table, TableBody,
-  TableCell, TableHead, TableRow, IconButton, Tooltip, Button,
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField,
-  FormControlLabel, Switch, CircularProgress, Alert, useMediaQuery, useTheme,
-  InputAdornment, Card, CardContent, Divider, Stack,
-} from '@mui/material';
-import {
-  Edit, Delete, Add, LocalOffer, Close, Search,
-  WarningAmber,
-} from '@mui/icons-material';
+
+/* eslint-disable @typescript-eslint/no-explicit-any -- ColumnDef's first type
+   parameter is the table feature set; `any` there is how this codebase spells
+   "the default features" at every DataTable call site. */
+import { useCallback, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
+import { CheckCircle2, Edit2, Plus, Tag, Trash2 } from 'lucide-react';
+
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
-  useGetCouponsQuery, useAddCouponMutation, useUpdateCouponMutation, useDeleteCouponMutation, Coupon,
-} from '@/store/supabaseApi';
-import toast from 'react-hot-toast';
-import { PageHeader, StatCard, adminColors } from '@/components/admin/ui';
+  useCoupons, useAddCoupon, useUpdateCoupon, useDeleteCoupon, type Coupon,
+} from '@/lib/queries';
+import { couponSchema, type CouponFormOutput, type CouponFormValues } from '@/lib/adminSchemas';
+import { PageHeader, StatCard, SectionCard } from '@/components/admin/ui';
+import {
+  ConfirmDeleteDialog, FormDialog, NumberField, SwitchField, TextField,
+} from '@/components/admin/form-fields';
+import { DataTable } from '@/components/ui/data-table';
+import { ColumnDef } from '@tanstack/react-table';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 
-interface FormState {
-  code: string;
-  discount: string;
-  maxDiscount: string;
-  minOrder: string;
-  description: string;
-  isActive: boolean;
-}
-
-interface FormErrors {
-  code?: string;
-  discount?: string;
-  maxDiscount?: string;
-  minOrder?: string;
-}
-
-const defaultFormState: FormState = {
+const BLANK_FORM: CouponFormValues = {
   code: '',
-  discount: '10',
-  maxDiscount: '100',
-  minOrder: '0',
+  discount: 10,
+  maxDiscount: 100,
+  minOrder: 299,
   description: '',
   isActive: true,
 };
 
 export default function CouponsPage() {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { data: coupons = [] } = useCoupons();
+  const addCoupon = useAddCoupon();
+  const updateCoupon = useUpdateCoupon();
+  const deleteCoupon = useDeleteCoupon();
 
-  const { data: coupons = [], isLoading } = useGetCouponsQuery();
-  const [addCoupon] = useAddCouponMutation();
-  const [updateCoupon] = useUpdateCouponMutation();
-  const [deleteCoupon] = useDeleteCouponMutation();
-
-  // Search and Filter state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
-
-  // Form Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingCode, setEditingCode] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>(defaultFormState);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<Coupon | null>(null);
+  const [deleting, setDeleting] = useState<Coupon | null>(null);
 
-  // Delete Confirmation state
-  const [deletingCode, setDeletingCode] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  // Filtered coupons
-  const filteredCoupons = useMemo(() => {
-    return coupons.filter((c) => {
-      const matchesSearch =
-        c.code.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-        c.description.toLowerCase().includes(searchQuery.toLowerCase().trim());
-
-      const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'active' && c.isActive) ||
-        (statusFilter === 'inactive' && !c.isActive);
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [coupons, searchQuery, statusFilter]);
+  const form = useForm<CouponFormValues>({
+    resolver: zodResolver(couponSchema),
+    defaultValues: BLANK_FORM,
+    mode: 'onTouched',
+  });
 
   const activeCount = useMemo(() => coupons.filter((c) => c.isActive).length, [coupons]);
-  const avgDiscount = useMemo(() => {
-    if (coupons.length === 0) return 0;
-    const total = coupons.reduce((acc, c) => acc + c.discount, 0);
-    return Math.round(total / coupons.length);
-  }, [coupons]);
 
-  const openAddDialog = () => {
-    setEditingCode(null);
-    setForm(defaultFormState);
-    setErrors({});
+  const openAdd = () => {
+    setEditing(null);
+    form.reset(BLANK_FORM);
     setDialogOpen(true);
   };
 
-  const openEditDialog = (c: Coupon) => {
-    setEditingCode(c.code);
-    setForm({
+  const openEdit = useCallback((c: Coupon) => {
+    setEditing(c);
+    form.reset({
       code: c.code,
-      discount: String(c.discount),
-      maxDiscount: String(c.maxDiscount),
-      minOrder: String(c.minOrder),
-      description: c.description || '',
+      discount: c.discount,
+      maxDiscount: c.maxDiscount,
+      minOrder: c.minOrder,
+      description: c.description,
       isActive: c.isActive,
     });
-    setErrors({});
     setDialogOpen(true);
-  };
+  }, [form]);
 
-  const validateForm = (): boolean => {
-    const newErrors: FormErrors = {};
-    const code = form.code.trim().toUpperCase();
-
-    if (!code) {
-      newErrors.code = 'Coupon code is required';
-    } else if (!/^[A-Z0-9]{3,20}$/.test(code)) {
-      newErrors.code = '3–20 alphanumeric characters, no spaces';
-    } else if (!editingCode && coupons.some((c) => c.code.toUpperCase() === code)) {
-      newErrors.code = 'Coupon code already exists';
-    }
-
-    const discountNum = Number(form.discount);
-    if (form.discount === '' || isNaN(discountNum) || discountNum <= 0 || discountNum > 100) {
-      newErrors.discount = 'Must be between 1% and 100%';
-    }
-
-    const maxDiscountNum = Number(form.maxDiscount);
-    if (form.maxDiscount === '' || isNaN(maxDiscountNum) || maxDiscountNum <= 0) {
-      newErrors.maxDiscount = 'Max discount cap must be greater than ₹0';
-    }
-
-    const minOrderNum = Number(form.minOrder);
-    if (form.minOrder === '' || isNaN(minOrderNum) || minOrderNum < 0) {
-      newErrors.minOrder = 'Minimum order cannot be negative';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSave = async () => {
-    if (!validateForm()) return;
-
-    setSaving(true);
-    const code = form.code.trim().toUpperCase();
+  const handleSubmit = async (values: CouponFormOutput) => {
     const payload: Coupon = {
-      code,
-      discount: Number(form.discount),
-      maxDiscount: Number(form.maxDiscount),
-      minOrder: Number(form.minOrder) || 0,
-      description: form.description.trim(),
-      isActive: form.isActive,
+      // On edit the code comes from the record, not the form. The code is the
+      // primary key and the update matches on it, so typing a new one in the
+      // edit dialog used to send an UPDATE that matched no row at all —
+      // reported as success while nothing changed.
+      code: editing ? editing.code : values.code,
+      discount: values.discount,
+      maxDiscount: values.maxDiscount,
+      minOrder: values.minOrder,
+      description: values.description,
+      isActive: values.isActive,
     };
 
     try {
-      const result = editingCode ? await updateCoupon(payload) : await addCoupon(payload);
-      if ('error' in result && result.error) {
-        const errorMsg = (result.error as { error?: string })?.error || 'Failed to save coupon';
-        toast.error(errorMsg);
+      if (editing) {
+        await updateCoupon.mutateAsync(payload);
+        toast.success(`Coupon ${payload.code} updated`);
+      } else {
+        await addCoupon.mutateAsync(payload);
+        toast.success(`Coupon ${payload.code} created`);
+      }
+      setDialogOpen(false);
+    } catch (err) {
+      const message = (err as Error).message || 'Could not save this coupon';
+      // A duplicate code is a fixable mistake about one field, so it belongs
+      // on that field rather than in a toast the manager has to remember.
+      if (/already exists/i.test(message)) {
+        form.setError('code', { message });
         return;
       }
-      toast.success(editingCode ? `Coupon ${code} updated` : `Coupon ${code} created`);
-      setDialogOpen(false);
-    } catch {
-      toast.error('An unexpected error occurred while saving.');
-    } finally {
-      setSaving(false);
+      toast.error(message);
     }
-  };
-
-  const confirmDelete = (code: string) => {
-    setDeletingCode(code);
   };
 
   const handleDelete = async () => {
-    if (!deletingCode) return;
-    setDeleting(true);
+    if (!deleting) return;
     try {
-      const result = await deleteCoupon(deletingCode);
-      if ('error' in result && result.error) {
-        toast.error((result.error as { error?: string })?.error || 'Failed to delete coupon');
-      } else {
-        toast.success(`Coupon ${deletingCode} deleted`);
-      }
-    } catch {
-      toast.error('Failed to delete coupon');
-    } finally {
-      setDeleting(false);
-      setDeletingCode(null);
+      await deleteCoupon.mutateAsync(deleting.code);
+      toast.success(`Coupon ${deleting.code} deleted`);
+      setDeleting(null);
+    } catch (err) {
+      toast.error((err as Error).message || 'Could not delete this coupon');
     }
   };
 
-  const handleToggleActive = async (c: Coupon) => {
-    try {
-      const result = await updateCoupon({ ...c, isActive: !c.isActive });
-      if ('error' in result && result.error) {
-        toast.error('Failed to update status');
-      } else {
-        toast.success(`Coupon ${c.code} is now ${!c.isActive ? 'Active' : 'Inactive'}`);
-      }
-    } catch {
-      toast.error('Failed to toggle coupon status');
-    }
-  };
+  const toggleActive = useCallback(
+    (c: Coupon, next: boolean) => {
+      updateCoupon.mutate(
+        { ...c, isActive: next },
+        {
+          onError: (err) =>
+            toast.error((err as Error).message || `Could not update ${c.code}`),
+        }
+      );
+    },
+    [updateCoupon]
+  );
+
+  const columns = useMemo<ColumnDef<any, Coupon>[]>(() => [
+    {
+      accessorKey: 'code',
+      header: 'Coupon Code',
+      cell: ({ row }) => (
+        <Badge
+          variant="outline"
+          className="bg-amber-50 px-2.5 py-1 text-xs font-black text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+        >
+          {row.original.code}
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'discount',
+      header: 'Discount %',
+      cell: ({ row }) => (
+        <span className="text-sm font-extrabold tabular-nums text-stone-900 dark:text-stone-100">
+          {row.original.discount}% OFF
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'maxDiscount',
+      header: 'Max Discount',
+      cell: ({ row }) => (
+        <span className="text-xs font-bold tabular-nums text-stone-600 dark:text-stone-300">
+          Up to ₹{row.original.maxDiscount}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'minOrder',
+      header: 'Min Order',
+      cell: ({ row }) => (
+        <span className="text-xs font-bold tabular-nums text-stone-600 dark:text-stone-300">
+          ₹{row.original.minOrder}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'isActive',
+      header: 'Status',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={row.original.isActive}
+            onCheckedChange={(v) => toggleActive(row.original, v)}
+            aria-label={`${row.original.code} active`}
+          />
+          <span
+            className={`text-xs font-bold ${row.original.isActive ? 'text-emerald-600' : 'text-stone-400'}`}
+          >
+            {row.original.isActive ? 'Active' : 'Disabled'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            aria-label={`Edit ${row.original.code}`}
+            onClick={() => openEdit(row.original)}
+          >
+            <Edit2 className="size-4 text-stone-600" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 text-rose-600"
+            aria-label={`Delete ${row.original.code}`}
+            // Was a bare `deleteCouponMutation.mutate(code)` — one stray tap on
+            // a trash icon destroyed a live promo code with no confirmation
+            // and no undo.
+            onClick={() => setDeleting(row.original)}
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ], [toggleActive, openEdit]);
+
+  const renderMobileCard = useCallback((c: Coupon) => (
+    <div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <Badge
+            variant="outline"
+            className="bg-amber-50 px-2 py-0.5 text-xs font-black text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+          >
+            {c.code}
+          </Badge>
+          <div className="mt-1.5 text-sm font-extrabold text-stone-900 dark:text-stone-100">
+            {c.discount}% OFF
+            <span className="ml-1.5 text-[11px] font-semibold text-stone-400">
+              up to ₹{c.maxDiscount}
+            </span>
+          </div>
+          {c.description && (
+            <p className="mt-0.5 line-clamp-2 text-[11px] text-stone-400">{c.description}</p>
+          )}
+        </div>
+        <Switch
+          checked={c.isActive}
+          onCheckedChange={(v) => toggleActive(c, v)}
+          aria-label={`${c.code} active`}
+        />
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-2 border-t border-stone-100 pt-2.5 dark:border-[#2C2C2E]/60">
+        <span className="text-[11px] font-bold text-stone-400">Min order ₹{c.minOrder}</span>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 rounded-lg px-2.5 text-xs font-bold"
+            onClick={() => openEdit(c)}
+          >
+            <Edit2 className="size-3.5" /> Edit
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 text-rose-600"
+            aria-label={`Delete ${c.code}`}
+            onClick={() => setDeleting(c)}
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  ), [toggleActive, openEdit]);
 
   return (
-    <AdminLayout title="Coupons & Discounts">
-      <PageHeader
-        title="Coupons & Discounts"
-        subtitle="Create and manage promo codes customers can apply at checkout."
-      />
+    <AdminLayout title="Coupons & Offers">
+      <div className="w-full max-w-full space-y-4">
+        <PageHeader
+          title="Promo Coupons & Discount Codes"
+          subtitle="Manage customer discount offers and promotional voucher codes"
+          action={
+            <Button
+              onClick={openAdd}
+              className="h-9 w-full rounded-lg bg-amber-600 px-3 text-xs font-extrabold text-white shadow-xs hover:bg-amber-700 sm:w-auto"
+            >
+              <Plus className="size-3.5" />
+              Create Promo Code
+            </Button>
+          }
+        />
 
-      {/* Stat Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {[
-          { label: 'Total Coupons', value: coupons.length, emoji: '🎟️', accent: adminColors.info },
-          { label: 'Active Codes', value: activeCount, emoji: '✅', accent: adminColors.success },
-          { label: 'Inactive Codes', value: coupons.length - activeCount, emoji: '⏸️', accent: adminColors.neutral },
-          { label: 'Avg Discount', value: `${avgDiscount}%`, emoji: '🏷️', accent: adminColors.warning },
-        ].map((stat) => (
-          <Grid key={stat.label} size={{ xs: 6, sm: 6, md: 3 }}>
-            <StatCard icon={stat.emoji} label={stat.label} value={stat.value} accent={stat.accent} />
-          </Grid>
-        ))}
-      </Grid>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <StatCard
+            icon={<Tag className="size-5" />}
+            label="Total Coupons"
+            value={coupons.length}
+            sub="Registered discount codes"
+            accent="#D97706"
+          />
+          <StatCard
+            icon={<CheckCircle2 className="size-5" />}
+            label="Active Coupons"
+            value={activeCount}
+            sub="Currently redeemable"
+            accent="#059669"
+          />
+        </div>
 
-      {/* Main Container */}
-      <Paper sx={{ borderRadius: '20px', boxShadow: '0 2px 16px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
-        {/* Header & Controls */}
-        <Box sx={{ p: 2.5, borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' } }}>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#212121' }}>All Coupons</Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Showing {filteredCoupons.length} of {coupons.length} coupons
-              </Typography>
-            </Box>
+        <SectionCard noPadding className="p-3">
+          <DataTable
+            columns={columns}
+            data={coupons}
+            searchKey="code"
+            searchPlaceholder="Search coupon code..."
+            height="500px"
+            rowHeight={56}
+            emptyMessage="No coupons yet. Create one to start offering discounts."
+            renderMobileCard={renderMobileCard}
+            getRowId={(c) => c.code}
+          />
+        </SectionCard>
+      </div>
 
-            <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-              <Button
-                variant="contained"
-                onClick={openAddDialog}
-                startIcon={<Add />}
-                sx={{
-                  borderRadius: '12px',
-                  fontWeight: 700,
-                  px: 2.5, py: 1,
-                  background: 'linear-gradient(135deg, #C62828, #EF5350)',
-                  boxShadow: '0 4px 12px rgba(198,40,40,0.3)',
-                  '&:hover': { background: 'linear-gradient(135deg, #B71C1C, #E53935)' },
-                }}
-              >
-                New Coupon
-              </Button>
-            </Stack>
-          </Stack>
-
-          {/* Search and Filters */}
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 2.5, alignItems: 'center' }}>
-            <TextField
-              size="small"
-              placeholder="Search coupon code or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              sx={{ flex: 1, width: '100%' }}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search sx={{ color: 'text.secondary', fontSize: 20 }} />
-                    </InputAdornment>
-                  ),
-                  sx: { borderRadius: '12px', bgcolor: '#FAFAFA' },
-                },
-              }}
-            />
-
-            <Box sx={{ display: 'flex', gap: 0.5, bgcolor: '#FAFAFA', p: 0.5, borderRadius: '12px', width: { xs: '100%', sm: 'auto' } }}>
-              {(['all', 'active', 'inactive'] as const).map((st) => (
-                <Button
-                  key={st}
-                  size="small"
-                  onClick={() => setStatusFilter(st)}
-                  sx={{
-                    flex: { xs: 1, sm: 'initial' },
-                    borderRadius: '8px',
-                    px: 2, py: 0.5,
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    textTransform: 'capitalize',
-                    bgcolor: statusFilter === st ? '#FFFFFF' : 'transparent',
-                    color: statusFilter === st ? '#C62828' : 'text.secondary',
-                    boxShadow: statusFilter === st ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
-                    '&:hover': { bgcolor: statusFilter === st ? '#FFFFFF' : 'rgba(0,0,0,0.04)' },
-                  }}
-                >
-                  {st}
-                </Button>
-              ))}
-            </Box>
-          </Stack>
-        </Box>
-
-        {/* Content Body */}
-        {isLoading ? (
-          <Box sx={{ py: 8, textAlign: 'center' }}>
-            <CircularProgress size={36} sx={{ color: '#C62828' }} />
-            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1.5 }}>Loading coupons...</Typography>
-          </Box>
-        ) : filteredCoupons.length === 0 ? (
-          <Box sx={{ py: 8, px: 2, textAlign: 'center' }}>
-            <LocalOffer sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: 'text.primary' }}>
-              {searchQuery || statusFilter !== 'all' ? 'No matching coupons found' : 'No coupons created yet'}
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2, maxWidth: 360, mx: 'auto' }}>
-              {searchQuery || statusFilter !== 'all'
-                ? 'Try adjusting your search query or status filter.'
-                : 'Create promotional discount codes to boost customer orders.'}
-            </Typography>
-            {!searchQuery && statusFilter === 'all' && (
-              <Button
-                variant="outlined"
-                onClick={openAddDialog}
-                startIcon={<Add />}
-                sx={{ borderRadius: '10px', color: '#C62828', borderColor: '#C62828' }}
-              >
-                Create First Coupon
-              </Button>
-            )}
-          </Box>
-        ) : isMobile ? (
-          /* Mobile Card View */
-          <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {filteredCoupons.map((c) => (
-              <Card
-                key={c.code}
-                variant="outlined"
-                sx={{
-                  borderRadius: '16px',
-                  borderColor: 'rgba(0,0,0,0.08)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                  position: 'relative',
-                  overflow: 'hidden',
-                }}
-              >
-                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                  <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                    <Chip
-                      label={c.code}
-                      sx={{
-                        bgcolor: c.isActive ? 'rgba(198,40,40,0.08)' : 'rgba(0,0,0,0.06)',
-                        color: c.isActive ? '#C62828' : 'text.secondary',
-                        fontWeight: 800,
-                        fontSize: '13px',
-                        borderRadius: '8px',
-                        px: 0.5,
-                      }}
-                    />
-                    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                      <Switch
-                        size="small"
-                        checked={c.isActive}
-                        onChange={() => handleToggleActive(c)}
-                        color="success"
-                      />
-                      <Typography variant="caption" sx={{ fontWeight: 700, color: c.isActive ? 'success.main' : 'text.disabled' }}>
-                        {c.isActive ? 'Active' : 'Inactive'}
-                      </Typography>
-                    </Stack>
-                  </Stack>
-
-                  <Grid container spacing={1.5} sx={{ mb: 1.5, bgcolor: '#FAFAFA', p: 1.5, borderRadius: '12px' }}>
-                    <Grid size={{ xs: 4 }}>
-                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Discount</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 800, color: '#C62828' }}>{c.discount}%</Typography>
-                    </Grid>
-                    <Grid size={{ xs: 4 }}>
-                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Max Cap</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>₹{c.maxDiscount}</Typography>
-                    </Grid>
-                    <Grid size={{ xs: 4 }}>
-                      <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Min Order</Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>₹{c.minOrder}</Typography>
-                    </Grid>
-                  </Grid>
-
-                  {c.description && (
-                    <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '13px', mb: 1.5 }}>
-                      {c.description}
-                    </Typography>
-                  )}
-
-                  <Divider sx={{ my: 1 }} />
-
-                  <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end' }}>
-                    <Button
-                      size="small"
-                      startIcon={<Edit sx={{ fontSize: 16 }} />}
-                      onClick={() => openEditDialog(c)}
-                      sx={{ color: '#1565C0', borderRadius: '8px' }}
-                    >
-                      Edit
-                    </Button>
-                    <Button
-                      size="small"
-                      startIcon={<Delete sx={{ fontSize: 16 }} />}
-                      onClick={() => confirmDelete(c.code)}
-                      sx={{ color: '#C62828', borderRadius: '8px' }}
-                    >
-                      Delete
-                    </Button>
-                  </Stack>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
-        ) : (
-          /* Desktop Table View */
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table sx={{ minWidth: 760 }}>
-              <TableHead sx={{ bgcolor: '#FAFAFA' }}>
-                <TableRow>
-                  {['Code', 'Discount', 'Max Discount', 'Min Order', 'Description', 'Status', 'Actions'].map((h) => (
-                    <TableCell key={h} sx={{ fontWeight: 700, fontSize: '12px', color: '#616161', py: 1.8, whiteSpace: 'nowrap' }}>
-                      {h}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredCoupons.map((c) => (
-                  <TableRow key={c.code} hover sx={{ '&:last-child td': { border: 0 } }}>
-                    <TableCell>
-                      <Chip
-                        label={c.code}
-                        size="small"
-                        sx={{
-                          bgcolor: c.isActive ? 'rgba(198,40,40,0.08)' : 'rgba(0,0,0,0.06)',
-                          color: c.isActive ? '#C62828' : 'text.secondary',
-                          fontWeight: 800,
-                          fontSize: '12px',
-                          borderRadius: '6px',
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 800, color: '#C62828' }}>{c.discount}%</Typography>
-                    </TableCell>
-                    <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>₹{c.maxDiscount}</Typography></TableCell>
-                    <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>₹{c.minOrder}</Typography></TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 260, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {c.description || '—'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-                        <Switch size="small" checked={c.isActive} onChange={() => handleToggleActive(c)} color="success" />
-                        <Typography variant="caption" sx={{ fontWeight: 700, color: c.isActive ? 'success.main' : 'text.disabled' }}>
-                          {c.isActive ? 'Active' : 'Inactive'}
-                        </Typography>
-                      </Stack>
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={0.5}>
-                        <Tooltip title="Edit Coupon">
-                          <IconButton size="small" onClick={() => openEditDialog(c)}>
-                            <Edit sx={{ fontSize: 18, color: '#1565C0' }} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete Coupon">
-                          <IconButton size="small" onClick={() => confirmDelete(c.code)}>
-                            <Delete sx={{ fontSize: 18, color: '#C62828' }} />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Box>
-        )}
-      </Paper>
-
-      {/* Add / Edit Dialog */}
-      <Dialog
+      <FormDialog
         open={dialogOpen}
-        onClose={() => !saving && setDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth
-        fullScreen={isMobile}
-        slotProps={{
-          paper: { sx: { borderRadius: isMobile ? 0 : '20px', p: 0.5 } },
-        }}
+        onOpenChange={setDialogOpen}
+        form={form}
+        onSubmit={handleSubmit}
+        title={editing ? `Edit ${editing.code}` : 'Create New Coupon'}
+        description={
+          editing
+            ? 'The code itself cannot change — create a new coupon if you need a different one.'
+            : 'Customers enter this code at checkout to claim the discount.'
+        }
+        submitLabel={editing ? 'Update Coupon' : 'Create Coupon'}
       >
-        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
-          <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-            <LocalOffer sx={{ color: '#C62828' }} />
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>{editingCode ? 'Edit Coupon' : 'New Coupon'}</Typography>
-          </Stack>
-          <IconButton size="small" onClick={() => setDialogOpen(false)} disabled={saving} aria-label="Close">
-            <Close fontSize="small" />
-          </IconButton>
-        </DialogTitle>
+        <TextField
+          control={form.control}
+          name="code"
+          label="Coupon Code"
+          placeholder="e.g. PALAPITTA10"
+          autoFocus={!editing}
+          disabled={!!editing}
+          hint={editing ? 'Codes are permanent once created' : 'Letters and numbers, 3–20 characters'}
+        />
 
-        <DialogContent dividers sx={{ borderTop: '1px solid rgba(0,0,0,0.06)', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.2, pt: 1 }}>
-            <TextField
-              label="Coupon Code"
-              value={form.code}
-              onChange={(e) => {
-                const upper = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                setForm({ ...form, code: upper });
-                if (errors.code) setErrors({ ...errors, code: undefined });
-              }}
-              disabled={!!editingCode}
-              placeholder="e.g. PALAPITTA10"
-              fullWidth
-              error={Boolean(errors.code)}
-              helperText={errors.code || (editingCode ? 'Coupon codes cannot be changed after creation' : '3-20 letters/numbers (spaces automatically removed)')}
-            />
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+          <NumberField
+            control={form.control}
+            name="discount"
+            label="Discount"
+            suffix="%"
+            placeholder="10"
+          />
+          <NumberField
+            control={form.control}
+            name="maxDiscount"
+            label="Max Discount"
+            prefix="₹"
+            placeholder="100"
+            hint="Caps the amount"
+          />
+          <NumberField
+            control={form.control}
+            name="minOrder"
+            label="Min Order"
+            prefix="₹"
+            placeholder="299"
+          />
+        </div>
 
-            <TextField
-              label="Discount Percentage"
-              type="number"
-              value={form.discount}
-              onChange={(e) => {
-                setForm({ ...form, discount: e.target.value });
-                if (errors.discount) setErrors({ ...errors, discount: undefined });
-              }}
-              fullWidth
-              error={Boolean(errors.discount)}
-              helperText={errors.discount || 'Percentage off total order (1–100%)'}
-              slotProps={{
-                input: {
-                  endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                },
-                htmlInput: { min: 1, max: 100 },
-              }}
-            />
+        <TextField
+          control={form.control}
+          name="description"
+          label="Description"
+          placeholder="e.g. 10% off on orders above ₹299"
+        />
 
-            <TextField
-              label="Maximum Discount Cap"
-              type="number"
-              value={form.maxDiscount}
-              onChange={(e) => {
-                setForm({ ...form, maxDiscount: e.target.value });
-                if (errors.maxDiscount) setErrors({ ...errors, maxDiscount: undefined });
-              }}
-              fullWidth
-              error={Boolean(errors.maxDiscount)}
-              helperText={errors.maxDiscount || 'Maximum discount cap in ₹ for this code'}
-              slotProps={{
-                input: {
-                  startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                },
-                htmlInput: { min: 1 },
-              }}
-            />
+        <SwitchField
+          control={form.control}
+          name="isActive"
+          label="Active"
+          hint="Inactive codes are rejected at checkout"
+        />
+      </FormDialog>
 
-            <TextField
-              label="Minimum Order Subtotal"
-              type="number"
-              value={form.minOrder}
-              onChange={(e) => {
-                setForm({ ...form, minOrder: e.target.value });
-                if (errors.minOrder) setErrors({ ...errors, minOrder: undefined });
-              }}
-              fullWidth
-              error={Boolean(errors.minOrder)}
-              helperText={errors.minOrder || 'Min order subtotal required (set 0 for no minimum)'}
-              slotProps={{
-                input: {
-                  startAdornment: <InputAdornment position="start">₹</InputAdornment>,
-                },
-                htmlInput: { min: 0 },
-              }}
-            />
-
-            <TextField
-              label="Description (Optional)"
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              multiline
-              rows={2}
-              fullWidth
-              placeholder="e.g. Special festive 10% discount on all family platters"
-            />
-
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={form.isActive}
-                  onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-                  color="success"
-                />
-              }
-              label={
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  Active (visible & usable by customers at checkout)
-                </Typography>
-              }
-            />
-
-            {!editingCode && (
-              <Alert severity="info" sx={{ borderRadius: '12px', fontSize: '12px' }}>
-                Codes are converted to uppercase and matched case-insensitively when customers apply them at checkout.
-              </Alert>
-            )}
-          </Box>
-        </DialogContent>
-
-        <DialogActions sx={{ p: 2.5, pb: isMobile ? 'max(20px, env(safe-area-inset-bottom, 0px))' : 2.5 }}>
-          <Button onClick={() => setDialogOpen(false)} color="inherit" disabled={saving} sx={{ borderRadius: '10px' }}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleSave}
-            variant="contained"
-            disabled={saving}
-            sx={{
-              borderRadius: '10px',
-              px: 3,
-              fontWeight: 700,
-              background: 'linear-gradient(135deg, #C62828, #EF5350)',
-              '&:hover': { background: 'linear-gradient(135deg, #B71C1C, #E53935)' },
-            }}
-          >
-            {saving ? <CircularProgress size={20} color="inherit" /> : editingCode ? 'Update Coupon' : 'Create Coupon'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={Boolean(deletingCode)}
-        onClose={() => !deleting && setDeletingCode(null)}
-        maxWidth="xs"
-        fullWidth
-        slotProps={{
-          paper: { sx: { borderRadius: '20px', p: 1 } },
-        }}
-      >
-        <DialogTitle sx={{ fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <WarningAmber sx={{ color: '#C62828' }} />
-          Delete Coupon {deletingCode}?
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary">
-            Are you sure you want to delete coupon <strong>{deletingCode}</strong>?
-            Customers will no longer be able to redeem this code at checkout. This action cannot be undone.
-          </Typography>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={() => setDeletingCode(null)} color="inherit" disabled={deleting} sx={{ borderRadius: '10px' }}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleDelete}
-            variant="contained"
-            color="error"
-            disabled={deleting}
-            sx={{ borderRadius: '10px', fontWeight: 700, px: 2.5 }}
-          >
-            {deleting ? <CircularProgress size={20} color="inherit" /> : 'Yes, Delete Coupon'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDeleteDialog
+        open={!!deleting}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        onConfirm={handleDelete}
+        busy={deleteCoupon.isPending}
+        title={`Delete ${deleting?.code}?`}
+        description="Customers who have this code saved will no longer be able to redeem it. This cannot be undone."
+      />
     </AdminLayout>
   );
 }

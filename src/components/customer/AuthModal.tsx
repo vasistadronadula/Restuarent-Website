@@ -1,46 +1,65 @@
 'use client';
 
 import React, { useState } from 'react';
-import {
-  Dialog, DialogContent, Box, Typography, TextField, Button,
-  IconButton, Tabs, Tab, CircularProgress, InputAdornment, Divider,
-  Link as MuiLink, ToggleButtonGroup, ToggleButton,
-} from '@mui/material';
-import { Close, Visibility, VisibilityOff, Lock, Email, Person, Phone, Sms } from '@mui/icons-material';
 import Link from 'next/link';
-import { useAppDispatch, useAppSelector } from '@/store/hooks';
-import { selectIsAuthModalOpen, selectAuthModalTab, openAuthModal, closeAuthModal } from '@/store/authSlice';
+import { usePathname } from 'next/navigation';
+import { Eye, EyeOff, Loader2, Lock, Mail, Phone, User, X } from 'lucide-react';
+
+import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth, landAfterLogin } from '@/context/AuthContext';
 import { isStaffRole } from '@/lib/roleAccess';
+import { validateEmail, validateName, validatePhone, validatePassword, normalizePhone } from '@/lib/validation';
 import GoogleIcon from './GoogleIcon';
 import PhoneOtpAuth from './PhoneOtpAuth';
+import AuthMethodToggle, { type AuthMethod } from './AuthMethodToggle';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function AuthModal() {
-  const dispatch = useAppDispatch();
-  const isAuthModalOpen = useAppSelector(selectIsAuthModalOpen);
-  const authModalTab = useAppSelector(selectAuthModalTab);
+  const pathname = usePathname();
+  const isAuthModalOpen = useAuthStore((s) => s.isAuthModalOpen);
+  const authModalTab = useAuthStore((s) => s.authModalTab);
   const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
 
-  const [authMethod, setAuthMethod] = useState<'otp' | 'email'>('otp');
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('otp');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const isLogin = authModalTab === 'login';
+  const close = () => useAuthStore.getState().closeAuthModal();
+
+  const fullPageHref = (page: 'login' | 'signup') =>
+    pathname && pathname !== '/' ? `/${page}?redirect=${encodeURIComponent(pathname)}` : `/${page}`;
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) return;
+    setFormError(null);
+
+    const problem = isLogin
+      ? validateEmail(email) ?? validatePassword(password, 'login')
+      : validateName(name) ?? validatePhone(phone) ?? validateEmail(email) ?? validatePassword(password, 'new');
+
+    if (problem) { setFormError(problem); return; }
+
     setLoading(true);
     const res = isLogin
-      ? await signInWithEmail(email, password)
-      : await signUpWithEmail(email, password, name, phone);
+      ? await signInWithEmail(email.trim(), password)
+      : await signUpWithEmail(email.trim(), password, name.trim(), normalizePhone(phone));
 
     if (!res?.success) {
       setLoading(false);
+      setFormError(
+        isLogin
+          ? "That email and password don't match an account."
+          : 'We could not create that account. The email may already be registered.',
+      );
       return;
     }
 
@@ -50,338 +69,202 @@ export default function AuthModal() {
     }
 
     setLoading(false);
-    dispatch(closeAuthModal());
+    close();
   };
 
   return (
-    <Dialog
-      open={isAuthModalOpen}
-      onClose={() => dispatch(closeAuthModal())}
-      maxWidth="xs"
-      fullWidth
-      slotProps={{
-        paper: {
-          sx: {
-            borderRadius: '24px',
-            overflow: 'hidden',
-            p: 0,
-            boxShadow: '0 24px 64px rgba(28, 8, 8, 0.28)',
-            border: '1px solid rgba(255, 204, 188, 0.4)',
-          },
-        },
-      }}
-    >
-      {/* Top Branded Header Strip */}
-      <Box
-        sx={{
-          background: 'linear-gradient(135deg, #1C0808 0%, #2E0F0F 60%, #1A0404 100%)',
-          color: '#FFFFFF',
-          px: 2.5,
-          py: 2,
-          position: 'relative',
-          overflow: 'hidden',
-          display: 'flex',
-          alignItems: 'center',
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            top: '-50%',
-            right: '-20%',
-            width: '140px',
-            height: '140px',
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(255,152,0,0.22) 0%, transparent 70%)',
-            pointerEvents: 'none',
-          },
-        }}
-      >
-        <Box sx={{ position: 'relative', zIndex: 1, pr: 5 }}>
-          <Box
-            component="img"
-            src="/logo.png"
-            alt="Pala Pitta Ruchulu Logo"
-            sx={{ height: 36, width: 'auto', display: 'block' }}
-          />
-          <Typography sx={{ fontSize: '10.5px', fontWeight: 800, color: '#FFB74D', letterSpacing: 0.8, mt: 0.5 }}>
-            A FEAST WORTH CRAVING
-          </Typography>
-        </Box>
+    <Dialog open={isAuthModalOpen} onOpenChange={(open) => { if (!open) close(); }}>
+      <DialogContent showCloseButton={false} className="p-0 overflow-hidden max-w-md w-full sm:rounded-2xl border-none">
+        {/* Branded Header */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-[#1A0606] via-[#370C0C] to-[#1A0606] p-6 text-white">
+          <div className="pointer-events-none absolute -right-10 -top-20 size-48 rounded-full bg-amber-500/20 blur-2xl" />
+          
+          <div className="relative z-10 pr-10">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Pala Pitta Ruchulu"
+              className="mb-3 h-8 w-auto block"
+            />
+            <DialogTitle className="text-xl font-extrabold tracking-tight text-white">
+              {isLogin ? 'Welcome back' : 'Create your account'}
+            </DialogTitle>
+            <p className="mt-1 text-xs text-white/70">
+              {isLogin
+                ? 'Sign in to track orders and book tables.'
+                : 'One account for ordering, tracking and bookings.'}
+            </p>
+          </div>
 
-        <IconButton
-          onClick={() => dispatch(closeAuthModal())}
-          size="small"
-          aria-label="Close authentication modal"
-          sx={{
-            position: 'absolute',
-            top: 14,
-            right: 14,
-            zIndex: 10,
-            color: 'rgba(255,255,255,0.85)',
-            bgcolor: 'rgba(255,255,255,0.12)',
-            backdropFilter: 'blur(4px)',
-            '&:hover': { color: '#FFFFFF', bgcolor: 'rgba(255,255,255,0.25)' },
-          }}
-        >
-          <Close fontSize="small" />
-        </IconButton>
-      </Box>
-
-      {/* Styled Tab Switcher */}
-      <Box sx={{ bgcolor: '#FFFDF9', px: 2, borderBottom: '1px solid #F0E4D8' }}>
-        <Tabs
-          value={authModalTab}
-          onChange={(_, val) => dispatch(openAuthModal(val))}
-          variant="fullWidth"
-          textColor="primary"
-          indicatorColor="primary"
-          sx={{
-            minHeight: 44,
-            '& .MuiTab-root': {
-              fontWeight: 800,
-              fontSize: '14px',
-              textTransform: 'none',
-              minHeight: 44,
-              py: 0.5,
-            },
-            '& .MuiTabs-indicator': {
-              height: 3,
-              borderRadius: '3px 3px 0 0',
-              bgcolor: 'primary.main',
-            },
-          }}
-        >
-          <Tab label="Log In" value="login" />
-          <Tab label="Sign Up" value="signup" />
-        </Tabs>
-      </Box>
-
-      <DialogContent sx={{ px: 2.5, py: 2.5, bgcolor: '#FFFFFF', overflowX: 'hidden' }}>
-        {/* Method Picker (Mobile OTP vs Email & Password) */}
-        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'center' }}>
-          <ToggleButtonGroup
-            value={authMethod}
-            exclusive
-            onChange={(_, next) => next && setAuthMethod(next)}
-            size="small"
-            sx={{
-              bgcolor: '#F5EBE6',
-              p: 0.4,
-              borderRadius: '12px',
-              '& .MuiToggleButton-root': {
-                border: 'none',
-                borderRadius: '9px !important',
-                px: 2,
-                py: 0.6,
-                fontWeight: 800,
-                fontSize: '12.5px',
-                textTransform: 'none',
-                color: 'text.secondary',
-                '&.Mui-selected': {
-                  bgcolor: '#FFFFFF',
-                  color: 'primary.main',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                },
-              },
-            }}
+          <button
+            type="button"
+            onClick={close}
+            aria-label="Close"
+            className="absolute right-4 top-4 z-20 flex size-8 items-center justify-center rounded-full bg-white/10 text-white/80 transition-colors hover:bg-white/20 hover:text-white"
           >
-            <ToggleButton value="otp">
-              <Sms sx={{ fontSize: 16, mr: 0.8 }} /> Phone OTP
-            </ToggleButton>
-            <ToggleButton value="email">
-              <Email sx={{ fontSize: 16, mr: 0.8 }} /> Email & Password
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
+            <X className="size-4" />
+          </button>
+        </div>
 
-        {authMethod === 'otp' ? (
-          <PhoneOtpAuth
-            // Remounted per tab so switching between Log In and Sign Up starts a
-            // clean flow rather than carrying a half-entered code across.
-            key={isLogin ? 'login' : 'signup'}
-            isSignUpMode={!isLogin}
-            onSuccess={() => dispatch(closeAuthModal())}
-          />
-        ) : (
-          <form onSubmit={handleEmailSubmit}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              {!isLogin && (
-                <>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Full Name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    slotProps={{
-                      input: {
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Person fontSize="small" sx={{ color: 'primary.main' }} />
-                          </InputAdornment>
-                        ),
-                      },
-                    }}
-                  />
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Mobile Number"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    slotProps={{
-                      input: {
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Phone fontSize="small" sx={{ color: 'primary.main' }} />
-                          </InputAdornment>
-                        ),
-                      },
-                    }}
-                  />
-                </>
-              )}
+        <div className="bg-background p-6 space-y-5">
+          <AuthMethodToggle value={authMethod} onChange={setAuthMethod} disabled={loading} />
 
-              <TextField
-                fullWidth
-                size="small"
-                type="email"
-                label="Email Address"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Email fontSize="small" sx={{ color: 'primary.main' }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
+          {authMethod === 'otp' ? (
+            <PhoneOtpAuth
+              key={isLogin ? 'login' : 'signup'}
+              isSignUpMode={!isLogin}
+              onSuccess={() => close()}
+            />
+          ) : (
+            <div className="space-y-4">
+              <form onSubmit={handleEmailSubmit} className="space-y-4">
+                {formError && (
+                  <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs font-medium text-destructive">
+                    {formError}
+                  </div>
+                )}
 
-              <TextField
-                fullWidth
-                size="small"
-                type={showPassword ? 'text' : 'password'}
-                label="Password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Lock fontSize="small" sx={{ color: 'primary.main' }} />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => setShowPassword(!showPassword)}>
-                          {showPassword ? <VisibilityOff fontSize="small" /> : <Visibility fontSize="small" />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
+                {!isLogin && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="modal-name">Full name</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-primary" />
+                        <Input
+                          id="modal-name"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          autoComplete="name"
+                          placeholder="e.g. Rahul Sharma"
+                          maxLength={80}
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
 
-              {isLogin && (
-                <Box sx={{ textAlign: 'right', mt: -0.25 }}>
-                  <MuiLink
-                    component={Link}
-                    href="/login?mode=forgot"
-                    onClick={() => dispatch(closeAuthModal())}
-                    sx={{ fontSize: '12px', fontWeight: 700, color: 'primary.main', textDecoration: 'none' }}
-                  >
-                    Forgot password?
-                  </MuiLink>
-                </Box>
-              )}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="modal-phone">Mobile number</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-primary" />
+                        <Input
+                          id="modal-phone"
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          autoComplete="tel"
+                          placeholder="9876543210"
+                          maxLength={15}
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="modal-email">Email address</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-primary" />
+                    <Input
+                      id="modal-email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="email"
+                      placeholder="rahul@example.com"
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="modal-password">Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-primary" />
+                    <Input
+                      id="modal-password"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete={isLogin ? 'current-password' : 'new-password'}
+                      className="pl-9 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {isLogin && (
+                  <div className="text-right">
+                    <Link
+                      href="/login?mode=forgot"
+                      onClick={close}
+                      className="text-xs font-bold text-primary hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full font-extrabold shadow-md bg-gradient-to-r from-red-700 to-red-600 hover:from-red-800 hover:to-red-700 text-white py-2.5 rounded-xl transition-all"
+                >
+                  {loading ? <Loader2 className="size-5 animate-spin" /> : isLogin ? 'Log in' : 'Create account'}
+                </Button>
+              </form>
+
+              <div className="relative my-4 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
+                <span className="relative bg-background px-3 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
+                  OR
+                </span>
+              </div>
 
               <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                disabled={loading}
-                sx={{
-                  mt: 0.5,
-                  py: 1.3,
-                  borderRadius: '12px',
-                  fontWeight: 800,
-                  fontSize: '14.5px',
-                  background: 'linear-gradient(135deg, #C62828 0%, #E53935 100%)',
-                  boxShadow: '0 4px 16px rgba(198, 40, 40, 0.25)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #B71C1C 0%, #C62828 100%)',
-                  },
-                }}
+                type="button"
+                variant="outline"
+                onClick={signInWithGoogle}
+                className="w-full font-bold py-2.5 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-muted gap-2"
               >
-                {loading ? (
-                  <CircularProgress size={22} color="inherit" />
-                ) : isLogin ? (
-                  'Log In & Continue'
-                ) : (
-                  'Create Account'
-                )}
+                <GoogleIcon />
+                Continue with Google
               </Button>
-            </Box>
-          </form>
-        )}
+            </div>
+          )}
 
-        {/* Google is offered alongside email only. During an OTP flow the
-            customer is mid-way through one verification, and a second sign-in
-            button under the code field is an invitation to abandon it. */}
-        {authMethod === 'email' && (
-          <>
-            <Divider
-              sx={{
-                my: 2,
-                fontSize: '10.5px',
-                fontWeight: 800,
-                color: 'text.secondary',
-                letterSpacing: 0.8,
-                '&::before, &::after': { borderColor: '#F0E4D8' },
-              }}
-            >
-              OR CONTINUE WITH
-            </Divider>
-
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={signInWithGoogle}
-              startIcon={<GoogleIcon />}
-              sx={{
-                py: 1.2,
-                borderRadius: '12px',
-                borderColor: '#E2E8F0',
-                bgcolor: '#FFFFFF',
-                color: '#2D3748',
-                fontWeight: 700,
-                fontSize: '13.5px',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
-                '&:hover': { borderColor: '#CBD5E0', bgcolor: '#F7FAFC' },
-              }}
-            >
-              Continue with Google
-            </Button>
-          </>
-        )}
-
-        <Box sx={{ textAlign: 'center', mt: 2, pt: 1.5, borderTop: '1px solid #F0E4D8' }}>
-          <Typography variant="body2" sx={{ fontSize: '12.5px', color: 'text.secondary', display: 'block', mb: 0.25 }}>
-            {isLogin ? "Don't have an account?" : 'Already have an account?'}
-          </Typography>
-          <Button
-            variant="text"
-            color="primary"
-            onClick={() => dispatch(openAuthModal(isLogin ? 'signup' : 'login'))}
-            sx={{ fontWeight: 800, fontSize: '13px', p: 0.25, minWidth: 0 }}
-          >
-            {isLogin ? 'Create Account' : 'Log In'}
-          </Button>
-        </Box>
+          <div className="border-t pt-4 text-center text-xs space-y-1">
+            <div>
+              <span className="text-muted-foreground">
+                {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
+              </span>
+              <button
+                type="button"
+                onClick={() => { setFormError(null); useAuthStore.getState().openAuthModal(isLogin ? 'signup' : 'login'); }}
+                className="font-extrabold text-primary hover:underline"
+              >
+                {isLogin ? 'Sign up' : 'Log in'}
+              </button>
+            </div>
+            <div>
+              <Link
+                href={fullPageHref(isLogin ? 'login' : 'signup')}
+                onClick={close}
+                className="text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:underline"
+              >
+                Open the full page instead
+              </Link>
+            </div>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

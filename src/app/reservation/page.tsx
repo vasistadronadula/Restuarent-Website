@@ -1,15 +1,10 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Box, Container, Grid, Typography, Button, TextField, Paper, Chip,
-  Dialog, DialogContent, CircularProgress,
-  MenuItem as MuiMenuItem, Select, FormControl, InputLabel, Alert,
-  Stepper, Step, StepLabel, Tooltip,
-} from '@mui/material';
-import {
-  CheckCircle, TableRestaurant,
-  Phone, Email, Person, ArrowForward, ArrowBack,
-} from '@mui/icons-material';
+  ArrowLeft, ArrowRight, Calendar, CheckCircle2, Clock, Loader2, Mail,
+  MapPin, Phone, User, Users, UtensilsCrossed, MessageCircle
+} from 'lucide-react';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import toast from 'react-hot-toast';
@@ -17,11 +12,22 @@ import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { generateReservationId } from '@/lib/idGenerator';
 import { triggerNewReservationPush } from '@/lib/triggerPush';
+import { accountDisplayName, isInternalPhoneEmail } from '@/lib/phoneIdentity';
 import {
-  useGetTablesQuery,
-  useGetBookedTableSlotsQuery,
-  useBookTableSlotMutation,
-} from '@/store/supabaseApi';
+  useTables,
+  useBookedTableSlots,
+  useBookTableSlot,
+} from '@/lib/queries';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 const timeSlots = [
   '12:00 PM', '12:30 PM', '1:00 PM', '1:30 PM', '2:00 PM', '2:30 PM',
@@ -51,20 +57,29 @@ export default function ReservationPage() {
   const [form, setForm] = useState({ name: '', phone: '', email: '', request: '' });
   const [step3Errors, setStep3Errors] = useState<Record<string, string>>({});
 
+  useEffect(() => {
+    if (user) {
+      const name = accountDisplayName(user);
+      const phone = user.user_metadata?.phone || user.phone || '';
+      const email = isInternalPhoneEmail(user.email) ? '' : (user.email || '');
+      setForm((f) => ({
+        ...f,
+        name: f.name || name,
+        phone: f.phone || phone,
+        email: f.email || email,
+      }));
+    }
+  }, [user]);
+
   // Result state
   const [loading, setLoading] = useState(false);
   const [confirmId, setConfirmId] = useState('');
   const [success, setSuccess] = useState(false);
 
-  // RTK Query
-  const { data: tables = [], isLoading: tablesLoading } = useGetTablesQuery();
-  const { data: bookedTableIds = [], isLoading: slotsLoading } = useGetBookedTableSlotsQuery(
-    { date, timeSlot: time },
-    { skip: !date || !time }
-  );
-  const [bookTableSlot] = useBookTableSlotMutation();
+  const { data: tables = [], isLoading: tablesLoading } = useTables();
+  const { data: bookedTableIds = [], isLoading: slotsLoading } = useBookedTableSlots(date, time);
+  const bookTableSlot = useBookTableSlot();
 
-  // Active tables that can seat the guests
   const guestCount = Number(guests) || 2;
   const activeTables = useMemo(
     () => tables.filter((t) => t.isActive),
@@ -77,7 +92,6 @@ export default function ReservationPage() {
     return 'available';
   };
 
-  // ─── Step 1 validation ─────────────────────────────────────────────────────
   const validateStep1 = () => {
     const e: Record<string, string> = {};
     if (!date) e.date = 'Please select a date';
@@ -90,7 +104,6 @@ export default function ReservationPage() {
     return Object.keys(e).length === 0;
   };
 
-  // ─── Step 3 validation ─────────────────────────────────────────────────────
   const validateStep3 = () => {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = 'Name required';
@@ -99,7 +112,6 @@ export default function ReservationPage() {
     return Object.keys(e).length === 0;
   };
 
-  // ─── Navigation ────────────────────────────────────────────────────────────
   const handleNext = () => {
     if (activeStep === 0 && !validateStep1()) return;
     if (activeStep === 1 && !selectedTableId) {
@@ -109,7 +121,6 @@ export default function ReservationPage() {
     setActiveStep((s) => s + 1);
   };
 
-  // ─── Submit ────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!validateStep3()) return;
     setLoading(true);
@@ -132,25 +143,21 @@ export default function ReservationPage() {
       userId: user?.id || null,
     };
 
-    // Single write path (RTK Query) — previously this also inserted via
-    // lib/db.ts directly, writing the same reservation twice.
     try {
       await addReservationLocallyAndDB(newResObj);
-      await bookTableSlot({
+      await bookTableSlot.mutateAsync({
         id: slotId,
         tableId: selectedTableId,
         reservationId: id,
         date,
         timeSlot: time,
-      }).unwrap();
+      });
     } catch {
       toast.error('We could not confirm your reservation. Please try again or call us directly.');
       setLoading(false);
       return;
     }
 
-    // Alert the servers on the floor — fire-and-forget, never blocks the
-    // confirmation the guest is waiting for.
     triggerNewReservationPush(id);
 
     setConfirmId(id);
@@ -160,346 +167,407 @@ export default function ReservationPage() {
   };
 
   return (
-    <>
+    <div className="min-h-screen w-full bg-background flex flex-col">
       <Navbar />
 
-      {/* Hero */}
-      <Box sx={{
-        background: 'linear-gradient(135deg, #2D0000 0%, #C62828 100%)',
-        py: { xs: 3, md: 4.5 }, textAlign: 'center', position: 'relative', overflow: 'hidden',
-      }}>
-        <Box sx={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(circle at 50% 50%, rgba(255,152,0,0.1) 0%, transparent 70%)' }} />
-        <Typography variant="h2" sx={{ fontWeight: 800, color: 'white', fontSize: { xs: '1.8rem', md: '2.5rem' }, mb: 1, position: 'relative' }}>
+      {/* Hero Header - Full Width */}
+      <section className="relative w-full bg-gradient-to-br from-[#2D0000] via-[#4F0909] to-[#C62828] py-10 md:py-16 text-center text-white overflow-hidden px-6">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,152,0,0.15),transparent_70%)] pointer-events-none" />
+        <h1 className="text-3xl md:text-5xl font-black mb-3 tracking-tight relative z-10">
           📅 Reserve Your Table
-        </Typography>
-        <Typography sx={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.95rem', maxWidth: 500, mx: 'auto', position: 'relative' }}>
+        </h1>
+        <p className="text-sm md:text-base text-white/85 max-w-lg mx-auto font-medium leading-relaxed relative z-10">
           Book your royal dining experience — choose your table and we&apos;ll hold it just for you.
-        </Typography>
-      </Box>
+        </p>
+      </section>
 
-      <Box sx={{ bgcolor: '#FFF8F2', py: { xs: 3, md: 5 } }}>
-        <Container maxWidth="md">
+      {/* Main Container - Full Width */}
+      <section className="w-full bg-orange-50/40 dark:bg-zinc-900/40 py-8 md:py-14 flex-1">
+        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none space-y-6">
 
           {/* Stepper */}
-          <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-            {STEPS.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
-
-          <Paper sx={{ p: { xs: 3, md: 4 }, borderRadius: '24px', boxShadow: '0 8px 40px rgba(0,0,0,0.1)' }}>
-
-            {/* ── STEP 1: Date, Time, Guests ─────────────────────────────────── */}
-            {activeStep === 0 && (
-              <Box>
-                <Typography variant="h5" color="#C62828" sx={{ fontWeight: 800, mb: 3 }}>
-                  📅 When would you like to visit?
-                </Typography>
-                <Grid container spacing={2.5}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth label="Preferred Date *" type="date"
-                      value={date} onChange={(e) => setDate(e.target.value)}
-                      error={!!step1Errors.date} helperText={step1Errors.date}
-                      slotProps={{ htmlInput: { min: getMinDate() }, inputLabel: { shrink: true } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <FormControl fullWidth>
-                      <InputLabel>Number of Guests *</InputLabel>
-                      <Select value={guests} label="Number of Guests *" onChange={(e) => { setGuests(e.target.value); setSelectedTableId(''); setSelectedTableNumber(0); }}>
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map((n) => (
-                          <MuiMenuItem key={n} value={String(n)}>{n} {n === 1 ? 'Guest' : 'Guests'}</MuiMenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600, mb: 1.5 }}>
-                      Select Time Slot *
-                    </Typography>
-                    {step1Errors.time && <Typography variant="caption" color="error" sx={{ display: 'block', mb: 1 }}>{step1Errors.time}</Typography>}
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {timeSlots.map((t) => (
-                        <Chip
-                          key={t} label={t}
-                          onClick={() => { setTime(t); setSelectedTableId(''); setSelectedTableNumber(0); }}
-                          sx={{
-                            cursor: 'pointer', fontWeight: 600,
-                            bgcolor: time === t ? '#C62828' : 'white',
-                            color: time === t ? 'white' : '#424242',
-                            border: `1.5px solid ${time === t ? '#C62828' : 'rgba(0,0,0,0.15)'}`,
-                            '&:hover': { bgcolor: time === t ? '#8E0000' : 'rgba(198,40,40,0.08)' },
-                            transition: 'all 0.2s',
-                          }}
-                        />
-                      ))}
-                    </Box>
-                  </Grid>
-                </Grid>
-              </Box>
-            )}
-
-            {/* ── STEP 2: Table Picker ──────────────────────────────────────── */}
-            {activeStep === 1 && (
-              <Box>
-                <Typography variant="h5" color="#C62828" sx={{ fontWeight: 800, mb: 1 }}>
-                  🪑 Choose Your Table
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Showing tables for <strong>{date}</strong> at <strong>{time}</strong> for <strong>{guests} guests</strong>
-                </Typography>
-
-                {/* Legend */}
-                <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-                  {[
-                    { color: '#2E7D32', bg: 'rgba(46,125,50,0.1)', label: '✅ Available' },
-                    { color: '#C62828', bg: 'rgba(198,40,40,0.08)', label: '🔴 Occupied' },
-                    { color: '#616161', bg: 'rgba(0,0,0,0.04)', label: '⚪ Too Small' },
-                  ].map((l) => (
-                    <Box key={l.label} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Box sx={{ width: 14, height: 14, borderRadius: '4px', bgcolor: l.bg, border: `2px solid ${l.color}` }} />
-                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#616161' }}>{l.label}</Typography>
-                    </Box>
-                  ))}
-                </Box>
-
-                {(tablesLoading || slotsLoading) ? (
-                  <Box sx={{ textAlign: 'center', py: 6 }}>
-                    <CircularProgress color="primary" />
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>Checking table availability...</Typography>
-                  </Box>
-                ) : activeTables.length === 0 ? (
-                  <Alert severity="info" sx={{ borderRadius: '14px' }}>
-                    No tables have been set up yet. Please contact the restaurant directly at <strong>+91 70326 82089</strong>.
-                  </Alert>
-                ) : (
-                  <Grid container spacing={2}>
-                    {activeTables.map((table) => {
-                      const status = getTableStatus(table.id, table.capacity);
-                      const isSelected = selectedTableId === table.id;
-                      const isAvailable = status === 'available';
-
-                      const borderColor = isSelected ? '#C62828' : status === 'occupied' ? '#EF5350' : status === 'too-small' ? '#BDBDBD' : '#81C784';
-                      const bgColor = isSelected ? 'rgba(198,40,40,0.08)' : status === 'occupied' ? 'rgba(239,83,80,0.06)' : status === 'too-small' ? 'rgba(0,0,0,0.03)' : 'rgba(129,199,132,0.08)';
-                      const statusLabel = status === 'occupied' ? '🔴 Taken' : status === 'too-small' ? `⚪ Max ${table.capacity}` : '✅ Available';
-                      const statusColor = status === 'occupied' ? '#C62828' : status === 'too-small' ? '#9E9E9E' : '#2E7D32';
-
-                      return (
-                        <Grid key={table.id} size={{ xs: 6, sm: 4, md: 3 }}>
-                          <Tooltip
-                            title={status === 'occupied' ? 'This table is already booked for this slot' : status === 'too-small' ? `Table seats max ${table.capacity}` : 'Click to select this table'}
-                            arrow
-                          >
-                            <Box
-                              onClick={() => {
-                                if (!isAvailable) return;
-                                setSelectedTableId(table.id);
-                                setSelectedTableNumber(table.tableNumber);
-                              }}
-                              sx={{
-                                p: 2, borderRadius: '16px', textAlign: 'center',
-                                border: `2px solid ${borderColor}`,
-                                bgcolor: bgColor,
-                                cursor: isAvailable ? 'pointer' : 'not-allowed',
-                                opacity: status === 'too-small' ? 0.6 : 1,
-                                transition: 'all 0.2s',
-                                boxShadow: isSelected ? '0 4px 16px rgba(198,40,40,0.3)' : 'none',
-                                '&:hover': isAvailable ? { transform: 'translateY(-2px)', boxShadow: '0 6px 20px rgba(198,40,40,0.2)' } : {},
-                              }}
-                            >
-                              <TableRestaurant sx={{ fontSize: 36, color: borderColor, mb: 0.5 }} />
-                              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#0F172A' }}>
-                                Table {table.tableNumber}
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mb: 0.5 }}>
-                                👥 {table.capacity} seats
-                              </Typography>
-                              {table.description && (
-                                <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', fontSize: '10px', mb: 0.5 }}>
-                                  {table.description}
-                                </Typography>
-                              )}
-                              <Chip
-                                label={statusLabel}
-                                size="small"
-                                sx={{ bgcolor: `${statusColor}15`, color: statusColor, fontWeight: 700, fontSize: '10px', height: 20, mt: 0.5 }}
-                              />
-                              {isSelected && (
-                                <Box sx={{ mt: 1 }}>
-                                  <CheckCircle sx={{ color: '#C62828', fontSize: 20 }} />
-                                </Box>
-                              )}
-                            </Box>
-                          </Tooltip>
-                        </Grid>
-                      );
-                    })}
-                  </Grid>
-                )}
-
-                {selectedTableId && (
-                  <Alert severity="success" sx={{ mt: 3, borderRadius: '12px' }}>
-                    🎯 <strong>Table {selectedTableNumber}</strong> selected for {guests} guests on {date} at {time}
-                  </Alert>
-                )}
-              </Box>
-            )}
-
-            {/* ── STEP 3: Guest Details ─────────────────────────────────────── */}
-            {activeStep === 2 && (
-              <Box>
-                <Typography variant="h5" color="#C62828" sx={{ fontWeight: 800, mb: 3 }}>
-                  👤 Your Details
-                </Typography>
-                <Alert severity="info" sx={{ mb: 3, borderRadius: '12px' }}>
-                  Table <strong>{selectedTableNumber}</strong> · {guests} guests · {date} at {time}
-                </Alert>
-                <Grid container spacing={2.5}>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth label="Full Name *"
-                      value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      error={!!step3Errors.name} helperText={step3Errors.name}
-                      slotProps={{ input: { startAdornment: <Person sx={{ mr: 1, color: '#C62828', fontSize: 20 }} /> } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12, sm: 6 }}>
-                    <TextField
-                      fullWidth label="Phone Number *"
-                      value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      error={!!step3Errors.phone} helperText={step3Errors.phone}
-                      slotProps={{ input: { startAdornment: <Phone sx={{ mr: 1, color: '#C62828', fontSize: 20 }} /> } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      fullWidth label="Email Address (optional)"
-                      value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-                      type="email"
-                      slotProps={{ input: { startAdornment: <Email sx={{ mr: 1, color: '#C62828', fontSize: 20 }} /> } }}
-                    />
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <TextField
-                      fullWidth label="Special Requests (Optional)" multiline rows={3}
-                      value={form.request} onChange={(e) => setForm({ ...form, request: e.target.value })}
-                      placeholder="e.g. Anniversary, vegetarian only, high chair needed..."
-                    />
-                  </Grid>
-                </Grid>
-                <Button
-                  fullWidth variant="contained" color="primary" size="large"
-                  onClick={handleSubmit} disabled={loading}
-                  sx={{
-                    mt: 3.5, py: 2, borderRadius: '14px', fontSize: '16px', fontWeight: 700,
-                    background: 'linear-gradient(135deg, #C62828, #EF5350)',
-                    boxShadow: '0 8px 24px rgba(198,40,40,0.3)',
-                  }}
-                >
-                  {loading ? <CircularProgress size={26} color="inherit" /> : '🎉 Confirm Reservation'}
-                </Button>
-              </Box>
-            )}
-
-            {/* Navigation Buttons */}
-            {activeStep < 3 && (
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4, pt: 3, borderTop: '1px solid #F1F5F9' }}>
-                <Button
-                  startIcon={<ArrowBack />}
-                  onClick={() => setActiveStep((s) => s - 1)}
-                  disabled={activeStep === 0}
-                  sx={{ color: '#64748B' }}
-                >
-                  Back
-                </Button>
-                {activeStep < 2 && (
-                  <Button
-                    variant="contained" color="primary" endIcon={<ArrowForward />}
-                    onClick={handleNext}
-                    sx={{ borderRadius: '12px', px: 3, fontWeight: 700, background: 'linear-gradient(135deg, #C62828, #EF5350)' }}
+          <div className="flex items-center justify-between relative max-w-xl mx-auto px-4 mb-8">
+            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-border -translate-y-1/2 -z-0" />
+            {STEPS.map((label, idx) => {
+              const isCompleted = activeStep > idx;
+              const isCurrent = activeStep === idx;
+              return (
+                <div key={label} className="relative z-10 flex flex-col items-center gap-1.5 bg-orange-50/40 dark:bg-zinc-900/40 px-2">
+                  <div
+                    className={cn(
+                      'size-9 rounded-full flex items-center justify-center text-xs font-black transition-all shadow-sm',
+                      isCompleted && 'bg-emerald-600 text-white',
+                      isCurrent && 'bg-primary text-white ring-4 ring-primary/20',
+                      !isCompleted && !isCurrent && 'bg-muted text-muted-foreground'
+                    )}
                   >
-                    {activeStep === 0 ? 'View Available Tables' : 'Enter Your Details'}
-                  </Button>
-                )}
-              </Box>
-            )}
-          </Paper>
+                    {isCompleted ? <CheckCircle2 className="size-5" /> : idx + 1}
+                  </div>
+                  <span className={cn('text-xs font-bold', isCurrent ? 'text-primary' : 'text-muted-foreground')}>
+                    {label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
 
-          {/* Info Cards */}
-          <Grid container spacing={2} sx={{ mt: 3 }}>
+          <Card className="p-6 md:p-10 shadow-xl border-border/80 bg-background rounded-3xl">
+            <CardContent className="p-0">
+
+              {/* ── STEP 1: Date, Time, Guests ──────────────────────────────── */}
+              {activeStep === 0 && (
+                <div className="space-y-6">
+                  <h2 className="text-xl md:text-2xl font-black text-primary">
+                    📅 When would you like to visit?
+                  </h2>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label htmlFor="res-date">Preferred Date *</Label>
+                      <Input
+                        id="res-date"
+                        type="date"
+                        min={getMinDate()}
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        className="font-medium"
+                      />
+                      {step1Errors.date && <p className="text-xs text-destructive font-medium">{step1Errors.date}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Number of Guests *</Label>
+                      <Select
+                        value={guests}
+                        onValueChange={(val) => { setGuests(val); setSelectedTableId(''); setSelectedTableNumber(0); }}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select guests" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20].map((n) => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n} {n === 1 ? 'Guest' : 'Guests'}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <Label className="text-sm font-bold text-foreground">Select Time Slot *</Label>
+                    {step1Errors.time && <p className="text-xs text-destructive font-medium">{step1Errors.time}</p>}
+                    <div className="flex flex-wrap gap-2">
+                      {timeSlots.map((t) => {
+                        const selected = time === t;
+                        return (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => { setTime(t); setSelectedTableId(''); setSelectedTableNumber(0); }}
+                            className={cn(
+                              'px-3.5 py-2 rounded-xl text-xs font-bold transition-all border shadow-xs',
+                              selected
+                                ? 'bg-primary text-white border-primary shadow-md shadow-primary/20 scale-105'
+                                : 'bg-background text-foreground border-border hover:border-primary/50 hover:bg-primary/5'
+                            )}
+                          >
+                            {t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── STEP 2: Table Picker ────────────────────────────────────── */}
+              {activeStep === 1 && (
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-black text-primary mb-1">
+                      🪑 Choose Your Table
+                    </h2>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Showing tables for <strong className="text-foreground">{date}</strong> at <strong className="text-foreground">{time}</strong> for <strong className="text-foreground">{guests} guests</strong>
+                    </p>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="flex flex-wrap gap-4 text-xs font-semibold text-muted-foreground border-y py-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="size-3.5 rounded bg-emerald-500/20 border-2 border-emerald-600" />
+                      <span>Available</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="size-3.5 rounded bg-red-500/20 border-2 border-red-600" />
+                      <span>Occupied</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="size-3.5 rounded bg-slate-200 dark:bg-slate-800 border-2 border-slate-400" />
+                      <span>Too Small</span>
+                    </div>
+                  </div>
+
+                  {(tablesLoading || slotsLoading) ? (
+                    <div className="text-center py-12 space-y-3">
+                      <Loader2 className="size-8 animate-spin text-primary mx-auto" />
+                      <p className="text-xs text-muted-foreground">Checking table availability...</p>
+                    </div>
+                  ) : activeTables.length === 0 ? (
+                    <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-4 text-xs text-blue-800 dark:text-blue-200">
+                      No tables have been set up yet. Please contact the restaurant directly at <strong>+91 70326 82089</strong>.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                      {activeTables.map((table) => {
+                        const status = getTableStatus(table.id, table.capacity);
+                        const isSelected = selectedTableId === table.id;
+                        const isAvailable = status === 'available';
+
+                        return (
+                          <div
+                            key={table.id}
+                            onClick={() => {
+                              if (!isAvailable) return;
+                              setSelectedTableId(table.id);
+                              setSelectedTableNumber(table.tableNumber);
+                            }}
+                            className={cn(
+                              'p-4 rounded-2xl text-center border-2 transition-all cursor-pointer relative flex flex-col items-center justify-between',
+                              isSelected && 'border-primary bg-primary/10 shadow-lg scale-102',
+                              !isSelected && isAvailable && 'border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-500 hover:shadow-md',
+                              status === 'occupied' && 'border-red-500/40 bg-red-500/5 cursor-not-allowed opacity-80',
+                              status === 'too-small' && 'border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50 opacity-60 cursor-not-allowed'
+                            )}
+                          >
+                            <UtensilsCrossed className={cn('size-8 mb-2', isSelected ? 'text-primary' : isAvailable ? 'text-emerald-600' : 'text-muted-foreground')} />
+                            
+                            <div>
+                              <p className="text-sm font-extrabold text-foreground">Table {table.tableNumber}</p>
+                              <p className="text-[11px] text-muted-foreground font-medium">👥 {table.capacity} seats</p>
+                              {table.description && (
+                                <p className="text-[10px] text-muted-foreground/80 line-clamp-1 mt-0.5">{table.description}</p>
+                              )}
+                            </div>
+
+                            <Badge
+                              className={cn(
+                                'mt-2 text-[10px] font-bold px-2 py-0.5',
+                                isAvailable && 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-none',
+                                status === 'occupied' && 'bg-red-500/15 text-red-700 dark:text-red-300 border-none',
+                                status === 'too-small' && 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-none'
+                              )}
+                            >
+                              {status === 'occupied' ? '🔴 Taken' : status === 'too-small' ? `Max ${table.capacity}` : 'Available'}
+                            </Badge>
+
+                            {isSelected && (
+                              <div className="absolute top-2 right-2 text-primary">
+                                <CheckCircle2 className="size-5" />
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {selectedTableId && (
+                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-800 dark:text-emerald-200 font-semibold">
+                      🎯 <strong>Table {selectedTableNumber}</strong> selected for {guests} guests on {date} at {time}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── STEP 3: Guest Details ───────────────────────────────────── */}
+              {activeStep === 2 && (
+                <div className="space-y-6">
+                  <h2 className="text-xl md:text-2xl font-black text-primary">
+                    👤 Your Details
+                  </h2>
+
+                  <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3.5 text-xs text-blue-900 dark:text-blue-200 font-medium">
+                    Table <strong className="font-extrabold">{selectedTableNumber}</strong> · {guests} guests · {date} at {time}
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="res-name">Full Name *</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-primary" />
+                        <Input
+                          id="res-name"
+                          value={form.name}
+                          onChange={(e) => setForm({ ...form, name: e.target.value })}
+                          className="pl-9"
+                        />
+                      </div>
+                      {step3Errors.name && <p className="text-xs text-destructive font-medium">{step3Errors.name}</p>}
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="res-phone">Phone Number *</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-primary" />
+                        <Input
+                          id="res-phone"
+                          value={form.phone}
+                          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                          className="pl-9"
+                        />
+                      </div>
+                      {step3Errors.phone && <p className="text-xs text-destructive font-medium">{step3Errors.phone}</p>}
+                    </div>
+
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label htmlFor="res-email">Email Address (optional)</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-primary" />
+                        <Input
+                          id="res-email"
+                          type="email"
+                          value={form.email}
+                          onChange={(e) => setForm({ ...form, email: e.target.value })}
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-2 space-y-1.5">
+                      <Label htmlFor="res-request">Special Requests (Optional)</Label>
+                      <textarea
+                        id="res-request"
+                        rows={3}
+                        value={form.request}
+                        onChange={(e) => setForm({ ...form, request: e.target.value })}
+                        placeholder="e.g. Anniversary, vegetarian only, high chair needed..."
+                        className="w-full rounded-xl border border-input bg-background p-3 text-xs md:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="w-full font-black text-base py-6 rounded-2xl shadow-xl bg-gradient-to-r from-red-700 to-red-600 hover:from-red-800 hover:to-red-700 text-white mt-4"
+                  >
+                    {loading ? <Loader2 className="size-6 animate-spin" /> : '🎉 Confirm Reservation'}
+                  </Button>
+                </div>
+              )}
+
+              {/* Navigation Buttons */}
+              {activeStep < 3 && (
+                <div className="flex items-center justify-between mt-8 pt-4 border-t">
+                  <Button
+                    variant="ghost"
+                    onClick={() => setActiveStep((s) => s - 1)}
+                    disabled={activeStep === 0}
+                    className="text-xs font-bold gap-1 text-muted-foreground"
+                  >
+                    <ArrowLeft className="size-4" />
+                    Back
+                  </Button>
+                  {activeStep < 2 && (
+                    <Button
+                      onClick={handleNext}
+                      className="font-bold text-xs rounded-xl px-5 gap-1 bg-gradient-to-r from-red-700 to-red-600 hover:from-red-800 hover:to-red-700 text-white"
+                    >
+                      {activeStep === 0 ? 'View Available Tables' : 'Enter Your Details'}
+                      <ArrowRight className="size-4" />
+                    </Button>
+                  )}
+                </div>
+              )}
+
+            </CardContent>
+          </Card>
+
+          {/* Quick Info Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { icon: '📍', title: 'Location', content: 'Madhapur, Hyderabad, TS – 500081' },
               { icon: '🕐', title: 'Hours', content: 'Lunch: 12PM–3:30PM\nDinner: 7PM–11PM' },
               { icon: '📞', title: 'Call Us', content: '+91 70326 82089' },
             ].map((info) => (
-              <Grid key={info.title} size={{ xs: 12, sm: 4 }}>
-                <Paper sx={{ p: 2.5, borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
-                  <Box sx={{ display: 'flex', gap: 1.5 }}>
-                    <Typography sx={{ fontSize: '1.5rem' }}>{info.icon}</Typography>
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.3 }}>{info.title}</Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line', fontSize: '12px' }}>{info.content}</Typography>
-                    </Box>
-                  </Box>
-                </Paper>
-              </Grid>
+              <Card key={info.title} className="p-4 shadow-sm border-border/80 bg-background">
+                <CardContent className="p-0 flex gap-3 items-center">
+                  <span className="text-2xl">{info.icon}</span>
+                  <div>
+                    <p className="text-xs font-bold text-foreground">{info.title}</p>
+                    <p className="text-[11px] text-muted-foreground whitespace-pre-line mt-0.5">{info.content}</p>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
-          </Grid>
-        </Container>
-      </Box>
+          </div>
 
-      {/* Success Dialog */}
-      <Dialog open={success} maxWidth="sm" fullWidth slotProps={{ paper: { sx: { borderRadius: '24px' } } }}>
-        <DialogContent sx={{ p: 5, textAlign: 'center' }}>
-          <Box sx={{ width: 80, height: 80, bgcolor: 'rgba(46,125,50,0.1)', borderRadius: '50%', mx: 'auto', mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CheckCircle sx={{ fontSize: 48, color: '#2E7D32' }} />
-          </Box>
-          <Typography variant="h4" color="#2E7D32" sx={{ fontWeight: 800, mb: 1 }}>
+        </div>
+      </section>
+
+      {/* Success Modal */}
+      <Dialog open={success} onOpenChange={(open) => { if (!open) setSuccess(false); }}>
+        <DialogContent className="p-6 text-center max-w-md w-full rounded-3xl">
+          <div className="size-16 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
+            <CheckCircle2 className="size-8" />
+          </div>
+          <DialogTitle className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
             Table Reserved! 🎉
-          </Typography>
-          <Typography color="text.secondary" sx={{ mb: 3 }}>
-            Your reservation is confirmed. We look forward to serving you, <strong>{form.name}</strong>!
-          </Typography>
-          <Box sx={{ bgcolor: '#FFF8F2', borderRadius: '14px', p: 3, mb: 3, textAlign: 'left' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>BOOKING DETAILS</Typography>
-            <Typography variant="h6" color="#C62828" sx={{ fontWeight: 800, mb: 2 }}>{confirmId}</Typography>
-            <Grid container spacing={1}>
-              {[
-                { label: 'Name', value: form.name },
-                { label: 'Table', value: `Table ${selectedTableNumber}` },
-                { label: 'Date', value: date },
-                { label: 'Time', value: time },
-                { label: 'Guests', value: `${guests} people` },
-              ].map((d) => (
-                <Grid key={d.label} size={{ xs: 6 }}>
-                  <Typography variant="caption" color="text.secondary">{d.label}</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>{d.value}</Typography>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-          <Button
-            fullWidth variant="contained" color="primary"
-            onClick={() => { setSuccess(false); setActiveStep(0); setDate(''); setTime(''); setGuests('2'); setSelectedTableId(''); setSelectedTableNumber(0); setForm({ name: '', phone: '', email: '', request: '' }); }}
-            sx={{ borderRadius: '14px', py: 1.5, mb: 1.5 }}
-          >
-            Make Another Reservation
-          </Button>
-          <Button
-            fullWidth variant="outlined" color="success"
-            href={`https://wa.me/917032682089?text=Hello Pala Pitta Ruchulu! I have a reservation (${confirmId}) — Table ${selectedTableNumber} for ${guests} guests on ${date} at ${time}.`}
-            target="_blank"
-            sx={{ borderRadius: '14px', py: 1.5 }}
-          >
-            📱 Share on WhatsApp
-          </Button>
+          </DialogTitle>
+          <p className="text-xs text-muted-foreground mt-1 mb-4">
+            Your reservation is confirmed. We look forward to serving you, <strong className="text-foreground">{form.name}</strong>!
+          </p>
+
+          <div className="bg-orange-50/60 dark:bg-zinc-900/60 rounded-2xl p-4 text-left border space-y-2 mb-4">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">BOOKING DETAILS</p>
+            <p className="text-lg font-black text-primary">{confirmId}</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div><span className="text-muted-foreground">Name:</span> <strong className="block text-foreground">{form.name}</strong></div>
+              <div><span className="text-muted-foreground">Table:</span> <strong className="block text-foreground">Table {selectedTableNumber}</strong></div>
+              <div><span className="text-muted-foreground">Date:</span> <strong className="block text-foreground">{date}</strong></div>
+              <div><span className="text-muted-foreground">Time:</span> <strong className="block text-foreground">{time}</strong></div>
+              <div><span className="text-muted-foreground">Guests:</span> <strong className="block text-foreground">{guests} people</strong></div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Button
+              className="w-full font-bold py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white"
+              onClick={() => {
+                setSuccess(false);
+                setActiveStep(0);
+                setDate('');
+                setTime('');
+                setGuests('2');
+                setSelectedTableId('');
+                setSelectedTableNumber(0);
+                setForm({ name: '', phone: '', email: '', request: '' });
+              }}
+            >
+              Make Another Reservation
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="w-full font-bold py-2.5 rounded-xl border-emerald-500 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 gap-1.5"
+            >
+              <a
+                href={`https://wa.me/917032682089?text=Hello Pala Pitta Ruchulu! I have a reservation (${confirmId}) — Table ${selectedTableNumber} for ${guests} guests on ${date} at ${time}.`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <MessageCircle className="size-4" />
+                Share on WhatsApp
+              </a>
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
       <Footer />
-    </>
+    </div>
   );
 }

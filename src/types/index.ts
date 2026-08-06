@@ -10,7 +10,7 @@ export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'can
 // still type-check when read back — nothing writes it any more.
 export type PaymentMode = 'cash' | 'upi' | 'card' | 'cod' | 'razorpay' | 'online';
 export type PaymentStatus = 'paid' | 'unpaid' | 'partial';
-export type ReservationStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled';
+export type ReservationStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'seated';
 
 // Staff roles are shared between the auth layer (who can log in and access
 // what) and the HR/Employees layer (who's on payroll) — kept as one type so
@@ -94,22 +94,25 @@ export type OrderType = 'takeaway' | 'dine-in' | 'counter';
 export interface Order {
   id: string;
   orderId: string;
-  customerId: string;
+  customerId?: string;
   customerName: string;
-  customerPhone: string;
-  customerAddress: string;
-  items: OrderItem[];
+  customerPhone?: string;
+  customerAddress?: string;
+  items: OrderItem[] | any[];
   subtotal: number;
   cgst: number;
   sgst: number;
-  discount: number;
-  deliveryCharge: number;
+  discount?: number;
+  discountAmount?: number;
+  deliveryCharge?: number;
   grandTotal: number;
   status: OrderStatus;
+  orderStatus?: OrderStatus;
   paymentMode: PaymentMode;
   paymentStatus: PaymentStatus;
-  orderDate: string;
-  orderTime: string;
+  orderDate?: string;
+  orderTime?: string;
+  createdAt?: string;
   deliveredAt?: string;
   tableNumber?: number;
   notes?: string;
@@ -153,11 +156,16 @@ export interface InventoryItem {
   id: string;
   name: string;
   quantity: number;
+  currentStock: number;
   unit: string;
   minQuantity: number;
+  minStockThreshold: number;
   lastUpdated: string;
+  lastRestocked?: string;
   category: string;
   costPerUnit: number;
+  unitCost: number;
+  supplier?: string;
 }
 
 export interface DailySales {

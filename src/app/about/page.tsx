@@ -1,11 +1,11 @@
 'use client';
+
 import React from 'react';
-import {
-  Box, Container, Grid, Typography, Chip, Paper,
-} from '@mui/material';
-import { EmojiEvents, Star } from '@mui/icons-material';
+import { Award, Star, Trophy } from 'lucide-react';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 
 const timeline = [
   { year: '1998', event: 'Pala Pitta Ruchulu opens in Madhapur, Hyderabad, serving traditional rustic flavours.' },
@@ -36,161 +36,158 @@ const values = [
 
 export default function AboutPage() {
   return (
-    <>
+    <div className="min-h-screen w-full bg-background flex flex-col">
       <Navbar />
 
-      {/* Hero */}
-      <Box sx={{
-        position: 'relative', height: { xs: 350, md: 500 }, overflow: 'hidden',
-        display: 'flex', alignItems: 'center',
-      }}>
-        <Box
-          component="img"
-          src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1200&q=80"
+      {/* Hero Header - Full Width */}
+      <section className="relative w-full h-[380px] md:h-[500px] overflow-hidden flex items-center">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1600&q=80"
           alt="Restaurant interior"
-          sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+          className="absolute inset-0 size-full object-cover"
         />
-        <Box sx={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(0,0,0,0.8) 0%, rgba(198,40,40,0.5) 100%)' }} />
-        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 2 }}>
-          <Chip label="🏛️ Est. 1998 • Hyderabad" sx={{ bgcolor: 'rgba(255,152,0,0.8)', color: 'white', fontWeight: 600, mb: 2 }} />
-          <Typography variant="h1" sx={{fontWeight: 800, color: 'white', fontSize: { xs: '2.5rem', md: '4rem' }, mb: 2}}>
+        <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/75 to-red-950/60" />
+        <div className="relative z-10 w-full px-4 sm:px-8 md:px-12 max-w-none">
+          <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-1 text-xs mb-4 shadow-md">
+            🏛️ Est. 1998 • Hyderabad
+          </Badge>
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-4 tracking-tight leading-tight">
             Our Story
-          </Typography>
-          <Typography variant="h6" sx={{ color: 'rgba(255,255,255,0.85)', maxWidth: 600, fontWeight: 400, lineHeight: 1.8 }}>
+          </h1>
+          <p className="text-base md:text-xl text-white/85 max-w-2xl font-normal leading-relaxed">
             From a humble dream to Hyderabad&apos;s most-loved restaurant — Pala Pitta Ruchulu has been serving authentic Indian flavours since 1998.
-          </Typography>
-        </Container>
-      </Box>
+          </p>
+        </div>
+      </section>
 
-      {/* Story */}
-      <Box sx={{ bgcolor: '#FFF8F2', py: { xs: 6, md: 10 } }}>
-        <Container maxWidth="lg">
-          <Grid container spacing={6} sx={{ alignItems: 'center' }}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Chip label="Our Journey" sx={{ bgcolor: 'rgba(198,40,40,0.1)', color: '#C62828', fontWeight: 600, mb: 2 }} />
-              <Typography variant="h3" sx={{fontWeight: 800, mb: 3}}>
-                A Legacy of <span className="gradient-text">Authentic Flavours</span>
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.9, mb: 2 }}>
+      {/* Story Section - Full Width Container */}
+      <section className="w-full bg-orange-50/50 dark:bg-zinc-900/50 py-12 md:py-20 border-b">
+        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
+            <div>
+              <Badge variant="outline" className="border-primary/30 text-primary font-bold px-3 py-1 mb-4 bg-primary/5">
+                Our Journey
+              </Badge>
+              <h2 className="text-2xl md:text-4xl font-extrabold text-foreground mb-6">
+                A Legacy of <span className="bg-gradient-to-r from-red-600 to-amber-600 bg-clip-text text-transparent">Authentic Flavours</span>
+              </h2>
+              <p className="text-muted-foreground text-sm md:text-base leading-relaxed mb-4">
                 Pala Pitta Ruchulu was established in Madhapur with a passionate mission to bring authentic, uncompromised Telangana, Andhra, and Rayalaseema home-style culinary traditions to Hyderabad. Starting as a cozy dining destination, it quickly earned acclaim for its signature Kamju Pitta Fry, Gongura Biryanis, and Ragi Sangati with Natukodi Pulusu.
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.9, mb: 3 }}>
+              </p>
+              <p className="text-muted-foreground text-sm md:text-base leading-relaxed mb-8">
                 Over 25 years, we have served over 500,000 happy customers, won multiple awards, and maintained our commitment to using only the freshest ingredients and time-honoured recipes. Today, Pala Pitta Ruchulu stands as a landmark of Indian culinary excellence in Hyderabad.
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 3 }}>
+              </p>
+              <div className="grid grid-cols-3 gap-6 border-t pt-6">
                 {[{ n: '25+', l: 'Years' }, { n: '500K+', l: 'Guests' }, { n: '50+', l: 'Awards' }].map((s) => (
-                  <Box key={s.l}>
-                    <Typography variant="h4" color="#C62828" sx={{fontWeight: 800}}>{s.n}</Typography>
-                    <Typography variant="caption" color="text.secondary">{s.l}</Typography>
-                  </Box>
+                  <div key={s.l}>
+                    <p className="text-2xl md:text-3xl font-black text-primary">{s.n}</p>
+                    <p className="text-xs text-muted-foreground font-semibold">{s.l}</p>
+                  </div>
                 ))}
-              </Box>
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <Box sx={{ position: 'relative' }}>
-                <Box
-                  component="img"
-                  src="https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80"
-                  alt="Our kitchen"
-                  sx={{ width: '100%', borderRadius: '24px', boxShadow: '0 16px 64px rgba(0,0,0,0.15)' }}
-                />
-                <Paper sx={{ position: 'absolute', bottom: -20, left: -20, p: 2, borderRadius: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Star sx={{ color: '#FF9800' }} />
-                    <Typography sx={{fontWeight: 700}}>4.8/5 Rating</Typography>
-                  </Box>
-                  <Typography variant="caption" color="text.secondary">Based on 10,000+ reviews</Typography>
-                </Paper>
-              </Box>
-            </Grid>
-          </Grid>
-        </Container>
-      </Box>
+              </div>
+            </div>
+            
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=800&q=80"
+                alt="Our kitchen"
+                className="w-full rounded-3xl shadow-2xl object-cover aspect-4/3"
+              />
+              <Card className="absolute -bottom-6 -left-6 md:-left-8 p-4 shadow-xl border-amber-500/20 bg-background/95 backdrop-blur">
+                <CardContent className="p-0 flex items-center gap-3">
+                  <Star className="size-6 text-amber-500 fill-amber-500 shrink-0" />
+                  <div>
+                    <p className="text-sm font-extrabold text-foreground">4.8/5 Rating</p>
+                    <p className="text-[11px] text-muted-foreground">Based on 10,000+ reviews</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      {/* Values */}
-      <Box sx={{ py: { xs: 6, md: 10 }, bgcolor: 'white' }}>
-        <Container maxWidth="lg">
-          <Box sx={{ textAlign: 'center', mb: 6 }}>
-            <Typography variant="h3" sx={{fontWeight: 800, mb: 1.5}}>
-              Our <span className="gradient-text">Core Values</span>
-            </Typography>
-          </Box>
-          <Grid container spacing={3}>
+      {/* Core Values - Full Width Grid */}
+      <section className="w-full py-12 md:py-20 bg-background border-b">
+        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none text-center">
+          <h2 className="text-2xl md:text-4xl font-extrabold text-foreground mb-3">
+            Our <span className="bg-gradient-to-r from-red-600 to-amber-600 bg-clip-text text-transparent">Core Values</span>
+          </h2>
+          <p className="text-muted-foreground text-sm max-w-lg mx-auto mb-12">
+            The principles that guide every dish we cook and every guest we serve.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {values.map((v, i) => (
-              <Grid key={i} size={{ xs: 12, sm: 6, md: 4 }}>
-                <Box sx={{
-                  p: 3, textAlign: 'center', borderRadius: '20px', bgcolor: '#FFF8F2',
-                  transition: 'all 0.3s',
-                  '&:hover': { transform: 'translateY(-6px)', boxShadow: '0 12px 40px rgba(198,40,40,0.1)', bgcolor: 'white' },
-                }}>
-                  <Typography sx={{ fontSize: '2.5rem', mb: 2 }}>{v.icon}</Typography>
-                  <Typography variant="h6" sx={{fontWeight: 700, mb: 1}}>{v.title}</Typography>
-                  <Typography variant="body2" color="text.secondary">{v.desc}</Typography>
-                </Box>
-              </Grid>
+              <Card key={i} className="group p-6 text-center border-border/60 hover:border-primary/40 hover:shadow-xl transition-all duration-300 bg-orange-50/20 dark:bg-zinc-900/20 hover:-translate-y-1">
+                <CardContent className="p-0">
+                  <div className="text-4xl mb-4 transform transition-transform group-hover:scale-110">{v.icon}</div>
+                  <h3 className="text-lg font-bold text-foreground mb-2">{v.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{v.desc}</p>
+                </CardContent>
+              </Card>
             ))}
-          </Grid>
-        </Container>
-      </Box>
+          </div>
+        </div>
+      </section>
 
-      {/* Timeline */}
-      <Box sx={{ py: { xs: 6, md: 10 }, bgcolor: '#FFF8F2' }}>
-        <Container maxWidth="lg">
-          <Box sx={{ textAlign: 'center', mb: 6 }}>
-            <Typography variant="h3" sx={{fontWeight: 800, mb: 1.5}}>
-              Our <span className="gradient-text">Milestones</span>
-            </Typography>
-          </Box>
-          <Box sx={{ position: 'relative' }}>
-            <Box sx={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 2, bgcolor: 'rgba(198,40,40,0.2)', transform: 'translateX(-50%)', display: { xs: 'none', md: 'block' } }} />
+      {/* Milestones Timeline */}
+      <section className="w-full py-12 md:py-20 bg-orange-50/40 dark:bg-zinc-900/40 border-b">
+        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none">
+          <h2 className="text-2xl md:text-4xl font-extrabold text-foreground text-center mb-12">
+            Our <span className="bg-gradient-to-r from-red-600 to-amber-600 bg-clip-text text-transparent">Milestones</span>
+          </h2>
+
+          <div className="relative space-y-6">
+            <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-0.5 bg-primary/20 -translate-x-1/2" />
             {timeline.map((item, i) => (
-              <Box key={item.year} sx={{
-                display: 'flex', justifyContent: i % 2 === 0 ? 'flex-start' : 'flex-end',
-                mb: 3, position: 'relative',
-              }}>
-                <Paper sx={{
-                  p: 3, borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                  maxWidth: { xs: '100%', md: '45%' },
-                  ml: i % 2 === 0 ? 0 : 'auto',
-                  mr: i % 2 === 0 ? 'auto' : 0,
-                }}>
-                  <Chip label={item.year} sx={{ bgcolor: '#C62828', color: 'white', fontWeight: 800, mb: 1.5 }} />
-                  <Typography variant="body1" sx={{fontWeight: 500}}>{item.event}</Typography>
-                </Paper>
-              </Box>
+              <div
+                key={item.year}
+                className={`flex flex-col md:flex-row items-center ${i % 2 === 0 ? 'md:justify-start' : 'md:justify-end'} relative`}
+              >
+                <Card className="w-full md:w-5/12 p-6 shadow-md border-border/80 bg-background hover:shadow-lg transition-shadow">
+                  <CardContent className="p-0">
+                    <Badge className="bg-primary hover:bg-primary/90 text-white font-extrabold mb-3">
+                      {item.year}
+                    </Badge>
+                    <p className="text-sm font-semibold text-foreground leading-relaxed">
+                      {item.event}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
             ))}
-          </Box>
-        </Container>
-      </Box>
+          </div>
+        </div>
+      </section>
 
-      {/* Awards */}
-      <Box sx={{ py: { xs: 6, md: 10 }, bgcolor: 'white' }}>
-        <Container maxWidth="lg">
-          <Box sx={{ textAlign: 'center', mb: 6 }}>
-            <Typography variant="h3" sx={{fontWeight: 800, mb: 1.5}}>
-              Awards & <span className="gradient-text">Recognition</span>
-            </Typography>
-          </Box>
-          <Grid container spacing={3}>
+      {/* Awards Section */}
+      <section className="w-full py-12 md:py-20 bg-background">
+        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none text-center">
+          <h2 className="text-2xl md:text-4xl font-extrabold text-foreground mb-12">
+            Awards & <span className="bg-gradient-to-r from-red-600 to-amber-600 bg-clip-text text-transparent">Recognition</span>
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {awards.map((award, i) => (
-              <Grid key={i} size={{ xs: 12, sm: 6, md: 3 }}>
-                <Box sx={{
-                  textAlign: 'center', p: 3.5, borderRadius: '20px', bgcolor: '#FFF8F2',
-                  transition: 'all 0.3s',
-                  '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 12px 40px rgba(255,152,0,0.15)' },
-                }}>
-                  <EmojiEvents sx={{ fontSize: 48, color: '#FF9800', mb: 2 }} />
-                  <Typography variant="h6" sx={{fontWeight: 700, mb: 0.5}}>{award.title}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{mb: 1}}>{award.org}</Typography>
-                  <Chip label={award.year} size="small" sx={{ bgcolor: 'rgba(255,152,0,0.15)', color: '#FF9800', fontWeight: 700 }} />
-                </Box>
-              </Grid>
+              <Card key={i} className="p-6 text-center border-amber-500/20 bg-amber-500/5 hover:shadow-xl hover:-translate-y-1 transition-all">
+                <CardContent className="p-0 flex flex-col items-center">
+                  <Trophy className="size-12 text-amber-500 mb-4" />
+                  <h3 className="text-base font-bold text-foreground mb-1">{award.title}</h3>
+                  <p className="text-xs text-muted-foreground mb-3">{award.org}</p>
+                  <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400 font-bold">
+                    {award.year}
+                  </Badge>
+                </CardContent>
+              </Card>
             ))}
-          </Grid>
-        </Container>
-      </Box>
+          </div>
+        </div>
+      </section>
 
       <Footer />
-    </>
+    </div>
   );
 }

@@ -1,222 +1,228 @@
 'use client';
+
 import React, { useState, useMemo } from 'react';
-import {
-  Box, Typography, Chip, TextField, Avatar, Grid, Stack,
-  Table, TableBody, TableCell, TableHead, TableRow, IconButton,
-  Dialog, DialogTitle, DialogContent, Divider, InputAdornment,
-  useMediaQuery, useTheme,
-} from '@mui/material';
-import { Search, Star, Phone, Email, LocationOn, Visibility, Close } from '@mui/icons-material';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { Customer } from '@/types';
-import { PageHeader, StatCard, SectionCard, EmptyState, adminColors } from '@/components/admin/ui';
+import { PageHeader, StatCard, SectionCard } from '@/components/admin/ui';
+import { DataTable } from '@/components/ui/data-table';
+import { ColumnDef } from '@tanstack/react-table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Users, Star, Phone, Mail, Eye, X, DollarSign } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 export default function CustomersPage() {
   const { customers, orders } = useAdmin();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
-  const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Customer | null>(null);
-
-  const filtered = useMemo(() => customers.filter((c) =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search) || c.email.toLowerCase().includes(search.toLowerCase())
-  ), [customers, search]);
 
   const vipCount = useMemo(() => customers.filter((c) => c.isVip).length, [customers]);
   const totalRevenue = useMemo(() => customers.reduce((s, c) => s + c.totalSpent, 0), [customers]);
 
   const getCustomerOrders = (phoneOrId: string) =>
-    orders.filter(o => o.customerPhone === phoneOrId || o.customerId === phoneOrId || o.customerName === phoneOrId);
+    orders.filter((o) => o.customerPhone === phoneOrId || o.customerId === phoneOrId || o.customerName === phoneOrId);
+
+  const columns = useMemo<ColumnDef<any, Customer>[]>(() => [
+    {
+      accessorKey: 'name',
+      header: 'Customer Name',
+      cell: ({ row }) => {
+        const c = row.original;
+        return (
+          <div className="flex items-center gap-3">
+            <Avatar className="w-9 h-9 border border-amber-500/30">
+              <AvatarFallback className="bg-amber-600 text-white font-black text-xs">
+                {c.name.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <div className="font-extrabold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                <span>{c.name}</span>
+                {c.isVip && (
+                  <Badge className="bg-amber-500 text-white font-extrabold text-[9px] px-1.5 py-0">
+                    VIP
+                  </Badge>
+                )}
+              </div>
+              <div className="text-xs text-stone-400 font-medium">{c.phone}</div>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: 'email',
+      header: 'Email',
+      cell: ({ row }) => (
+        <span className="text-xs text-stone-600 dark:text-stone-300 font-medium">
+          {row.original.email || 'N/A'}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'totalOrders',
+      header: 'Total Orders',
+      cell: ({ row }) => (
+        <Badge variant="outline" className="font-bold text-xs">
+          {row.original.totalOrders} orders
+        </Badge>
+      ),
+    },
+    {
+      accessorKey: 'totalSpent',
+      header: 'Total Spent',
+      cell: ({ row }) => (
+        <span className="font-black text-amber-700 dark:text-amber-500">
+          ₹{row.original.totalSpent.toLocaleString('en-IN')}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'loyaltyPoints',
+      header: 'Loyalty Points',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1 font-bold text-emerald-600 text-xs">
+          <Star className="w-3.5 h-3.5 fill-emerald-600" />
+          <span>{row.original.loyaltyPoints || 0} pts</span>
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      header: 'Actions',
+      cell: ({ row }) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setSelected(row.original)}
+          className="h-8 px-2.5 text-xs font-bold"
+        >
+          <Eye className="w-3.5 h-3.5 mr-1" /> Profile
+        </Button>
+      ),
+    },
+  ], []);
 
   return (
     <AdminLayout title="Customers Directory">
-      <PageHeader title="Customers" subtitle="Every diner who's ever ordered — spend, loyalty, and history in one place." />
+      <div className="space-y-4 w-full max-w-full">
+        <PageHeader
+          title="Customer Directory & Loyalty"
+          subtitle="Diner spend history, VIP status, and order tracking"
+        />
 
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard icon="👥" label="Total Customers" value={customers.length} accent={adminColors.info} />
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard icon="⭐" label="VIP Customers" value={vipCount} accent={adminColors.accentOrange} />
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard icon="💰" label="Lifetime Revenue" value={`₹${totalRevenue.toLocaleString()}`} accent={adminColors.success} />
-        </Grid>
-        <Grid size={{ xs: 6, md: 3 }}>
-          <StatCard icon="🔍" label="Matching Search" value={filtered.length} accent={adminColors.accentRed} />
-        </Grid>
-      </Grid>
-
-      <SectionCard noPadding>
-        <Box sx={{ p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${adminColors.divider}`, flexWrap: 'wrap', gap: 2 }}>
-          <TextField
-            size="small" placeholder="Search customer by name, phone, email..."
-            value={search} onChange={(e) => setSearch(e.target.value)} sx={{ width: { xs: '100%', sm: 340 } }}
-            slotProps={{ input: { startAdornment: <InputAdornment position="start"><Search sx={{ color: '#9E9E9E', fontSize: 18 }} /></InputAdornment> } }}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <StatCard
+            icon={<Users className="w-5 h-5" />}
+            label="Total Diners"
+            value={customers.length}
+            sub="Registered customers"
+            accent="#2563EB"
           />
-        </Box>
+          <StatCard
+            icon={<Star className="w-5 h-5" />}
+            label="VIP Customers"
+            value={vipCount}
+            sub="Frequent diners"
+            accent="#D97706"
+          />
+          <StatCard
+            icon={<DollarSign className="w-5 h-5" />}
+            label="Lifetime Customer Spend"
+            value={`₹${totalRevenue.toLocaleString('en-IN')}`}
+            sub="Total gross spend"
+            accent="#059669"
+          />
+        </div>
 
-        {filtered.length === 0 ? (
-          <EmptyState emoji="🔍" title="No customers found" subtitle="Customers register automatically when placing orders." />
-        ) : isTablet ? (
-          <Box sx={{ p: { xs: 1.5, sm: 2 } }}>
-            <Stack spacing={1.5}>
-              {filtered.map((c) => (
-                <Box key={c.id} onClick={() => setSelected(c)}
-                  sx={{ p: 1.75, borderRadius: adminColors.radiusMd, border: `1px solid ${adminColors.borderSubtle}`, bgcolor: adminColors.bgSubtle, cursor: 'pointer' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1 }}>
-                    <Box sx={{ display: 'flex', gap: 1.25, alignItems: 'center', minWidth: 0 }}>
-                      <Avatar sx={{ bgcolor: adminColors.accentRed, fontWeight: 700 }}>{c.avatar}</Avatar>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>{c.name}</Typography>
-                        <Typography variant="caption" color="text.secondary">{c.phone}</Typography>
-                      </Box>
-                    </Box>
-                    {c.isVip && <Chip label="⭐ VIP" size="small" sx={{ bgcolor: adminColors.warningBg, color: adminColors.accentOrange, fontWeight: 700, fontSize: '10px' }} />}
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1.25 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 600 }}>{c.totalOrders} orders</Typography>
-                    <Typography variant="body2" color="primary" sx={{ fontWeight: 800 }}>₹{c.totalSpent.toLocaleString()}</Typography>
-                  </Box>
-                </Box>
-              ))}
-            </Stack>
-          </Box>
-        ) : (
-          <Box sx={{ overflowX: 'auto' }}>
-            <Table sx={{ minWidth: 800 }}>
-              <TableHead sx={{ bgcolor: adminColors.bgSubtle }}>
-                <TableRow>
-                  {['Customer', 'Contact', 'Orders', 'Total Spent', 'Loyalty', 'VIP Status', 'Last Visit', 'Actions'].map((h) => (
-                    <TableCell key={h} sx={{ fontWeight: 700, fontSize: '12px', color: '#616161', py: 1.5, whiteSpace: 'nowrap' }}>{h}</TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filtered.map((c) => (
-                  <TableRow key={c.id} hover sx={{ '&:last-child td': { border: 0 } }}>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Avatar sx={{ bgcolor: adminColors.accentRed, fontWeight: 700 }}>{c.avatar}</Avatar>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{c.name}</Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{c.phone}</Typography>
-                      <Typography variant="caption" color="text.secondary">{c.email}</Typography>
-                    </TableCell>
-                    <TableCell><Typography variant="body2" sx={{ fontWeight: 600 }}>{c.totalOrders}</Typography></TableCell>
-                    <TableCell><Typography variant="body2" color="primary" sx={{ fontWeight: 700 }}>₹{c.totalSpent.toLocaleString()}</Typography></TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Star sx={{ fontSize: 14, color: adminColors.accentOrange }} />
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{c.loyaltyPoints} pts</Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      {c.isVip && <Chip label="⭐ VIP" size="small" sx={{ bgcolor: adminColors.warningBg, color: adminColors.accentOrange, fontWeight: 700, fontSize: '10px' }} />}
-                    </TableCell>
-                    <TableCell><Typography variant="caption" color="text.secondary">{c.lastVisit}</Typography></TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => setSelected(c)}>
-                        <Visibility fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Box>
-        )}
-      </SectionCard>
+        <SectionCard noPadding className="p-3">
+          <DataTable
+            columns={columns}
+            data={customers}
+            searchKey="name"
+            searchPlaceholder="Search customer name or phone..."
+            height="550px"
+            rowHeight={60}
+            enableVirtualization={true}
+          />
+        </SectionCard>
+      </div>
 
-      {/* Customer Detail Dialog */}
-      {selected && (
-        <Dialog open={!!selected} onClose={() => setSelected(null)} maxWidth="md" fullWidth fullScreen={isMobile}>
-          <DialogTitle sx={{ fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
-            <Box sx={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              Customer Profile & History
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }}>
-              {selected.isVip && <Chip label="⭐ VIP Customer" sx={{ bgcolor: adminColors.warningBg, color: adminColors.accentOrange, fontWeight: 700 }} />}
-              {isMobile && (
-                <IconButton size="small" onClick={() => setSelected(null)} aria-label="Close">
-                  <Close fontSize="small" />
-                </IconButton>
-              )}
-            </Box>
-          </DialogTitle>
-          <DialogContent>
-            <Grid container spacing={3}>
-              <Grid size={{ xs: 12, md: 4 }}>
-                <Box sx={{ textAlign: 'center', p: 3, bgcolor: adminColors.bgPage, borderRadius: adminColors.radiusMd }}>
-                  <Avatar sx={{ width: 80, height: 80, bgcolor: adminColors.accentRed, fontSize: '24px', fontWeight: 800, mx: 'auto', mb: 2 }}>
-                    {selected.avatar}
-                  </Avatar>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>{selected.name}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Customer since {selected.joinDate}</Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-around' }}>
-                    {[{ label: 'Orders', value: selected.totalOrders }, { label: 'Points', value: selected.loyaltyPoints }].map((s) => (
-                      <Box key={s.label} sx={{ textAlign: 'center' }}>
-                        <Typography variant="h6" color="primary" sx={{ fontWeight: 800 }}>{s.value}</Typography>
-                        <Typography variant="caption" color="text.secondary">{s.label}</Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                </Box>
-              </Grid>
-              <Grid size={{ xs: 12, md: 8 }}>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 700, mb: 1.5 }}>CONTACT INFORMATION</Typography>
-                {[
-                  { icon: <Phone fontSize="small" />, text: selected.phone },
-                  { icon: <Email fontSize="small" />, text: selected.email },
-                  { icon: <LocationOn fontSize="small" />, text: `${selected.address}, ${selected.city}` },
-                ].map((item, i) => (
-                  <Box key={i} sx={{ display: 'flex', gap: 1.5, mb: 1.5 }}>
-                    <Box sx={{ color: adminColors.accentRed }}>{item.icon}</Box>
-                    <Typography variant="body2">{item.text}</Typography>
-                  </Box>
-                ))}
+      {/* Customer Profile Modal */}
+      <Dialog open={!!selected} onOpenChange={(val) => { if (!val) setSelected(null); }}>
+        {selected && (
+          <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl bg-white dark:bg-[#1C1C1E] border border-stone-200/50 dark:border-[#2C2C2E]/60 shadow-2xl">
+            <DialogHeader className="p-6 bg-white dark:bg-[#1C1C1E] text-stone-900 dark:text-white flex flex-row items-center justify-between border-b border-stone-100 dark:border-[#2C2C2E]/60">
+              <div className="flex items-center gap-3">
+                <Avatar className="w-10 h-10 border border-amber-500/30">
+                  <AvatarFallback className="bg-amber-600 text-white font-black text-xs">
+                    {selected.name.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <DialogTitle className="text-stone-900 dark:text-white font-black text-base leading-tight">
+                    {selected.name}
+                  </DialogTitle>
+                  <p className="text-[10px] text-stone-400 font-semibold mt-0.5">{selected.phone}</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setSelected(null)} className="text-stone-500 hover:bg-stone-100 dark:hover:bg-[#2C2C2E] rounded-xl">
+                <X className="w-5 h-5" />
+              </Button>
+            </DialogHeader>
 
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 700, mb: 1.5 }}>CUSTOMER METRICS</Typography>
-                <Grid container spacing={2}>
-                  {[
-                    { label: 'Total Spent', value: `₹${selected.totalSpent.toLocaleString()}` },
-                    { label: 'Avg. Order', value: `₹${selected.totalOrders > 0 ? Math.round(selected.totalSpent / selected.totalOrders).toLocaleString() : 0}` },
-                    { label: 'Loyalty Points', value: `${selected.loyaltyPoints} pts` },
-                    { label: 'Last Visit', value: selected.lastVisit },
-                  ].map((s) => (
-                    <Grid key={s.label} size={{ xs: 6 }}>
-                      <Box sx={{ p: 1.5, bgcolor: adminColors.bgSubtle, borderRadius: adminColors.radiusMd }}>
-                        <Typography variant="caption" color="text.secondary">{s.label}</Typography>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>{s.value}</Typography>
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-3 p-3.5 bg-stone-50/50 dark:bg-stone-900/40 border border-stone-200/30 dark:border-[#2C2C2E]/40 rounded-xl text-center">
+                <div>
+                  <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Total Spent</div>
+                  <div className="text-base font-black text-amber-700 dark:text-amber-500 mt-0.5">
+                    ₹{selected.totalSpent.toLocaleString('en-IN')}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Loyalty Points</div>
+                  <div className="text-base font-black text-emerald-600 mt-0.5">
+                    {selected.loyaltyPoints || 0} pts
+                  </div>
+                </div>
+              </div>
 
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 700, mb: 1.5 }}>RECENT ORDER HISTORY</Typography>
-                {getCustomerOrders(selected.phone || selected.id).slice(0, 4).map((o) => (
-                  <Box key={o.id} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1, p: 1.5, bgcolor: adminColors.bgSubtle, borderRadius: adminColors.radiusSm }}>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{o.orderId || o.id}</Typography>
-                      <Typography variant="caption" color="text.secondary">{o.orderDate} • {(o.items || []).length} items</Typography>
-                    </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 700 }}>₹{(o.grandTotal || o.subtotal || 0).toLocaleString()}</Typography>
-                      <Chip label={o.status} size="small" sx={{ fontSize: '10px' }} />
-                    </Box>
-                  </Box>
-                ))}
-              </Grid>
-            </Grid>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2 text-stone-600 dark:text-stone-300">
+                  <Mail className="w-4 h-4 text-stone-400 dark:text-stone-500" />
+                  <span className="font-semibold">{selected.email || 'No email registered'}</span>
+                </div>
+                <div className="flex items-center gap-2 text-stone-600 dark:text-stone-300">
+                  <Phone className="w-4 h-4 text-stone-400 dark:text-stone-500" />
+                  <span className="font-semibold">{selected.phone}</span>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[10px] font-black uppercase tracking-wider text-stone-400 mb-2">Recent Order History</h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-stone-200/50 dark:border-[#2C2C2E]/65 rounded-xl p-3 bg-stone-50/20 dark:bg-[#1C1C1E]/40">
+                  {getCustomerOrders(selected.phone).length === 0 ? (
+                    <div className="text-xs text-stone-400 text-center py-3">No past order records</div>
+                  ) : (
+                    getCustomerOrders(selected.phone).map((o) => (
+                      <div key={o.id} className="flex justify-between items-center text-xs pb-2 border-b border-stone-100/60 dark:border-stone-800 last:border-0 last:pb-0 last:border-b-0">
+                        <div>
+                          <span className="font-extrabold text-stone-850 dark:text-stone-100">{o.id}</span>
+                          <div className="text-[9px] text-stone-400">{new Date(o.createdAt || o.orderDate || Date.now()).toLocaleDateString()}</div>
+                        </div>
+                        <div className="font-black text-amber-700 dark:text-amber-500">
+                          ₹{o.grandTotal}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
           </DialogContent>
-        </Dialog>
-      )}
+        )}
+      </Dialog>
     </AdminLayout>
   );
 }
