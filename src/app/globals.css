@@ -78,8 +78,7 @@
 /* ------------------------------------------------------------ */
 /* `inline` matters: it makes Tailwind emit the utility with the */
 /* var() reference intact rather than resolving it at build time, */
-/* which is what lets one `bg-card` class follow the .dark        */
-/* override at runtime instead of freezing the light value.      */
+/* so the CSS variables stay the single source of truth.         */
 /* ============================================================ */
 
 @theme inline {
