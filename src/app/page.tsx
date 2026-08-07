@@ -446,7 +446,7 @@ export default function HomePage() {
       </main>
 
       {/* Offers & Coupons Dialog */}
-      <Dialog open={offersOpen} onOpenChange={setOffersOpen}>
+      <Dialog modal={false} open={offersOpen} onOpenChange={setOffersOpen}>
         <DialogContent className="max-w-md p-6 rounded-3xl bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-900 dark:text-white">
           <DialogHeader>
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mb-2">
