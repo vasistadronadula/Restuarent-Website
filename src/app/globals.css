@@ -18,29 +18,8 @@ html {
   overflow-x: hidden !important;
 }
 
-html,
-body,
-header,
-nav,
-main,
-footer,
-section,
-div,
-[data-slot="dialog-content"],
-[data-slot="sheet-content"],
-body[data-scroll-locked],
-body[style*="overflow"],
-body[style*="margin"],
-body[style*="padding"],
-*[style*="margin-right"],
-*[style*="padding-right"],
-*[style*="margin-right: 17px"],
-*[style*="padding-right: 17px"] {
-  padding-right: 0px !important;
-  margin-right: 0px !important;
-}
-
 body[data-scroll-locked] {
+  padding-right: 0px !important;
   overflow: auto !important;
   pointer-events: auto !important;
 }
