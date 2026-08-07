@@ -172,7 +172,7 @@ export default function HomePage() {
               {/* Status Pill */}
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur-md text-xs font-bold text-stone-200">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Open Now · 7 AM – 11 PM · Madhapur, Hyderabad</span>
+                <span>Open Now · 12 PM – 11 PM · Madhapur, Hyderabad</span>
               </div>
 
               {/* Title */}

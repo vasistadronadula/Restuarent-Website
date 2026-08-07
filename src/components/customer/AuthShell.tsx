@@ -79,7 +79,7 @@ export default function AuthShell({
 
       {/* ── Footer Info ─────────────────────────────────────────────────── */}
       <footer className="relative z-10 py-5 text-center text-[10px] font-bold text-stone-400 dark:text-stone-500 px-6">
-        © {new Date().getFullYear()} {restaurantInfo.name} · Open 7 AM – 11 PM daily
+        © {new Date().getFullYear()} {restaurantInfo.name} · Open 12 PM – 11 PM daily
       </footer>
     </div>
   );

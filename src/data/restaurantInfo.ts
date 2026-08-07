@@ -17,6 +17,8 @@ export const restaurantInfo = {
   whatsapp: '917032682089',
   email: 'palapittaruchulu@gmail.com',
   website: 'www.palapittaruchulu.com',
+  openingHours: '12 PM – 11 PM',
+  openingDisplay: '12:00 PM – 11:00 PM',
   gstin: '',
   fssai: '',
 };

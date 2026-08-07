@@ -16,9 +16,8 @@ const contactInfo = [
 ];
 
 const hours = [
-  { day: 'Monday – Friday', time: '7:00 AM – 11:00 PM' },
-  { day: 'Saturday – Sunday', time: '7:00 AM – 11:30 PM' },
-  { day: 'Public Holidays', time: '8:00 AM – 10:30 PM' },
+  { day: 'Monday – Sunday', time: '12:00 PM – 11:00 PM' },
+  { day: 'Takeaway & Dine-In', time: '12:00 PM – 11:00 PM' },
 ];
 
 export default function ContactPage() {

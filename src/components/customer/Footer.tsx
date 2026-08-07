@@ -36,9 +36,8 @@ const POLICY_LINKS = [
 ];
 
 const HOURS = [
-  'Mon – Fri: 7:00 AM – 11:00 PM',
-  'Sat – Sun: 7:00 AM – 11:30 PM',
-  'Holidays: 8:00 AM – 10:30 PM',
+  'Mon – Sun: 12:00 PM – 11:00 PM',
+  'Takeaway & Dine-In',
 ];
 
 /** Lucide dropped brand glyphs, and WhatsApp is the one channel we have a real number for. */
