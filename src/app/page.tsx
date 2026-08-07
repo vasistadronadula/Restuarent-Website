@@ -305,17 +305,6 @@ export default function HomePage() {
                   <span>🏆 #1 Dum Biryani in Madhapur</span>
                 </div>
 
-                {activeCoupons.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setOffersOpen(true)}
-                    className="absolute top-4 right-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-xs px-3 py-1.5 rounded-xl shadow-lg border border-white/20 flex items-center gap-1.5 transition-all hover:scale-105 cursor-pointer z-10"
-                  >
-                    <Tag className="w-3.5 h-3.5 animate-pulse text-amber-200" />
-                    <span>🎟️ {activeCoupons.length} Offers</span>
-                  </button>
-                )}
-
                 {/* Clean rating badge anchored safely inside the image overlay */}
                 <div className="absolute bottom-4 left-4 right-4 bg-stone-950/85 backdrop-blur-md border border-white/15 p-3 rounded-2xl shadow-xl flex items-center justify-between text-white">
                   <div className="flex items-center gap-3">

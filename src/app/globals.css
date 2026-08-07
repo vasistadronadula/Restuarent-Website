@@ -8,6 +8,18 @@
    inert CSS instead of failing the build. */
 @custom-variant dark (&:is(.never-dark *));
 
+/* Prevent Radix UI Dialog / Sheet / Popover scroll lock width shift on Windows */
+html {
+  overflow-y: scroll !important;
+}
+
+body[data-scroll-locked],
+body[style*="overflow: hidden"] {
+  padding-right: 0px !important;
+  margin-right: 0px !important;
+  overflow: auto !important;
+}
+
 /* ============================================================ */
 /* Design tokens                                                */
 /* ------------------------------------------------------------ */
