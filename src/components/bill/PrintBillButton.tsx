@@ -31,7 +31,7 @@ export default function PrintBillButton({
   order,
   invoiceNo,
   format = 'thermal',
-  label = format === 'a4' ? 'Download A4 invoice' : 'Print 80mm Bill',
+  label = 'Print 80mm Bill',
   variant = 'outline',
   size = 'sm',
   ...buttonProps
@@ -54,7 +54,7 @@ export default function PrintBillButton({
     });
   };
 
-  const Icon = format === 'a4' ? FileText : Printer;
+  const Icon = Printer;
 
   return (
     <>

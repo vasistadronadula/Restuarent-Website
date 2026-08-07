@@ -63,15 +63,11 @@ function printHost(format: BillFormat): HTMLElement | null {
 export default function PrintBillPortal({
   order, invoiceNo, copyLabel, format = 'thermal',
 }: PrintBillPortalProps) {
-  const host = printHost(format);
+  const host = printHost('thermal');
   if (!host) return null;
 
   return createPortal(
-    format === 'a4' ? (
-      <InvoiceA4 order={order} invoiceNo={invoiceNo} copyLabel={copyLabel} />
-    ) : (
-      <ThermalBill order={order} invoiceNo={invoiceNo} copyLabel={copyLabel} />
-    ),
+    <ThermalBill order={order} invoiceNo={invoiceNo} copyLabel={copyLabel} />,
     host
   );
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Banknote, CreditCard, Phone, ReceiptText, RotateCcw, Search, ShoppingBag, User,
+  CheckCircle2, UtensilsCrossed, Bell, AlertCircle, Clock
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -51,6 +52,84 @@ const STATUS_PRESENTATION: Record<
   cancelled: { label: 'Cancelled', variant: 'soft-destructive' },
   pending: { label: 'Awaiting confirmation', variant: 'soft-muted' },
 };
+
+const STAGES = [
+  { key: 'pending', label: 'Placed' },
+  { key: 'preparing', label: 'Preparing' },
+  { key: 'ready', label: 'Ready' },
+  { key: 'completed', label: 'Completed' },
+];
+
+function getStageIndex(status: string) {
+  switch (status) {
+    case 'pending': return 0;
+    case 'preparing': return 1;
+    case 'ready': return 2;
+    case 'completed': return 3;
+    case 'cancelled': return -1;
+    default: return 0;
+  }
+}
+
+function OrderStageTracker({ status }: { status: string }) {
+  if (status === 'cancelled') {
+    return (
+      <div className="my-2 flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-destructive">
+        <AlertCircle className="size-4 shrink-0" />
+        <span className="text-xs font-bold">This order was cancelled</span>
+      </div>
+    );
+  }
+
+  const currentStageIndex = getStageIndex(status);
+
+  return (
+    <div className="my-3 py-1">
+      <div className="relative flex items-center justify-between max-w-md mx-auto">
+        <div className="absolute top-1/2 left-5 right-5 h-0.5 -translate-y-1/2 bg-stone-200 dark:bg-stone-800 -z-0" />
+        <div
+          className="absolute top-1/2 left-5 h-0.5 -translate-y-1/2 bg-amber-600 transition-all duration-500 -z-0"
+          style={{
+            width: `${Math.min(100, Math.max(0, (currentStageIndex / (STAGES.length - 1)) * 82))}%`,
+          }}
+        />
+
+        {STAGES.map((stage, idx) => {
+          const isDone = currentStageIndex >= idx;
+          const isCurrent = currentStageIndex === idx;
+
+          return (
+            <div key={stage.key} className="relative z-10 flex flex-col items-center gap-1 bg-white dark:bg-stone-900 px-1.5">
+              <div
+                className={cn(
+                  'flex size-7 items-center justify-center rounded-full text-xs font-extrabold transition-all shadow-xs',
+                  isDone
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-stone-100 dark:bg-stone-800 text-stone-400',
+                  isCurrent && 'ring-4 ring-amber-500/25 scale-110'
+                )}
+              >
+                {isDone ? <CheckCircle2 className="size-4" /> : idx + 1}
+              </div>
+              <span
+                className={cn(
+                  'text-[10px] font-bold tracking-tight',
+                  isCurrent
+                    ? 'text-amber-700 dark:text-amber-400 font-extrabold'
+                    : isDone
+                    ? 'text-stone-900 dark:text-stone-100'
+                    : 'text-stone-400'
+                )}
+              >
+                {stage.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function OrderHistoryPage() {
   const { orders, isLoadingDB } = useAdmin();
@@ -240,6 +319,9 @@ function OrderCard({
               {presentation.label}
             </Badge>
           </div>
+
+          {/* Visual Order Stage Tracking Bar */}
+          <OrderStageTracker status={order.status} />
 
           <Separator />
 

@@ -36,12 +36,10 @@ export default function GeneratedBillsPage() {
   }, [orders]);
 
   /**
-   * The counter reprints an 80mm roll; a customer asking for "the bill" wants
-   * the A4 tax invoice. Both come from the same order, so the format is a
-   * parameter rather than two separate paths.
+   * Print 80mm thermal counter receipt for an order.
    */
-  const handlePrint = (order: Order, format: BillFormat) => {
-    setReprint({ order, format });
+  const handlePrint = (order: Order) => {
+    setReprint({ order, format: 'thermal' });
     requestAnimationFrame(() => {
       window.print();
       setTimeout(() => setReprint(null), 1000);
@@ -104,20 +102,11 @@ export default function GeneratedBillsPage() {
             </Button>
             <Button
               size="sm"
-              onClick={() => handlePrint(order, 'thermal')}
+              onClick={() => handlePrint(order)}
               className="h-8 bg-amber-600 px-2 text-xs font-bold text-white hover:bg-amber-700"
               title="Print 80mm thermal printer bill"
             >
-              <Printer className="size-3.5" /> 80mm Bill
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handlePrint(order, 'a4')}
-              className="h-8 px-2 text-xs font-bold"
-              title="Full-page A4 tax invoice"
-            >
-              <FileText className="size-3.5" /> A4 Invoice
+              <Printer className="size-3.5" /> Print 80mm Bill
             </Button>
           </div>
         );
@@ -139,7 +128,7 @@ export default function GeneratedBillsPage() {
 
         <PageHeader
           title="Cashier Bills & Transaction Log"
-          subtitle="Reprint the counter receipt or issue a full A4 tax invoice for any order"
+          subtitle="Reprint 80mm thermal counter receipt for any order"
         />
 
         <div className="grid grid-cols-2 gap-3">
@@ -201,7 +190,7 @@ export default function GeneratedBillsPage() {
                 <div className="text-[10px] text-stone-500 font-semibold truncate">
                   {o.customerName || 'Walk-in'} · <span className="uppercase text-stone-600 dark:text-stone-300">{o.paymentMode || 'Cash'}</span>
                 </div>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
                   <Button
                     variant="outline"
                     size="sm"
@@ -212,20 +201,11 @@ export default function GeneratedBillsPage() {
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => handlePrint(o, 'thermal')}
+                    onClick={() => handlePrint(o)}
                     className="h-7 px-1.5 text-[10px] font-bold bg-amber-600 text-white hover:bg-amber-700"
                     title="Print 80mm thermal bill"
                   >
-                    <Printer className="size-3 mr-1" /> 80mm
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handlePrint(o, 'a4')}
-                    className="h-7 px-1.5 text-[10px] font-bold"
-                    title="Print A4 tax invoice"
-                  >
-                    <FileText className="size-3 mr-1" /> A4
+                    <Printer className="size-3 mr-1" /> Print 80mm
                   </Button>
                 </div>
               </div>
@@ -253,19 +233,12 @@ export default function GeneratedBillsPage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 border-t border-stone-100 bg-stone-50/40 px-5 py-3.5 dark:border-[#2C2C2E]/60 dark:bg-stone-950/30 sm:flex-row">
+            <div className="flex border-t border-stone-100 bg-stone-50/40 px-5 py-3.5 dark:border-[#2C2C2E]/60 dark:bg-stone-950/30">
               <Button
-                onClick={() => handlePrint(selectedBillOrder, 'thermal')}
-                className="flex-1 rounded-xl bg-amber-600 text-xs font-black text-white hover:bg-amber-700"
+                onClick={() => handlePrint(selectedBillOrder)}
+                className="w-full rounded-xl bg-amber-600 text-xs font-black text-white hover:bg-amber-700"
               >
                 <Printer className="size-3.5" /> Print 80mm Bill
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handlePrint(selectedBillOrder, 'a4')}
-                className="flex-1 rounded-xl text-xs font-bold"
-              >
-                <FileText className="size-3.5" /> A4 Invoice
               </Button>
             </div>
           </DialogContent>
