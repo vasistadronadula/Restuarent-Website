@@ -142,26 +142,6 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-sans">
-      {/* Sleek Top Promo Offer Bar */}
-      {activeCoupons.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white text-xs font-bold py-2 px-4 flex items-center justify-between shadow-xs">
-          <div className="flex items-center gap-2 overflow-hidden truncate">
-            <Tag className="w-3.5 h-3.5 shrink-0 animate-pulse text-amber-200" />
-            <span className="truncate">
-              Special Offers Available! Get up to {Math.max(...activeCoupons.map((c) => c.discount))}% OFF on your order
-            </span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setOffersOpen(true)}
-            className="h-6 px-3 rounded-full text-[11px] font-extrabold bg-white/20 hover:bg-white text-white hover:text-amber-700 border border-white/30 shrink-0 ml-2"
-          >
-            View Offers ({activeCoupons.length})
-          </Button>
-        </div>
-      )}
-
       <Navbar />
 
       <main className="flex-1 w-full max-w-full">
@@ -169,10 +149,23 @@ export default function HomePage() {
         <section className="relative overflow-hidden bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white py-6 lg:py-10 px-4 sm:px-8 md:px-12">
           <div className="max-w-none w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-center relative z-10">
             <div className="lg:col-span-7 space-y-4">
-              {/* Status Pill */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur-md text-xs font-bold text-stone-200">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Open Now · 12 PM – 11 PM · Madhapur, Hyderabad</span>
+              {/* Status Pill & Coupon Offer Badge */}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur-md text-xs font-bold text-stone-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Open Now · 12 PM – 11 PM · Madhapur, Hyderabad</span>
+                </div>
+
+                {activeCoupons.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setOffersOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-gradient-to-r from-amber-500/25 to-orange-500/25 border border-amber-400/40 backdrop-blur-md text-xs font-black text-amber-300 hover:bg-amber-500/35 transition-all cursor-pointer"
+                  >
+                    <Tag className="w-3.5 h-3.5 animate-pulse text-amber-400" />
+                    <span>🎟️ {Math.max(...activeCoupons.map((c) => c.discount))}% OFF Coupons Available</span>
+                  </button>
+                )}
               </div>
 
               {/* Title */}
@@ -311,6 +304,17 @@ export default function HomePage() {
                 <div className="absolute top-4 left-4 bg-amber-600/95 backdrop-blur-md text-white font-black text-xs px-3 py-1.5 rounded-xl shadow-lg border border-white/20 flex items-center gap-1.5">
                   <span>🏆 #1 Dum Biryani in Madhapur</span>
                 </div>
+
+                {activeCoupons.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setOffersOpen(true)}
+                    className="absolute top-4 right-4 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-black text-xs px-3 py-1.5 rounded-xl shadow-lg border border-white/20 flex items-center gap-1.5 transition-all hover:scale-105 cursor-pointer z-10"
+                  >
+                    <Tag className="w-3.5 h-3.5 animate-pulse text-amber-200" />
+                    <span>🎟️ {activeCoupons.length} Offers</span>
+                  </button>
+                )}
 
                 {/* Clean rating badge anchored safely inside the image overlay */}
                 <div className="absolute bottom-4 left-4 right-4 bg-stone-950/85 backdrop-blur-md border border-white/15 p-3 rounded-2xl shadow-xl flex items-center justify-between text-white">

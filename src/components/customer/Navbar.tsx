@@ -208,7 +208,7 @@ export default function Navbar() {
             )}
 
             {user && (
-              <DropdownMenu>
+              <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
@@ -227,7 +227,7 @@ export default function Navbar() {
                   </Button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent align="end" className="w-56 p-0 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-white shadow-2xl overflow-hidden">
+                <DropdownMenuContent align="end" sideOffset={6} className="w-60 p-0 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-white shadow-2xl overflow-hidden z-50">
                   <div className="bg-gradient-to-br from-stone-100 to-amber-50 dark:from-stone-900 dark:to-amber-955 p-3 text-stone-900 dark:text-white border-b border-stone-200 dark:border-stone-800">
                     <p className="truncate text-xs font-black">{userName || 'User'}</p>
                     <p className="mt-0.5 text-[10px] truncate text-stone-500 dark:text-stone-400">{accountLabel}</p>
