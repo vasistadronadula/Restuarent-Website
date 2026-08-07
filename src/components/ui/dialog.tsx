@@ -6,7 +6,12 @@ import { X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
-const Dialog = DialogPrimitive.Root;
+function Dialog({
+  modal = false,
+  ...props
+}: React.ComponentProps<typeof DialogPrimitive.Root>) {
+  return <DialogPrimitive.Root modal={modal} {...props} />;
+}
 const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
