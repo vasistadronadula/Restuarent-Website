@@ -6,6 +6,7 @@ import {
   ArrowRight, BookOpen, CheckCircle2, Loader2, Lock, LogOut, Mail, Phone,
   Receipt, Save, Shield, ShoppingBag, User
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
@@ -14,7 +15,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { accountDisplayName, formatMobileForDisplay, isInternalPhoneEmail } from '@/lib/phoneIdentity';
 import { validateEmail, validateName, validatePhone, normalizePhone } from '@/lib/validation';
-import { ROLE_ICONS, ROLE_LABELS } from '@/lib/roleAccess';
+import { ROLE_ICONS, ROLE_LABELS, isStaffRole } from '@/lib/roleAccess';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -57,8 +58,15 @@ function PageFrame({ children }: { children: React.ReactNode }) {
 }
 
 export default function CustomerProfilePage() {
+  const router = useRouter();
   const { user, userRole, updateUserProfile, signOutUser } = useAuth();
   const authReady = useAuthStore((s) => s.authReady);
+
+  useEffect(() => {
+    if (authReady && user && isStaffRole(userRole)) {
+      router.replace('/admin/profile');
+    }
+  }, [authReady, user, userRole, router]);
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');

@@ -66,6 +66,14 @@ export default function Navbar() {
   const accountLabel = accountIdentityLabel(user?.email, user?.user_metadata?.phone);
   const isStaff = isStaffRole(userRole);
 
+  const accountLinks = useMemo(() => {
+    if (isStaff) {
+      // Admins and Staff only keep profile on their dashboard (/admin/profile)
+      return ACCOUNT_LINKS.filter((link) => link.href !== '/profile');
+    }
+    return ACCOUNT_LINKS;
+  }, [isStaff]);
+
   if (cartIsOpen && !cartEverOpened) setCartEverOpened(true);
 
   if (pathname !== lastPath) {
@@ -238,7 +246,7 @@ export default function Navbar() {
                       </DropdownMenuItem>
                     )}
 
-                    {ACCOUNT_LINKS.map(({ label, href, icon: Icon }) => (
+                    {accountLinks.map(({ label, href, icon: Icon }) => (
                       <DropdownMenuItem key={href} asChild className="rounded-xl focus:bg-stone-100 dark:focus:bg-stone-800">
                         <Link href={href} className="flex items-center gap-2">
                           <Icon className="w-4 h-4 text-stone-500 dark:text-stone-400" />
@@ -308,7 +316,7 @@ export default function Navbar() {
                     </MobileSection>
                   ) : (
                     <MobileSection label="Your Account">
-                      {ACCOUNT_LINKS.map(({ label, href, icon: Icon }) => (
+                      {accountLinks.map(({ label, href, icon: Icon }) => (
                         <MobileLink key={href} href={href} icon={Icon} active={isActive(href)}>
                           {label}
                         </MobileLink>

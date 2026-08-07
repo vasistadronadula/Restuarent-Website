@@ -19,6 +19,8 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
+import { supabase } from '@/lib/supabase';
+import { normalizePhone } from '@/lib/validation';
 import { accountDisplayName, isInternalPhoneEmail } from '@/lib/phoneIdentity';
 import { triggerNewOrderPush } from '@/lib/triggerPush';
 import { restaurantInfo } from '@/data/restaurantInfo';
@@ -84,10 +86,36 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
-  // accountDisplayName rather than the email local-part: for a customer who
-  // signed in by SMS that local-part is "phone_919876543210", and prefilling
-  // the name on a food order with it is how a kitchen ticket ends up addressed
-  // to a database key.
+  // Autofill form state with logged-in user profile details
+  React.useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    (async () => {
+      const meta = user.user_metadata || {};
+      const metaName = meta.full_name || meta.name || accountDisplayName(user) || '';
+      const metaPhone = normalizePhone(meta.phone || user.phone || '');
+
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('full_name, phone')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      const loadedName = prof?.full_name || metaName;
+      const loadedPhone = normalizePhone(prof?.phone || metaPhone);
+
+      setForm((prev) => ({
+        name: prev.name || loadedName,
+        phone: prev.phone || loadedPhone,
+      }));
+    })();
+
+    return () => { cancelled = true; };
+  }, [user]);
+
   const autofillName = accountDisplayName(user);
   const autofillPhone = user?.user_metadata?.phone || user?.phone || '';
   /** Empty for a phone-only account — see the customerId note in finalizeOrder. */
