@@ -157,7 +157,7 @@ export default function CartPage() {
       <Navbar />
 
       <main className="min-h-[85vh] py-4 md:py-5">
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-none px-4 sm:px-8 md:px-12">
           <header className="mb-3">
             <h1 className="font-display text-xl font-black tracking-tight md:text-2xl">
               Your Cart
