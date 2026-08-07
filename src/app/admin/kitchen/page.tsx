@@ -98,16 +98,16 @@ const LANES: { status: OrderStatus; label: string; icon: React.ReactNode; badgeB
   {
     status: 'pending',
     label: 'New Received',
-    icon: <Clock className="size-4 text-amber-400" />,
-    badgeBg: 'bg-amber-500/15 border-amber-500/30 text-amber-300',
+    icon: <Clock className="size-4 text-sky-400" />,
+    badgeBg: 'bg-sky-500/20 border-sky-500/40 text-sky-300 font-extrabold',
     cta: 'Start Cooking',
     next: 'preparing',
   },
   {
     status: 'preparing',
     label: 'Cooking Now',
-    icon: <Flame className="size-4 text-orange-400" />,
-    badgeBg: 'bg-orange-500/15 border-orange-500/30 text-orange-300',
+    icon: <Flame className="size-4 text-amber-400" />,
+    badgeBg: 'bg-amber-500/20 border-amber-500/40 text-amber-300 font-extrabold',
     cta: 'Mark Ready',
     next: 'ready',
   },
@@ -115,11 +115,25 @@ const LANES: { status: OrderStatus; label: string; icon: React.ReactNode; badgeB
     status: 'ready',
     label: 'Ready for Pass',
     icon: <CheckCircle2 className="size-4 text-emerald-400" />,
-    badgeBg: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300',
+    badgeBg: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-extrabold',
     cta: 'Mark Served',
     next: 'delivered',
   },
 ];
+
+function getOrderTypeStyle(orderType?: string) {
+  const type = (orderType || 'dine-in').toLowerCase();
+  if (type.includes('dine') || type.includes('table')) {
+    return 'bg-sky-500/20 text-sky-300 border-sky-500/40';
+  }
+  if (type.includes('takeaway') || type.includes('pickup') || type.includes('pack')) {
+    return 'bg-purple-500/20 text-purple-300 border-purple-500/40';
+  }
+  if (type.includes('delivery') || type.includes('swiggy') || type.includes('zomato')) {
+    return 'bg-rose-500/20 text-rose-300 border-rose-500/40';
+  }
+  return 'bg-stone-800 text-stone-300 border-stone-700';
+}
 
 export default function KitchenDisplayPage() {
   const { orders, updateOrderStatus } = useAdmin();
@@ -364,49 +378,72 @@ export default function KitchenDisplayPage() {
           </div>
         </div>
 
-        {/* 3 Metric Quick Counters */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          <StatCard
-            icon={<Clock className="w-4 h-4" />}
-            label="Pending Queue"
-            value={laneOrders['pending'].length}
-            sub="Tickets waiting to start"
-            accent="#D97706"
-          />
-          <StatCard
-            icon={<Flame className="w-4 h-4" />}
-            label="Cooking Now"
-            value={laneOrders['preparing'].length}
-            sub="On the burners"
-            accent="#EA580C"
-          />
-          <StatCard
-            icon={<CheckCircle2 className="w-4 h-4" />}
-            label="Ready for Pass"
-            value={laneOrders['ready'].length}
-            sub="Awaiting pickup/server"
-            accent="#059669"
-          />
+        {/* 3 Metric Quick Counters (Dark Slate Theme Aligned) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="p-4 rounded-2xl bg-stone-900 border border-stone-800 text-stone-100 shadow-xl flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-sky-400" /> Pending Queue
+              </span>
+              <div className="text-2xl sm:text-3xl font-black text-white mt-1 tabular-nums">
+                {laneOrders['pending'].length}
+              </div>
+              <p className="text-[11px] font-medium text-stone-400 mt-0.5">Tickets waiting to start</p>
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-500/30 font-black text-sm tracking-wide">
+              NEW
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-stone-900 border border-stone-800 text-stone-100 shadow-xl flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                <Flame className="w-4 h-4 text-amber-400" /> Cooking Now
+              </span>
+              <div className="text-2xl sm:text-3xl font-black text-white mt-1 tabular-nums">
+                {laneOrders['preparing'].length}
+              </div>
+              <p className="text-[11px] font-medium text-stone-400 mt-0.5">On the burners</p>
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black text-sm tracking-wide">
+              COOK
+            </div>
+          </div>
+
+          <div className="p-4 rounded-2xl bg-stone-900 border border-stone-800 text-stone-100 shadow-xl flex items-center justify-between">
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Ready for Pass
+              </span>
+              <div className="text-2xl sm:text-3xl font-black text-white mt-1 tabular-nums">
+                {laneOrders['ready'].length}
+              </div>
+              <p className="text-[11px] font-medium text-stone-400 mt-0.5">Awaiting pickup/server</p>
+            </div>
+            <div className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-sm tracking-wide">
+              PASS
+            </div>
+          </div>
         </div>
 
         {/* Live Prep Matrix (Batching Bar for Cooks) */}
         {showPrepMatrix && prepMatrix.length > 0 && !showHistory && (
-          <div className="p-3.5 rounded-2xl bg-amber-950/30 border border-amber-500/25 text-amber-200">
-            <div className="flex items-center justify-between mb-2">
+          <div className="p-4 rounded-2xl bg-stone-900 border border-stone-800 text-stone-100 shadow-xl space-y-2.5">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-400">
                 <ChefHat className="size-4 text-amber-400" />
-                <span>Live Batch Prep Summary (Total Dishes to Cook Across All Active Tickets)</span>
+                <span>Live Batch Prep Summary (Total Dishes to Cook Across Active Tickets)</span>
               </div>
-              <span className="text-[10px] font-bold text-amber-400/80">Batch cooking overview</span>
+              <span className="text-[10px] font-bold text-stone-400">Batch cooking overview</span>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2.5">
               {prepMatrix.map((item) => (
                 <div
                   key={item.name}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-stone-900 border border-amber-500/30 shadow-sm"
+                  className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-stone-950 border border-amber-500/30 shadow-sm"
                 >
-                  <span className="text-xs font-bold text-white">{item.name}</span>
-                  <span className="px-2 py-0.5 rounded-lg bg-amber-500 text-stone-950 text-xs font-black tabular-nums">
+                  <span className="text-xs font-extrabold text-white">{item.name}</span>
+                  <span className="px-2.5 py-0.5 rounded-lg bg-amber-400 text-stone-950 text-xs font-black tabular-nums shadow-xs">
                     x{item.quantity}
                   </span>
                 </div>
@@ -437,7 +474,9 @@ export default function KitchenDisplayPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-black text-sm text-white">{o.id}</span>
-                        <span className="text-xs font-bold text-amber-400 uppercase">{o.orderType}</span>
+                        <Badge className={cn('uppercase text-[10px] font-extrabold px-2 py-0.5', getOrderTypeStyle(o.orderType))}>
+                          {o.orderType}
+                        </Badge>
                         {o.tableNumber && <span className="text-xs font-bold text-emerald-400">Table #{o.tableNumber}</span>}
                       </div>
                       <div className="text-xs text-stone-400 font-medium truncate mt-0.5">
@@ -564,10 +603,10 @@ function TicketCard({
       className={cn(
         'rounded-2xl border bg-stone-900 p-4 shadow-xl transition-all duration-150 flex flex-col justify-between',
         status === 'pending'
-          ? 'border-amber-500/40 hover:border-amber-500/70'
+          ? 'border-sky-500/50 hover:border-sky-400 shadow-sky-950/20'
           : status === 'preparing'
-          ? 'border-orange-500/40 hover:border-orange-500/70'
-          : 'border-emerald-500/40 hover:border-emerald-500/70'
+          ? 'border-amber-500/50 hover:border-amber-400 shadow-amber-950/20'
+          : 'border-emerald-500/50 hover:border-emerald-400 shadow-emerald-950/20'
       )}
     >
       <div>
@@ -576,7 +615,7 @@ function TicketCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <span className="text-base font-black text-white tracking-tight truncate">{order.id}</span>
-              <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 uppercase text-[10px] font-extrabold px-2 py-0.5">
+              <Badge className={cn('uppercase text-[10px] font-extrabold px-2 py-0.5', getOrderTypeStyle(order.orderType))}>
                 {order.orderType}
               </Badge>
             </div>
@@ -596,8 +635,8 @@ function TicketCard({
 
         {/* Special Instructions / Notes Banner */}
         {order.notes && (
-          <div className="mt-3 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-start gap-2 text-amber-300 text-xs font-bold">
-            <AlertTriangle className="size-4 shrink-0 text-amber-400 mt-0.5" />
+          <div className="mt-3 p-2.5 rounded-xl bg-rose-950/50 border border-rose-500/40 text-rose-200 flex items-start gap-2 text-xs font-bold shadow-md shadow-rose-950/30">
+            <AlertTriangle className="size-4 shrink-0 text-rose-400 mt-0.5" />
             <span>Note: {order.notes}</span>
           </div>
         )}
@@ -606,16 +645,19 @@ function TicketCard({
         <div className="mt-3.5 space-y-2">
           {items.map((item, idx) => {
             const isChecked = checkedItems.has(idx);
+            const qty = item.quantity || 1;
+            const isMultiQty = qty > 1;
+
             return (
               <button
                 key={idx}
                 type="button"
                 onClick={() => onToggleItemCheck(idx)}
                 className={cn(
-                  'w-full flex items-center justify-between gap-2 p-2 rounded-xl text-left transition-all border',
+                  'w-full flex items-center justify-between gap-2 p-2.5 rounded-xl text-left transition-all border',
                   isChecked
-                    ? 'bg-stone-950/60 border-stone-800 text-stone-500 line-through'
-                    : 'bg-stone-950/90 border-stone-800/80 text-stone-100 hover:border-stone-700'
+                    ? 'bg-stone-950/50 border-stone-900 text-stone-500 line-through'
+                    : 'bg-stone-950 border-stone-800/90 text-stone-100 hover:border-stone-700 shadow-xs'
                 )}
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -624,22 +666,26 @@ function TicketCard({
                   ) : (
                     <Square className="size-4 text-stone-600 shrink-0" />
                   )}
-                  <span className={cn('text-xs font-extrabold truncate', isChecked ? 'text-stone-500' : 'text-white')}>
+                  <span className={cn('text-xs sm:text-sm font-extrabold truncate', isChecked ? 'text-stone-500' : 'text-white')}>
                     {item.name}
                     {item.selectedPortion && (
-                      <span className="ml-1 text-[10px] font-black uppercase text-amber-400/90">
-                        ({item.selectedPortion})
+                      <span className="ml-1.5 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-md">
+                        {item.selectedPortion}
                       </span>
                     )}
                   </span>
                 </div>
                 <span
                   className={cn(
-                    'shrink-0 px-2 py-0.5 rounded-lg text-xs font-black tabular-nums',
-                    isChecked ? 'bg-stone-800 text-stone-500' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                    'shrink-0 font-black tabular-nums transition-transform',
+                    isChecked
+                      ? 'bg-stone-800 text-stone-500 text-xs px-2 py-0.5 rounded-md'
+                      : isMultiQty
+                      ? 'bg-amber-400 text-stone-950 text-xs px-2.5 py-0.5 rounded-lg shadow-sm border border-amber-300 ring-1 ring-amber-400/40'
+                      : 'bg-stone-800 text-amber-300 border border-stone-700 text-xs px-2.5 py-0.5 rounded-lg'
                   )}
                 >
-                  x{item.quantity}
+                  x{qty}
                 </span>
               </button>
             );
@@ -676,10 +722,10 @@ function TicketCard({
               className={cn(
                 'flex-1 h-10 rounded-xl text-xs font-black shadow-lg transition-all hover:scale-[1.01] active:scale-[0.99]',
                 status === 'pending'
-                  ? 'bg-amber-500 hover:bg-amber-400 text-stone-950 font-black'
+                  ? 'bg-sky-500 hover:bg-sky-400 text-stone-950 font-black shadow-sky-500/20'
                   : status === 'preparing'
-                  ? 'bg-orange-500 hover:bg-orange-400 text-stone-950 font-black'
-                  : 'bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black'
+                  ? 'bg-amber-500 hover:bg-amber-400 text-stone-950 font-black shadow-amber-500/20'
+                  : 'bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-black shadow-emerald-500/20'
               )}
             >
               <Check className="size-4 mr-1.5" />
