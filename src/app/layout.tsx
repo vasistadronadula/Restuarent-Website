@@ -25,12 +25,9 @@ const fraunces = Fraunces({
 import { Providers } from "./providers";
 
 export const viewport: Viewport = {
-  // Two entries so the browser chrome follows the active theme instead of
-  // pinning a white bar above a dark page.
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#FFF8F2" },
-    { media: "(prefers-color-scheme: dark)", color: "#1C1917" },
-  ],
+  // Light mode only — no dark theme anymore, so the browser chrome stays
+  // cream in every context instead of snapping to a dark bar.
+  themeColor: "#FFF8F2",
   width: "device-width",
   initialScale: 1,
   // maximumScale/userScalable are deliberately not set: pinning them blocks
@@ -64,14 +61,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // suppressHydrationWarning is required by next-themes: it writes the
-    // resolved theme class onto <html> in a blocking script before React
-    // hydrates, so the server markup and the client markup differ here by
-    // design. It suppresses the warning on this element only.
     <html
       lang="en"
       className={`${inter.variable} ${fraunces.variable}`}
-      suppressHydrationWarning
     >
       <body>
         {/* No global reCAPTCHA script: the only thing on this site that needs

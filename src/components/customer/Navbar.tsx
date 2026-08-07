@@ -23,7 +23,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -155,8 +154,6 @@ export default function Navbar() {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
-            <ThemeToggle />
-
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button asChild variant="outline" size="sm" className="relative rounded-full h-8 w-8 p-0 border-stone-200 dark:border-stone-850 bg-stone-100 dark:bg-stone-900 text-stone-700 dark:text-stone-200 hover:bg-amber-600 dark:hover:bg-amber-600 hover:text-white hover:border-amber-600">

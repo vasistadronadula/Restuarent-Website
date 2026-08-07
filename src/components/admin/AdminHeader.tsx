@@ -12,7 +12,6 @@ import {
 import { roleAppFor } from '@/lib/roleApps';
 import { getPushState } from '@/lib/pushClient';
 import MobileAppInstallModal from './MobileAppInstallModal';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
 import {
   ArrowLeft, LayoutGrid, ChevronRight, Bell, RefreshCw,
   Globe, LogOut, Printer, User, Settings, Clock, Sparkles
@@ -212,9 +211,6 @@ export default function AdminHeader({ title }: Props) {
               <Globe className="w-3.5 h-3.5" />
               <span>Website</span>
             </Link>
-
-            {/* Dark / Light Theme Toggle */}
-            <ThemeToggle className="p-2 rounded-lg text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200 hover:bg-stone-100 dark:hover:bg-[#2C2C2E] transition-colors" />
 
             {/* Notifications Bell */}
             {showNotifications && (

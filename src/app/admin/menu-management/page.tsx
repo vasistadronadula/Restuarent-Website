@@ -24,7 +24,7 @@ import {
 } from '@/lib/adminSchemas';
 import { PageHeader, StatCard, SectionCard } from '@/components/admin/ui';
 import {
-  ConfirmDeleteDialog, FormDialog, NumberField, SelectField, SwitchField,
+  ConfirmDeleteDialog, FormDialog, ImageUploadField, NumberField, SelectField, SwitchField,
   TextAreaField, TextField,
 } from '@/components/admin/form-fields';
 import { DataTable } from '@/components/ui/data-table';
@@ -514,20 +514,18 @@ export default function MenuManagementPage() {
             Leave blank for dishes that come one size. Filling two or more shows
             size pills on the storefront.
           </p>
-<div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <NumberField control={form.control} name="portionSingle" label="Single" prefix="₹" placeholder="—" />
             <NumberField control={form.control} name="portionFull" label="Full" prefix="₹" placeholder="—" />
             <NumberField control={form.control} name="portionLarge" label="Large" prefix="₹" placeholder="—" />
           </div>
         </div>
 
-        <TextField
+        <ImageUploadField
           control={form.control}
           name="image"
-          label="Image URL"
-          type="url"
-          placeholder="https://..."
-          hint="Leave blank to use the default dish photo"
+          label="Dish Photo"
+          hint="Upload a photo from your computer/device"
         />
 
         <TextAreaField

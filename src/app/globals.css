@@ -73,49 +73,6 @@
   color-scheme: light;
 }
 
-.dark {
-  /* Warm charcoal rather than neutral grey: a pure-grey dark theme under a red
-     brand reads cold and clinical, which is the opposite of the room. */
-  --background: oklch(0.155 0.012 56);
-  --foreground: oklch(0.962 0.008 71);
-  --card: oklch(0.203 0.014 56);
-  --card-foreground: oklch(0.962 0.008 71);
-  --popover: oklch(0.203 0.014 56);
-  --popover-foreground: oklch(0.962 0.008 71);
-
-  /* Lifted off the light-mode value: #C62828 on a dark ground fails contrast
-     against white label text and reads muddy. */
-  --primary: oklch(0.637 0.192 27.5);
-  --primary-foreground: oklch(0.155 0.012 56);
-  --secondary: oklch(0.262 0.016 56);
-  --secondary-foreground: oklch(0.962 0.008 71);
-  --accent: oklch(0.786 0.152 62);
-  --accent-foreground: oklch(0.155 0.012 56);
-
-  --muted: oklch(0.262 0.016 56);
-  --muted-foreground: oklch(0.708 0.014 56);
-  --border: oklch(0.302 0.016 56);
-  --input: oklch(0.302 0.016 56);
-  --ring: oklch(0.637 0.192 27.5);
-
-  --destructive: oklch(0.665 0.198 27.3);
-  --destructive-foreground: oklch(0.155 0.012 56);
-  --success: oklch(0.652 0.148 149);
-  --success-foreground: oklch(0.155 0.012 56);
-  --warning: oklch(0.786 0.152 62);
-  --warning-foreground: oklch(0.155 0.012 56);
-  --info: oklch(0.672 0.145 250);
-  --info-foreground: oklch(0.155 0.012 56);
-
-  --chart-1: oklch(0.637 0.192 27.5);
-  --chart-2: oklch(0.786 0.152 62);
-  --chart-3: oklch(0.672 0.145 250);
-  --chart-4: oklch(0.652 0.148 149);
-  --chart-5: oklch(0.724 0.148 320);
-
-  color-scheme: dark;
-}
-
 /* ============================================================ */
 /* Tailwind theme bridge                                        */
 /* ------------------------------------------------------------ */

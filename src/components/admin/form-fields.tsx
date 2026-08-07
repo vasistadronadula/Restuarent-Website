@@ -21,7 +21,8 @@
 
 import * as React from 'react';
 import type { Control, FieldPath, FieldValues, UseFormReturn } from 'react-hook-form';
-import { Loader2 } from 'lucide-react';
+import { Loader2, UploadCloud } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { cn } from '@/lib/utils';
 import {
@@ -341,6 +342,116 @@ export function FormDialog<T extends FieldValues>({
         </Form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── Image Upload ─────────────────────────────────────────────────────────────
+
+export function ImageUploadField<T extends FieldValues>({
+  control, name, label, hint, className,
+}: BaseFieldProps<T>) {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  return (
+    <FormField
+      control={control}
+      name={name}
+      render={({ field, fieldState }) => {
+        const handleFile = (file: File) => {
+          if (!file.type.startsWith('image/')) {
+            toast.error('Please select an image file (PNG, JPG, WEBP)');
+            return;
+          }
+          if (file.size > 5 * 1024 * 1024) {
+            toast.error('Image size must be less than 5MB');
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (typeof reader.result === 'string') {
+              field.onChange(reader.result);
+            }
+          };
+          reader.readAsDataURL(file);
+        };
+
+        const imageVal = field.value || '';
+
+        return (
+          <FormItem className={cn('gap-1.5', className)}>
+            <FormLabel className={labelClass}>{label}</FormLabel>
+            <FormControl>
+              <div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFile(file);
+                  }}
+                />
+                {imageVal ? (
+                  <div className="flex items-center gap-3.5 p-3 rounded-2xl border border-stone-200/80 dark:border-[#2C2C2E]/60 bg-stone-50/50 dark:bg-stone-900/40">
+                    <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-800">
+                      <img src={imageVal} alt="Dish Preview" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-black text-stone-900 dark:text-stone-100 truncate">Image Uploaded</p>
+                      <p className="text-[10px] text-stone-400 font-semibold mt-0.5">High-resolution dish photo from device</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-8 rounded-xl text-xs font-bold"
+                      >
+                        Change Image
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => field.onChange('')}
+                        className="h-8 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) handleFile(file);
+                    }}
+                    className="border-2 border-dashed border-stone-300 dark:border-stone-700 hover:border-amber-500 dark:hover:border-amber-500/80 rounded-2xl p-4 text-center cursor-pointer transition-all bg-stone-50/40 dark:bg-stone-900/20 hover:bg-amber-50/20 dark:hover:bg-amber-950/10 group"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                      <UploadCloud className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-bold text-stone-850 dark:text-stone-100">
+                      Upload Dish Photo From System
+                    </p>
+                    <p className="text-[10px] text-stone-400 font-medium mt-0.5">
+                      PNG, JPG, WEBP up to 5MB · Click to browse from computer
+                    </p>
+                  </div>
+                )}
+              </div>
+            </FormControl>
+            {hint && !fieldState.error && <FormDescription>{hint}</FormDescription>}
+            <FormMessage />
+          </FormItem>
+        );
+      }}
+    />
   );
 }
 
