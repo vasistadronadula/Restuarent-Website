@@ -127,7 +127,7 @@ export default function Navbar() {
             : 'bg-white/95 dark:bg-stone-950/95 backdrop-blur-md border-stone-200/50 dark:border-stone-905'
         )}
       >
-        <div className="mx-auto flex h-13 md:h-14 w-full max-w-none items-center justify-between px-4 sm:px-8 md:px-12">
+        <div className="w-full max-w-7xl mx-auto flex h-13 md:h-14 items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo & Home Link */}
           <div className="flex items-center gap-4">
             <Link href="/" aria-label={`${restaurantInfo.name} — Home`} className="flex items-center shrink-0">

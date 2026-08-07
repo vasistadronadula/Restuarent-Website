@@ -183,7 +183,7 @@ export default function ReservationPage() {
 
       {/* Main Container - Full Width */}
       <section className="w-full bg-orange-50/40 dark:bg-zinc-900/40 py-8 md:py-14 flex-1">
-        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none space-y-6">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
 
           {/* Stepper */}
           <div className="flex items-center justify-between relative max-w-xl mx-auto px-4 mb-8">

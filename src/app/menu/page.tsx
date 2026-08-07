@@ -208,7 +208,7 @@ function MenuBrowser() {
       </section>
 
       <main className="min-h-[60vh] py-6 md:py-10">
-        <div className="mx-auto w-full max-w-none px-4 sm:px-8 md:px-12">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* ─── Category rail ───────────────────────────────────────── */}
           <div
             role="tablist"

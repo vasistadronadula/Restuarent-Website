@@ -39,7 +39,7 @@ export default function ContactPage() {
 
       {/* Main Container - Full Width */}
       <section className="w-full bg-orange-50/40 dark:bg-zinc-900/40 py-10 md:py-16">
-        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Left Column – Contact Info + Map */}

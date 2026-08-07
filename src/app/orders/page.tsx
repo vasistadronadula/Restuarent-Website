@@ -115,7 +115,7 @@ export default function OrderHistoryPage() {
       <Navbar />
 
       <main className="min-h-screen py-4 md:py-5">
-        <div className="mx-auto w-full max-w-none px-4 sm:px-8 md:px-12">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <header className="mb-3">
             <h1 className="font-display flex items-center gap-2 text-xl font-black tracking-tight md:text-2xl">
               <ReceiptText className="text-primary size-6" />

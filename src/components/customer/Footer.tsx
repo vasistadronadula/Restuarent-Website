@@ -69,7 +69,7 @@ export default function Footer() {
       // floating cart bar that used to sit above it is gone.
       style={{ paddingBottom: 'calc(1.5rem + var(--ppr-bottom-nav-h, 0px))' }}
     >
-      <div className="mx-auto w-full max-w-6xl px-5 sm:px-6 md:px-8">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid gap-10 md:grid-cols-12 md:gap-8">
           {/* Brand */}
           <div className="md:col-span-4">

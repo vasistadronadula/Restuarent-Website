@@ -144,10 +144,10 @@ export default function HomePage() {
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-sans">
       <Navbar />
 
-      <main className="flex-1 w-full max-w-full">
+      <main className="flex-1 w-full">
         {/* 1. HERO SECTION */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white py-6 lg:py-10 px-4 sm:px-8 md:px-12">
-          <div className="max-w-none w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-center relative z-10">
+        <section className="relative overflow-hidden bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white py-6 lg:py-10">
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center relative z-10">
             <div className="lg:col-span-7 space-y-4">
               {/* Status Pill & Coupon Offer Badge */}
               <div className="flex flex-wrap items-center gap-2">
@@ -326,8 +326,8 @@ export default function HomePage() {
         </section>
 
         {/* 2. THREE WAYS TO EAT ACTION GRID (Clean & Spacious) */}
-        <section className="py-8 max-w-none px-4 sm:px-8 md:px-12 bg-white dark:bg-stone-900/60 border-y border-stone-200/80 dark:border-stone-800">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">
+        <section className="py-8 bg-white dark:bg-stone-900/60 border-y border-stone-200/80 dark:border-stone-800">
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">
             {[
               {
                 icon: <ShoppingBag className="w-6 h-6 text-amber-600" />,
@@ -382,7 +382,7 @@ export default function HomePage() {
         </section>
 
         {/* 3. CATEGORY CRAVINGS (DISH PHOTOS) */}
-        <section className="py-10 max-w-none px-4 sm:px-8 md:px-12">
+        <section className="py-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionHeading
             title="What's on your mind?"
             subtitle="Tap a craving to jump straight to it"
@@ -415,14 +415,14 @@ export default function HomePage() {
         </section>
 
         {/* 4. TOP PICKS RAIL */}
-        <section className="py-10 max-w-none px-4 sm:px-8 md:px-12">
+        <section className="py-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionHeading title="🔥 Top Picks Today" subtitle="Bestsellers ordered most by regulars" href="/menu" cta="See All" />
           <DishRail items={topPicks} loading={isLoadingDB && topPicks.length === 0} ariaLabel="Top picks" />
         </section>
 
         {/* 5. WHY US */}
-        <section className="py-12 bg-stone-950 text-white px-4 sm:px-8 md:px-12">
-          <div className="max-w-none space-y-6">
+        <section className="py-12 bg-stone-950 text-white">
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
             <h2 className="text-xl sm:text-2xl font-black flex items-center gap-2">
               <ShieldCheck className="w-6 h-6 text-amber-500" /> Why Diners Keep Coming Back
             </h2>
@@ -439,7 +439,7 @@ export default function HomePage() {
         </section>
 
         {/* 6. REVIEWS */}
-        <section className="py-12 max-w-none px-4 sm:px-8 md:px-12">
+        <section className="py-12 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionHeading title="❤️ Diner Reviews" subtitle="Real feedback from authentic food lovers across Hyderabad" />
           <ReviewSlider />
         </section>
