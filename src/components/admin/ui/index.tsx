@@ -36,42 +36,40 @@ export function StatCard({
   accent?: string; trend?: { label: string; up: boolean } | null; href?: string;
 }) {
   const inner = (
-    <div className={`p-3 rounded-2xl border border-stone-200/60 dark:border-[#2C2C2E]/60 bg-white dark:bg-[#1C1C1E]/80 shadow-[0_1.5px_2px_rgba(0,0,0,0.015)] dark:shadow-none transition-all duration-150 ${href ? 'hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-xs cursor-pointer' : ''}`}>
-      <div className="flex items-center gap-3">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold shadow-2xs"
-          style={{ backgroundColor: `${accent}15`, color: accent }}
-        >
-          <div className="w-4 h-4 flex items-center justify-center scale-100">{icon}</div>
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-1">
-            <span className="text-[10px] font-black uppercase tracking-wider text-stone-500 dark:text-stone-400 truncate">
-              {label}
-            </span>
-            {trend && (
-              <Badge className={`text-[9px] font-extrabold px-1.5 py-0 rounded border-none scale-95 origin-right ${trend.up ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'}`}>
-                {trend.label}
-              </Badge>
-            )}
+    <div className={`p-4 sm:p-4.5 rounded-2xl border border-stone-200/60 dark:border-[#2C2C2E]/60 bg-white dark:bg-[#1C1C1E]/80 shadow-xs dark:shadow-none h-full flex flex-col justify-between transition-all duration-150 ${href ? 'hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-sm cursor-pointer' : ''}`}>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold shadow-2xs"
+            style={{ backgroundColor: `${accent}15`, color: accent }}
+          >
+            <div className="w-4 h-4 flex items-center justify-center">{icon}</div>
           </div>
-          <div className="flex items-baseline gap-2 mt-0.5 min-w-0">
-            <span className="text-base sm:text-lg font-black text-stone-900 dark:text-white leading-none tracking-tight shrink-0">
-              {value}
-            </span>
-            {sub && (
-              <span className="text-[10px] font-semibold text-stone-400 dark:text-stone-500 truncate">
-                {sub}
-              </span>
-            )}
-          </div>
+          <span className="text-[11px] font-black uppercase tracking-wider text-stone-500 dark:text-stone-400 truncate">
+            {label}
+          </span>
         </div>
+        {trend && (
+          <Badge className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border-none ${trend.up ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'}`}>
+            {trend.label}
+          </Badge>
+        )}
+      </div>
+      <div className="min-w-0 pt-1">
+        <div className="text-xl sm:text-2xl font-black text-stone-900 dark:text-white leading-tight tracking-tight">
+          {value}
+        </div>
+        {sub && (
+          <div className="text-[11px] font-medium text-stone-400 dark:text-stone-500 mt-1 truncate">
+            {sub}
+          </div>
+        )}
       </div>
     </div>
   );
 
   if (href) {
-    return <Link href={href} className="block no-underline">{inner}</Link>;
+    return <Link href={href} className="block h-full no-underline">{inner}</Link>;
   }
   return inner;
 }
@@ -80,7 +78,7 @@ export function SectionCard({
   children, noPadding = false, className = '',
 }: { children: React.ReactNode; noPadding?: boolean; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-stone-200/50 dark:border-[#2C2C2E]/60 bg-white dark:bg-[#1C1C1E]/80 shadow-[0_1.5px_2px_rgba(0,0,0,0.015)] dark:shadow-none overflow-hidden ${noPadding ? '' : 'p-3.5 sm:p-4'} ${className}`}>
+    <div className={`rounded-2xl border border-stone-200/60 dark:border-[#2C2C2E]/60 bg-white dark:bg-[#1C1C1E]/80 shadow-xs dark:shadow-none overflow-hidden ${noPadding ? '' : 'p-4 sm:p-5'} ${className}`}>
       {children}
     </div>
   );

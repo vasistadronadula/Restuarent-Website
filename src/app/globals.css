@@ -6,7 +6,7 @@
    selector that can never match. It stays defined solely so the many existing
    `dark:` utilities through the codebase remain valid Tailwind and compile to
    inert CSS instead of failing the build. */
-@custom-variant dark (&:is(.never-dark *) );
+@custom-variant dark (&:is(.never-dark *));
 
 /* ============================================================ */
 /* Design tokens                                                */
