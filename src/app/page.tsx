@@ -6,23 +6,24 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
-  ArrowRight, Search, Star, Clock, MapPin, Phone,
-  UtensilsCrossed, ShoppingBag, Copy, CheckCircle2, Tag,
-  Truck, ShieldCheck, Utensils, X, Sparkles, Flame, Check,
+  ArrowRight, Search, Star, Clock, Phone,
+  UtensilsCrossed, ShoppingBag, Copy, Tag,
+  ShieldCheck, X, Sparkles, Check, Gift,
 } from 'lucide-react';
 
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import DishRail from '@/components/customer/DishRail';
-import DishListItem from '@/components/customer/DishListItem';
 import ReviewSlider from '@/components/customer/ReviewSlider';
 import { useAdmin } from '@/context/AdminContext';
 import { useCoupons } from '@/lib/queries';
 import { restaurantInfo } from '@/data/restaurantInfo';
-import type { Category, VegStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from '@/components/ui/dialog';
 
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=1200&q=80';
 
@@ -40,19 +41,7 @@ const CATEGORY_TILES = [
   { id: 'beverages', label: 'Drinks', image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=300&auto=format&fit=crop&q=80' },
 ];
 
-const PREVIEW_TABS: { id: Category | 'popular'; label: string }[] = [
-  { id: 'popular', label: '🔥 Popular' },
-  { id: 'biryani', label: 'Biryani' },
-  { id: 'starters', label: 'Starters' },
-  { id: 'tandoori', label: 'Tandoori' },
-  { id: 'south-indian', label: 'South Indian' },
-  { id: 'north-indian', label: 'North Indian' },
-  { id: 'chinese', label: 'Chinese' },
-  { id: 'desserts', label: 'Desserts' },
-];
-
 const QUICK_SEARCHES = ['Mutton Biryani', 'Kamju Pitta Fry', 'Natukodi Pulusu', 'Chicken 65', 'Butter Naan', 'Apricot Delight'];
-
 const SEARCH_HINTS = ['Mutton Biryani', 'Kamju Pitta Fry', 'Natukodi Pulusu', 'Chicken 65', 'Apollo Fish'];
 
 const TRUST_POINTS = [
@@ -105,9 +94,8 @@ export default function HomePage() {
 
   const [query, setQuery] = useState('');
   const [hintIndex, setHintIndex] = useState(0);
-  const [previewTab, setPreviewTab] = useState<Category | 'popular'>('popular');
-  const [vegFilter, setVegFilter] = useState<VegStatus | 'all'>('all');
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [offersOpen, setOffersOpen] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -152,34 +140,35 @@ export default function HomePage() {
     return coupons.filter((c) => c.isActive !== false);
   }, [coupons]);
 
-  const previewDishes = useMemo(() => {
-    let pool = menuItems;
-    if (vegFilter !== 'all') {
-      pool = pool.filter((i) => i.vegStatus === vegFilter);
-    }
-    if (previewTab === 'popular') {
-      return pool.filter((i) => i.isPopular || i.isSpecial).slice(0, 8);
-    }
-    return pool.filter((i) => i.category === previewTab).slice(0, 8);
-  }, [menuItems, previewTab, vegFilter]);
-
-  const previewHref = useMemo(() => {
-    const params = new URLSearchParams();
-    if (previewTab !== 'popular') params.set('category', previewTab);
-    if (vegFilter !== 'all') params.set('veg', vegFilter);
-    const qs = params.toString();
-    return qs ? `/menu?${qs}` : '/menu';
-  }, [previewTab, vegFilter]);
-
   return (
     <div className="min-h-screen bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col font-sans">
+      {/* Sleek Top Promo Offer Bar */}
+      {activeCoupons.length > 0 && (
+        <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white text-xs font-bold py-2 px-4 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2 overflow-hidden truncate">
+            <Tag className="w-3.5 h-3.5 shrink-0 animate-pulse text-amber-200" />
+            <span className="truncate">
+              Special Offers Available! Get up to {Math.max(...activeCoupons.map((c) => c.discount))}% OFF on your order
+            </span>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setOffersOpen(true)}
+            className="h-6 px-3 rounded-full text-[11px] font-extrabold bg-white/20 hover:bg-white text-white hover:text-amber-700 border border-white/30 shrink-0 ml-2"
+          >
+            View Offers ({activeCoupons.length})
+          </Button>
+        </div>
+      )}
+
       <Navbar />
 
       <main className="flex-1 w-full max-w-full">
         {/* 1. HERO SECTION */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white py-6 lg:py-8 px-4 sm:px-8 md:px-12">
+        <section className="relative overflow-hidden bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white py-6 lg:py-10 px-4 sm:px-8 md:px-12">
           <div className="max-w-none w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-center relative z-10">
-            <div className="lg:col-span-7 space-y-3.5">
+            <div className="lg:col-span-7 space-y-4">
               {/* Status Pill */}
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur-md text-xs font-bold text-stone-200">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -187,7 +176,7 @@ export default function HomePage() {
               </div>
 
               {/* Title */}
-              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black leading-tight tracking-tight">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black leading-tight tracking-tight">
                 Hungry? Order authentic{' '}
                 <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
                   Telugu food
@@ -361,7 +350,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 3. CATEGORY CRAVINGS */}
+        {/* 3. CATEGORY CRAVINGS (DISH PHOTOS) */}
         <section className="py-10 max-w-none px-4 sm:px-8 md:px-12">
           <SectionHeading
             title="What's on your mind?"
@@ -394,101 +383,13 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 4. PROMO OFFERS */}
-        {activeCoupons.length > 0 && (
-          <section className="py-6 max-w-none px-4 sm:px-8 md:px-12">
-            <SectionHeading title="Deals & Promo Offers" subtitle="Tap to copy discount coupon codes" />
-            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none">
-              {activeCoupons.map((coupon) => {
-                const copied = copiedCode === coupon.code;
-                return (
-                  <div
-                    key={coupon.code}
-                    className="flex-shrink-0 w-72 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-center gap-3.5 shadow-xs"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center font-bold flex-shrink-0">
-                      <Tag className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-black text-amber-700 dark:text-amber-400 text-sm">
-                        {coupon.discount}% OFF
-                        {coupon.minOrder > 1 && <span className="text-[10px] text-stone-500 ml-1 font-semibold">above ₹{coupon.minOrder}</span>}
-                      </div>
-                      <div className="text-xs text-stone-500 font-medium truncate mb-2">{coupon.description || 'Limited offer'}</div>
-                      <button
-                        type="button"
-                        onClick={() => copyCode(coupon.code)}
-                        className={`text-xs font-black px-3 py-1 rounded-lg border border-dashed flex items-center gap-1 transition-all ${
-                          copied ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white dark:bg-stone-900 border-amber-600 text-amber-700 dark:text-amber-400'
-                        }`}
-                      >
-                        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                        {copied ? 'COPIED' : coupon.code}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* 5. TOP PICKS RAIL */}
+        {/* 4. TOP PICKS RAIL */}
         <section className="py-10 max-w-none px-4 sm:px-8 md:px-12">
           <SectionHeading title="🔥 Top Picks Today" subtitle="Bestsellers ordered most by regulars" href="/menu" cta="See All" />
           <DishRail items={topPicks} loading={isLoadingDB && topPicks.length === 0} ariaLabel="Top picks" />
         </section>
 
-        {/* 6. EXPLORE MENU PREVIEW */}
-        <section className="py-10 bg-stone-100/70 dark:bg-stone-900/50">
-          <div className="max-w-none px-4 sm:px-8 md:px-12 space-y-4">
-            <SectionHeading title="Explore Our Menu" subtitle={`${menuItems.length || '100'}+ authentic dishes cooked to order`} />
-
-            <div className="flex flex-wrap gap-2">
-              {(['all', 'veg', 'non-veg', 'egg'] as const).map((v) => (
-                <Button
-                  key={v}
-                  variant={vegFilter === v ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setVegFilter(v)}
-                  className={`rounded-full text-xs font-bold capitalize ${vegFilter === v ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}`}
-                >
-                  {v}
-                </Button>
-              ))}
-            </div>
-
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-              {PREVIEW_TABS.map((tab) => (
-                <Button
-                  key={tab.id}
-                  variant={previewTab === tab.id ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setPreviewTab(tab.id)}
-                  className={`rounded-full text-xs font-bold whitespace-nowrap ${previewTab === tab.id ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900' : ''}`}
-                >
-                  {tab.label}
-                </Button>
-              ))}
-            </div>
-
-            <div className="bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 rounded-2xl p-4 shadow-sm">
-              {previewDishes.map((dish, i) => (
-                <DishListItem key={dish.id} item={dish} divider={i < previewDishes.length - 1} />
-              ))}
-            </div>
-
-            <div className="text-center pt-2">
-              <Button asChild className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl px-8 h-11 text-xs shadow-md">
-                <Link href={previewHref} className="flex items-center gap-2">
-                  See Full Menu <ArrowRight className="w-4 h-4" />
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        {/* 7. WHY US */}
+        {/* 5. WHY US */}
         <section className="py-12 bg-stone-950 text-white px-4 sm:px-8 md:px-12">
           <div className="max-w-none space-y-6">
             <h2 className="text-xl sm:text-2xl font-black flex items-center gap-2">
@@ -506,12 +407,86 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* 8. REVIEWS */}
+        {/* 6. REVIEWS */}
         <section className="py-12 max-w-none px-4 sm:px-8 md:px-12">
           <SectionHeading title="❤️ Diner Reviews" subtitle="Real feedback from authentic food lovers across Hyderabad" />
           <ReviewSlider />
         </section>
       </main>
+
+      {/* Offers & Coupons Dialog */}
+      <Dialog open={offersOpen} onOpenChange={setOffersOpen}>
+        <DialogContent className="max-w-md p-6 rounded-3xl bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-900 dark:text-white">
+          <DialogHeader>
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center mb-2">
+              <Gift className="w-6 h-6" />
+            </div>
+            <DialogTitle className="text-xl font-black">
+              Special Offers & Coupons 🎟️
+            </DialogTitle>
+            <DialogDescription className="text-xs text-stone-500">
+              Copy coupon code and enter it during checkout to claim your discount.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 mt-4 max-h-[60vh] overflow-y-auto pr-1">
+            {activeCoupons.length > 0 ? (
+              activeCoupons.map((coupon) => {
+                const copied = copiedCode === coupon.code;
+                return (
+                  <div
+                    key={coupon.code}
+                    className="bg-stone-50 dark:bg-stone-800/80 border border-stone-200 dark:border-stone-700/80 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-black text-amber-600 dark:text-amber-400 text-base">
+                        {coupon.discount}% OFF
+                      </div>
+                      <div className="text-xs font-bold text-stone-800 dark:text-stone-200 truncate">
+                        Code: <code className="font-black text-amber-700 dark:text-amber-300">{coupon.code}</code>
+                      </div>
+                      {coupon.minOrder > 1 && (
+                        <div className="text-[11px] text-stone-400 font-medium mt-0.5">
+                          Min. Order ₹{coupon.minOrder}
+                        </div>
+                      )}
+                      {coupon.description && (
+                        <div className="text-[11px] text-stone-500 truncate mt-0.5">
+                          {coupon.description}
+                        </div>
+                      )}
+                    </div>
+
+                    <Button
+                      size="sm"
+                      onClick={() => copyCode(coupon.code)}
+                      className={`h-9 px-4 rounded-xl font-black text-xs transition-all shrink-0 ${
+                        copied
+                          ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                          : 'bg-amber-600 hover:bg-amber-700 text-white shadow-xs'
+                      }`}
+                    >
+                      {copied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 mr-1" /> COPIED
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 mr-1" /> COPY CODE
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="p-8 text-center text-stone-400 text-xs font-bold">
+                No active coupon codes right now. Check back soon!
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>
