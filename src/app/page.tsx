@@ -27,17 +27,17 @@ import { Badge } from '@/components/ui/badge';
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=1200&q=80';
 
 const CATEGORY_TILES = [
-  { id: 'biryani', label: 'Biryani', emoji: '🍚', from: '#FFE0B2', to: '#FFCC80' },
-  { id: 'starters', label: 'Starters', emoji: '🍗', from: '#FFCDD2', to: '#EF9A9A' },
-  { id: 'tandoori', label: 'Tandoori', emoji: '🔥', from: '#FFCCBC', to: '#FFAB91' },
-  { id: 'combos', label: 'Combos', emoji: '🎁', from: '#E1BEE7', to: '#CE93D8' },
-  { id: 'south-indian', label: 'South', emoji: '🥘', from: '#FFF59D', to: '#FFEE58' },
-  { id: 'north-indian', label: 'North', emoji: '🍛', from: '#C8E6C9', to: '#A5D6A7' },
-  { id: 'chinese', label: 'Chinese', emoji: '🥡', from: '#B3E5FC', to: '#81D4FA' },
-  { id: 'rice', label: 'Rice', emoji: '🍙', from: '#D7CCC8', to: '#BCAAA4' },
-  { id: 'breads', label: 'Breads', emoji: '🫓', from: '#FFE082', to: '#FFD54F' },
-  { id: 'desserts', label: 'Desserts', emoji: '🍮', from: '#F8BBD0', to: '#F48FB1' },
-  { id: 'beverages', label: 'Drinks', emoji: '🥤', from: '#E0F7FA', to: '#B2EBF2' },
+  { id: 'biryani', label: 'Biryani', image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=300&auto=format&fit=crop&q=80' },
+  { id: 'starters', label: 'Starters', image: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?w=300&auto=format&fit=crop&q=80' },
+  { id: 'tandoori', label: 'Tandoori', image: 'https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=300&auto=format&fit=crop&q=80' },
+  { id: 'combos', label: 'Combos', image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=300&auto=format&fit=crop&q=80' },
+  { id: 'south-indian', label: 'South', image: 'https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?w=300&auto=format&fit=crop&q=80' },
+  { id: 'north-indian', label: 'North', image: 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=300&auto=format&fit=crop&q=80' },
+  { id: 'chinese', label: 'Chinese', image: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?w=300&auto=format&fit=crop&q=80' },
+  { id: 'rice', label: 'Rice', image: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=300&auto=format&fit=crop&q=80' },
+  { id: 'breads', label: 'Breads', image: 'https://images.unsplash.com/photo-1626074353765-517a681e40be?w=300&auto=format&fit=crop&q=80' },
+  { id: 'desserts', label: 'Desserts', image: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=300&auto=format&fit=crop&q=80' },
+  { id: 'beverages', label: 'Drinks', image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=300&auto=format&fit=crop&q=80' },
 ];
 
 const PREVIEW_TABS: { id: Category | 'popular'; label: string }[] = [
@@ -369,17 +369,26 @@ export default function HomePage() {
             href="/menu"
             cta="All Categories"
           />
-          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-none justify-start lg:justify-center">
+          <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 scrollbar-none justify-start lg:justify-center">
             {CATEGORY_TILES.map((cat) => (
               <Link
                 key={cat.id}
                 href={`/menu?category=${cat.id}`}
                 className="flex flex-col items-center gap-2 flex-shrink-0 group"
               >
-                <div className="w-20 h-20 sm:w-22 sm:h-22 rounded-full flex items-center justify-center text-3xl shadow-md transition-transform group-hover:-translate-y-1" style={{ background: `linear-gradient(135deg, ${cat.from}, ${cat.to})` }}>
-                  {cat.emoji}
+                <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden shadow-md ring-2 ring-amber-500/20 group-hover:ring-amber-500 group-hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1 bg-stone-200 dark:bg-stone-800">
+                  <Image
+                    src={cat.image}
+                    alt={cat.label}
+                    fill
+                    sizes="(max-width: 640px) 80px, 96px"
+                    className="object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-60 group-hover:opacity-20 transition-opacity" />
                 </div>
-                <span className="text-xs font-black text-stone-800 dark:text-stone-200">{cat.label}</span>
+                <span className="text-xs font-black text-stone-800 dark:text-stone-200 tracking-tight group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                  {cat.label}
+                </span>
               </Link>
             ))}
           </div>
