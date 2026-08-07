@@ -300,50 +300,88 @@ export default function HomePage() {
 
             {/* Right Hero Image Card */}
             <div className="lg:col-span-5 hidden lg:block relative">
-              <div className="relative w-full aspect-4/3 rounded-3xl overflow-hidden shadow-2xl border border-white/10">
+              <div className="relative w-full aspect-4/3 rounded-3xl overflow-hidden shadow-2xl border border-white/10 group">
                 <Image
                   src={HERO_IMAGE}
                   alt="Pala Pitta Ruchulu Biryani"
                   fill
                   priority
-                  className="object-cover"
+                  className="object-cover transition-transform duration-700 group-hover:scale-105"
                 />
-                <div className="absolute top-4 left-4 bg-amber-600 text-white font-black text-xs px-3 py-1 rounded-xl shadow-lg">
-                  🏆 #1 Dum Biryani in Madhapur
+                <div className="absolute top-4 left-4 bg-amber-600/95 backdrop-blur-md text-white font-black text-xs px-3 py-1.5 rounded-xl shadow-lg border border-white/20 flex items-center gap-1.5">
+                  <span>🏆 #1 Dum Biryani in Madhapur</span>
                 </div>
-              </div>
-              <div className="absolute -bottom-4 -left-4 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 p-3 rounded-2xl shadow-xl flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center font-bold">
-                  <Star className="w-5 h-5 fill-amber-500" />
-                </div>
-                <div>
-                  <div className="font-black text-stone-900 dark:text-stone-100 text-sm">4.9 / 5.0</div>
-                  <div className="text-[11px] text-stone-400 font-semibold">50,000+ Reviews</div>
+
+                {/* Clean rating badge anchored safely inside the image overlay */}
+                <div className="absolute bottom-4 left-4 right-4 bg-stone-950/85 backdrop-blur-md border border-white/15 p-3 rounded-2xl shadow-xl flex items-center justify-between text-white">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500 text-stone-950 flex items-center justify-center font-black">
+                      <Star className="w-5 h-5 fill-stone-950" />
+                    </div>
+                    <div>
+                      <div className="font-black text-sm text-amber-400">4.9 / 5.0 Rating</div>
+                      <div className="text-[11px] text-stone-300 font-semibold">50,000+ Happy Diners</div>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="border-amber-400/40 text-amber-300 text-[10px] font-bold px-2 py-0.5">
+                    Verified Reviews
+                  </Badge>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* 2. THREE WAYS TO EAT ACTION GRID */}
-        <section className="max-w-none px-4 sm:px-8 md:px-12 -mt-6 relative z-20">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* 2. THREE WAYS TO EAT ACTION GRID (Clean & Spacious) */}
+        <section className="py-8 max-w-none px-4 sm:px-8 md:px-12 bg-white dark:bg-stone-900/60 border-y border-stone-200/80 dark:border-stone-800">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6">
             {[
-              { icon: <ShoppingBag className="w-5 h-5 text-rose-600" />, label: 'Order Takeaway', hint: 'Ready in 30 mins', href: '/menu' },
-              { icon: <UtensilsCrossed className="w-5 h-5 text-amber-600" />, label: 'Book a Table', hint: 'Dine in Madhapur', href: '/reservation' },
-              { icon: <Phone className="w-5 h-5 text-emerald-600" />, label: 'Call to Order', hint: restaurantInfo.phoneDisplay, href: PHONE_HREF },
+              {
+                icon: <ShoppingBag className="w-6 h-6 text-amber-600" />,
+                badge: '🛍️ TAKEAWAY',
+                label: 'Order Online Takeaway',
+                hint: 'Freshly prepared & sealed ready in 30 mins',
+                href: '/menu',
+              },
+              {
+                icon: <UtensilsCrossed className="w-6 h-6 text-amber-600" />,
+                badge: '🍽️ DINE-IN',
+                label: 'Book a Restaurant Table',
+                hint: 'Reserve your dining spot at Madhapur',
+                href: '/reservation',
+              },
+              {
+                icon: <Phone className="w-6 h-6 text-emerald-600" />,
+                badge: '📞 HOTLINE',
+                label: 'Direct Phone Order',
+                hint: restaurantInfo.phoneDisplay,
+                href: PHONE_HREF,
+              },
             ].map((act) => (
               <Link
                 key={act.label}
                 href={act.href}
-                className="bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all flex items-center gap-3.5 group"
+                className="bg-stone-50 dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800/80 rounded-2xl p-5 shadow-xs hover:shadow-xl hover:border-amber-500/40 transition-all duration-300 flex flex-col justify-between gap-4 group"
               >
-                <div className="w-11 h-11 rounded-xl bg-stone-100 dark:bg-stone-800 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  {act.icon}
+                <div className="flex items-start justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    {act.icon}
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                    {act.badge}
+                  </span>
                 </div>
                 <div>
-                  <div className="font-black text-sm text-stone-900 dark:text-stone-100">{act.label}</div>
-                  <div className="text-xs text-stone-400 font-medium">{act.hint}</div>
+                  <div className="font-extrabold text-base text-stone-900 dark:text-stone-100 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                    {act.label}
+                  </div>
+                  <div className="text-xs text-stone-500 dark:text-stone-400 font-medium mt-1">
+                    {act.hint}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs font-black text-amber-600 dark:text-amber-400 group-hover:translate-x-1 transition-transform">
+                  <span>Proceed</span>
+                  <ArrowRight className="w-4 h-4" />
                 </div>
               </Link>
             ))}
