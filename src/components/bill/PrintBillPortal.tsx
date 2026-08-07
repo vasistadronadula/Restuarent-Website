@@ -56,7 +56,8 @@ function printHost(format: BillFormat): HTMLElement | null {
     node.id = PRINT_ROOT_ID;
     document.body.appendChild(node);
   }
-  node.dataset.format = format;
+  node.innerHTML = '';
+  node.dataset.format = 'thermal';
   return node;
 }
 

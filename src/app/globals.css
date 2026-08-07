@@ -487,13 +487,14 @@ body[data-scroll-locked] {
      item away from its own amount. The item table is one grid, so the rule has
      to name the rows inside it rather than the bill's top-level blocks. */
   .thermal-bill {
-    break-inside: auto;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
   .thermal-bill > div {
-    break-inside: avoid;
-  }
-  .thermal-bill > div > span {
-    break-inside: avoid;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   /* ── A4 tax invoice ──────────────────────────────────────────────────
