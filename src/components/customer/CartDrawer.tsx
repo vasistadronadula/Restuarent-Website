@@ -59,7 +59,7 @@ export default function CartDrawer() {
   const close = () => useCartStore.getState().closeCart();
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && close()}>
+    <Sheet modal={false} open={isOpen} onOpenChange={(open) => !open && close()}>
       <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-md">
         <SheetHeader className="bg-primary text-primary-foreground border-b-0">
           <SheetTitle className="text-primary-foreground flex items-center gap-2">

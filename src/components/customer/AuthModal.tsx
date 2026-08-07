@@ -73,7 +73,7 @@ export default function AuthModal() {
   };
 
   return (
-    <Dialog open={isAuthModalOpen} onOpenChange={(open) => { if (!open) close(); }}>
+    <Dialog modal={false} open={isAuthModalOpen} onOpenChange={(open) => { if (!open) close(); }}>
       <DialogContent showCloseButton={false} className="p-0 overflow-hidden max-w-md w-full sm:rounded-2xl border-none">
         {/* Branded Header */}
         <div className="relative overflow-hidden bg-gradient-to-br from-[#1A0606] via-[#370C0C] to-[#1A0606] p-6 text-white">

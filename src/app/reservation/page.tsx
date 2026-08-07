@@ -509,7 +509,7 @@ export default function ReservationPage() {
       </section>
 
       {/* Success Modal */}
-      <Dialog open={success} onOpenChange={(open) => { if (!open) setSuccess(false); }}>
+      <Dialog modal={false} open={success} onOpenChange={(open) => { if (!open) setSuccess(false); }}>
         <DialogContent className="p-6 text-center max-w-md w-full rounded-3xl">
           <div className="size-16 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
             <CheckCircle2 className="size-8" />

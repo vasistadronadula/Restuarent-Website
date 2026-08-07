@@ -283,7 +283,7 @@ export default function Navbar() {
             </Button>
 
             {/* Mobile Sheet Trigger */}
-            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+            <Sheet modal={false} open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="md:hidden h-8 w-8 text-stone-700 dark:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800" aria-label="Open menu">
                   <MenuIcon className="w-5 h-5" />
