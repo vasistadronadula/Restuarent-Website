@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
   Eye, CheckCircle2, Clock, Truck, Flame, Inbox,
-  ArrowRight, X, XCircle, LayoutGrid, Table2,
+  ArrowRight, X, XCircle, LayoutGrid, Table2, History,
+  Check, Undo2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -56,40 +57,31 @@ function ElapsedTime({ placedAt }: { placedAt?: string }) {
 
 const LANES: {
   status: OrderStatus; label: string; icon: React.ReactNode;
-  header: string; cta: string; next: OrderStatus | null; muted?: boolean;
+  header: string; cta: string; next: OrderStatus | null;
 }[] = [
   {
     status: 'pending',
     label: 'New Orders',
-    icon: <Inbox className="size-4" />,
-    header: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+    icon: <Inbox className="size-4 text-sky-700 dark:text-sky-400" />,
+    header: 'border-sky-300 bg-sky-100 text-sky-900 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/30',
     cta: 'Start Preparing',
     next: 'preparing',
   },
   {
     status: 'preparing',
     label: 'Preparing',
-    icon: <Flame className="size-4" />,
-    header: 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-400',
+    icon: <Flame className="size-4 text-amber-700 dark:text-amber-400" />,
+    header: 'border-amber-300 bg-amber-100 text-amber-900 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30',
     cta: 'Mark Ready',
     next: 'ready',
   },
   {
     status: 'ready',
     label: 'Ready for Pickup',
-    icon: <CheckCircle2 className="size-4" />,
-    header: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+    icon: <CheckCircle2 className="size-4 text-emerald-700 dark:text-emerald-400" />,
+    header: 'border-emerald-300 bg-emerald-100 text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30',
     cta: 'Mark Delivered',
     next: 'delivered',
-  },
-  {
-    status: 'delivered',
-    label: 'Delivered',
-    icon: <Truck className="size-4" />,
-    header: 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400',
-    cta: '',
-    next: null,
-    muted: true,
   },
 ];
 
@@ -108,6 +100,7 @@ export default function OrdersPage() {
   const { orders, updateOrderStatus } = useAdmin();
   const [view, setView] = useState<'pipeline' | 'table'>('pipeline');
   const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
+  const [showDeliveredLog, setShowDeliveredLog] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const filtered = useMemo(() => {
@@ -136,14 +129,18 @@ export default function OrdersPage() {
     return map;
   }, [orders]);
 
-  const handleAdvanceStatus = async (order: Order) => {
-    const next = nextStatus[statusOf(order)];
-    if (!next) return;
+  const deliveredOrders = useMemo(() => {
+    return orders
+      .filter((o) => statusOf(o) === 'delivered')
+      .sort((a, b) => orderAge(b) - orderAge(a));
+  }, [orders]);
+
+  const handleUpdateStatus = async (orderId: string, targetStatus: OrderStatus) => {
     try {
-      await updateOrderStatus(order.id, next);
-      toast.success(`Order ${order.id} moved to ${next}`);
-      if (selectedOrder?.id === order.id) {
-        setSelectedOrder({ ...selectedOrder, status: next });
+      await updateOrderStatus(orderId, targetStatus);
+      toast.success(`Order ${orderId} moved to ${targetStatus}`);
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder({ ...selectedOrder, status: targetStatus });
       }
     } catch {
       toast.error('Failed to update status');
@@ -152,6 +149,9 @@ export default function OrdersPage() {
 
   const pickFilter = (st: OrderStatus | 'all') => {
     setFilterStatus(st);
+    if (st === 'delivered') {
+      setShowDeliveredLog(true);
+    }
     setView('table');
   };
 
@@ -214,7 +214,8 @@ export default function OrdersPage() {
       header: 'Actions',
       cell: ({ row }) => {
         const order = row.original;
-        const next = nextStatus[statusOf(order)];
+        const currentSt = statusOf(order);
+        const next = nextStatus[currentSt];
         return (
           <div className="flex items-center gap-2">
             <Button
@@ -225,13 +226,25 @@ export default function OrdersPage() {
             >
               <Eye className="w-3.5 h-3.5 mr-1" /> View
             </Button>
+
             {next && (
               <Button
                 size="sm"
-                onClick={() => handleAdvanceStatus(order)}
+                onClick={() => handleUpdateStatus(order.id, next)}
                 className="h-8 px-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white"
               >
                 Mark {next}
+              </Button>
+            )}
+
+            {currentSt !== 'delivered' && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleUpdateStatus(order.id, 'delivered')}
+                className="h-8 px-2 text-xs font-bold border-sky-300 text-sky-700 hover:bg-sky-50 dark:border-sky-700 dark:text-sky-400"
+              >
+                <Truck className="w-3 h-3 mr-1" /> Deliver
               </Button>
             )}
           </div>
@@ -245,40 +258,57 @@ export default function OrdersPage() {
       <div className="space-y-4 w-full max-w-full">
         <PageHeader
           title="Live Orders"
-          subtitle="Real-time order pipeline — oldest orders first, tap a card to open details"
+          subtitle="Real-time order pipeline — active tickets in 3 lanes, tap a card to open details"
           action={
-            <div className="flex gap-1 p-1 bg-stone-100 dark:bg-stone-800 rounded-xl w-fit">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
-                variant="ghost"
+                variant={showDeliveredLog ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setView('pipeline')}
+                onClick={() => setShowDeliveredLog(!showDeliveredLog)}
                 className={cn(
-                  'h-8 px-3 text-xs font-extrabold rounded-lg whitespace-nowrap',
-                  view === 'pipeline'
-                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs'
-                    : 'text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
+                  'h-8 px-3 text-xs font-extrabold rounded-xl transition-all',
+                  showDeliveredLog
+                    ? 'bg-sky-600 text-white hover:bg-sky-700 shadow-xs'
+                    : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-50'
                 )}
               >
-                <LayoutGrid className="size-3.5 mr-1.5" /> Pipeline
+                <Truck className="size-3.5 mr-1.5" />
+                Delivered Log ({statusCounts['delivered'] || 0})
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setView('table')}
-                className={cn(
-                  'h-8 px-3 text-xs font-extrabold rounded-lg whitespace-nowrap',
-                  view === 'table'
-                    ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs'
-                    : 'text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
-                )}
-              >
-                <Table2 className="size-3.5 mr-1.5" /> Table
-              </Button>
+
+              <div className="flex gap-1 p-1 bg-stone-100 dark:bg-stone-800 rounded-xl w-fit">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setView('pipeline')}
+                  className={cn(
+                    'h-8 px-3 text-xs font-extrabold rounded-lg whitespace-nowrap',
+                    view === 'pipeline'
+                      ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs'
+                      : 'text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
+                  )}
+                >
+                  <LayoutGrid className="size-3.5 mr-1.5" /> 3-Lane Grid
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setView('table')}
+                  className={cn(
+                    'h-8 px-3 text-xs font-extrabold rounded-lg whitespace-nowrap',
+                    view === 'table'
+                      ? 'bg-white dark:bg-stone-900 text-stone-900 dark:text-white shadow-xs'
+                      : 'text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-white'
+                  )}
+                >
+                  <Table2 className="size-3.5 mr-1.5" /> Table
+                </Button>
+              </div>
             </div>
           }
         />
 
-        {/* Live status bar — tap a status to jump into the filtered table */}
+        {/* Live status bar — tap a status to jump into the filtered view */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           {STATUS_BAR.map((s) => (
             <button
@@ -297,69 +327,120 @@ export default function OrdersPage() {
           ))}
         </div>
 
+        {/* Delivered Log Drawer Banner */}
+        {showDeliveredLog && (
+          <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-black text-sky-900 dark:text-sky-300">
+                <Truck className="size-4 text-sky-600" />
+                <span>Completed / Delivered Orders Log ({deliveredOrders.length})</span>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDeliveredLog(false)}
+                className="h-7 text-xs font-bold text-sky-700 dark:text-sky-400 hover:bg-sky-100"
+              >
+                Hide Log
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {deliveredOrders.length === 0 ? (
+                <div className="col-span-full py-6 text-center text-xs font-bold text-sky-600 dark:text-sky-400">
+                  No delivered orders yet.
+                </div>
+              ) : (
+                deliveredOrders.slice(0, 9).map((o) => (
+                  <div
+                    key={o.id}
+                    onClick={() => setSelectedOrder(o)}
+                    className="p-3 rounded-xl bg-white dark:bg-stone-900 border border-sky-200 dark:border-sky-800 flex items-center justify-between cursor-pointer hover:border-sky-400 transition-colors shadow-2xs"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-xs text-stone-900 dark:text-white">{o.id}</span>
+                        <span className="text-[10px] font-bold text-sky-700 dark:text-sky-400 uppercase">{o.orderType}</span>
+                      </div>
+                      <div className="text-xs text-stone-500 font-medium truncate mt-0.5">
+                        {o.customerName || 'Walk-in'} — ₹{o.grandTotal}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-bold border-sky-300 text-sky-700 bg-sky-50">
+                      Delivered
+                    </Badge>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         {view === 'pipeline' ? (
-          /* ── Pipeline: four live lanes, oldest first ─────────────────── */
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          /* ── Pipeline: 3 Active Live Lanes (New, Preparing, Ready) ─────────────── */
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5">
             {LANES.map((lane) => {
               const laneList = laneOrders[lane.status] || [];
               return (
                 <div key={lane.status} className="flex flex-col min-w-0">
                   {/* Lane header */}
-                  <div className={cn('mb-3 flex items-center justify-between rounded-xl border px-3 py-2', lane.header)}>
-                    <div className="flex items-center gap-2 text-xs font-black">
+                  <div className={cn('mb-3 flex items-center justify-between rounded-2xl border px-4 py-3 shadow-xs', lane.header)}>
+                    <div className="flex items-center gap-2 text-sm font-black tracking-tight">
                       {lane.icon}
                       <span>{lane.label}</span>
                     </div>
-                    <span className="rounded-full bg-stone-900 px-2 py-0.5 text-xs font-extrabold text-white dark:bg-white dark:text-stone-900 tabular-nums">
+                    <span className="rounded-full bg-white text-stone-900 px-3 py-0.5 text-xs font-black tabular-nums border border-stone-200 dark:bg-stone-900 dark:text-white dark:border-stone-800">
                       {laneList.length}
                     </span>
                   </div>
 
                   {/* Lane body */}
-                  <div className="space-y-3">
+                  <div className="space-y-3.5 flex-1 min-h-[400px]">
                     {laneList.length === 0 ? (
-                      <div className="rounded-xl border-2 border-dashed border-stone-200 px-4 py-6 text-center text-xs font-bold text-stone-400 dark:border-stone-800 dark:text-stone-600">
+                      <div className="rounded-2xl border-2 border-dashed border-stone-200 bg-white/60 px-4 py-12 text-center text-xs font-bold text-stone-400 dark:border-stone-800 dark:bg-stone-900/40">
                         No {lane.label.toLowerCase()} right now
                       </div>
                     ) : (
                       laneList.map((o) => {
-                        const next = nextStatus[statusOf(o)];
+                        const currentSt = statusOf(o);
+                        const next = nextStatus[currentSt];
                         const placed = o.createdAt || o.orderTime || o.orderDate;
+
                         return (
                           <div
                             key={o.id}
                             className={cn(
-                              'cursor-pointer rounded-2xl border border-stone-200/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.02)] transition-all hover:border-stone-300 hover:shadow-md dark:border-[#2C2C2E]/60 dark:bg-[#1C1C1E]/70 dark:hover:border-stone-700',
-                              lane.muted && 'opacity-60 hover:opacity-90',
-                              lane.status === 'pending' && 'border-t-2 border-t-amber-500',
-                              lane.status === 'preparing' && 'border-t-2 border-t-orange-500',
-                              lane.status === 'ready' && 'border-t-2 border-t-emerald-500',
-                              lane.status === 'delivered' && 'border-t-2 border-t-sky-500'
+                              'cursor-pointer rounded-2xl border bg-white p-4 shadow-sm transition-all hover:border-stone-300 hover:shadow-md dark:border-stone-800 dark:bg-[#1C1C1E] dark:hover:border-stone-700',
+                              currentSt === 'pending' && 'border-sky-300 shadow-sky-500/5',
+                              currentSt === 'preparing' && 'border-amber-300 shadow-amber-500/5',
+                              currentSt === 'ready' && 'border-emerald-300 shadow-emerald-500/5'
                             )}
                             onClick={() => setSelectedOrder(o)}
                           >
-                            <div className="space-y-2.5 p-3.5">
+                            <div className="space-y-3">
+                              {/* Top Bar */}
                               <div className="flex items-center justify-between gap-2">
-                                <span className="font-black text-xs text-stone-900 dark:text-stone-100 truncate">
+                                <span className="font-black text-sm text-stone-900 dark:text-stone-100 truncate">
                                   {o.id}
                                 </span>
                                 <ElapsedTime placedAt={placed} />
                               </div>
 
-                              <div className="flex items-center justify-between gap-2 text-[11px] font-bold text-stone-500 dark:text-stone-400">
-                                <span className="truncate">{o.customerName || 'Walk-in'}</span>
-                                <span className="shrink-0 uppercase text-[9px] font-black text-stone-400">
-                                  {o.orderType}{o.tableNumber ? ` · T${o.tableNumber}` : ''}
-                                </span>
+                              {/* Customer & Type */}
+                              <div className="flex items-center justify-between gap-2 text-xs font-bold text-stone-600 dark:text-stone-400">
+                                <span className="truncate">{o.customerName || 'Walk-in Guest'}</span>
+                                <Badge variant="outline" className="shrink-0 uppercase text-[10px] font-black border-stone-200 bg-stone-50 dark:bg-stone-800 text-stone-700 dark:text-stone-300">
+                                  {o.orderType}{o.tableNumber ? ` · T#${o.tableNumber}` : ''}
+                                </Badge>
                               </div>
 
-                              <div className="space-y-1">
+                              {/* Items Checklist / Snippet */}
+                              <div className="space-y-1.5 py-1 border-y border-stone-100 dark:border-stone-800">
                                 {(o.items || []).slice(0, 3).map((it, idx) => (
                                   <div key={idx} className="flex items-center justify-between gap-2 text-xs">
-                                    <span className="min-w-0 truncate font-semibold text-stone-700 dark:text-stone-300">
+                                    <span className="min-w-0 truncate font-semibold text-stone-800 dark:text-stone-200">
                                       {it.name}
                                     </span>
-                                    <span className="shrink-0 rounded-md bg-stone-100 px-1.5 py-0.5 text-[10px] font-black tabular-nums text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+                                    <span className="shrink-0 rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-black tabular-nums text-stone-700 dark:bg-stone-800 dark:text-stone-300">
                                       x{it.quantity}
                                     </span>
                                   </div>
@@ -371,30 +452,47 @@ export default function OrdersPage() {
                                 )}
                               </div>
 
-                              <div className="flex items-center justify-between gap-2 border-t border-stone-100 pt-2.5 dark:border-[#2C2C2E]/60">
+                              {/* Total & Action Buttons */}
+                              <div className="flex items-center justify-between gap-2">
                                 <span className="font-black text-sm text-amber-700 dark:text-amber-500 tabular-nums">
                                   ₹{o.grandTotal}
                                 </span>
-                                <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-wider text-stone-400">
+                                <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-stone-400">
                                   <Eye className="size-3" /> Details
                                 </span>
                               </div>
 
-                              {next && (
-                                <Button
-                                  size="sm"
-                                  onClick={(e) => { e.stopPropagation(); handleAdvanceStatus(o); }}
-                                  className={cn(
-                                    'w-full h-9 text-xs font-extrabold rounded-xl',
-                                    lane.status === 'pending' && 'bg-amber-600 hover:bg-amber-700 text-white',
-                                    lane.status === 'preparing' && 'bg-orange-600 hover:bg-orange-700 text-white',
-                                    lane.status === 'ready' && 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                  )}
-                                >
-                                  {lane.cta}
-                                  <ArrowRight className="size-3.5 ml-1.5" />
-                                </Button>
-                              )}
+                              {/* Action Option Buttons */}
+                              <div className="flex items-center gap-2 pt-1">
+                                {next && (
+                                  <Button
+                                    size="sm"
+                                    onClick={(e) => { e.stopPropagation(); handleUpdateStatus(o.id, next); }}
+                                    className={cn(
+                                      'flex-1 h-9 text-xs font-black rounded-xl shadow-xs transition-all',
+                                      currentSt === 'pending' && 'bg-sky-600 hover:bg-sky-700 text-white',
+                                      currentSt === 'preparing' && 'bg-amber-600 hover:bg-amber-700 text-white',
+                                      currentSt === 'ready' && 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                    )}
+                                  >
+                                    {lane.cta}
+                                    <ArrowRight className="size-3.5 ml-1.5" />
+                                  </Button>
+                                )}
+
+                                {/* Direct Option: Mark Delivered Button */}
+                                {currentSt !== 'ready' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={(e) => { e.stopPropagation(); handleUpdateStatus(o.id, 'delivered'); }}
+                                    className="h-9 px-2.5 text-xs font-extrabold rounded-xl border-sky-300 text-sky-700 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-400"
+                                    title="Mark Delivered Directly"
+                                  >
+                                    <Truck className="size-3.5 mr-1" /> Deliver
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         );
@@ -466,10 +564,20 @@ export default function OrdersPage() {
                     {nextStatus[statusOf(o)] && (
                       <Button
                         size="sm"
-                        onClick={() => handleAdvanceStatus(o)}
+                        onClick={() => handleUpdateStatus(o.id, nextStatus[statusOf(o)]!)}
                         className="h-7 px-2.5 text-[10px] font-bold flex-1 bg-amber-600 hover:bg-amber-700 text-white"
                       >
                         Mark {nextStatus[statusOf(o)]}
+                      </Button>
+                    )}
+                    {statusOf(o) !== 'delivered' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleUpdateStatus(o.id, 'delivered')}
+                        className="h-7 px-2.5 text-[10px] font-bold border-sky-300 text-sky-700"
+                      >
+                        Deliver
                       </Button>
                     )}
                   </div>
@@ -530,14 +638,33 @@ export default function OrdersPage() {
               </div>
             </div>
 
-            <DialogFooter className="p-4 bg-stone-50/30 dark:bg-[#1C1C1E]/50 border-t border-stone-100 dark:border-[#2C2C2E]/60">
-              {nextStatus[statusOf(selectedOrder)] && (
+            {/* Direct Status Option Buttons in Dialog */}
+            <DialogFooter className="p-4 bg-stone-50/30 dark:bg-[#1C1C1E]/50 border-t border-stone-100 dark:border-[#2C2C2E]/60 flex flex-wrap gap-2 justify-end">
+              {statusOf(selectedOrder) !== 'preparing' && statusOf(selectedOrder) !== 'delivered' && (
                 <Button
-                  onClick={() => handleAdvanceStatus(selectedOrder)}
-                  className="w-full bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-2xl h-11 shadow-sm"
+                  size="sm"
+                  onClick={() => handleUpdateStatus(selectedOrder.id, 'preparing')}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl text-xs h-9"
                 >
-                  Advance to {nextStatus[statusOf(selectedOrder)]}
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  Mark Preparing
+                </Button>
+              )}
+              {statusOf(selectedOrder) !== 'ready' && statusOf(selectedOrder) !== 'delivered' && (
+                <Button
+                  size="sm"
+                  onClick={() => handleUpdateStatus(selectedOrder.id, 'ready')}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs h-9"
+                >
+                  Mark Ready
+                </Button>
+              )}
+              {statusOf(selectedOrder) !== 'delivered' && (
+                <Button
+                  size="sm"
+                  onClick={() => handleUpdateStatus(selectedOrder.id, 'delivered')}
+                  className="bg-sky-600 hover:bg-sky-700 text-white font-extrabold rounded-xl text-xs h-9"
+                >
+                  <Truck className="size-3.5 mr-1" /> Mark Delivered
                 </Button>
               )}
             </DialogFooter>
