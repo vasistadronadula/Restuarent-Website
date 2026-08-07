@@ -28,36 +28,41 @@ export default function ThermalReceiptModal({ order, open, onClose, isAutoPrinte
       {open && <PrintBillPortal order={order} invoiceNo={invoiceNo} />}
 
       <Dialog open={open} onOpenChange={(val) => { if (!val) onClose(); }}>
-        <DialogContent className="max-w-xs p-0 overflow-hidden rounded-2xl bg-white dark:bg-stone-900 border-none shadow-2xl">
-          <DialogHeader className="bg-stone-900 text-white p-4 pr-12">
-            <div className="flex items-center gap-2">
-              <Printer className="w-5 h-5 text-amber-500" />
-              <DialogTitle className="text-white font-black text-sm">
-                {isAutoPrinted ? 'New order — receipt' : 'Bill preview'}
-              </DialogTitle>
+        <DialogContent className="max-w-sm sm:max-w-md p-0 overflow-hidden rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xl">
+          <DialogHeader className="bg-gradient-to-r from-stone-900 via-stone-850 to-amber-950 text-white p-5 sm:p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                <Printer className="w-5 h-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-white font-black text-base sm:text-lg">
+                  {isAutoPrinted ? 'New Order Receipt' : 'Bill Preview'}
+                </DialogTitle>
+                <p className="text-xs text-stone-300 font-medium">80mm Thermal POS Print Format</p>
+              </div>
             </div>
           </DialogHeader>
 
-          <div className="p-4 bg-stone-50 dark:bg-stone-950/40">
+          <div className="p-5 sm:p-6 bg-stone-50 dark:bg-stone-950/40">
             {isAutoPrinted && (
-              <div className="mb-3 p-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+              <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center gap-2.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                <span>New order received — printing receipt</span>
+                <span>New order received — thermal receipt printed automatically</span>
               </div>
             )}
 
-            <div className="bg-white dark:bg-stone-900 border border-dashed border-stone-300 dark:border-stone-700 rounded-lg py-2 overflow-x-auto">
+            <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-700 rounded-2xl p-4 shadow-sm overflow-x-auto max-h-96">
               <ThermalBill order={order} invoiceNo={invoiceNo} />
             </div>
           </div>
 
-          <DialogFooter className="p-3 bg-stone-100 dark:bg-stone-800/40 border-t border-stone-200 dark:border-stone-800 flex flex-row gap-2">
-            <Button variant="outline" onClick={onClose} className="flex-1 font-bold text-xs h-10 rounded-xl">
+          <DialogFooter className="p-4 sm:p-5 bg-stone-100/80 dark:bg-stone-800/40 border-t border-stone-200 dark:border-stone-800 flex flex-row gap-3">
+            <Button variant="outline" onClick={onClose} className="flex-1 font-bold text-xs h-11 rounded-2xl">
               Close
             </Button>
-            <Button onClick={handlePrint} className="flex-1 font-black text-xs h-10 rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md">
-              <Printer className="w-3.5 h-3.5 mr-1.5" />
-              Print 80mm bill
+            <Button onClick={handlePrint} className="flex-1 font-black text-xs h-11 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white shadow-md">
+              <Printer className="w-4 h-4 mr-2" />
+              Print Bill
             </Button>
           </DialogFooter>
         </DialogContent>

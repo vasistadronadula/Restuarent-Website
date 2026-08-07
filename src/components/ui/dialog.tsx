@@ -45,10 +45,8 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          'bg-card fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border p-6 shadow-2xl duration-200',
-          // A tall dialog on a short phone must scroll inside itself rather
-          // than pushing its own footer past the bottom of the viewport.
-          'max-h-[calc(100dvh-2rem)] overflow-y-auto',
+          'bg-card fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-5 rounded-3xl border border-stone-200/90 dark:border-stone-800 p-6 sm:p-8 shadow-2xl duration-200',
+          'max-h-[calc(100dvh-2.5rem)] overflow-y-auto',
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
           className
         )}
@@ -58,7 +56,7 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            className="ring-offset-background focus-visible:ring-ring absolute top-4 right-4 z-20 grid size-9 place-items-center rounded-lg opacity-70 transition-opacity hover:opacity-100 hover:bg-muted focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none"
+            className="ring-offset-background focus-visible:ring-ring absolute top-4 right-4 z-20 grid size-9 place-items-center rounded-full bg-stone-100 dark:bg-stone-800 text-stone-500 dark:text-stone-400 opacity-80 transition-all hover:opacity-100 hover:bg-stone-200 dark:hover:bg-stone-700 hover:text-stone-900 dark:hover:text-stone-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none"
           >
             <X className="size-4" />
             <span className="sr-only">Close</span>

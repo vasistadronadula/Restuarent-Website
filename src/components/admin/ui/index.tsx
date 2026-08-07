@@ -13,13 +13,13 @@ export function PageHeader({
   title, subtitle, action,
 }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-      <div>
-        <h1 className="text-lg sm:text-xl font-black text-stone-850 dark:text-white tracking-tight leading-none">
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="space-y-1">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-stone-900 dark:text-white tracking-tight leading-tight">
           {title}
         </h1>
         {subtitle && (
-          <p className="text-[11px] font-semibold text-stone-400 dark:text-stone-500 mt-1 max-w-xl">
+          <p className="text-xs sm:text-sm font-semibold text-stone-500 dark:text-stone-400 max-w-2xl leading-relaxed">
             {subtitle}
           </p>
         )}
@@ -36,31 +36,31 @@ export function StatCard({
   accent?: string; trend?: { label: string; up: boolean } | null; href?: string;
 }) {
   const inner = (
-    <div className={`p-4 sm:p-4.5 rounded-2xl border border-stone-200/60 dark:border-[#2C2C2E]/60 bg-white dark:bg-[#1C1C1E]/80 shadow-xs dark:shadow-none h-full flex flex-col justify-between transition-all duration-150 ${href ? 'hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-sm cursor-pointer' : ''}`}>
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <div className="flex items-center gap-2.5 min-w-0">
+    <div className={`p-5 sm:p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-[#1C1C1E] shadow-sm dark:shadow-none h-full flex flex-col justify-between transition-all duration-200 ${href ? 'hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md hover:-translate-y-0.5 cursor-pointer' : ''}`}>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-3 min-w-0">
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-sm font-bold shadow-2xs"
-            style={{ backgroundColor: `${accent}15`, color: accent }}
+            className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 text-base font-bold shadow-xs"
+            style={{ backgroundColor: `${accent}18`, color: accent }}
           >
-            <div className="w-4 h-4 flex items-center justify-center">{icon}</div>
+            <div className="w-5 h-5 flex items-center justify-center">{icon}</div>
           </div>
-          <span className="text-[11px] font-black uppercase tracking-wider text-stone-500 dark:text-stone-400 truncate">
+          <span className="text-xs font-black uppercase tracking-wider text-stone-600 dark:text-stone-400 truncate">
             {label}
           </span>
         </div>
         {trend && (
-          <Badge className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border-none ${trend.up ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'}`}>
+          <Badge className={`text-[10px] font-extrabold px-2 py-0.5 rounded-lg border-none ${trend.up ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-rose-500/15 text-rose-700 dark:text-rose-400'}`}>
             {trend.label}
           </Badge>
         )}
       </div>
       <div className="min-w-0 pt-1">
-        <div className="text-xl sm:text-2xl font-black text-stone-900 dark:text-white leading-tight tracking-tight">
+        <div className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-white leading-tight tracking-tight">
           {value}
         </div>
         {sub && (
-          <div className="text-[11px] font-medium text-stone-400 dark:text-stone-500 mt-1 truncate">
+          <div className="text-xs font-semibold text-stone-500 dark:text-stone-400 mt-1.5 truncate">
             {sub}
           </div>
         )}
@@ -78,7 +78,7 @@ export function SectionCard({
   children, noPadding = false, className = '',
 }: { children: React.ReactNode; noPadding?: boolean; className?: string }) {
   return (
-    <div className={`rounded-2xl border border-stone-200/60 dark:border-[#2C2C2E]/60 bg-white dark:bg-[#1C1C1E]/80 shadow-xs dark:shadow-none overflow-hidden ${noPadding ? '' : 'p-4 sm:p-5'} ${className}`}>
+    <div className={`rounded-3xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-[#1C1C1E] shadow-sm dark:shadow-none overflow-hidden ${noPadding ? '' : 'p-6 sm:p-8'} ${className}`}>
       {children}
     </div>
   );
@@ -88,13 +88,13 @@ export function SectionHeading({
   title, subtitle, action,
 }: { title: React.ReactNode; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex justify-between items-start gap-3 mb-4 flex-wrap">
-      <div className="min-w-0">
-        <h3 className="text-sm sm:text-base font-extrabold text-stone-900 dark:text-stone-100">
+    <div className="flex justify-between items-start gap-4 mb-5 flex-wrap">
+      <div className="min-w-0 space-y-0.5">
+        <h3 className="text-base sm:text-lg font-black text-stone-900 dark:text-stone-100 tracking-tight">
           {title}
         </h3>
         {subtitle && (
-          <p className="text-xs text-stone-500 dark:text-stone-400 mt-0.5 font-medium">{subtitle}</p>
+          <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 font-medium">{subtitle}</p>
         )}
       </div>
       {action}
