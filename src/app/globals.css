@@ -1,10 +1,12 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Class-based dark mode. `next-themes` stamps `class="dark"` on <html>, so the
-   variant has to key off an ancestor class rather than the OS preference —
-   otherwise the in-app toggle could never override the system setting. */
-@custom-variant dark (&:is(.dark *));
+/* Light mode only. Dark mode has been removed from the app — the theme toggle
+   and the `.dark` class are gone — so the `dark:` variant is pinned to a
+   selector that can never match. It stays defined solely so the many existing
+   `dark:` utilities through the codebase remain valid Tailwind and compile to
+   inert CSS instead of failing the build. */
+@custom-variant dark (&:is(.never-dark *) );
 
 /* ============================================================ */
 /* Design tokens                                                */
