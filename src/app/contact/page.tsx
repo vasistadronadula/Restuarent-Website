@@ -4,6 +4,7 @@ import React from 'react';
 import { Clock, ExternalLink, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
+import { Container } from '@/components/customer/Container';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -39,7 +40,7 @@ export default function ContactPage() {
 
       {/* Main Container - Full Width */}
       <section className="w-full bg-orange-50/40 dark:bg-zinc-900/40 py-10 md:py-16">
-        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none">
+        <Container>
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
             
             {/* Left Column – Contact Info + Map */}
@@ -190,7 +191,7 @@ export default function ContactPage() {
             </div>
 
           </div>
-        </div>
+        </Container>
       </section>
 
       <Footer />

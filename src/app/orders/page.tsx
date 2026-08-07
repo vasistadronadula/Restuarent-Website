@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { cn, formatCurrency } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
+import { Container } from '@/components/customer/Container';
 import PrintBillButton from '@/components/bill/PrintBillButton';
 import { generateInvoiceNo } from '@/lib/idGenerator';
 import { useAdmin } from '@/context/AdminContext';
@@ -115,7 +116,7 @@ export default function OrderHistoryPage() {
       <Navbar />
 
       <main className="min-h-screen py-4 md:py-5">
-        <div className="mx-auto w-full max-w-none px-4 sm:px-8 md:px-12">
+        <Container>
           <header className="mb-3">
             <h1 className="font-display flex items-center gap-2 text-xl font-black tracking-tight md:text-2xl">
               <ReceiptText className="text-primary size-6" />
@@ -205,7 +206,7 @@ export default function OrderHistoryPage() {
               ))}
             </ul>
           )}
-        </div>
+        </Container>
       </main>
 
       <Footer />

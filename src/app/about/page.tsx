@@ -4,6 +4,7 @@ import React from 'react';
 import { Award, Star, Trophy } from 'lucide-react';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
+import { Container } from '@/components/customer/Container';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -48,7 +49,7 @@ export default function AboutPage() {
           className="absolute inset-0 size-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/75 to-red-950/60" />
-        <div className="relative z-10 w-full px-4 sm:px-8 md:px-12 max-w-none">
+        <Container className="relative z-10">
           <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-2.5 py-0.5 text-[11px] mb-2 shadow-md">
             🏛️ Est. 1998 • Hyderabad
           </Badge>
@@ -58,12 +59,12 @@ export default function AboutPage() {
           <p className="text-xs md:text-sm text-white/85 max-w-xl font-normal leading-relaxed">
             From a humble dream to Hyderabad&apos;s most-loved restaurant — Pala Pitta Ruchulu has been serving authentic Indian flavours since 1998.
           </p>
-        </div>
+        </Container>
       </section>
 
       {/* Story Section - Full Width Container */}
       <section className="w-full bg-orange-50/50 dark:bg-zinc-900/50 py-12 md:py-20 border-b">
-        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none">
+        <Container>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center">
             <div>
               <Badge variant="outline" className="border-primary/30 text-primary font-bold px-3 py-1 mb-4 bg-primary/5">
@@ -106,12 +107,12 @@ export default function AboutPage() {
               </Card>
             </div>
           </div>
-        </div>
+        </Container>
       </section>
 
       {/* Core Values - Full Width Grid */}
       <section className="w-full py-12 md:py-20 bg-background border-b">
-        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none text-center">
+        <Container className="text-center">
           <h2 className="text-2xl md:text-4xl font-extrabold text-foreground mb-3">
             Our <span className="bg-gradient-to-r from-red-600 to-amber-600 bg-clip-text text-transparent">Core Values</span>
           </h2>
@@ -130,12 +131,12 @@ export default function AboutPage() {
               </Card>
             ))}
           </div>
-        </div>
+        </Container>
       </section>
 
       {/* Milestones Timeline */}
       <section className="w-full py-12 md:py-20 bg-orange-50/40 dark:bg-zinc-900/40 border-b">
-        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none">
+        <Container>
           <h2 className="text-2xl md:text-4xl font-extrabold text-foreground text-center mb-12">
             Our <span className="bg-gradient-to-r from-red-600 to-amber-600 bg-clip-text text-transparent">Milestones</span>
           </h2>
@@ -160,12 +161,12 @@ export default function AboutPage() {
               </div>
             ))}
           </div>
-        </div>
+        </Container>
       </section>
 
       {/* Awards Section */}
       <section className="w-full py-12 md:py-20 bg-background">
-        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none text-center">
+        <Container className="text-center">
           <h2 className="text-2xl md:text-4xl font-extrabold text-foreground mb-12">
             Awards & <span className="bg-gradient-to-r from-red-600 to-amber-600 bg-clip-text text-transparent">Recognition</span>
           </h2>
@@ -184,7 +185,7 @@ export default function AboutPage() {
               </Card>
             ))}
           </div>
-        </div>
+        </Container>
       </section>
 
       <Footer />

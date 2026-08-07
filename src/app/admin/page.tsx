@@ -125,7 +125,9 @@ const LAUNCHPAD_PAGES = [
     color: 'from-neutral-500 to-neutral-600 dark:from-neutral-600 dark:to-neutral-700',
     description: 'Manage personal login account details, avatar, and staff notifications',
   },
-];export default function AdminDashboard() {
+];
+
+export default function AdminDashboard() {
   const { orders, reservations, inventory, employees } = useAdmin();
   const { user, userRole } = useAuth();
 

@@ -8,6 +8,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
+import { Container } from '@/components/customer/Container';
 import MenuCard from '@/components/customer/MenuCard';
 import DishListItem from '@/components/customer/DishListItem';
 import { categoryLabels } from '@/data/menuData';
@@ -208,7 +209,7 @@ function MenuBrowser() {
       </section>
 
       <main className="min-h-[60vh] py-6 md:py-10">
-        <div className="mx-auto w-full max-w-none px-4 sm:px-8 md:px-12">
+        <Container>
           {/* ─── Category rail ───────────────────────────────────────── */}
           <div
             role="tablist"
@@ -357,7 +358,7 @@ function MenuBrowser() {
               ))}
             </div>
           )}
-        </div>
+        </Container>
       </main>
 
       <Footer />

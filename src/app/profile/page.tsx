@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
+import { Container } from '@/components/customer/Container';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -199,7 +200,7 @@ export default function CustomerProfilePage() {
   return (
     <PageFrame>
       <div className="flex-1 w-full bg-orange-50/40 dark:bg-zinc-900/40 py-4 md:py-6">
-        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none space-y-4">
+        <Container className="space-y-4">
 
           {/* Banner - Full Width Card */}
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1A0606] via-[#370C0C] to-[#150404] p-4 md:p-5 text-white shadow-lg">
@@ -376,7 +377,7 @@ export default function CustomerProfilePage() {
             </div>
           </div>
 
-        </div>
+        </Container>
       </div>
     </PageFrame>
   );

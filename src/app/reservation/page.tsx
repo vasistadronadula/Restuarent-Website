@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
+import { Container } from '@/components/customer/Container';
 import toast from 'react-hot-toast';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
@@ -183,7 +184,7 @@ export default function ReservationPage() {
 
       {/* Main Container - Full Width */}
       <section className="w-full bg-orange-50/40 dark:bg-zinc-900/40 py-8 md:py-14 flex-1">
-        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none space-y-6">
+        <Container className="space-y-6">
 
           {/* Stepper */}
           <div className="flex items-center justify-between relative max-w-xl mx-auto px-4 mb-8">
@@ -505,7 +506,7 @@ export default function ReservationPage() {
             ))}
           </div>
 
-        </div>
+        </Container>
       </section>
 
       {/* Success Modal */}

@@ -9,6 +9,7 @@ import { restaurantInfo } from '@/data/restaurantInfo';
 import { useCartStore } from '@/store/useCartStore';
 import { Separator } from '@/components/ui/separator';
 import PalaPittaLogo from './PalaPittaLogo';
+import { Container } from './Container';
 
 const QUICK_LINKS = [
   { label: 'Home', href: '/' },
@@ -69,7 +70,7 @@ export default function Footer() {
       // floating cart bar that used to sit above it is gone.
       style={{ paddingBottom: 'calc(1.5rem + var(--ppr-bottom-nav-h, 0px))' }}
     >
-      <div className="mx-auto w-full max-w-6xl px-5 sm:px-6 md:px-8">
+      <Container>
         <div className="grid gap-10 md:grid-cols-12 md:gap-8">
           {/* Brand */}
           <div className="md:col-span-4">
@@ -171,7 +172,7 @@ export default function Footer() {
             ))}
           </nav>
         </div>
-      </div>
+      </Container>
     </footer>
   );
 }

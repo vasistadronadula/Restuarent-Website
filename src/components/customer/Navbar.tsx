@@ -18,6 +18,7 @@ import { ROLE_LABELS, ROLE_ICONS, getRoleHome, isStaffRole, getRoleDashboardLabe
 import { accountDisplayName, accountIdentityLabel } from '@/lib/phoneIdentity';
 import { restaurantInfo } from '@/data/restaurantInfo';
 import PalaPittaLogo from './PalaPittaLogo';
+import { Container } from './Container';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -127,7 +128,7 @@ export default function Navbar() {
             : 'bg-white/95 dark:bg-stone-950/95 backdrop-blur-md border-stone-200/50 dark:border-stone-905'
         )}
       >
-        <div className="mx-auto flex h-13 md:h-14 w-full max-w-none items-center justify-between px-4 sm:px-8 md:px-12">
+        <Container className="flex h-13 md:h-14 items-center justify-between">
           {/* Logo & Home Link */}
           <div className="flex items-center gap-4">
             <Link href="/" aria-label={`${restaurantInfo.name} — Home`} className="flex items-center shrink-0">
@@ -345,7 +346,7 @@ export default function Navbar() {
               </SheetContent>
             </Sheet>
           </div>
-        </div>
+        </Container>
       </header>
 
       {cartEverOpened && <CartDrawer />}

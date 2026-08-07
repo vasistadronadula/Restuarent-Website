@@ -7,6 +7,7 @@ import { ArrowRight, Clock, Plus, ShoppingCart, Sparkles, Trash2 } from 'lucide-
 import { formatCurrency, FALLBACK_DISH_IMAGE } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
+import { Container } from '@/components/customer/Container';
 import { BillSummary } from '@/components/customer/BillSummary';
 import { CartLineItem } from '@/components/customer/CartLineItem';
 import { CouponField } from '@/components/customer/CouponField';
@@ -157,7 +158,7 @@ export default function CartPage() {
       <Navbar />
 
       <main className="min-h-[85vh] py-4 md:py-5">
-        <div className="mx-auto w-full max-w-none px-4 sm:px-8 md:px-12">
+        <Container>
           <header className="mb-3">
             <h1 className="font-display text-xl font-black tracking-tight md:text-2xl">
               Your Cart
@@ -238,7 +239,7 @@ export default function CartPage() {
               </CardContent>
             </Card>
           </div>
-        </div>
+        </Container>
       </main>
 
       <Footer />
