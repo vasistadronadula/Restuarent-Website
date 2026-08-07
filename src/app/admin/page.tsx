@@ -206,42 +206,6 @@ const LAUNCHPAD_PAGES = [
           }
         />
 
-        {/* Quick stats — glanceable at-a-glance numbers */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatCard
-            icon={<TrendingUp className="w-4 h-4" />}
-            label="Today's Revenue"
-            value={money(stats.todayRevenue)}
-            sub={`${stats.todayOrders} orders today`}
-            accent="#c62828"
-            href="/admin/reports"
-          />
-          <StatCard
-            icon={<ClipboardList className="w-4 h-4" />}
-            label="Active Orders"
-            value={stats.pendingOrders}
-            sub="Awaiting kitchen / dispatch"
-            accent="#d97706"
-            href="/admin/orders"
-          />
-          <StatCard
-            icon={<CalendarDays className="w-4 h-4" />}
-            label="Today's Bookings"
-            value={stats.todayBookings}
-            sub="Confirmed reservations"
-            accent="#10b981"
-            href="/admin/reservations"
-          />
-          <StatCard
-            icon={<Package className="w-4 h-4" />}
-            label="Low Stock Items"
-            value={stats.lowStock}
-            sub="Below minimum threshold"
-            accent="#f59e0b"
-            href="/admin/inventory"
-          />
-        </div>
-
         {/* 2. App Launcher Grid */}
         <div className="space-y-3">
           <SectionHeading
