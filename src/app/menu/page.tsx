@@ -168,22 +168,22 @@ function MenuBrowser() {
       <Navbar />
 
       {/* ─── Hero ──────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-linear-to-br from-primary via-[#8E0000] to-[#1A0A0A] py-8 text-center text-white md:py-12">
+      <section className="relative overflow-hidden bg-linear-to-br from-primary via-[#8E0000] to-[#1A0A0A] py-4 text-center text-white md:py-5">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -top-20 -right-16 size-64 rounded-full bg-accent/15 blur-3xl"
         />
-        <div className="relative mx-auto w-full max-w-3xl px-5">
-          <h1 className="font-display text-3xl font-black tracking-tight md:text-5xl">
+        <div className="relative mx-auto w-full max-w-2xl px-4">
+          <h1 className="font-display text-xl font-black tracking-tight sm:text-2xl md:text-3xl">
             Our Menu
           </h1>
-          <p className="mt-2 text-sm text-white/75 md:text-base">
+          <p className="mt-1 text-xs text-white/80 md:text-sm">
             Telangana, Andhra and Hyderabadi cooking — {liveMenuItems.length} dishes, made to order.
           </p>
 
-          <div className="relative mt-6">
+          <div className="relative mt-3 max-w-xl mx-auto">
             <Search
-              className="pointer-events-none absolute top-1/2 left-4 size-5 -translate-y-1/2 text-neutral-500"
+              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-neutral-500"
               aria-hidden="true"
             />
             <Input
@@ -191,16 +191,16 @@ function MenuBrowser() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search dishes, ingredients or tags…"
               aria-label="Search the menu"
-              className="h-13 rounded-full border-transparent bg-white pr-12 pl-12 text-base text-neutral-900 shadow-xl placeholder:text-neutral-500"
+              className="h-10 rounded-full border-transparent bg-white pr-10 pl-10 text-xs sm:text-sm text-neutral-900 shadow-md placeholder:text-neutral-500"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
                 aria-label="Clear search"
-                className="absolute top-1/2 right-3 grid size-8 -translate-y-1/2 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100"
+                className="absolute top-1/2 right-2.5 grid size-7 -translate-y-1/2 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100"
               >
-                <X className="size-4" />
+                <X className="size-3.5" />
               </button>
             )}
           </div>

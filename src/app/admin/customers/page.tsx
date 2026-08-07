@@ -112,7 +112,7 @@ export default function CustomersPage() {
           subtitle="Diner spend history, VIP status, and order tracking"
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           <StatCard
             icon={<Users className="w-5 h-5" />}
             label="Total Diners"
@@ -142,9 +142,50 @@ export default function CustomersPage() {
             data={customers}
             searchKey="name"
             searchPlaceholder="Search customer name or phone..."
-            height="550px"
+            height="480px"
             rowHeight={60}
             enableVirtualization={true}
+            getRowId={(c) => c.phone || c.id}
+            renderMobileCard={(c) => (
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <Avatar className="w-9 h-9 border border-amber-500/30 flex-shrink-0">
+                    <AvatarFallback className="bg-amber-600 text-white font-black text-xs">
+                      {c.name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <div className="font-extrabold text-xs text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                      <span className="truncate">{c.name}</span>
+                      {c.isVip && (
+                        <Badge className="bg-amber-500 text-white font-extrabold text-[9px] px-1.5 py-0 flex-shrink-0">
+                          VIP
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-stone-400 font-medium mt-0.5 truncate">
+                      {c.phone}{c.email ? ` · ${c.email}` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                  <span className="font-black text-amber-700 dark:text-amber-500 text-xs tabular">
+                    ₹{c.totalSpent.toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-600">
+                    {c.totalOrders} orders · {c.loyaltyPoints || 0} pts
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelected(c)}
+                    className="h-7 px-2.5 text-[10px] font-bold mt-0.5"
+                  >
+                    <Eye className="w-3 h-3 mr-1" /> Profile
+                  </Button>
+                </div>
+              </div>
+            )}
           />
         </SectionCard>
       </div>
@@ -153,7 +194,7 @@ export default function CustomersPage() {
       <Dialog open={!!selected} onOpenChange={(val) => { if (!val) setSelected(null); }}>
         {selected && (
           <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl bg-white dark:bg-[#1C1C1E] border border-stone-200/50 dark:border-[#2C2C2E]/60 shadow-2xl">
-            <DialogHeader className="p-6 bg-white dark:bg-[#1C1C1E] text-stone-900 dark:text-white flex flex-row items-center justify-between border-b border-stone-100 dark:border-[#2C2C2E]/60">
+            <DialogHeader className="p-6 pr-14 bg-white dark:bg-[#1C1C1E] text-stone-900 dark:text-white border-b border-stone-100 dark:border-[#2C2C2E]/60">
               <div className="flex items-center gap-3">
                 <Avatar className="w-10 h-10 border border-amber-500/30">
                   <AvatarFallback className="bg-amber-600 text-white font-black text-xs">
@@ -167,9 +208,6 @@ export default function CustomersPage() {
                   <p className="text-[10px] text-stone-400 font-semibold mt-0.5">{selected.phone}</p>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setSelected(null)} className="text-stone-500 hover:bg-stone-100 dark:hover:bg-[#2C2C2E] rounded-xl">
-                <X className="w-5 h-5" />
-              </Button>
             </DialogHeader>
 
             <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">

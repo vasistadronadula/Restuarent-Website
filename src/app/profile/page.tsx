@@ -190,36 +190,36 @@ export default function CustomerProfilePage() {
 
   return (
     <PageFrame>
-      <div className="flex-1 w-full bg-orange-50/40 dark:bg-zinc-900/40 py-8 md:py-14">
-        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none space-y-6">
+      <div className="flex-1 w-full bg-orange-50/40 dark:bg-zinc-900/40 py-4 md:py-6">
+        <div className="w-full px-4 sm:px-8 md:px-12 max-w-none space-y-4">
 
           {/* Banner - Full Width Card */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#1A0606] via-[#370C0C] to-[#150404] p-6 md:p-10 text-white shadow-xl">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1A0606] via-[#370C0C] to-[#150404] p-4 md:p-5 text-white shadow-lg">
             <div className="pointer-events-none absolute -right-10 -top-20 size-72 rounded-full bg-amber-500/20 blur-3xl" />
 
-            <div className="relative z-10 flex flex-wrap items-center gap-4 md:gap-6">
-              <Avatar className="size-20 md:size-24 border-4 border-amber-400 shadow-md">
-                <AvatarFallback className="bg-primary text-white text-2xl md:text-3xl font-black">
+            <div className="relative z-10 flex flex-wrap items-center gap-3 md:gap-5">
+              <Avatar className="size-14 md:size-16 border-2 border-amber-400 shadow-md">
+                <AvatarFallback className="bg-primary text-white text-lg md:text-xl font-black">
                   {displayName.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
 
               <div className="flex-1 min-w-0">
-                <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
+                <h1 className="text-lg md:text-xl font-black tracking-tight text-white">
                   {displayName}
                 </h1>
-                <p className="text-xs md:text-sm text-white/70 truncate mt-0.5">
+                <p className="text-xs text-white/70 truncate mt-0.5">
                   {signInCredential}
                 </p>
 
-                <div className="flex flex-wrap items-center gap-2 mt-3">
-                  <Badge className="bg-amber-400/20 text-amber-300 border border-amber-400/40 font-bold px-2.5 py-1 text-xs gap-1">
-                    <Shield className="size-3.5" />
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  <Badge className="bg-amber-400/20 text-amber-300 border border-amber-400/40 font-bold px-2 py-0.5 text-[11px] gap-1">
+                    <Shield className="size-3" />
                     {userRole ? `${ROLE_ICONS[userRole] || ''} ${ROLE_LABELS[userRole]}` : '👤 Customer'}
                   </Badge>
 
                   {memberSince && (
-                    <Badge variant="outline" className="border-white/20 text-white/80 font-semibold px-2.5 py-1 text-xs">
+                    <Badge variant="outline" className="border-white/20 text-white/80 font-semibold px-2 py-0.5 text-[11px]">
                       Member since {memberSince}
                     </Badge>
                   )}

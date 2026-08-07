@@ -19,7 +19,7 @@ import {
   savedPaperWidth, savedPrinterName, setPaperWidth, type PaperWidth,
 } from '@/lib/thermalPrinter';
 import type { Category, MenuItem, Order } from '@/types';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -162,7 +162,7 @@ export default function PosPage() {
 
   return (
     <AdminLayout title="POS Cashier Terminal">
-      <div className="flex h-[calc(100vh-80px)] w-full max-w-full overflow-hidden text-stone-900 dark:text-stone-100">
+      <div className="flex h-[var(--admin-content-h)] w-full max-w-full overflow-hidden text-stone-900 dark:text-stone-100">
         {/* Left Catalog Area */}
         <div className="flex-1 flex flex-col min-w-0 bg-stone-100/60 dark:bg-stone-950 p-3 sm:p-4 gap-3 overflow-hidden">
           {/* Top Search & Filter Bar */}
@@ -317,7 +317,7 @@ export default function PosPage() {
 
         {/* Mobile Bill Bottom Sheet */}
         <Sheet open={mobileBillOpen} onOpenChange={setMobileBillOpen}>
-          <SheetContent side="bottom" className="p-0 h-[85vh] rounded-t-3xl border-none">
+          <SheetContent side="bottom" showCloseButton={false} className="p-0 h-[min(88dvh,720px)] rounded-t-3xl border-none">
             <BillPanel
               lines={lines}
               totals={totals}
@@ -348,7 +348,7 @@ export default function PosPage() {
 
         {/* Floating Cart Button on Phone */}
         {lines.length > 0 && (
-          <div className="md:hidden fixed bottom-4 left-4 right-4 z-30">
+          <div className="md:hidden fixed left-4 right-4 z-30 bottom-[max(1rem,env(safe-area-inset-bottom,0px))]">
             <Button
               onClick={() => setMobileBillOpen(true)}
               className="w-full h-14 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-2xl shadow-2xl flex justify-between px-5 text-base"

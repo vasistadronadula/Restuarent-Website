@@ -33,21 +33,21 @@ export function LegalPage({
     <>
       <Navbar />
 
-      <main className="min-h-screen py-8 md:py-12">
-        <div className="mx-auto w-full max-w-3xl px-5">
-          <header className="mb-6">
-            <Button asChild variant="ghost" size="sm" className="-ml-3 mb-2">
+      <main className="min-h-screen py-4 md:py-5">
+        <div className="mx-auto w-full max-w-3xl px-4 sm:px-5">
+          <header className="mb-3">
+            <Button asChild variant="ghost" size="sm" className="-ml-3 mb-1 text-xs">
               <Link href="/">
                 <ArrowLeft />
                 Back to Home
               </Link>
             </Button>
 
-            <h1 className="font-display text-primary flex items-center gap-3 text-3xl font-black tracking-tight md:text-4xl">
-              <Icon className="size-8 shrink-0" aria-hidden="true" />
+            <h1 className="font-display text-primary flex items-center gap-2 text-xl font-black tracking-tight md:text-2xl">
+              <Icon className="size-6 shrink-0" aria-hidden="true" />
               {title}
             </h1>
-            <p className="text-muted-foreground mt-2 text-sm">
+            <p className="text-muted-foreground mt-0.5 text-xs sm:text-sm">
               Pala Pitta Ruchulu · Effective {effectiveDate}
             </p>
           </header>

@@ -171,12 +171,12 @@ export default function ReservationPage() {
       <Navbar />
 
       {/* Hero Header - Full Width */}
-      <section className="relative w-full bg-gradient-to-br from-[#2D0000] via-[#4F0909] to-[#C62828] py-10 md:py-16 text-center text-white overflow-hidden px-6">
+      <section className="relative w-full bg-gradient-to-br from-[#2D0000] via-[#4F0909] to-[#C62828] py-4 md:py-5 text-center text-white overflow-hidden px-4 sm:px-6">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,152,0,0.15),transparent_70%)] pointer-events-none" />
-        <h1 className="text-3xl md:text-5xl font-black mb-3 tracking-tight relative z-10">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-black mb-1 tracking-tight relative z-10">
           📅 Reserve Your Table
         </h1>
-        <p className="text-sm md:text-base text-white/85 max-w-lg mx-auto font-medium leading-relaxed relative z-10">
+        <p className="text-xs md:text-sm text-white/80 max-w-md mx-auto font-medium relative z-10">
           Book your royal dining experience — choose your table and we&apos;ll hold it just for you.
         </p>
       </section>

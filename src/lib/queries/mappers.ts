@@ -50,6 +50,7 @@ export const normalizeCouponCode = (code: string) => code.toUpperCase().trim();
 // ─── Mappers ──────────────────────────────────────────────────────────────────
 
 export function mapOrder(o: any): Order {
+  const statusVal = (o.status || 'pending') as Order['status'];
   return {
     id: o.id,
     orderId: o.id,
@@ -64,7 +65,8 @@ export function mapOrder(o: any): Order {
     discount: Number(o.discount) || 0,
     deliveryCharge: Number(o.delivery_charge) || 0,
     grandTotal: Number(o.grand_total) || 0,
-    status: o.status || 'pending',
+    status: statusVal,
+    orderStatus: statusVal,
     paymentMode: o.payment_mode || 'cash',
     // 'unpaid', not 'pending' — 'pending' was never one of the app's
     // PaymentStatus values, so it rendered as an unknown state downstream.

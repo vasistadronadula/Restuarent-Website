@@ -130,7 +130,7 @@ export default function AdminHeader({ title }: Props) {
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-white/85 dark:bg-[#1C1C1E]/90 backdrop-blur-xl border-b border-stone-200/40 dark:border-[#2C2C2E]/60 transition-colors duration-300 shadow-[0_1px_3px_rgba(0,0,0,0.02)] dark:shadow-none">
-        <div className="mx-auto max-w-[1600px] h-14 flex items-center justify-between px-4 sm:px-6 md:px-8">
+        <div className="mx-auto max-w-[1600px] h-14 flex items-center justify-between px-3 sm:px-5 lg:px-8">
           
           {/* Left Side: Brand Logo & Navigation Breadcrumbs */}
           <div className="flex items-center gap-3 min-w-0">
@@ -233,7 +233,7 @@ export default function AdminHeader({ title }: Props) {
                 </button>
 
                 {notifOpen && (
-                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-[#1C1C1E] border border-stone-200/60 dark:border-[#2C2C2E] rounded-2xl shadow-xl dark:shadow-2xl dark:shadow-black/40 overflow-hidden z-50">
+                  <div className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] sm:w-80 bg-white dark:bg-[#1C1C1E] border border-stone-200/60 dark:border-[#2C2C2E] rounded-2xl shadow-xl dark:shadow-2xl dark:shadow-black/40 overflow-hidden z-50">
                     <div className="px-4 py-3 border-b border-stone-100 dark:border-[#2C2C2E] flex items-center justify-between bg-stone-50/50 dark:bg-[#1C1C1E]">
                       <span className="font-extrabold text-sm text-stone-800 dark:text-stone-200">Alerts</span>
                       {unreadCount > 0 && (

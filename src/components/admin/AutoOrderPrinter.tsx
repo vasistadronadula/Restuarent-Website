@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Order } from '@/types';
 import ThermalReceiptModal from './ThermalReceiptModal';
 import { isPrinterConnected, printOrder, reconnectSavedPrinter } from '@/lib/thermalPrinter';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 // Audio chime generator using browser Web Audio API (zero external files required)
 const playOrderAlertChime = () => {

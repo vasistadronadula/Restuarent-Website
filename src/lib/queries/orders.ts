@@ -37,7 +37,7 @@ export function useUpdateOrderStatus() {
     // "Preparing" must not watch the chip sit on the old value.
     onMutate: ({ id, status }) =>
       patchList<Order>(queryClient, queryKeys.orders, (draft) =>
-        draft.map((o) => (o.id === id ? { ...o, status } : o))
+        draft.map((o) => (o.id === id ? { ...o, status, orderStatus: status } : o))
       ),
     onError: (_err, _vars, context) => rollbackList(queryClient, context),
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.orders }),
@@ -73,6 +73,7 @@ export function useCreateOrder() {
         deliveryCharge: 0, // Always 0 — takeaway only
         grandTotal: orderData.grandTotal || 0,
         status: 'pending',
+        orderStatus: 'pending',
         paymentMode: orderData.paymentMode || 'cash',
         // Trust the caller's payment status. This used to be derived from
         // "is it COD?", which — now that every order is prepaid or taken at

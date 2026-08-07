@@ -7,16 +7,12 @@ import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { canAccess } from '@/lib/roleAccess';
 import {
-  PageHeader, StatCard, SectionCard, SectionHeading, AlertTile,
-  StatusChip, EmptyState, orderStatusColors,
+  PageHeader, StatCard, SectionHeading,
 } from '@/components/admin/ui';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import {
-  ShoppingBag, Calendar, Users, Package, ArrowRight,
-  TrendingUp, Clock, AlertTriangle, ShieldCheck, Flame, Utensils,
+  Users, Package, TrendingUp, ShieldCheck,
   ClipboardList, CalendarDays, ChefHat, BookOpen, Calculator,
-  BarChart3, Receipt, Ticket, Briefcase, UserCircle, ChevronRight
+  BarChart3, Receipt, Ticket, Briefcase, UserCircle
 } from 'lucide-react';
 
 const dayKey = (d: Date) => {
@@ -196,32 +192,63 @@ const LAUNCHPAD_PAGES = [
 
   return (
     <AdminLayout title="Dashboard">
-      <div className="space-y-8 w-full max-w-full">
+      <div className="space-y-5 w-full max-w-full">
         
-        {/* Apple-Style Welcome Greeting Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-2 border-b border-stone-200/40 dark:border-stone-800/40">
-          <div>
-            <Badge className="bg-amber-500/10 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/25 mb-1.5 font-bold">
-              {greeting}, {user?.user_metadata?.full_name || user?.user_metadata?.name || 'Staff Member'} 👋
-            </Badge>
-            <h2 className="text-xl font-black tracking-tight text-stone-900 dark:text-white leading-tight">
-              Dashboard Hub
-            </h2>
-            <p className="text-[11px] text-stone-400 dark:text-stone-500 mt-0.5 max-w-xl">
-              Select an action from the grid below to manage and monitor restaurant services.
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-2 px-2.5 py-1 bg-white dark:bg-[#1C1C1E] border border-stone-200/50 dark:border-[#2C2C2E]/60 rounded-xl text-stone-600 dark:text-stone-300 text-[10px] font-extrabold shadow-sm flex-shrink-0 self-start md:self-auto">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Authorized: <span className="text-amber-700 dark:text-amber-500 capitalize">{userRole || 'staff'}</span></span>
-          </div>
+        {/* Compact greeting + role badge */}
+        <PageHeader
+          title={`${greeting}, ${user?.user_metadata?.full_name || user?.user_metadata?.name || 'Staff Member'} 👋`}
+          subtitle="Restaurant operations hub — quick stats below and one-tap access to every module your role can open."
+          action={
+            <div className="flex items-center gap-2 px-2.5 py-1 bg-white dark:bg-[#1C1C1E] border border-stone-200/50 dark:border-[#2C2C2E]/60 rounded-xl text-stone-600 dark:text-stone-300 text-[10px] font-extrabold shadow-sm flex-shrink-0">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Authorized: <span className="text-amber-700 dark:text-amber-500 capitalize">{userRole || 'staff'}</span></span>
+            </div>
+          }
+        />
+
+        {/* Quick stats — glanceable at-a-glance numbers */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard
+            icon={<TrendingUp className="w-4 h-4" />}
+            label="Today's Revenue"
+            value={money(stats.todayRevenue)}
+            sub={`${stats.todayOrders} orders today`}
+            accent="#c62828"
+            href="/admin/reports"
+          />
+          <StatCard
+            icon={<ClipboardList className="w-4 h-4" />}
+            label="Active Orders"
+            value={stats.pendingOrders}
+            sub="Awaiting kitchen / dispatch"
+            accent="#d97706"
+            href="/admin/orders"
+          />
+          <StatCard
+            icon={<CalendarDays className="w-4 h-4" />}
+            label="Today's Bookings"
+            value={stats.todayBookings}
+            sub="Confirmed reservations"
+            accent="#10b981"
+            href="/admin/reservations"
+          />
+          <StatCard
+            icon={<Package className="w-4 h-4" />}
+            label="Low Stock Items"
+            value={stats.lowStock}
+            sub="Below minimum threshold"
+            accent="#f59e0b"
+            href="/admin/inventory"
+          />
         </div>
 
-        {/* 1. App Launcher Grid */}
+        {/* 2. App Launcher Grid */}
         <div className="space-y-3">
-          <SectionHeading title="Restaurant Operations App Launcher" />
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5">
+          <SectionHeading
+            title="Restaurant Operations App Launcher"
+            subtitle="Badges show items that need your attention."
+          />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
             {visiblePages.map((page) => {
               const IconComponent = page.icon;
               const badgeVal = page.badgeKey ? stats[page.badgeKey as keyof typeof stats] : 0;
@@ -230,7 +257,7 @@ const LAUNCHPAD_PAGES = [
                 <Link 
                   key={page.label} 
                   href={page.href}
-                  className="group relative flex flex-col items-start p-3.5 bg-white dark:bg-[#1C1C1E]/80 border border-stone-200/50 dark:border-[#2C2C2E]/60 rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.015)] dark:shadow-none hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-xs transition-all duration-150 overflow-hidden"
+                  className="group relative flex flex-col items-start p-3 bg-white dark:bg-[#1C1C1E]/80 border border-stone-200/50 dark:border-[#2C2C2E]/60 rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.015)] dark:shadow-none hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-xs transition-all duration-150 overflow-hidden"
                 >
                   {/* Apple Squircle Icon */}
                   <div className={`w-9 h-9 rounded-xl bg-gradient-to-tr ${page.color} text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-150 flex-shrink-0`}>
@@ -238,16 +265,16 @@ const LAUNCHPAD_PAGES = [
                   </div>
 
                   {/* Launcher Page Title & Description */}
-                  <h3 className="font-extrabold text-xs text-stone-850 dark:text-stone-100 mt-3 group-hover:text-amber-700 dark:group-hover:text-amber-500 transition-colors">
+                  <h3 className="font-extrabold text-xs text-stone-850 dark:text-stone-100 mt-2.5 group-hover:text-amber-700 dark:group-hover:text-amber-500 transition-colors">
                     {page.label}
                   </h3>
-                  <p className="text-[10px] font-semibold text-stone-400 dark:text-stone-500 mt-1 leading-normal">
+                  <p className="text-[10px] font-semibold text-stone-400 dark:text-stone-500 mt-0.5 leading-normal">
                     {page.description}
                   </p>
 
                   {/* Absolute Notification Count Badge (Apple iOS style) */}
                   {badgeVal > 0 && (
-                    <span className="absolute top-3.5 right-3.5 bg-rose-600 text-white rounded-full min-w-[18px] h-4.5 px-1 flex items-center justify-center text-[9px] font-black shadow-md border border-white dark:border-[#1C1C1E] animate-pulse">
+                    <span className="absolute top-3 right-3 bg-rose-600 text-white rounded-full min-w-[18px] h-4.5 px-1 flex items-center justify-center text-[9px] font-black shadow-md border border-white dark:border-[#1C1C1E] animate-pulse">
                       {badgeVal}
                     </span>
                   )}

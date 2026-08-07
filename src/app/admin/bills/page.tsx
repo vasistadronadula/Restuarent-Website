@@ -142,7 +142,7 @@ export default function GeneratedBillsPage() {
           subtitle="Reprint the counter receipt or issue a full A4 tax invoice for any order"
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <StatCard
             icon={<Receipt className="w-5 h-5" />}
             label="Total Receipts Issued"
@@ -181,9 +181,55 @@ export default function GeneratedBillsPage() {
             data={filteredBills}
             searchKey="customerName"
             searchPlaceholder="Search bill ID or customer name..."
-            height="550px"
+            height="480px"
             rowHeight={56}
             enableVirtualization={true}
+            getRowId={(o) => o.id}
+            renderMobileCard={(o) => (
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-extrabold text-xs text-stone-900 dark:text-stone-100">{o.id}</div>
+                    <div className="text-[10px] text-stone-400 font-semibold mt-0.5 truncate">
+                      {new Date(o.createdAt || o.orderDate || Date.now()).toLocaleString()}
+                    </div>
+                  </div>
+                  <span className="font-black text-amber-700 dark:text-amber-500 text-xs tabular flex-shrink-0">
+                    {rupees(o.grandTotal)}
+                  </span>
+                </div>
+                <div className="text-[10px] text-stone-500 font-semibold truncate">
+                  {o.customerName || 'Walk-in'} · <span className="uppercase text-stone-600 dark:text-stone-300">{o.paymentMode || 'Cash'}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedBillOrder(o)}
+                    className="h-7 px-1.5 text-[10px] font-bold"
+                  >
+                    <Eye className="size-3 mr-1" /> View
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => handlePrint(o, 'thermal')}
+                    className="h-7 px-1.5 text-[10px] font-bold bg-amber-600 text-white hover:bg-amber-700"
+                    title="Print 80mm thermal bill"
+                  >
+                    <Printer className="size-3 mr-1" /> 80mm
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePrint(o, 'a4')}
+                    className="h-7 px-1.5 text-[10px] font-bold"
+                    title="Print A4 tax invoice"
+                  >
+                    <FileText className="size-3 mr-1" /> A4
+                  </Button>
+                </div>
+              </div>
+            )}
           />
         </SectionCard>
       </div>

@@ -352,7 +352,7 @@ export default function EmployeesPage() {
           }
         />
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           <StatCard
             icon={<Users className="size-5" />}
             label="Total Employees"
@@ -406,7 +406,7 @@ export default function EmployeesPage() {
             data={filtered}
             searchKey="name"
             searchPlaceholder="Search employee name or phone..."
-            height="550px"
+            height="500px"
             rowHeight={60}
             emptyMessage="No staff match this filter."
             renderMobileCard={renderMobileCard}

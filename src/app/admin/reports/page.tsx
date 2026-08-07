@@ -10,7 +10,7 @@ import { useAdmin } from '@/context/AdminContext';
 import { PageHeader, StatCard, SectionCard } from '@/components/admin/ui';
 import { Button } from '@/components/ui/button';
 import { TrendingUp, ShoppingBag, Users, DollarSign, PieChart as PieIcon, BarChart3, Download } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 const COLORS = ['#D97706', '#DC2626', '#059669', '#2563EB', '#7C3AED', '#EA580C', '#0891B2'];
 
@@ -64,12 +64,7 @@ export default function ReportsPage() {
       totalOrderCount: orderCount,
       avgOrderValue: orderCount > 0 ? Math.round(revSum / orderCount) : 0,
       dailySales: dailySalesArr,
-      categoryRevenue: categoryRevenueArr.length > 0 ? categoryRevenueArr : [
-        { name: 'BIRYANI', value: 45000 },
-        { name: 'STARTERS', value: 28000 },
-        { name: 'CURRIES', value: 19000 },
-        { name: 'DESSERTS', value: 9500 },
-      ],
+      categoryRevenue: categoryRevenueArr,
     };
   }, [orders]);
 
@@ -104,7 +99,7 @@ export default function ReportsPage() {
           }
         />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard
             icon={<DollarSign className="w-5 h-5" />}
             label="Total Gross Sales"
@@ -144,14 +139,14 @@ export default function ReportsPage() {
               </h3>
             </div>
 
-            <div className="flex gap-1 bg-stone-100 dark:bg-stone-850 p-1 rounded-xl">
+            <div className="flex gap-1 bg-stone-100 dark:bg-stone-850 p-1 rounded-xl max-w-full overflow-x-auto scrollbar-none">
               {(['daily', 'weekly', 'monthly', 'categories'] as const).map((t) => (
                 <Button
                   key={t}
                   variant={tab === t ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setTab(t)}
-                  className={`h-7 px-2.5 text-[11px] font-bold capitalize rounded-lg ${
+                  className={`h-7 px-2.5 text-[11px] font-bold capitalize rounded-lg whitespace-nowrap flex-shrink-0 ${
                     tab === t ? 'bg-amber-600 text-white hover:bg-amber-700' : 'text-stone-500 hover:text-stone-700 dark:text-stone-400 dark:hover:text-stone-200'
                   }`}
                 >
@@ -161,7 +156,14 @@ export default function ReportsPage() {
             </div>
           </div>
 
-          <div className="w-full h-80">
+          {orders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-14 text-center">
+              <BarChart3 className="w-8 h-8 text-stone-300 dark:text-stone-600" />
+              <p className="text-sm font-bold text-stone-500 dark:text-stone-400">No sales data yet</p>
+              <p className="text-xs text-stone-400 dark:text-stone-500 font-medium">Start taking orders to see revenue breakdowns here.</p>
+            </div>
+          ) : (
+          <div className="w-full h-72">
             <ResponsiveContainer width="100%" height="100%">
               {tab === 'categories' ? (
                 <PieChart>
@@ -216,6 +218,7 @@ export default function ReportsPage() {
               )}
             </ResponsiveContainer>
           </div>
+          )}
         </SectionCard>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -227,7 +230,10 @@ export default function ReportsPage() {
               </h3>
             </div>
             <div className="space-y-2">
-              {categoryRevenue.map((cat, idx) => (
+              {categoryRevenue.length === 0 ? (
+                <p className="text-xs text-stone-400 dark:text-stone-500 font-medium py-3 text-center">No category data yet.</p>
+              ) : (
+                categoryRevenue.map((cat, idx) => (
                 <div key={cat.name} className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-stone-50/50 dark:bg-stone-900/40 border border-stone-200/30 dark:border-[#2C2C2E]/40">
                   <div className="flex items-center gap-2 font-bold text-stone-850 dark:text-stone-200">
                     <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
@@ -237,7 +243,8 @@ export default function ReportsPage() {
                     ₹{cat.value.toLocaleString('en-IN')}
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </SectionCard>
 
@@ -249,7 +256,10 @@ export default function ReportsPage() {
               </h3>
             </div>
             <div className="space-y-2">
-              {dailySales.slice(0, 5).map((d) => (
+              {dailySales.length === 0 ? (
+                <p className="text-xs text-stone-400 dark:text-stone-500 font-medium py-3 text-center">No daily sales recorded yet.</p>
+              ) : (
+                dailySales.slice(0, 5).map((d) => (
                 <div key={d.date} className="flex justify-between items-center text-xs p-2.5 rounded-xl bg-stone-50/50 dark:bg-stone-900/40 border border-stone-200/30 dark:border-[#2C2C2E]/40">
                   <div>
                     <div className="font-bold text-stone-850 dark:text-stone-100">{d.date}</div>
@@ -259,7 +269,8 @@ export default function ReportsPage() {
                     ₹{d.revenue.toLocaleString('en-IN')}
                   </div>
                 </div>
-              ))}
+              ))
+              )}
             </div>
           </SectionCard>
         </div>

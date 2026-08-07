@@ -14,7 +14,7 @@ import {
   printTestReceipt, reconnectSavedPrinter, savedPrinterName,
 } from '@/lib/thermalPrinter';
 import type { UserRole } from '@/types';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

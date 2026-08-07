@@ -126,7 +126,7 @@ export default function PerformancePage() {
         />
 
         {/* Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard
             icon={<TrendingUp className="w-5 h-5" />}
             label="Today's Revenue"
@@ -163,7 +163,7 @@ export default function PerformancePage() {
           {/* Sales Chart Panel */}
           <div className="lg:col-span-2">
             <SectionCard className="h-full">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                 <div>
                   <h3 className="font-extrabold text-sm text-stone-900 dark:text-stone-100">
                     Sales Performance
@@ -172,12 +172,12 @@ export default function PerformancePage() {
                     Last 7 Days Sales Trend
                   </p>
                 </div>
-                <div className="flex gap-1.5 p-1 bg-stone-100 dark:bg-stone-850 rounded-xl">
+                <div className="flex gap-1.5 p-1 bg-stone-100 dark:bg-stone-850 rounded-xl w-fit lg:w-auto">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setChartMetric('revenue')}
-                    className={`h-7 px-3 text-[10px] font-extrabold rounded-lg ${
+                    className={`h-7 px-3 text-[10px] font-extrabold rounded-lg flex-1 sm:flex-none whitespace-nowrap ${
                       chartMetric === 'revenue' 
                         ? 'bg-white dark:bg-stone-900 text-stone-955 dark:text-white shadow-xs' 
                         : 'text-stone-500 hover:text-stone-900 dark:hover:text-white dark:text-stone-400'
@@ -189,7 +189,7 @@ export default function PerformancePage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => setChartMetric('orders')}
-                    className={`h-7 px-3 text-[10px] font-extrabold rounded-lg ${
+                    className={`h-7 px-3 text-[10px] font-extrabold rounded-lg flex-1 sm:flex-none whitespace-nowrap ${
                       chartMetric === 'orders' 
                         ? 'bg-white dark:bg-stone-900 text-stone-955 dark:text-white shadow-xs' 
                         : 'text-stone-500 hover:text-stone-900 dark:hover:text-white dark:text-stone-400'

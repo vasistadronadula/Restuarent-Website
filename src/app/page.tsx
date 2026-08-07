@@ -177,9 +177,9 @@ export default function HomePage() {
 
       <main className="flex-1 w-full max-w-full">
         {/* 1. HERO SECTION */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white py-10 lg:py-16 px-4 sm:px-8 md:px-12">
-          <div className="max-w-none w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
-            <div className="lg:col-span-7 space-y-5">
+        <section className="relative overflow-hidden bg-gradient-to-br from-stone-950 via-stone-900 to-amber-950 text-white py-6 lg:py-8 px-4 sm:px-8 md:px-12">
+          <div className="max-w-none w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-center relative z-10">
+            <div className="lg:col-span-7 space-y-3.5">
               {/* Status Pill */}
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur-md text-xs font-bold text-stone-200">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -187,14 +187,14 @@ export default function HomePage() {
               </div>
 
               {/* Title */}
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black leading-tight tracking-tight">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black leading-tight tracking-tight">
                 Hungry? Order authentic{' '}
                 <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
                   Telugu food
                 </span>
               </h1>
 
-              <p className="text-stone-300 text-sm sm:text-base max-w-xl font-medium leading-relaxed">
+              <p className="text-stone-300 text-xs sm:text-sm max-w-xl font-medium leading-relaxed">
                 25 years of Telangana & Rayalaseema culinary recipes — dum biryani, kamju pitta fry, natukodi pulusu. Freshly made, ready for takeaway.
               </p>
 

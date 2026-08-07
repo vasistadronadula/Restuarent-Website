@@ -29,11 +29,11 @@ export default function ContactPage() {
       <Navbar />
 
       {/* Hero Header - Full Width */}
-      <section className="w-full bg-gradient-to-br from-[#1A0A0A] via-[#2A0C0C] to-[#C62828] py-12 md:py-20 text-center text-white px-6">
-        <h1 className="text-3xl md:text-5xl font-black mb-3 tracking-tight">
+      <section className="w-full bg-gradient-to-br from-[#1A0A0A] via-[#2A0C0C] to-[#C62828] py-4 md:py-5 text-center text-white px-4 sm:px-6">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-black mb-1 tracking-tight">
           📞 Contact Us
         </h1>
-        <p className="text-sm md:text-base text-white/80 max-w-lg mx-auto font-medium leading-relaxed">
+        <p className="text-xs md:text-sm text-white/80 max-w-md mx-auto font-medium">
           Connect with Pala Pitta Ruchulu instantly on WhatsApp for orders, inquiries & reservations!
         </p>
       </section>

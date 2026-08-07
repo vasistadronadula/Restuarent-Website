@@ -210,6 +210,16 @@
   }
 }
 
+/* Stone steps between the shipped palette (800 #292524, 900 #1c1917, 950
+   #0c0a09) that the admin UI references as `stone-850` and `stone-955`.
+   Tailwind's default stone palette stops at 950, so those utilities were being
+   silently dropped and headings/backgrounds fell back to an inherited color.
+   Defined once here so every occurrence renders on both themes. */
+@theme {
+  --color-stone-850: oklch(0.265 0.016 56);
+  --color-stone-955: oklch(0.15 0.011 56);
+}
+
 /* ============================================================ */
 /* Base                                                         */
 /* ============================================================ */

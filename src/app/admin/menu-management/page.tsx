@@ -442,7 +442,7 @@ export default function MenuManagementPage() {
             data={filteredItems}
             searchKey="name"
             searchPlaceholder="Search dish name or description..."
-            height="550px"
+            height="500px"
             rowHeight={64}
             emptyMessage="No dishes match this filter."
             renderMobileCard={renderMobileCard}
@@ -514,7 +514,7 @@ export default function MenuManagementPage() {
             Leave blank for dishes that come one size. Filling two or more shows
             size pills on the storefront.
           </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+<div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <NumberField control={form.control} name="portionSingle" label="Single" prefix="₹" placeholder="—" />
             <NumberField control={form.control} name="portionFull" label="Full" prefix="₹" placeholder="—" />
             <NumberField control={form.control} name="portionLarge" label="Large" prefix="₹" placeholder="—" />

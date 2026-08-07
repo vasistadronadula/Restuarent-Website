@@ -40,7 +40,7 @@ export default function AboutPage() {
       <Navbar />
 
       {/* Hero Header - Full Width */}
-      <section className="relative w-full h-[380px] md:h-[500px] overflow-hidden flex items-center">
+      <section className="relative w-full h-[180px] md:h-[220px] overflow-hidden flex items-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=1600&q=80"
@@ -49,13 +49,13 @@ export default function AboutPage() {
         />
         <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/75 to-red-950/60" />
         <div className="relative z-10 w-full px-4 sm:px-8 md:px-12 max-w-none">
-          <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-3 py-1 text-xs mb-4 shadow-md">
+          <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-bold px-2.5 py-0.5 text-[11px] mb-2 shadow-md">
             🏛️ Est. 1998 • Hyderabad
           </Badge>
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-4 tracking-tight leading-tight">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white mb-1 tracking-tight leading-tight">
             Our Story
           </h1>
-          <p className="text-base md:text-xl text-white/85 max-w-2xl font-normal leading-relaxed">
+          <p className="text-xs md:text-sm text-white/85 max-w-xl font-normal leading-relaxed">
             From a humble dream to Hyderabad&apos;s most-loved restaurant — Pala Pitta Ruchulu has been serving authentic Indian flavours since 1998.
           </p>
         </div>

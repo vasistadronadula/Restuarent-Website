@@ -373,7 +373,7 @@ export default function InventoryPage() {
           }
         />
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           <StatCard
             icon={<Package className="size-5" />}
             label="Total Raw Materials"
@@ -437,7 +437,7 @@ export default function InventoryPage() {
             data={filteredInventory}
             searchKey="name"
             searchPlaceholder="Search material name or supplier..."
-            height="550px"
+            height="500px"
             rowHeight={56}
             emptyMessage="No materials match this filter."
             renderMobileCard={renderMobileCard}

@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { PageHeader, SectionCard, RoleBadge } from '@/components/admin/ui';
 import { ROLE_ACCESS_SUMMARY, ROLE_LABELS } from '@/lib/roleAccess';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';

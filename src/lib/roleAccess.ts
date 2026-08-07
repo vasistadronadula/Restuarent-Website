@@ -102,7 +102,7 @@ export const STAFF_ROLES = ['admin', 'manager', 'chef', 'cashier', 'waiter'] as 
 // alerted about a page they can't open: the cashier and chef are alerted to
 // new orders, the server to new reservations. Admin and Manager receive no
 // notifications at all per business requirements — they watch the lists.
-export const ORDER_NOTIFICATION_ROLES: readonly UserRole[] = ['cashier', 'chef'] as const;
+export const ORDER_NOTIFICATION_ROLES: readonly UserRole[] = ['admin', 'manager', 'cashier', 'chef'] as const;
 export const RESERVATION_NOTIFICATION_ROLES: readonly UserRole[] = ['waiter'] as const;
 
 // Union of the two — used to decide whether a device subscribes to Web Push

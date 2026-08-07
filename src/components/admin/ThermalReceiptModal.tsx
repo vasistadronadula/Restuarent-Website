@@ -29,16 +29,13 @@ export default function ThermalReceiptModal({ order, open, onClose, isAutoPrinte
 
       <Dialog open={open} onOpenChange={(val) => { if (!val) onClose(); }}>
         <DialogContent className="max-w-xs p-0 overflow-hidden rounded-2xl bg-white dark:bg-stone-900 border-none shadow-2xl">
-          <DialogHeader className="bg-stone-900 text-white p-4 flex flex-row items-center justify-between">
+          <DialogHeader className="bg-stone-900 text-white p-4 pr-12">
             <div className="flex items-center gap-2">
               <Printer className="w-5 h-5 text-amber-500" />
               <DialogTitle className="text-white font-black text-sm">
                 {isAutoPrinted ? 'New order — receipt' : 'Bill preview'}
               </DialogTitle>
             </div>
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-stone-400">
-              <X className="w-4 h-4" />
-            </Button>
           </DialogHeader>
 
           <div className="p-4 bg-stone-50 dark:bg-stone-950/40">

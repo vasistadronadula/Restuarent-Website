@@ -400,13 +400,13 @@ export default function CheckoutPage() {
     <>
       <Navbar />
 
-      <main className="min-h-[90vh] py-6 md:py-10">
+      <main className="min-h-[85vh] py-4 md:py-5">
         <div className="mx-auto w-full max-w-none px-4 sm:px-8 md:px-12">
-          <header className="mb-6">
-            <h1 className="font-display text-2xl font-black tracking-tight md:text-3xl">
+          <header className="mb-3">
+            <h1 className="font-display text-xl font-black tracking-tight md:text-2xl">
               Checkout
             </h1>
-            <p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm">
+            <p className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs sm:text-sm">
               <Store className="size-4" />
               Takeaway — collect from our Madhapur counter
             </p>

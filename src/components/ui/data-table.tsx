@@ -21,6 +21,9 @@ interface DataTableProps<TData, TValue = any> {
   data: TData[];
   searchKey?: string;
   searchPlaceholder?: string;
+  /** Max height of the scroll region. The container grows naturally to fit
+   *  small result sets instead of reserving a fixed box, so a 3-row table
+   *  never leaves a large empty void underneath. */
   height?: string | number;
   rowHeight?: number;
   enableVirtualization?: boolean;
@@ -47,7 +50,7 @@ export function DataTable<TData, TValue>({
   data,
   searchKey,
   searchPlaceholder = 'Search records...',
-  height = '600px',
+  height = '560px',
   rowHeight = 52,
   enableVirtualization = true,
   emptyMessage = 'No results found.',
@@ -132,7 +135,7 @@ export function DataTable<TData, TValue>({
       <div
         ref={parentRef}
         className="w-full overflow-auto rounded-3xl border border-stone-200/50 dark:border-[#2C2C2E]/60 bg-white dark:bg-[#1C1C1E]/40 backdrop-blur-md shadow-[0_1px_3px_rgba(0,0,0,0.01)] dark:shadow-none"
-        style={{ height: typeof height === 'number' ? `${height}px` : height, maxHeight: 'calc(100vh - 220px)' }}
+        style={{ maxHeight: typeof height === 'number' ? `${height}px` : height }}
       >
         <Table className="w-full text-left border-collapse">
           <TableHeader className="sticky top-0 z-10 bg-[#FAFAF9]/90 dark:bg-[#1C1C1E]/95 backdrop-blur-md shadow-[0_1px_2px_rgba(0,0,0,0.02)]">

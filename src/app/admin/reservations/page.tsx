@@ -346,7 +346,7 @@ export default function ReservationsPage() {
           }
         />
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           <StatCard
             icon={<Calendar className="size-5" />}
             label="Total Bookings"
@@ -407,7 +407,7 @@ export default function ReservationsPage() {
                       </div>
                     )}
                     <Badge
-                      className={`mt-2 border-none px-1.5 py-0 text-[9px] font-black ${
+                      className={`mt-2 border-none px-2 py-0.5 text-[10px] font-black ${
                         !t.isActive
                           ? 'bg-stone-500 text-white'
                           : available
@@ -420,24 +420,24 @@ export default function ReservationsPage() {
 
                     {/* The floor plan was read-only: tables could be created
                         but never corrected or retired. */}
-                    <div className="mt-2 flex items-center justify-center gap-1">
+                    <div className="mt-2 flex items-center justify-center gap-1.5">
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-7"
+                        className="size-8"
                         aria-label={`Edit table ${t.tableNumber}`}
                         onClick={() => openEditTable(t)}
                       >
-                        <Edit2 className="size-3.5 text-stone-600" />
+                        <Edit2 className="size-4 text-stone-600" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-7 text-rose-600"
+                        className="size-8 text-rose-600"
                         aria-label={`Delete table ${t.tableNumber}`}
                         onClick={() => setDeletingTable(t)}
                       >
-                        <Trash2 className="size-3.5" />
+                        <Trash2 className="size-4" />
                       </Button>
                     </div>
                   </div>

@@ -114,14 +114,14 @@ export default function OrderHistoryPage() {
     <>
       <Navbar />
 
-      <main className="min-h-screen py-8 md:py-12">
+      <main className="min-h-screen py-4 md:py-5">
         <div className="mx-auto w-full max-w-none px-4 sm:px-8 md:px-12">
-          <header className="mb-6">
-            <h1 className="font-display flex items-center gap-2.5 text-2xl font-black tracking-tight md:text-3xl">
-              <ReceiptText className="text-primary size-7" />
+          <header className="mb-3">
+            <h1 className="font-display flex items-center gap-2 text-xl font-black tracking-tight md:text-2xl">
+              <ReceiptText className="text-primary size-6" />
               My Orders
             </h1>
-            <p className="text-muted-foreground mt-1 text-sm">
+            <p className="text-muted-foreground mt-0.5 text-xs sm:text-sm">
               {user
                 ? 'Every order placed on this account.'
                 : 'Sign in to see your full order history.'}
