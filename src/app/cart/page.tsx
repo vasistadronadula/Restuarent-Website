@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Clock, Plus, ShoppingBag, ShoppingCart, Trash2, ShieldCheck, Utensils } from 'lucide-react';
+import { ArrowRight, Clock, Plus, ShoppingBag, ShoppingCart, Trash2, ShieldCheck, Utensils, Tag } from 'lucide-react';
 
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
@@ -11,6 +11,7 @@ import { BillSummary } from '@/components/customer/BillSummary';
 import { CartLineItem } from '@/components/customer/CartLineItem';
 import { CouponField } from '@/components/customer/CouponField';
 import { useCoupons } from '@/lib/queries';
+import { useAuth } from '@/context/AuthContext';
 import {
   useCartStore,
   getCartTotalItems,
@@ -32,6 +33,7 @@ export default function CartPage() {
   const couponDiscount = useCartStore((s) => s.couponDiscount);
   const couponMaxDiscount = useCartStore((s) => s.couponMaxDiscount);
   const { data: coupons = [] } = useCoupons();
+  const { user } = useAuth();
 
   const totals = useMemo(() => {
     const subtotal = getCartSubtotal(items);
@@ -76,20 +78,40 @@ export default function CartPage() {
                   className="py-2"
                 />
 
-                {activeCoupons.length > 0 && (
+                {user ? (
+                  activeCoupons.length > 0 && (
+                    <>
+                      <Separator className="my-6" />
+                      <div className="space-y-2.5">
+                        <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
+                          Available Offers Today
+                        </p>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {activeCoupons.map((c) => (
+                            <Badge key={c.code} variant="soft-warning" size="lg" className="rounded-lg font-bold">
+                              {c.code} · {c.discount}% off
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )
+                ) : (
                   <>
                     <Separator className="my-6" />
-                    <div className="space-y-2.5">
-                      <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
-                        Available Offers Today
-                      </p>
-                      <div className="flex flex-wrap justify-center gap-2">
-                        {activeCoupons.map((c) => (
-                          <Badge key={c.code} variant="soft-warning" size="lg" className="rounded-lg font-bold">
-                            {c.code} · {c.discount}% off
-                          </Badge>
-                        ))}
+                    <div className="bg-stone-50 dark:bg-stone-900 border border-stone-200/60 dark:border-stone-800 rounded-2xl p-4 flex flex-col items-center gap-3">
+                      <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                        <Tag className="size-4 shrink-0" />
+                        <span className="text-xs font-bold uppercase tracking-wider">Unlock Special Offers</span>
                       </div>
+                      <p className="text-xs text-muted-foreground max-w-[280px] leading-normal mx-auto">
+                        Sign in to view active coupons and claim discounts on your order.
+                      </p>
+                      <Button size="sm" variant="brand" className="rounded-xl h-8 text-xs font-bold px-4" asChild>
+                        <Link href="/login?redirect=/cart">
+                          Log In
+                        </Link>
+                      </Button>
                     </div>
                   </>
                 )}

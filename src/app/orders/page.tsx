@@ -138,6 +138,18 @@ export default function OrderHistoryPage() {
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [guestOrderIds, setGuestOrderIds] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (!user) {
+      try {
+        const ids = JSON.parse(localStorage.getItem('ppr:guestOrderIds') || '[]');
+        setGuestOrderIds(ids);
+      } catch {}
+    } else {
+      setGuestOrderIds([]);
+    }
+  }, [user]);
 
   // RLS already restricts what `orders` can even contain here (a signed-in
   // customer's query only returns their own rows; admins get everything) —
@@ -147,7 +159,9 @@ export default function OrderHistoryPage() {
     const needle = search.trim().toLowerCase();
 
     return orders.filter((order) => {
-      const userMatch = !user || order.userId === user.id;
+      const userMatch = user
+        ? order.userId === user.id
+        : guestOrderIds.includes(order.id);
 
       const matchesSearch =
         !needle ||
@@ -160,7 +174,7 @@ export default function OrderHistoryPage() {
 
       return userMatch && matchesSearch && matchesStatus;
     });
-  }, [orders, user, search, filterStatus]);
+  }, [orders, user, guestOrderIds, search, filterStatus]);
 
   const handleReorder = (items: OrderItem[]) => {
     let addedCount = 0;
@@ -201,10 +215,10 @@ export default function OrderHistoryPage() {
               <ReceiptText className="text-primary size-6" />
               My Orders
             </h1>
-            <p className="text-muted-foreground mt-0.5 text-xs sm:text-sm">
+             <p className="text-muted-foreground mt-0.5 text-xs sm:text-sm">
               {user
                 ? 'Every order placed on this account.'
-                : 'Sign in to see your full order history.'}
+                : 'Showing orders placed as a guest on this device.'}
             </p>
           </header>
 

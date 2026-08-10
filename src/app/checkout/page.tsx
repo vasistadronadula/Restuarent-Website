@@ -216,6 +216,17 @@ function CheckoutForm() {
 
     try {
       await addOrderLocallyAndDB(newOrderObj);
+      if (!user) {
+        try {
+          const guestOrders = JSON.parse(localStorage.getItem('ppr:guestOrderIds') || '[]');
+          if (!guestOrders.includes(id)) {
+            guestOrders.push(id);
+            localStorage.setItem('ppr:guestOrderIds', JSON.stringify(guestOrders));
+          }
+        } catch (e) {
+          console.error('Failed to save guest order ID locally', e);
+        }
+      }
     } catch {
       toast.error('We could not save your order. Please try again or contact us.');
       setLoading(false);
@@ -581,22 +592,6 @@ function CheckoutForm() {
             </p>
           </header>
 
-          {!user && (
-            <Card className="border-primary/25 bg-primary/5 mb-6">
-              <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-                <p className="flex items-center gap-2 text-sm font-semibold">
-                  <Lock className="text-primary size-4" />
-                  Sign in to place your order and keep your history.
-                </p>
-                <Button variant="brand" size="sm" asChild>
-                  <Link href="/login?redirect=/checkout">
-                    <LogIn />
-                    Log In
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          )}
 
           <div className="grid items-start gap-6 lg:grid-cols-[1fr_22rem]">
             <div className="grid gap-6">
