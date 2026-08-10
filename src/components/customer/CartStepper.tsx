@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Minus, Plus } from 'lucide-react';
+import { Minus, Plus, Trash2 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -37,6 +37,7 @@ export default function CartStepper({
   label,
 }: Props) {
   const compact = size === 'small';
+  const isOne = quantity === 1;
 
   return (
     <div
@@ -49,13 +50,18 @@ export default function CartStepper({
       <button
         type="button"
         onClick={onDecrease}
-        aria-label={`Remove one ${label}`}
+        aria-label={isOne ? `Remove ${label} from cart` : `Remove one ${label}`}
         className={cn(
-          'text-success hover:bg-success/10 grid h-full place-items-center transition-colors outline-none focus-visible:bg-success/15',
+          isOne ? 'text-destructive hover:bg-destructive/10' : 'text-success hover:bg-success/10',
+          'grid h-full place-items-center transition-colors outline-none focus-visible:bg-success/15',
           compact ? 'w-7' : 'w-8.5'
         )}
       >
-        <Minus className={compact ? 'size-3.5' : 'size-4'} />
+        {isOne ? (
+          <Trash2 className={compact ? 'size-3.5' : 'size-4'} />
+        ) : (
+          <Minus className={compact ? 'size-3.5' : 'size-4'} />
+        )}
       </button>
 
       <span

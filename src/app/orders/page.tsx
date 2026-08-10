@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Banknote, CreditCard, Phone, ReceiptText, RotateCcw, Search, ShoppingBag, User,
-  CheckCircle2, UtensilsCrossed, Bell, AlertCircle, Clock
+  CheckCircle2, AlertCircle, Clock, Calendar, Hash, ArrowRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, FALLBACK_DISH_IMAGE } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import { Container } from '@/components/customer/Container';
@@ -35,30 +35,33 @@ const STATUS_FILTERS = [
   { value: 'pending', label: 'Pending' },
   { value: 'preparing', label: 'Preparing' },
   { value: 'ready', label: 'Ready' },
-  { value: 'completed', label: 'Completed' },
+  { value: 'delivered', label: 'Completed' },
 ] as const;
 
-/**
- * One mapping from order status to how it is shown. The previous page built
- * these inline in a switch that also carried emoji in the label, so the same
- * status read differently here and in the admin list.
- */
 const STATUS_PRESENTATION: Record<
   string,
   { label: string; variant: 'soft-success' | 'soft-warning' | 'soft-info' | 'soft-destructive' | 'soft-muted' }
 > = {
-  completed: { label: 'Completed', variant: 'soft-success' },
+  delivered: { label: 'Completed', variant: 'soft-success' },
   preparing: { label: 'Preparing in kitchen', variant: 'soft-warning' },
   ready: { label: 'Ready for pickup', variant: 'soft-info' },
   cancelled: { label: 'Cancelled', variant: 'soft-destructive' },
   pending: { label: 'Awaiting confirmation', variant: 'soft-muted' },
 };
 
+const STATUS_ACCENTS: Record<string, string> = {
+  delivered: 'border-l-4 border-l-emerald-500 dark:border-l-emerald-600',
+  preparing: 'border-l-4 border-l-amber-500 dark:border-l-amber-600',
+  ready: 'border-l-4 border-l-cyan-500 dark:border-l-cyan-600',
+  cancelled: 'border-l-4 border-l-rose-500 dark:border-l-rose-600',
+  pending: 'border-l-4 border-l-stone-400 dark:border-l-stone-600',
+};
+
 const STAGES = [
   { key: 'pending', label: 'Placed' },
   { key: 'preparing', label: 'Preparing' },
   { key: 'ready', label: 'Ready' },
-  { key: 'completed', label: 'Completed' },
+  { key: 'delivered', label: 'Completed' },
 ];
 
 function getStageIndex(status: string) {
@@ -66,7 +69,7 @@ function getStageIndex(status: string) {
     case 'pending': return 0;
     case 'preparing': return 1;
     case 'ready': return 2;
-    case 'completed': return 3;
+    case 'delivered': return 3;
     case 'cancelled': return -1;
     default: return 0;
   }
@@ -75,9 +78,9 @@ function getStageIndex(status: string) {
 function OrderStageTracker({ status }: { status: string }) {
   if (status === 'cancelled') {
     return (
-      <div className="my-2 flex items-center gap-2 rounded-xl bg-destructive/10 p-3 text-destructive">
+      <div className="my-1.5 flex items-center gap-2 rounded-xl bg-rose-500/10 p-3 text-rose-600 dark:text-rose-400 text-xs font-semibold">
         <AlertCircle className="size-4 shrink-0" />
-        <span className="text-xs font-bold">This order was cancelled</span>
+        <span>This order has been cancelled</span>
       </div>
     );
   }
@@ -85,13 +88,13 @@ function OrderStageTracker({ status }: { status: string }) {
   const currentStageIndex = getStageIndex(status);
 
   return (
-    <div className="my-3 py-1">
+    <div className="my-2.5 py-1">
       <div className="relative flex items-center justify-between max-w-md mx-auto">
-        <div className="absolute top-1/2 left-5 right-5 h-0.5 -translate-y-1/2 bg-stone-200 dark:bg-stone-800 -z-0" />
+        <div className="absolute top-1/2 left-4 right-4 h-0.5 -translate-y-1/2 bg-stone-100 dark:bg-stone-800 -z-0" />
         <div
-          className="absolute top-1/2 left-5 h-0.5 -translate-y-1/2 bg-amber-600 transition-all duration-500 -z-0"
+          className="absolute top-1/2 left-4 h-0.5 -translate-y-1/2 bg-amber-500 transition-all duration-500 -z-0"
           style={{
-            width: `${Math.min(100, Math.max(0, (currentStageIndex / (STAGES.length - 1)) * 82))}%`,
+            width: `${Math.min(100, Math.max(0, (currentStageIndex / (STAGES.length - 1)) * 88))}%`,
           }}
         />
 
@@ -100,25 +103,25 @@ function OrderStageTracker({ status }: { status: string }) {
           const isCurrent = currentStageIndex === idx;
 
           return (
-            <div key={stage.key} className="relative z-10 flex flex-col items-center gap-1 bg-white dark:bg-stone-900 px-1.5">
+            <div key={stage.key} className="relative z-10 flex flex-col items-center gap-1.5 bg-white dark:bg-stone-900 px-1">
               <div
                 className={cn(
-                  'flex size-7 items-center justify-center rounded-full text-xs font-extrabold transition-all shadow-xs',
+                  'flex size-6.5 items-center justify-center rounded-full text-[10px] font-extrabold transition-all shadow-xs border',
                   isDone
-                    ? 'bg-amber-600 text-white'
-                    : 'bg-stone-100 dark:bg-stone-800 text-stone-400',
-                  isCurrent && 'ring-4 ring-amber-500/25 scale-110'
+                    ? 'bg-amber-500 border-amber-500 text-white'
+                    : 'bg-stone-50 dark:bg-stone-850 border-stone-200 dark:border-stone-800 text-stone-400',
+                  isCurrent && 'ring-4 ring-amber-500/20 scale-105'
                 )}
               >
-                {isDone ? <CheckCircle2 className="size-4" /> : idx + 1}
+                {isDone ? <CheckCircle2 className="size-3.5" /> : idx + 1}
               </div>
               <span
                 className={cn(
-                  'text-[10px] font-bold tracking-tight',
+                  'text-[9.5px] font-bold tracking-tight',
                   isCurrent
-                    ? 'text-amber-700 dark:text-amber-400 font-extrabold'
+                    ? 'text-amber-600 dark:text-amber-400 font-black'
                     : isDone
-                    ? 'text-stone-900 dark:text-stone-100'
+                    ? 'text-stone-800 dark:text-stone-200'
                     : 'text-stone-400'
                 )}
               >
@@ -157,10 +160,6 @@ export default function OrderHistoryPage() {
   const orders = user ? allOrders : guestOrders;
   const isLoadingDB = user ? adminLoading : guestLoading;
 
-  // RLS already restricts what `orders` can even contain here (a signed-in
-  // customer's query only returns their own rows; admins get everything) —
-  // this ownership check additionally keeps an admin who opens this
-  // customer-facing page from seeing every order mixed together.
   const filteredOrders = useMemo(() => {
     const needle = search.trim().toLowerCase();
 
@@ -182,6 +181,10 @@ export default function OrderHistoryPage() {
     });
   }, [orders, user, guestOrderIds, search, filterStatus]);
 
+  const totalCount = orders.length;
+  const activeCount = orders.filter(o => ['pending', 'preparing', 'ready'].includes(o.status)).length;
+  const completedCount = orders.filter(o => o.status === 'delivered').length;
+
   const handleReorder = (items: OrderItem[]) => {
     let addedCount = 0;
     const addItem = useCartStore.getState().addItem;
@@ -192,7 +195,7 @@ export default function OrderHistoryPage() {
         name: item.name,
         category: 'starters',
         price: item.price,
-        image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=400&q=80',
+        image: FALLBACK_DISH_IMAGE,
         vegStatus: item.vegStatus || 'non-veg',
         rating: 4.8,
         reviewCount: 50,
@@ -214,33 +217,63 @@ export default function OrderHistoryPage() {
     <>
       <Navbar />
 
-      <main className="min-h-screen py-4 md:py-5">
-        <Container>
-          <header className="mb-3">
-            <h1 className="font-display flex items-center gap-2 text-xl font-black tracking-tight md:text-2xl">
-              <ReceiptText className="text-primary size-6" />
-              My Orders
-            </h1>
-             <p className="text-muted-foreground mt-0.5 text-xs sm:text-sm">
-              {user
-                ? 'Every order placed on this account.'
-                : 'Showing orders placed as a guest on this device.'}
-            </p>
-          </header>
+      <main className="min-h-screen py-6 md:py-8 bg-stone-50/50 dark:bg-stone-950/30">
+        <Container className="max-w-4xl">
+          {/* Header Card */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+              <h1 className="font-display flex items-center gap-2.5 text-2xl font-black tracking-tight">
+                <ReceiptText className="text-amber-600 size-7" />
+                My Orders
+              </h1>
+              <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
+                {user
+                  ? 'Manage and track all orders associated with your profile.'
+                  : 'Showing orders placed as a guest on this browser.'}
+              </p>
+            </div>
 
-          {/* ── Filters ───────────────────────────────────────────────── */}
-          <div className="mb-6 grid gap-3">
+            {/* Pulsing indicator badge */}
+            <div className="inline-flex items-center gap-1.5 self-start md:self-center bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-3.5 py-1.5 rounded-full text-xs font-bold border border-emerald-500/20">
+              <span className="relative flex size-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full size-2 bg-emerald-500"></span>
+              </span>
+              Realtime Updates Active
+            </div>
+          </div>
+
+          {/* Stats Bar */}
+          {totalCount > 0 && (
+            <div className="grid grid-cols-3 gap-3 mb-6">
+              <div className="bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 rounded-2xl p-3 sm:p-4 shadow-2xs hover:shadow-xs transition-shadow">
+                <span className="text-[10px] sm:text-xs font-bold text-stone-400 uppercase tracking-wider block">Total Orders</span>
+                <span className="text-lg sm:text-2xl font-black text-stone-900 dark:text-stone-100 mt-1 block">{totalCount}</span>
+              </div>
+              <div className="bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 rounded-2xl p-3 sm:p-4 shadow-2xs hover:shadow-xs transition-shadow">
+                <span className="text-[10px] sm:text-xs font-bold text-amber-500 uppercase tracking-wider block">In Progress</span>
+                <span className="text-lg sm:text-2xl font-black text-amber-600 dark:text-amber-500 mt-1 block">{activeCount}</span>
+              </div>
+              <div className="bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 rounded-2xl p-3 sm:p-4 shadow-2xs hover:shadow-xs transition-shadow">
+                <span className="text-[10px] sm:text-xs font-bold text-emerald-500 uppercase tracking-wider block">Completed</span>
+                <span className="text-lg sm:text-2xl font-black text-emerald-600 dark:text-emerald-500 mt-1 block">{completedCount}</span>
+              </div>
+            </div>
+          )}
+
+          {/* ── Filters & Search ───────────────────────────────────────── */}
+          <div className="mb-6 grid gap-3 bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 p-3 sm:p-4 rounded-2xl shadow-2xs">
             <div className="relative">
               <Search
-                className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2"
+                className="text-stone-400 pointer-events-none absolute top-1/2 left-3.5 size-4.5 -translate-y-1/2"
                 aria-hidden="true"
               />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by order ID, dish or phone number"
+                placeholder="Search by order ID, dish name or phone number..."
                 aria-label="Search orders"
-                className="pl-10"
+                className="pl-10.5 rounded-xl border-stone-200 dark:border-stone-800 focus-visible:ring-amber-500/20"
               />
             </div>
 
@@ -249,11 +282,15 @@ export default function OrderHistoryPage() {
               variant="soft"
               value={filterStatus}
               onValueChange={(v) => v && setFilterStatus(v)}
-              className="w-full max-w-full overflow-x-auto scrollbar-none"
+              className="w-full justify-start overflow-x-auto scrollbar-none gap-1 bg-stone-50 dark:bg-stone-950 p-1 rounded-xl border border-stone-100 dark:border-stone-900"
               aria-label="Filter by status"
             >
               {STATUS_FILTERS.map((f) => (
-                <ToggleGroupItem key={f.value} value={f.value} className="shrink-0">
+                <ToggleGroupItem
+                  key={f.value}
+                  value={f.value}
+                  className="shrink-0 rounded-lg text-xs font-bold px-3.5 py-1.5 data-[state=on]:bg-white dark:data-[state=on]:bg-stone-900 data-[state=on]:text-amber-700 dark:data-[state=on]:text-amber-400 data-[state=on]:shadow-2xs border border-transparent data-[state=on]:border-stone-100 dark:data-[state=on]:border-stone-800 transition-all"
+                >
                   {f.label}
                 </ToggleGroupItem>
               ))}
@@ -262,30 +299,34 @@ export default function OrderHistoryPage() {
 
           {/* ── List ──────────────────────────────────────────────────── */}
           {isLoadingDB ? (
-            <div className="grid gap-4" aria-busy="true">
+            <div className="grid gap-5" aria-busy="true">
               {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-52 w-full rounded-xl" />
+                <Skeleton key={i} className="h-56 w-full rounded-2xl" />
               ))}
             </div>
           ) : filteredOrders.length === 0 ? (
-            <Card>
-              <CardContent>
+            <Card className="rounded-2xl border border-stone-200/80 dark:border-stone-800 overflow-hidden shadow-2xs">
+              <CardContent className="p-8">
                 <EmptyState
                   icon={ShoppingBag}
-                  title={orders.length === 0 ? 'No orders yet' : 'No orders match that'}
+                  title={orders.length === 0 ? 'No orders yet' : 'No matching orders found'}
                   description={
                     orders.length === 0
-                      ? 'Once you place an order it will appear here, with the bill.'
-                      : 'Try a different search term or clear the status filter.'
+                      ? 'Your order list is empty. Place your first order to track its live status and view bills!'
+                      : 'We couldn\'t find any orders matching your search query or selected status filter.'
                   }
                   action={
                     orders.length === 0 ? (
-                      <Button asChild variant="brand">
-                        <Link href="/menu">Browse Menu</Link>
+                      <Button asChild variant="brand" className="rounded-xl font-bold shadow-xs">
+                        <Link href="/menu">
+                          Browse Menu
+                          <ArrowRight className="size-4 ml-1.5" />
+                        </Link>
                       </Button>
                     ) : (
                       <Button
                         variant="outline"
+                        className="rounded-xl font-bold"
                         onClick={() => {
                           setSearch('');
                           setFilterStatus('all');
@@ -299,7 +340,7 @@ export default function OrderHistoryPage() {
               </CardContent>
             </Card>
           ) : (
-            <ul className="grid gap-4">
+            <ul className="grid gap-5">
               {filteredOrders.map((order) => (
                 <OrderCard key={order.id} order={order} onReorder={handleReorder} />
               ))}
@@ -325,17 +366,24 @@ function OrderCard({
 
   return (
     <li>
-      <Card>
-        <CardContent className="grid gap-4">
+      <Card className={cn(
+        'hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 overflow-hidden rounded-2xl bg-white dark:bg-stone-900 border border-stone-200/70 dark:border-stone-800/80',
+        STATUS_ACCENTS[order.status] ?? STATUS_ACCENTS.pending
+      )}>
+        <CardContent className="grid gap-4.5 p-5 sm:p-6">
           {/* Header row */}
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-display text-base font-bold break-all">{order.id}</p>
-              <p className="text-muted-foreground mt-0.5 text-xs">
-                {order.orderDate} · {order.orderTime}
-              </p>
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-stone-400 dark:text-stone-500">
+                <Hash className="size-3.5 shrink-0" />
+                <span className="font-mono text-xs font-bold tracking-tight text-stone-800 dark:text-stone-300 break-all">{order.id}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-stone-400 text-xs">
+                <Calendar className="size-3.5 shrink-0 text-stone-400" />
+                <span className="font-semibold text-stone-500">{order.orderDate} · {order.orderTime}</span>
+              </div>
             </div>
-            <Badge variant={presentation.variant} size="lg">
+            <Badge variant={presentation.variant} size="lg" className="rounded-lg font-bold">
               {presentation.label}
             </Badge>
           </div>
@@ -343,62 +391,79 @@ function OrderCard({
           {/* Visual Order Stage Tracking Bar */}
           <OrderStageTracker status={order.status} />
 
-          <Separator />
+          <Separator className="bg-stone-100 dark:bg-stone-800/60" />
 
           {/* Items */}
-          <ul className="grid gap-1.5 text-sm">
-            {order.items.map((item, i) => (
-              <li key={`${item.menuItemId}-${i}`} className="flex justify-between gap-4">
-                <span className="min-w-0">
-                  <span className="text-muted-foreground font-semibold tabular-nums">
-                    {item.quantity}×
-                  </span>{' '}
-                  {item.name}
-                </span>
-                <span className="shrink-0 font-semibold tabular-nums">
-                  {formatCurrency(item.price * item.quantity)}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-2">
+            <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Order Summary</span>
+            <ul className="grid gap-2 text-sm">
+              {order.items.map((item, i) => (
+                <li key={`${item.menuItemId}-${i}`} className="flex justify-between items-center gap-4">
+                  <span className="min-w-0 flex items-center text-stone-800 dark:text-stone-200">
+                    <span className="inline-flex items-center text-[10.5px] font-black text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded mr-2.5 tabular-nums">
+                      {item.quantity}×
+                    </span>
+                    <span className="font-semibold truncate">{item.name}</span>
+                    {item.selectedPortion && (
+                      <span className="text-[9px] font-bold text-stone-400 bg-stone-100 dark:bg-stone-800 px-1 py-0.5 rounded capitalize ml-1.5 shrink-0">
+                        {item.selectedPortion}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 font-bold text-stone-900 dark:text-stone-100 tabular-nums text-right">
+                    {formatCurrency(item.price * item.quantity)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-          <Separator />
+          <Separator className="bg-stone-100 dark:bg-stone-800/60" />
 
           {/* Meta */}
-          <div className="text-muted-foreground grid gap-2 text-xs sm:grid-cols-2">
-            <span className="flex items-center gap-1.5">
-              <User className="size-3.5 shrink-0" />
-              {order.customerName}
+          <div className="text-stone-500 grid gap-2.5 text-xs sm:grid-cols-3 bg-stone-50 dark:bg-stone-950 p-3 rounded-xl border border-stone-100/80 dark:border-stone-900/60">
+            <span className="flex items-center gap-2">
+              <User className="size-4 text-stone-400 shrink-0" />
+              <span className="font-medium text-stone-700 dark:text-stone-300 truncate">{order.customerName}</span>
             </span>
             {order.customerPhone && (
-              <span className="flex items-center gap-1.5">
-                <Phone className="size-3.5 shrink-0" />
-                {order.customerPhone}
+              <span className="flex items-center gap-2">
+                <Phone className="size-4 text-stone-400 shrink-0" />
+                <span className="font-mono text-stone-700 dark:text-stone-300">{order.customerPhone}</span>
               </span>
             )}
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-2">
               {order.paymentMode === 'cash' ? (
-                <Banknote className="size-3.5 shrink-0" />
+                <Banknote className="size-4 text-stone-400 shrink-0" />
               ) : (
-                <CreditCard className="size-3.5 shrink-0" />
+                <CreditCard className="size-4 text-stone-400 shrink-0" />
               )}
-              {order.paymentMode}
-              <span className={cn('font-bold', isPaid ? 'text-success' : 'text-destructive')}>
-                · {isPaid ? 'Paid' : 'Unpaid'}
+              <span className="font-medium capitalize text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
+                {order.paymentMode}
+                <span className={cn('font-bold rounded px-1.5 py-0.5 text-[10px]', isPaid ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400')}>
+                  {isPaid ? 'Paid' : 'Unpaid'}
+                </span>
               </span>
             </span>
           </div>
 
-          {/* Footer */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-            <p className="text-lg font-black">
-              <span className="text-muted-foreground mr-1.5 text-xs font-semibold">Total</span>
-              {formatCurrency(order.grandTotal)}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <ViewBillDialog order={order} />
-              <Button variant="brand" size="sm" onClick={() => onReorder(order.items)}>
-                <RotateCcw />
+          {/* Footer actions */}
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-1">
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-bold text-stone-400 uppercase tracking-wider block">Total Amount</span>
+              <p className="text-lg font-black text-stone-900 dark:text-stone-100">
+                {formatCurrency(order.grandTotal)}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              <ViewBillDialog order={order} className="rounded-xl h-9.5 font-bold text-xs" />
+              <Button
+                variant="brand"
+                size="sm"
+                className="rounded-xl h-9.5 font-bold text-xs shadow-xs"
+                onClick={() => onReorder(order.items)}
+              >
+                <RotateCcw className="size-3.5 mr-1" />
                 Reorder
               </Button>
             </div>
