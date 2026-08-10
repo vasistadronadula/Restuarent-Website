@@ -14,7 +14,7 @@ const NAV_LINKS = [
   { label: 'Home', href: '/' },
   { label: 'Our Menu', href: '/menu' },
   { label: 'Reserve Table', href: '/reservation' },
-  { label: 'About Us', href: '/about' },
+  { label: 'My Orders', href: '/orders' },
   { label: 'Contact', href: '/contact' },
   { label: 'Staff Login', href: '/admin' },
 ];

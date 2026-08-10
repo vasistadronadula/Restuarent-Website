@@ -41,7 +41,7 @@ const NAV_LINKS = [
   { label: 'Home', href: '/', icon: Home },
   { label: 'Menu', href: '/menu', icon: BookOpen },
   { label: 'Reservation', href: '/reservation', icon: CalendarDays },
-  { label: 'About', href: '/about', icon: Info },
+  { label: 'My Orders', href: '/orders', icon: ReceiptText },
   { label: 'Contact', href: '/contact', icon: Mail },
 ];
 
