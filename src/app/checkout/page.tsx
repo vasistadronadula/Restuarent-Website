@@ -281,12 +281,6 @@ function CheckoutForm() {
   }, [searchParams, authLoading, state.items.length]);
 
   const handleProceedToPayment = async () => {
-    if (!user) {
-      toast.error('Please log in to complete your checkout');
-      router.push('/login?redirect=/checkout');
-      return;
-    }
-
     if (!validateDetails()) return;
     setLoading(true);
 
