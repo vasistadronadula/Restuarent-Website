@@ -43,6 +43,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           });
         }
         queryClient.invalidateQueries({ queryKey: queryKeys.orders });
+        queryClient.invalidateQueries({ queryKey: ['guest-orders'] });
       })
       .subscribe();
 

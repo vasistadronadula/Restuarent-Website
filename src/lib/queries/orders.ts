@@ -24,6 +24,25 @@ export function useOrders() {
   });
 }
 
+export function useGuestOrders(ids: string[]) {
+  return useQuery({
+    queryKey: ['guest-orders', ids],
+    queryFn: async (): Promise<Order[]> => {
+      if (!ids || ids.length === 0) return [];
+      const res = await fetch('/api/guest/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) throw new Error('Failed to fetch guest orders');
+      const data = await res.json();
+      return (data || []).map(mapOrder);
+    },
+    enabled: ids.length > 0,
+    staleTime: 60_000,
+  });
+}
+
 export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
 

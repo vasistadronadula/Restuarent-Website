@@ -18,6 +18,7 @@ import { generateInvoiceNo } from '@/lib/idGenerator';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { useCartStore } from '@/store/useCartStore';
+import { useGuestOrders } from '@/lib/queries';
 import type { Order, OrderItem } from '@/types';
 
 import { Badge } from '@/components/ui/badge';
@@ -132,7 +133,7 @@ function OrderStageTracker({ status }: { status: string }) {
 }
 
 export default function OrderHistoryPage() {
-  const { orders, isLoadingDB } = useAdmin();
+  const { orders: allOrders, isLoadingDB: adminLoading } = useAdmin();
   const { user } = useAuth();
   const router = useRouter();
 
@@ -150,6 +151,11 @@ export default function OrderHistoryPage() {
       setGuestOrderIds([]);
     }
   }, [user]);
+
+  const { data: guestOrders = [], isLoading: guestLoading } = useGuestOrders(guestOrderIds);
+
+  const orders = user ? allOrders : guestOrders;
+  const isLoadingDB = user ? adminLoading : guestLoading;
 
   // RLS already restricts what `orders` can even contain here (a signed-in
   // customer's query only returns their own rows; admins get everything) —

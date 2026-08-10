@@ -553,15 +553,6 @@ function CheckoutForm() {
                       Message the kitchen on WhatsApp
                     </a>
                   </Button>
-                  <PrintBillButton
-                    order={completedOrder}
-                    invoiceNo={generateInvoiceNo(completedOrder.id)}
-                    label="Print 80mm Thermal Bill"
-                    format="thermal"
-                    variant="outline"
-                    size="lg"
-                    className="w-full"
-                  />
                   <Button asChild variant="ghost">
                     <Link href="/orders">View my orders</Link>
                   </Button>
