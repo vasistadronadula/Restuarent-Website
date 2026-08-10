@@ -45,12 +45,12 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: 'Employee not found.' }, { status: 404 });
     }
 
-    // Managers may run the team page but not reach into admin accounts, and
-    // not promote anyone (including themselves) to admin.
-    if (!canManageStaffRole(caller.role, employee.role as StaffRole)) {
+    // requireAdmin() above already rejected anyone but an admin; this is
+    // just canManageStaffRole's own admin-only check for consistency.
+    if (!canManageStaffRole(caller.role)) {
       return NextResponse.json({ error: 'Only an admin can change an admin account.' }, { status: 403 });
     }
-    if (body.role && !canManageStaffRole(caller.role, body.role)) {
+    if (body.role && !canManageStaffRole(caller.role)) {
       return NextResponse.json({ error: 'Only an admin can grant the admin role.' }, { status: 403 });
     }
 
@@ -126,7 +126,7 @@ export async function DELETE(request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: 'Employee not found.' }, { status: 404 });
     }
 
-    if (!canManageStaffRole(caller.role, employee.role as StaffRole)) {
+    if (!canManageStaffRole(caller.role)) {
       return NextResponse.json({ error: 'Only an admin can remove an admin account.' }, { status: 403 });
     }
 

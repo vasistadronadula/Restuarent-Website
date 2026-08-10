@@ -2,9 +2,9 @@
 
 import React, { Suspense, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Search, SlidersHorizontal, UtensilsCrossed, X } from 'lucide-react';
+import { Search, UtensilsCrossed, X } from 'lucide-react';
 
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
@@ -17,16 +17,12 @@ import { Category, VegStatus } from '@/types';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Slider } from '@/components/ui/slider';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 const categories: (Category | 'all')[] = [
   'all', 'combos', 'starters', 'tandoori', 'biryani', 'south-indian',
@@ -43,40 +39,28 @@ type SortOption = 'popular' | 'price-asc' | 'price-desc' | 'rating';
 
 const SORT_LABELS: Record<SortOption, string> = {
   popular: 'Most popular',
-  'price-asc': 'Price: low to high',
-  'price-desc': 'Price: high to low',
+  'price-asc': 'Price: low → high',
+  'price-desc': 'Price: high → low',
   rating: 'Highest rated',
 };
 
-const VEG_OPTIONS: VegStatus[] = ['veg', 'non-veg', 'egg'];
-const VEG_LABELS: Record<VegStatus, string> = {
-  veg: 'Veg',
-  'non-veg': 'Non-veg',
-  egg: 'Egg',
-};
-
-const MAX_PRICE = 1000;
+const VEG_OPTIONS: { value: VegStatus | 'all'; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'veg', label: '🟢 Veg' },
+  { value: 'non-veg', label: '🔴 Non-veg' },
+  { value: 'egg', label: '🟡 Egg' },
+];
 
 const isCategory = (value: string | null): value is Category =>
   value !== null && value !== 'all' && (categories as string[]).includes(value);
 
 const isVegStatus = (value: string | null): value is VegStatus =>
-  value !== null && (VEG_OPTIONS as string[]).includes(value);
+  value !== null && ['veg', 'non-veg', 'egg'].includes(value);
 
 function MenuBrowser() {
   const { menuItems: liveMenuItems, isLoadingDB } = useAdmin();
   const searchParams = useSearchParams();
 
-  /**
-   * The home page's category circles, the hero search box and the footer all
-   * link in here with their choice in the query string. Until now none of that
-   * arrived: this page opened on "All items" no matter what the link said, so
-   * every one of those entry points quietly dropped the thing the customer had
-   * just tapped. Params seed the state, and the sync below re-seeds it when a
-   * link changes them on a page that is already mounted — a Link to the same
-   * route does not remount the component, so the initialiser alone is not
-   * enough.
-   */
   const categoryParam = searchParams.get('category');
   const queryParam = searchParams.get('q');
   const vegParam = searchParams.get('veg');
@@ -88,18 +72,8 @@ function MenuBrowser() {
   const [vegFilter, setVegFilter] = useState<VegStatus | 'all'>(
     isVegStatus(vegParam) ? vegParam : 'all'
   );
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, MAX_PRICE]);
   const [sortBy, setSortBy] = useState<SortOption>('popular');
-  const [showFilters, setShowFilters] = useState(false);
 
-  /**
-   * Re-seed during render when — and only when — the query string itself
-   * changes. This is React's "adjusting state when a prop changes" pattern
-   * rather than an effect: an effect would repaint the old filters first and
-   * the corrected ones a frame later. Typing in the search box or tapping a
-   * pill moves local state without touching the URL, so none of that trips
-   * this.
-   */
   const [syncedParams, setSyncedParams] = useState(() => ({ categoryParam, queryParam, vegParam }));
   if (
     syncedParams.categoryParam !== categoryParam ||
@@ -112,24 +86,12 @@ function MenuBrowser() {
     setVegFilter(isVegStatus(vegParam) ? vegParam : 'all');
   }
 
-  /**
-   * Phones get a list, laptops get the card grid.
-   *
-   * Two cards per row on a 360px screen leaves each dish ~150px — enough for a
-   * photo and a truncated name, and nothing else. The list gives the name and
-   * description the full width and keeps the photo legible, which is the whole
-   * reason delivery apps use rows on phones.
-   */
   const isPhone = useMediaQuery('(max-width: 899.95px)');
 
   const filtered = useMemo(() => {
     let items = [...liveMenuItems];
-    if (activeCategory !== 'all') {
-      items = items.filter((i) => i.category === activeCategory);
-    }
-    if (vegFilter !== 'all') {
-      items = items.filter((i) => i.vegStatus === vegFilter);
-    }
+    if (activeCategory !== 'all') items = items.filter((i) => i.category === activeCategory);
+    if (vegFilter !== 'all') items = items.filter((i) => i.vegStatus === vegFilter);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       items = items.filter(
@@ -139,7 +101,6 @@ function MenuBrowser() {
           i.tags.some((t) => t.toLowerCase().includes(q))
       );
     }
-    items = items.filter((i) => i.price >= priceRange[0] && i.price <= priceRange[1]);
     switch (sortBy) {
       case 'popular':    items.sort((a, b) => (b.isPopular ? 1 : 0) - (a.isPopular ? 1 : 0)); break;
       case 'price-asc':  items.sort((a, b) => a.price - b.price); break;
@@ -147,70 +108,64 @@ function MenuBrowser() {
       case 'rating':     items.sort((a, b) => b.rating - a.rating); break;
     }
     return items;
-  }, [liveMenuItems, searchQuery, activeCategory, vegFilter, priceRange, sortBy]);
+  }, [liveMenuItems, searchQuery, activeCategory, vegFilter, sortBy]);
 
   const resetFilters = () => {
     setSearchQuery('');
     setActiveCategory('all');
     setVegFilter('all');
-    setPriceRange([0, MAX_PRICE]);
     setSortBy('popular');
   };
 
-  const activeFilterCount = [
-    searchQuery.trim() ? 1 : 0,
-    activeCategory !== 'all' ? 1 : 0,
-    vegFilter !== 'all' ? 1 : 0,
-    priceRange[0] > 0 || priceRange[1] < MAX_PRICE ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const hasActiveFilters = searchQuery.trim() || activeCategory !== 'all' || vegFilter !== 'all';
 
   return (
     <>
       <Navbar />
 
-      {/* ─── Hero ──────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-linear-to-br from-primary via-[#8E0000] to-[#1A0A0A] py-4 text-center text-white md:py-5">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -top-20 -right-16 size-64 rounded-full bg-accent/15 blur-3xl"
-        />
-        <div className="relative mx-auto w-full max-w-2xl px-4">
-          <h1 className="font-display text-xl font-black tracking-tight sm:text-2xl md:text-3xl">
-            Our Menu
-          </h1>
-          <p className="mt-1 text-xs text-white/80 md:text-sm">
-            Telangana, Andhra and Hyderabadi cooking — {liveMenuItems.length} dishes, made to order.
-          </p>
+      {/* ── Clean Page Header ─────────────────────────────── */}
+      <div className="bg-white border-b border-stone-100">
+        <Container className="py-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1">
+              <h1 className="text-2xl font-semibold text-stone-900">Our Menu</h1>
+              <p className="text-sm text-stone-500 mt-0.5">
+                {isLoadingDB ? 'Loading…' : `${liveMenuItems.length} dishes — Telangana, Andhra & Hyderabadi cooking`}
+              </p>
+            </div>
 
-          <div className="relative mt-3 max-w-xl mx-auto">
-            <Search
-              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-neutral-500"
-              aria-hidden="true"
-            />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search dishes, ingredients or tags…"
-              aria-label="Search the menu"
-              className="h-10 rounded-full border-transparent bg-white pr-10 pl-10 text-xs sm:text-sm text-neutral-900 shadow-md placeholder:text-neutral-500"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                aria-label="Clear search"
-                className="absolute top-1/2 right-2.5 grid size-7 -translate-y-1/2 place-items-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100"
-              >
-                <X className="size-3.5" />
-              </button>
-            )}
+            {/* Search */}
+            <div className="relative w-full sm:w-72">
+              <Search
+                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-stone-400"
+                aria-hidden="true"
+              />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search dishes…"
+                aria-label="Search the menu"
+                className="h-10 rounded-lg pl-9 pr-9 text-sm border-stone-200 focus-visible:border-amber-500 focus-visible:ring-amber-500/20"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
+                  className="absolute top-1/2 right-2.5 grid size-6 -translate-y-1/2 place-items-center rounded text-stone-400 hover:text-stone-600"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      </section>
+        </Container>
+      </div>
 
-      <main className="min-h-[60vh] py-6 md:py-10">
-        <Container>
-          {/* ─── Category rail ───────────────────────────────────────── */}
+      <main className="min-h-[60vh] bg-stone-50 pb-12">
+        <Container className="pt-6">
+
+          {/* ── Category rail ────────────────────────────── */}
           <div
             role="tablist"
             aria-label="Dish categories"
@@ -225,11 +180,11 @@ function MenuBrowser() {
                   aria-selected={active}
                   onClick={() => setActiveCategory(cat)}
                   className={cn(
-                    'flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition-colors outline-none',
-                    'focus-visible:ring-ring/40 focus-visible:ring-[3px]',
+                    'flex shrink-0 items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-medium transition-colors outline-none',
+                    'focus-visible:ring-2 focus-visible:ring-amber-500/40',
                     active
-                      ? 'border-primary bg-primary text-primary-foreground shadow-sm'
-                      : 'border-border bg-card hover:border-primary/40 hover:bg-muted'
+                      ? 'border-amber-600 bg-amber-600 text-white'
+                      : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300 hover:bg-stone-50'
                   )}
                 >
                   <span aria-hidden="true">{categoryEmojis[cat]}</span>
@@ -239,114 +194,69 @@ function MenuBrowser() {
             })}
           </div>
 
-          {/* ─── Filter bar ──────────────────────────────────────────── */}
-          <div className="mb-5 flex flex-wrap items-center gap-3">
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters((s) => !s)}
-              aria-expanded={showFilters}
-              aria-controls="menu-filters"
-            >
-              <SlidersHorizontal />
-              Filters
-              {activeFilterCount > 0 && (
-                <Badge size="sm" className="ml-1">
-                  {activeFilterCount}
-                </Badge>
-              )}
-            </Button>
-
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
-              <SelectTrigger className="w-52" aria-label="Sort dishes">
-                <SelectValue />
+          {/* ── Filter bar (single row) ───────────────────── */}
+          <div className="mb-6 flex flex-wrap items-center gap-3">
+            {/* Veg filter — compact inline select */}
+            <Select value={vegFilter} onValueChange={(v) => setVegFilter(v as VegStatus | 'all')}>
+              <SelectTrigger className="w-36 h-9 text-sm border-stone-200 bg-white rounded-lg" aria-label="Dietary filter">
+                <SelectValue placeholder="Dietary" />
               </SelectTrigger>
               <SelectContent>
-                {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
-                  <SelectItem key={key} value={key}>
-                    {SORT_LABELS[key]}
-                  </SelectItem>
+                {VEG_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
 
-            <p className="text-muted-foreground ml-auto text-sm">
+            {/* Sort */}
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortOption)}>
+              <SelectTrigger className="w-44 h-9 text-sm border-stone-200 bg-white rounded-lg" aria-label="Sort dishes">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
+                  <SelectItem key={key} value={key}>{SORT_LABELS[key]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Clear filters */}
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetFilters}
+                className="h-9 text-sm text-stone-500 hover:text-stone-700 px-3"
+              >
+                <X className="w-3.5 h-3.5 mr-1.5" />
+                Clear
+              </Button>
+            )}
+
+            {/* Result count */}
+            <p className="text-sm text-stone-400 ml-auto tabular-nums">
               {filtered.length} {filtered.length === 1 ? 'dish' : 'dishes'}
             </p>
           </div>
 
-          {showFilters && (
-            <Card id="menu-filters" className="mb-6">
-              <CardContent className="grid gap-6 sm:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label>Dietary</Label>
-                  <ToggleGroup
-                    type="single"
-                    variant="outline"
-                    value={vegFilter}
-                    onValueChange={(v) => setVegFilter((v || 'all') as VegStatus | 'all')}
-                  >
-                    <ToggleGroupItem value="all">All</ToggleGroupItem>
-                    {VEG_OPTIONS.map((v) => (
-                      <ToggleGroupItem key={v} value={v}>
-                        {VEG_LABELS[v]}
-                      </ToggleGroupItem>
-                    ))}
-                  </ToggleGroup>
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="price-range">
-                    Price range
-                    <span className="text-muted-foreground ml-auto font-normal tabular-nums">
-                      {formatCurrency(priceRange[0])} – {formatCurrency(priceRange[1])}
-                    </span>
-                  </Label>
-                  <Slider
-                    id="price-range"
-                    min={0}
-                    max={MAX_PRICE}
-                    step={50}
-                    value={priceRange}
-                    onValueChange={(v) => setPriceRange([v[0], v[1]] as [number, number])}
-                    className="mt-2"
-                  />
-                </div>
-
-                {activeFilterCount > 0 && (
-                  <div className="sm:col-span-2">
-                    <Button variant="ghost" size="sm" onClick={resetFilters}>
-                      <X />
-                      Clear all filters
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* ─── Results ─────────────────────────────────────────────── */}
+          {/* ── Results ─────────────────────────────────── */}
           {isLoadingDB ? (
-            <div
-              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-              aria-busy="true"
-            >
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-busy="true">
               {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-80 rounded-2xl" />
+                <Skeleton key={i} className="h-72 rounded-xl" />
               ))}
             </div>
           ) : filtered.length === 0 ? (
             <EmptyState
               icon={UtensilsCrossed}
               title="No dishes match those filters"
-              description="Try a broader price range, a different category, or clear the search."
+              description="Try a different category, or clear the search."
               action={
-                <Button variant="brand" onClick={resetFilters}>
-                  Clear filters
-                </Button>
+                <Button variant="brand" onClick={resetFilters}>Clear filters</Button>
               }
             />
           ) : isPhone ? (
-            <div>
+            <div className="bg-white rounded-xl border border-stone-100 overflow-hidden">
               {filtered.map((item, i) => (
                 <DishListItem key={item.id} item={item} divider={i < filtered.length - 1} />
               ))}
@@ -368,8 +278,6 @@ function MenuBrowser() {
 
 export default function MenuPage() {
   return (
-    // useSearchParams needs a Suspense boundary, or the whole route opts out of
-    // static rendering.
     <Suspense
       fallback={
         <div className="grid min-h-screen place-items-center">

@@ -9,7 +9,7 @@ import {
 import { useCart } from '@/context/CartContext';
 import { useAdmin } from '@/context/AdminContext';
 import { flyToCart } from '@/lib/flyToCart';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';

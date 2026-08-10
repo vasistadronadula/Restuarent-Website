@@ -14,7 +14,7 @@ import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAddEmployee, useUpdateEmployee, useDeleteEmployee } from '@/lib/queries';
 import { generateEmployeeId } from '@/lib/idGenerator';
-import { Employee, StaffRole } from '@/types';
+import { Employee } from '@/types';
 import { ROLE_LABELS, STAFF_ROLES, assignableRoles, canManageStaffRole } from '@/lib/roleAccess';
 import {
   SHIFT_VALUES, editEmployeeSchema, newEmployeeSchema,
@@ -241,7 +241,7 @@ export default function EmployeesPage() {
       header: 'Actions',
       enableSorting: false,
       cell: ({ row }) => {
-        const canEdit = canManageStaffRole(actorRole, row.original.role);
+        const canEdit = canManageStaffRole(actorRole);
         return (
           <div className="flex items-center gap-1">
             <Button
@@ -271,7 +271,7 @@ export default function EmployeesPage() {
   ], [actorRole, openEdit]);
 
   const renderMobileCard = useCallback((emp: Employee) => {
-    const canEdit = canManageStaffRole(actorRole, emp.role);
+    const canEdit = canManageStaffRole(actorRole);
     return (
       <div>
         <div className="flex items-start gap-3">

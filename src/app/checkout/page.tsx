@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { Suspense, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   ArrowRight, Banknote, CheckCircle2, Copy, CreditCard, Lock, LogIn,
   Phone, ShoppingBag, Store, User,
@@ -52,6 +52,16 @@ interface RazorpayOptions {
   theme: { color: string };
   handler: (response: RazorpayResponse) => void | Promise<void>;
   modal: { ondismiss: () => void };
+  /** Server route Razorpay POSTs the result to once payment finishes. */
+  callback_url?: string;
+  /**
+   * Forces completion to be communicated via a POST to `callback_url`
+   * instead of the in-page `handler` callback. UPI/QR and bank-redirect
+   * payment methods can leave the customer stuck on Razorpay's own success
+   * screen when only `handler` is relied on — this guarantees the browser
+   * is handed back regardless of tab/JS state.
+   */
+  redirect?: boolean;
 }
 interface RazorpayInstance {
   open: () => void;
@@ -61,6 +71,12 @@ declare global {
     Razorpay?: new (options: RazorpayOptions) => RazorpayInstance;
   }
 }
+
+// Bridges the full-page redirect Razorpay's `callback_url` flow makes:
+// checkout state (activeOrderId, the name/phone the customer confirmed) is
+// captured here right before `rzp.open()` and read back once
+// /api/razorpay/callback lands the browser back on this page.
+const PENDING_CHECKOUT_KEY = 'ppr:pendingRazorpayCheckout';
 
 const loadRazorpayScript = (): Promise<boolean> => {
   return new Promise((resolve) => {
@@ -73,10 +89,11 @@ const loadRazorpayScript = (): Promise<boolean> => {
   });
 };
 
-export default function CheckoutPage() {
+function CheckoutForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { state, subtotal, cgst, sgst, discountAmount, clearCart } = useCart();
-  const { user, openAuthModal } = useAuth();
+  const { user, loading: authLoading, openAuthModal } = useAuth();
   const { addOrderLocallyAndDB } = useAdmin();
 
   const [form, setForm] = useState({ name: '', phone: '' });
@@ -86,6 +103,14 @@ export default function CheckoutPage() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  // Set the instant `handler` starts processing a payment, so a same-tick or
+  // later `ondismiss` (Razorpay fires it on close regardless of outcome)
+  // knows not to re-process — see the `ondismiss` handler below.
+  const paymentHandledRef = useRef(false);
+  // Guards the /api/razorpay/callback return-trip effect below so it acts on
+  // a `?payment=` query string exactly once, even across the re-renders that
+  // waiting on auth/cart hydration causes.
+  const paymentCallbackHandledRef = useRef(false);
 
   // Autofill form state with logged-in user profile details
   React.useEffect(() => {
@@ -142,7 +167,12 @@ export default function CheckoutPage() {
     id: string,
     mode: PaymentMode,
     status: PaymentStatus,
-    razorpayIds?: { razorpayOrderId?: string; razorpayPaymentId?: string }
+    razorpayIds?: { razorpayOrderId?: string; razorpayPaymentId?: string },
+    // Defaults to the live form state for the normal same-page flow. The
+    // /api/razorpay/callback return-trip effect below passes the name/phone
+    // captured before the redirect instead, since the form's in-memory state
+    // does not survive that full page navigation.
+    customer: { name: string; phone: string } = { name: effectiveName, phone: effectivePhone }
   ) => {
     const orderItemPayload = state.items.map((i) => ({
       menuItemId: i.id,
@@ -162,9 +192,9 @@ export default function CheckoutPage() {
       // `@palapitta.internal` placeholder instead, which would end up printed
       // on their receipt — they fall through to their number, exactly as a
       // guest checkout does.
-      customerId: accountEmail || effectivePhone || 'GUEST',
-      customerName: effectiveName,
-      customerPhone: effectivePhone,
+      customerId: accountEmail || customer.phone || 'GUEST',
+      customerName: customer.name,
+      customerPhone: customer.phone,
       customerAddress: 'Takeaway — Collect from Madhapur Restaurant',
       items: orderItemPayload,
       subtotal,
@@ -198,6 +228,57 @@ export default function CheckoutPage() {
     clearCart();
     setLoading(false);
   };
+
+  // Return trip from /api/razorpay/callback (see the `redirect`/`callback_url`
+  // options below). Waits for the Supabase session and the persisted cart to
+  // both rehydrate after the full-page navigation before finalizing, so this
+  // never fires against a still-empty store or a signed-out `user`.
+  React.useEffect(() => {
+    const payment = searchParams.get('payment');
+    if (!payment || paymentCallbackHandledRef.current) return;
+    if (authLoading) return;
+    if (state.items.length === 0) return;
+
+    paymentCallbackHandledRef.current = true;
+    router.replace('/checkout', { scroll: false });
+
+    let pending: { activeOrderId: string; name: string; phone: string } | null = null;
+    try {
+      const raw = sessionStorage.getItem(PENDING_CHECKOUT_KEY);
+      if (raw) pending = JSON.parse(raw);
+      sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
+    } catch {
+      // Storage disabled (private mode) — falls through to the "could not
+      // confirm automatically" toast below, same as a missing entry.
+    }
+
+    if (payment !== 'success' || !pending) {
+      toast.error(
+        payment === 'success'
+          ? 'We could not confirm your payment automatically. If you were charged, please contact us with your payment reference.'
+          : 'Payment was not completed. You can retry or pay at the counter.'
+      );
+      return;
+    }
+
+    // Syncing to the external redirect Razorpay's server just made (the
+    // `?payment=` query string), not deriving state from a render — the same
+    // exception carousel.tsx documents for Embla's subscribe callback.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true);
+    toast.success('Payment received successfully');
+    finalizeOrder(
+      pending.activeOrderId,
+      'razorpay',
+      'paid',
+      {
+        razorpayOrderId: searchParams.get('rp_order_id') || undefined,
+        razorpayPaymentId: searchParams.get('rp_payment_id') || undefined,
+      },
+      { name: pending.name, phone: pending.phone }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, authLoading, state.items.length]);
 
   const handleProceedToPayment = async () => {
     if (!user) {
@@ -250,6 +331,22 @@ export default function CheckoutPage() {
       return;
     }
 
+    const confirmedOrderData = orderData;
+    paymentHandledRef.current = false;
+
+    // Survives the full-page navigation that the `redirect: true` /
+    // `callback_url` completion flow below makes — the in-memory `form`
+    // state does not.
+    try {
+      sessionStorage.setItem(
+        PENDING_CHECKOUT_KEY,
+        JSON.stringify({ activeOrderId, name: effectiveName, phone: effectivePhone })
+      );
+    } catch {
+      // Private mode / storage disabled — the callback return-trip effect
+      // falls back to its "could not confirm automatically" toast.
+    }
+
     const options: RazorpayOptions = {
       key: razorpayKey,
       amount: orderData.amount,
@@ -260,7 +357,17 @@ export default function CheckoutPage() {
       order_id: orderData.id,
       prefill: { name: effectiveName, contact: effectivePhone },
       theme: { color: '#C62828' },
+      // Guarantees the browser is handed back to the app after payment via
+      // a server-side POST redirect instead of relying solely on the
+      // `handler` callback below, which UPI/QR and bank-redirect payment
+      // methods can leave stranded on Razorpay's own success screen.
+      callback_url: `${window.location.origin}/api/razorpay/callback`,
+      redirect: true,
       handler: async function (response) {
+        // Razorpay closes the modal right after calling `handler`, which
+        // also fires `ondismiss` — mark this payment handled so that
+        // fallback check doesn't re-run against the same order.
+        paymentHandledRef.current = true;
         toast.loading('Confirming your payment…', { id: 'verify-toast' });
         const razorpayIds = {
           razorpayOrderId: response.razorpay_order_id as string,
@@ -291,7 +398,46 @@ export default function CheckoutPage() {
         }
       },
       modal: {
-        ondismiss: function () {
+        // Fires whenever the modal closes, including right after a
+        // successful payment — and, for UPI intent/QR payments, also when
+        // the customer closes it themselves as soon as their UPI app shows
+        // "paid," without waiting for the modal's own polling to catch up.
+        // Rather than assume cancellation, confirm with Razorpay directly
+        // before giving up — that's the gap that left customers stuck on
+        // the checkout form after a payment that had actually gone through.
+        ondismiss: async function () {
+          if (paymentHandledRef.current) return;
+
+          const orderId = confirmedOrderData.id;
+          if (!orderId) {
+            toast.error('Payment cancelled.');
+            setLoading(false);
+            return;
+          }
+
+          toast.loading('Checking payment status…', { id: 'verify-toast' });
+          try {
+            const statusRes = await fetch('/api/razorpay/order-status', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ razorpay_order_id: orderId }),
+            });
+            const statusData = await statusRes.json();
+
+            if (statusRes.ok && statusData.paid) {
+              paymentHandledRef.current = true;
+              toast.success('Payment received successfully', { id: 'verify-toast' });
+              await finalizeOrder(activeOrderId, 'razorpay', 'paid', {
+                razorpayOrderId: orderId,
+                razorpayPaymentId: statusData.razorpay_payment_id,
+              });
+              return;
+            }
+          } catch {
+            // Fall through — treat as cancelled below.
+          }
+
+          toast.dismiss('verify-toast');
           toast.error('Payment cancelled.');
           setLoading(false);
         },
@@ -607,6 +753,14 @@ export default function CheckoutPage() {
 
       <Footer />
     </>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={null}>
+      <CheckoutForm />
+    </Suspense>
   );
 }
 

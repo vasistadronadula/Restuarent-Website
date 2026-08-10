@@ -19,13 +19,15 @@ interface Props extends Omit<ButtonProps, 'onClick'> {
   format?: BillFormat;
 }
 
+import { flushSync } from 'react-dom';
+
 /**
  * Prints (or saves as PDF) one of the two bill documents.
  *
  * The bill is mounted only for the duration of the print so the page isn't
- * carrying a hidden copy of every order in the list. `onafterprint` is what
- * unmounts it — and there's a timeout fallback because Safari doesn't always
- * fire that event.
+ * carrying a hidden copy of every order in the list. `flushSync` guarantees
+ * the portal mounts synchronously inside the click handler so mobile browsers
+ * do not block the print dialog.
  */
 export default function PrintBillButton({
   order,
@@ -39,19 +41,12 @@ export default function PrintBillButton({
   const [printing, setPrinting] = useState(false);
 
   const handlePrint = () => {
-    setPrinting(true);
-
-    const cleanup = () => {
-      window.removeEventListener('afterprint', cleanup);
-      setPrinting(false);
-    };
-    window.addEventListener('afterprint', cleanup);
-
-    // The portal needs a paint before the print dialog reads the document.
-    requestAnimationFrame(() => {
-      window.print();
-      setTimeout(cleanup, 3000);
+    flushSync(() => {
+      setPrinting(true);
     });
+
+    window.print();
+    setPrinting(false);
   };
 
   const Icon = Printer;

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
+import { useAuth } from '@/context/AuthContext';
 import { StatCard } from '@/components/admin/ui';
 import { Order, OrderStatus } from '@/types';
 import { toast } from 'sonner';
@@ -136,7 +137,9 @@ function getOrderTypeStyle(orderType?: string) {
 }
 
 export default function KitchenDisplayPage() {
-  const { orders, updateOrderStatus } = useAdmin();
+  const { orders, updateOrderStatus, isLoadingDB } = useAdmin();
+  const { userRole } = useAuth();
+  const isChef = userRole === 'chef';
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [showPrepMatrix, setShowPrepMatrix] = useState(true);
@@ -144,16 +147,35 @@ export default function KitchenDisplayPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Record<string, Set<number>>>({});
-  const [lastOrderCount, setLastOrderCount] = useState(orders.length);
 
-  // Audio alert on new incoming orders
+  // Which orders this screen has already alerted on. Seeded from the real
+  // first-resolved fetch (gated on isLoadingDB) rather than orders.length at
+  // mount — the previous version compared a raw count against a baseline
+  // taken before the fetch resolved, so every page refresh saw 0 jump to the
+  // full historical order count and re-alerted on the entire backlog.
+  const seenOrderIdsRef = useRef<Set<string>>(new Set());
+  const hasSeededRef = useRef(false);
+
+  // Audio + toast alert on new incoming orders — chef only. Admin/Manager can
+  // open this same screen to watch the queue without being alerted to it.
   useEffect(() => {
-    if (orders.length > lastOrderCount) {
+    if (isLoadingDB) return;
+
+    if (!hasSeededRef.current) {
+      orders.forEach((o) => seenOrderIdsRef.current.add(o.id));
+      hasSeededRef.current = true;
+      return;
+    }
+
+    const newOrders = orders.filter((o) => !seenOrderIdsRef.current.has(o.id));
+    if (newOrders.length === 0) return;
+    newOrders.forEach((o) => seenOrderIdsRef.current.add(o.id));
+
+    if (isChef) {
       if (soundEnabled) playKitchenChime();
       toast.success('🔔 New Order Arrived in Kitchen!');
     }
-    setLastOrderCount(orders.length);
-  }, [orders.length, lastOrderCount, soundEnabled]);
+  }, [orders, isLoadingDB, isChef, soundEnabled]);
 
   // Fullscreen API Handler
   const toggleFullscreen = () => {

@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Order } from '@/types';
 import ThermalReceiptModal from './ThermalReceiptModal';
 import { isPrinterConnected, printOrder, reconnectSavedPrinter } from '@/lib/thermalPrinter';
+import { wasPosOrderPrinted } from '@/lib/posOrderTracker';
 import { toast } from 'sonner';
 
 // Audio chime generator using browser Web Audio API (zero external files required)
@@ -100,8 +101,7 @@ export default function AutoOrderPrinter() {
       // If this order was placed right here by the POS page on this device,
       // OrderPlacedDialog is already handling the print/receipt confirmation.
       // Do not trigger a second print modal/window.print call!
-      const posSeen = typeof window !== 'undefined' && (window as unknown as { __ppr_seen_pos_orders?: Set<string> }).__ppr_seen_pos_orders?.has(newOrder.id);
-      if (posSeen) return;
+      if (wasPosOrderPrinted(newOrder.id)) return;
 
       if (isAutoPrintEnabled) {
         // Play notification audio alert

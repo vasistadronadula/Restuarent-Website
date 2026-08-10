@@ -50,25 +50,27 @@ export interface PrintBillPortalProps {
 function printHost(format: BillFormat): HTMLElement | null {
   if (typeof document === 'undefined') return null;
 
-  const existing = document.getElementById(PRINT_ROOT_ID);
-  const node = existing ?? document.createElement('div');
-  if (!existing) {
+  let node = document.getElementById(PRINT_ROOT_ID);
+  if (!node) {
+    node = document.createElement('div');
     node.id = PRINT_ROOT_ID;
     document.body.appendChild(node);
   }
-  node.innerHTML = '';
-  node.dataset.format = 'thermal';
+  node.dataset.format = format;
   return node;
 }
 
 export default function PrintBillPortal({
   order, invoiceNo, copyLabel, format = 'thermal',
 }: PrintBillPortalProps) {
-  const host = printHost('thermal');
+  const host = printHost(format);
   if (!host) return null;
 
-  return createPortal(
-    <ThermalBill order={order} invoiceNo={invoiceNo} copyLabel={copyLabel} />,
-    host
+  const content = format === 'a4' ? (
+    <InvoiceA4 order={order} invoiceNo={invoiceNo} copyLabel={copyLabel} />
+  ) : (
+    <ThermalBill order={order} invoiceNo={invoiceNo} copyLabel={copyLabel} />
   );
+
+  return createPortal(content, host);
 }

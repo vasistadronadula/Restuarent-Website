@@ -10,7 +10,7 @@ import {
 import { useCart } from '@/context/CartContext';
 import { flyToCart } from '@/lib/flyToCart';
 import type { VegStatus } from '@/types';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 

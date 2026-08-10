@@ -10,24 +10,25 @@ export class RequireAdminError extends Error {
   }
 }
 
-/** The caller's verified identity plus the role that authorized the request. */
+/** The caller's verified identity — always the admin role, since that's the
+ *  only role this check lets through. */
 export interface AdminCaller {
   user: User;
-  role: 'admin' | 'manager';
+  role: 'admin';
 }
 
 /**
  * Verifies the request's `Authorization: Bearer <access_token>` belongs to
- * an admin/manager and returns that user together with the role that let
- * them through — callers need the role to apply the narrower limits that
- * separate a manager from an admin (see canManageStaffRole in
- * lib/roleAccess.ts). This app uses `@supabase/supabase-js`
- * (localStorage sessions, not cookies), so there's no server-readable session
- * for a route handler to pick up implicitly — the client must forward its
- * access token explicitly, which is validated here via the service-role
- * client's `auth.getUser(token)`, then cross-checked against `profiles.role`
- * (also via the service-role client, bypassing RLS) since a token alone
- * proves identity, not authorization.
+ * an admin and returns that user. Employee Management is admin-exclusive —
+ * a manager runs customers/menu/inventory/coupons but does not hire, fire,
+ * or touch payroll — so this rejects a manager's token exactly like anyone
+ * else's. This app uses `@supabase/supabase-js` (localStorage sessions, not
+ * cookies), so there's no server-readable session for a route handler to
+ * pick up implicitly — the client must forward its access token explicitly,
+ * which is validated here via the service-role client's `auth.getUser(token)`,
+ * then cross-checked against `profiles.role` (also via the service-role
+ * client, bypassing RLS) since a token alone proves identity, not
+ * authorization.
  *
  * This check is the ONLY gate protecting the privileged operations it's used
  * to guard (creating logins, calling `admin_upsert_staff`) — never trust a
@@ -52,7 +53,7 @@ export async function requireAdmin(request: Request): Promise<AdminCaller> {
   if (profileError) throw new RequireAdminError('Failed to verify role', 500);
 
   const role = (profile?.role || '').toString().toLowerCase().trim();
-  if (role !== 'admin' && role !== 'manager') {
+  if (role !== 'admin') {
     throw new RequireAdminError('Admin privileges required', 403);
   }
 

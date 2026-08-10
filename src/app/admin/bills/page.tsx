@@ -18,6 +18,8 @@ import PrintBillPortal, { type BillFormat } from '@/components/bill/PrintBillPor
 import { generateInvoiceNo } from '@/lib/idGenerator';
 import { rupees } from '@/lib/billing';
 
+import { flushSync } from 'react-dom';
+
 export default function GeneratedBillsPage() {
   const { orders } = useAdmin();
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'cash' | 'upi' | 'card'>('all');
@@ -39,11 +41,11 @@ export default function GeneratedBillsPage() {
    * Print 80mm thermal counter receipt for an order.
    */
   const handlePrint = (order: Order) => {
-    setReprint({ order, format: 'thermal' });
-    requestAnimationFrame(() => {
-      window.print();
-      setTimeout(() => setReprint(null), 1000);
+    flushSync(() => {
+      setReprint({ order, format: 'thermal' });
     });
+    window.print();
+    setReprint(null);
   };
 
   const columns = useMemo<ColumnDef<any, Order>[]>(() => [

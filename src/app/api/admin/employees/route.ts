@@ -42,9 +42,10 @@ export async function POST(request: Request) {
     if (!role || !VALID_ROLES.includes(role)) {
       return NextResponse.json({ error: 'Invalid role.' }, { status: 400 });
     }
-    // A manager runs the team page but must not be able to mint an admin
-    // account — that would turn manager into a route to full access.
-    if (!canManageStaffRole(caller.role, role)) {
+    // requireAdmin() above already rejected anyone but an admin; this is
+    // just canManageStaffRole's own admin-only check for consistency with
+    // the PATCH/DELETE handlers below.
+    if (!canManageStaffRole(caller.role)) {
       return NextResponse.json(
         { error: 'Only an admin can create an admin account.' },
         { status: 403 }

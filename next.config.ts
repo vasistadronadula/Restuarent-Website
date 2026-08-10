@@ -16,10 +16,6 @@ const nextConfig: NextConfig = {
       "lucide-react",
       "recharts",
       "@tanstack/react-table",
-      // Still listed because the admin and POS screens have not been converted
-      // off MUI yet — drop these two with the last `@mui/*` import.
-      "@mui/material",
-      "@mui/icons-material",
     ],
   },
   images: {

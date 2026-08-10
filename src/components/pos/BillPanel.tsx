@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Image from 'next/image';
 import {
-  Plus, Minus, Trash2, ShoppingBag, X, ChevronDown, ChevronUp, ShoppingCart,
+  Plus, Minus, Trash2, ShoppingBag, X, ChevronDown, ChevronUp, ShoppingCart, Banknote,
 } from 'lucide-react';
 import { MAX_LINE_QTY, type PosLine } from '@/hooks/usePosCart';
 import type { BillTotals } from '@/lib/billing';
@@ -75,6 +75,37 @@ export default function BillPanel({
 
   const [detailsChoice, setDetailsChoice] = useState<boolean | null>(null);
   const detailsOpen = needsTable || (detailsChoice ?? !compact);
+
+  // ── Cash tendered / change due ──────────────────────────────────────────
+  // The one calculation every cashier otherwise does in their head. Cleared
+  // whenever the mode leaves cash or the bill empties out (order placed or
+  // cart cleared), so a stale amount never carries over onto the next order.
+  // Reset happens during render (same "did a tracked value change" pattern
+  // QuantityStepper below uses for its own draft) rather than in an effect,
+  // which would otherwise cost this component an extra cascading render on
+  // every single mode/cart change.
+  const [cashReceived, setCashReceived] = useState('');
+  const [cashResetKey, setCashResetKey] = useState('');
+  const nextCashResetKey = `${paymentMode}:${empty}`;
+  if (nextCashResetKey !== cashResetKey) {
+    setCashResetKey(nextCashResetKey);
+    if (paymentMode !== 'cash' || empty) setCashReceived('');
+  }
+
+  const receivedAmount = Number(cashReceived) || 0;
+  const changeDue = Math.max(0, receivedAmount - totals.grandTotal);
+  const cashShort = paymentMode === 'cash' && receivedAmount > 0 && receivedAmount < totals.grandTotal;
+
+  // A handful of denominations a cashier is actually handed, plus the exact
+  // total — never more than four so the row stays one thumb's reach wide.
+  const quickCashAmounts = useMemo(() => {
+    const total = Math.ceil(totals.grandTotal);
+    if (total <= 0) return [];
+    const roundedUp = [50, 100, 500, 2000]
+      .map((step) => Math.ceil(total / step) * step)
+      .filter((amount) => amount > total);
+    return Array.from(new Set([total, ...roundedUp])).slice(0, 4);
+  }, [totals.grandTotal]);
 
   const detailsSummary = [
     orderType === 'dine-in'
@@ -280,6 +311,54 @@ export default function BillPanel({
                 </Button>
               ))}
             </div>
+
+            {paymentMode === 'cash' && (
+              <div className="space-y-2 rounded-xl bg-stone-100/70 dark:bg-stone-800/50 p-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-extrabold text-stone-500 flex items-center gap-1">
+                    <Banknote className="w-3.5 h-3.5" /> Cash received
+                  </span>
+                  {changeDue > 0 && (
+                    <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">
+                      Change due {rupees(changeDue)}
+                    </span>
+                  )}
+                </div>
+
+                {quickCashAmounts.length > 0 && (
+                  <div className="flex gap-1.5">
+                    {quickCashAmounts.map((amount) => (
+                      <Button
+                        key={amount}
+                        type="button"
+                        size="sm"
+                        variant={receivedAmount === amount ? 'default' : 'outline'}
+                        onClick={() => setCashReceived(String(amount))}
+                        className={`flex-1 h-8 text-xs font-bold rounded-lg ${
+                          receivedAmount === amount ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''
+                        }`}
+                      >
+                        {rupees(amount)}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+
+                <Input
+                  inputMode="numeric"
+                  placeholder="Or type amount received"
+                  value={cashReceived}
+                  onChange={(e) => setCashReceived(e.target.value.replace(/\D/g, ''))}
+                  className="h-9 text-sm font-bold rounded-lg bg-white dark:bg-stone-900 border-stone-300 dark:border-stone-700"
+                />
+
+                {cashShort && (
+                  <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                    Short by {rupees(totals.grandTotal - receivedAmount)}
+                  </p>
+                )}
+              </div>
+            )}
           </>
         )}
 
@@ -335,9 +414,9 @@ function QuantityStepper({
         variant="outline"
         size="icon"
         onClick={() => (atMinimum ? onRemove(line.key) : onDecrement(line.key))}
-        className={`w-7 h-7 rounded-md p-0 ${atMinimum ? 'text-rose-600 border-rose-200 hover:bg-rose-50' : 'text-stone-600 border-stone-300'}`}
+        className={`w-9 h-9 rounded-lg p-0 ${atMinimum ? 'text-rose-600 border-rose-200 hover:bg-rose-50' : 'text-stone-600 border-stone-300'}`}
       >
-        {atMinimum ? <Trash2 className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+        {atMinimum ? <Trash2 className="w-4 h-4" /> : <Minus className="w-4 h-4" />}
       </Button>
 
       <Input
@@ -346,7 +425,7 @@ function QuantityStepper({
         onFocus={(e) => e.target.select()}
         onBlur={() => setDraft(null)}
         inputMode="numeric"
-        className="w-9 h-7 text-center font-black text-xs p-0 border-stone-300 dark:border-stone-700 rounded-md"
+        className="w-9 h-9 text-center font-black text-xs p-0 border-stone-300 dark:border-stone-700 rounded-lg"
       />
 
       <Button
@@ -354,9 +433,9 @@ function QuantityStepper({
         size="icon"
         onClick={() => onIncrement(line.key)}
         disabled={line.quantity >= MAX_LINE_QTY}
-        className="w-7 h-7 rounded-md p-0 text-amber-700 border-amber-300 hover:bg-amber-50"
+        className="w-9 h-9 rounded-lg p-0 text-amber-700 border-amber-300 hover:bg-amber-50"
       >
-        <Plus className="w-3.5 h-3.5" />
+        <Plus className="w-4 h-4" />
       </Button>
     </div>
   );

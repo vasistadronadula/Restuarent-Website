@@ -4,7 +4,6 @@ import React, { Suspense, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Loader2, Lock, Mail, Phone, User, UserPlus, Smartphone, Apple, LogIn } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 import { useAuth, landAfterLogin } from '@/context/AuthContext';
 import {

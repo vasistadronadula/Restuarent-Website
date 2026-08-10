@@ -407,6 +407,10 @@ body[data-scroll-locked] {
 /*    one page instead of letting it continue onto more paper.   */
 /* ============================================================ */
 
+#ppr-print-root {
+  display: none;
+}
+
 @media print {
   @page {
     size: 80mm auto;

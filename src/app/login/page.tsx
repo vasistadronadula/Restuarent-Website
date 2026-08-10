@@ -4,7 +4,7 @@ import React, { Suspense, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, MailCheck, LogIn, Phone, Smartphone, KeyRound, Apple } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 import { useAuth, landAfterLogin } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';

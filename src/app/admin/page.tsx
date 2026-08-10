@@ -6,13 +6,12 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { canAccess } from '@/lib/roleAccess';
-import {
-  PageHeader, StatCard, SectionHeading,
-} from '@/components/admin/ui';
+import { PageHeader, SectionHeading } from '@/components/admin/ui';
 import {
   Users, Package, TrendingUp, ShieldCheck,
   ClipboardList, CalendarDays, ChefHat, BookOpen, Calculator,
-  BarChart3, Receipt, Ticket, Briefcase, UserCircle
+  BarChart3, Receipt, Ticket, Briefcase, UserCircle,
+  AlertTriangle,
 } from 'lucide-react';
 
 const dayKey = (d: Date) => {
@@ -30,102 +29,107 @@ const greetingFor = (hour: number) => {
   return 'Good evening';
 };
 
-const LAUNCHPAD_PAGES = [
+/** Group tiles so staff can scan by area of responsibility */
+const LAUNCHPAD_GROUPS = [
   {
-    label: 'Cashier POS',
-    href: '/admin/pos',
-    icon: Calculator,
-    color: 'from-rose-500 to-red-600 dark:from-rose-600 dark:to-red-700',
-    description: 'Ring up walk-in counter sales, print receipts, and take payments',
+    label: 'Operations',
+    pages: [
+      {
+        label: 'Cashier POS',
+        href: '/admin/pos',
+        icon: Calculator,
+        description: 'Ring up sales, print receipts, take payments',
+      },
+      {
+        label: 'Live Orders',
+        href: '/admin/orders',
+        icon: ClipboardList,
+        description: 'Real-time order tracking and kitchen updates',
+        badgeKey: 'pendingOrders',
+        urgent: true,
+      },
+      {
+        label: 'Kitchen KDS',
+        href: '/admin/kitchen',
+        icon: ChefHat,
+        description: 'Kitchen display, cooking queues, lane progress',
+      },
+      {
+        label: 'Table Bookings',
+        href: '/admin/reservations',
+        icon: CalendarDays,
+        description: 'Reservations, table mapping, walk-in seating',
+        badgeKey: 'todayBookings',
+      },
+    ],
   },
   {
-    label: 'Live Orders',
-    href: '/admin/orders',
-    icon: ClipboardList,
-    color: 'from-orange-500 to-amber-600 dark:from-orange-600 dark:to-amber-700',
-    description: 'Real-time order tracking, statuses, and kitchen updates',
-    badgeKey: 'pendingOrders',
+    label: 'Management',
+    pages: [
+      {
+        label: 'Menu Management',
+        href: '/admin/menu-management',
+        icon: BookOpen,
+        description: 'Edit dishes, prices, portions, categories',
+      },
+      {
+        label: 'Inventory & Stock',
+        href: '/admin/inventory',
+        icon: Package,
+        description: 'Stock levels, thresholds, alerts, restocks',
+        badgeKey: 'lowStock',
+        urgent: true,
+      },
+      {
+        label: 'Customers',
+        href: '/admin/customers',
+        icon: Users,
+        description: 'Customer accounts, VIP status, order histories',
+      },
+      {
+        label: 'Employees & HR',
+        href: '/admin/employees',
+        icon: Briefcase,
+        description: 'Payroll, credentials, shift schedules',
+      },
+      {
+        label: 'Coupons & Offers',
+        href: '/admin/coupons',
+        icon: Ticket,
+        description: 'Promo codes, campaigns, flat discounts',
+      },
+    ],
   },
   {
-    label: 'Kitchen KDS',
-    href: '/admin/kitchen',
-    icon: ChefHat,
-    color: 'from-red-500 to-pink-600 dark:from-red-600 dark:to-pink-700',
-    description: 'Kitchen Display System cooking queues and lane progress trackers',
+    label: 'Reports',
+    pages: [
+      {
+        label: 'Bills Ledger',
+        href: '/admin/bills',
+        icon: Receipt,
+        description: 'Historical bill records and invoices',
+      },
+      {
+        label: 'Reports & Stats',
+        href: '/admin/reports',
+        icon: BarChart3,
+        description: 'Revenue, metrics, and top sellers',
+      },
+      {
+        label: 'Live Performance',
+        href: '/admin/performance',
+        icon: TrendingUp,
+        description: 'Real-time sales graphs and daily targets',
+      },
+      {
+        label: 'My Profile',
+        href: '/admin/profile',
+        icon: UserCircle,
+        description: 'Account details, avatar, notifications',
+      },
+    ],
   },
-  {
-    label: 'Table Bookings',
-    href: '/admin/reservations',
-    icon: CalendarDays,
-    color: 'from-emerald-500 to-teal-600 dark:from-emerald-600 dark:to-teal-700',
-    description: 'Manage guest reservations, table mappings, and walk-in seating',
-    badgeKey: 'todayBookings',
-  },
-  {
-    label: 'Inventory & Stock',
-    href: '/admin/inventory',
-    icon: Package,
-    color: 'from-yellow-500 to-amber-600 dark:from-yellow-600 dark:to-amber-700',
-    description: 'Ingredient stock levels, thresholds, alerts, and restock records',
-    badgeKey: 'lowStock',
-  },
-  {
-    label: 'Menu Management',
-    href: '/admin/menu-management',
-    icon: BookOpen,
-    color: 'from-violet-500 to-purple-600 dark:from-violet-600 dark:to-purple-700',
-    description: 'Edit restaurant menu dishes, prices, portions, and categories',
-  },
-  {
-    label: 'Customers Directory',
-    href: '/admin/customers',
-    icon: Users,
-    color: 'from-blue-500 to-indigo-600 dark:from-blue-600 dark:to-indigo-700',
-    description: 'Manage customer accounts, VIP status, and overall order histories',
-  },
-  {
-    label: 'Bills Ledger',
-    href: '/admin/bills',
-    icon: Receipt,
-    color: 'from-stone-500 to-stone-600 dark:from-stone-600 dark:to-stone-700',
-    description: 'Historical records, ledger and invoices of all generated bills',
-  },
-  {
-    label: 'Coupons & Offers',
-    href: '/admin/coupons',
-    icon: Ticket,
-    color: 'from-fuchsia-500 to-rose-600 dark:from-fuchsia-600 dark:to-rose-700',
-    description: 'Create and configure promo campaign coupon codes and flat discounts',
-  },
-  {
-    label: 'Reports & Stats',
-    href: '/admin/reports',
-    icon: BarChart3,
-    color: 'from-cyan-500 to-blue-600 dark:from-cyan-600 dark:to-blue-700',
-    description: 'Analytical dashboards of revenue streams, metrics, and top sellers',
-  },
-  {
-    label: 'Live Performance',
-    href: '/admin/performance',
-    icon: TrendingUp,
-    color: 'from-pink-500 to-rose-600 dark:from-pink-600 dark:to-rose-700',
-    description: 'Real-time sales performance graphs, incoming orders, and daily targets',
-  },
-  {
-    label: 'Employees & HR',
-    href: '/admin/employees',
-    icon: Briefcase,
-    color: 'from-slate-600 to-slate-700 dark:from-slate-700 dark:to-slate-800',
-    description: 'Track team payroll, system login credentials, and shift schedules',
-  },
-  {
-    label: 'My Profile',
-    href: '/admin/profile',
-    icon: UserCircle,
-    color: 'from-neutral-500 to-neutral-600 dark:from-neutral-600 dark:to-neutral-700',
-    description: 'Manage personal login account details, avatar, and staff notifications',
-  },
-];
+] as const;
 
 export default function AdminDashboard() {
   const { orders, reservations, inventory, employees } = useAdmin();
@@ -187,69 +191,132 @@ export default function AdminDashboard() {
     };
   }, [orders, reservations, inventory, employees, todayStr]);
 
-  // Filter launcher pages by user role permissions
-  const visiblePages = useMemo(() => {
-    return LAUNCHPAD_PAGES.filter((p) => canAccess(userRole, p.href));
-  }, [userRole]);
+  const firstName = user?.user_metadata?.full_name?.split(' ')[0]
+    || user?.user_metadata?.name?.split(' ')[0]
+    || 'there';
 
   return (
     <AdminLayout title="Dashboard">
-      <div className="space-y-5 w-full max-w-full">
-        
-        {/* Compact greeting + role badge */}
+      <div className="space-y-6 w-full max-w-full">
+
+        {/* Greeting + role */}
         <PageHeader
-          title={`${greeting}, ${user?.user_metadata?.full_name || user?.user_metadata?.name || 'Staff Member'} 👋`}
-          subtitle="Restaurant operations hub — quick stats below and one-tap access to every module your role can open."
+          title={`${greeting}, ${firstName}`}
+          subtitle="Here's what's happening at the restaurant today."
           action={
-            <div className="flex items-center gap-2 px-2.5 py-1 bg-white dark:bg-[#1C1C1E] border border-stone-200/50 dark:border-[#2C2C2E]/60 rounded-xl text-stone-600 dark:text-stone-300 text-[10px] font-extrabold shadow-sm flex-shrink-0">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Authorized: <span className="text-amber-700 dark:text-amber-500 capitalize">{userRole || 'staff'}</span></span>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-stone-500 shadow-xs flex-shrink-0">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="capitalize">{userRole || 'staff'}</span>
             </div>
           }
         />
 
-        {/* 2. App Launcher Grid */}
-        <div className="space-y-3">
-          <SectionHeading
-            title="Restaurant Operations App Launcher"
-            subtitle="Badges show items that need your attention."
-          />
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-            {visiblePages.map((page) => {
-              const IconComponent = page.icon;
-              const badgeVal = page.badgeKey ? stats[page.badgeKey as keyof typeof stats] : 0;
-              
-              return (
-                <Link 
-                  key={page.label} 
-                  href={page.href}
-                  className="group relative flex flex-col items-start p-3 bg-white dark:bg-[#1C1C1E]/80 border border-stone-200/50 dark:border-[#2C2C2E]/60 rounded-2xl shadow-[0_1px_2px_rgba(0,0,0,0.015)] dark:shadow-none hover:border-stone-300 dark:hover:border-stone-700 hover:shadow-xs transition-all duration-150 overflow-hidden"
-                >
-                  {/* Apple Squircle Icon */}
-                  <div className={`w-9 h-9 rounded-xl bg-gradient-to-tr ${page.color} text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-150 flex-shrink-0`}>
-                    <IconComponent className="w-4.5 h-4.5 stroke-[1.8]" />
-                  </div>
-
-                  {/* Launcher Page Title & Description */}
-                  <h3 className="font-extrabold text-xs text-stone-850 dark:text-stone-100 mt-2.5 group-hover:text-amber-700 dark:group-hover:text-amber-500 transition-colors">
-                    {page.label}
-                  </h3>
-                  <p className="text-[10px] font-semibold text-stone-400 dark:text-stone-500 mt-0.5 leading-normal">
-                    {page.description}
-                  </p>
-
-                  {/* Absolute Notification Count Badge (Apple iOS style) */}
-                  {badgeVal > 0 && (
-                    <span className="absolute top-3 right-3 bg-rose-600 text-white rounded-full min-w-[18px] h-4.5 px-1 flex items-center justify-center text-[9px] font-black shadow-md border border-white dark:border-[#1C1C1E] animate-pulse">
-                      {badgeVal}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
+        {/* ── Today's Status — 4 KPI cards ─────────────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: "Today's Revenue", value: money(stats.todayRevenue), sub: 'excluding cancelled' },
+            { label: "Today's Orders", value: stats.todayOrders.toString(), sub: 'all statuses' },
+            {
+              label: 'Pending Orders',
+              value: stats.pendingOrders.toString(),
+              sub: 'need attention',
+              urgent: stats.pendingOrders > 0,
+            },
+            {
+              label: 'Low Stock Items',
+              value: stats.lowStock.toString(),
+              sub: 'below threshold',
+              urgent: stats.lowStock > 0,
+            },
+          ].map((kpi) => (
+            <div
+              key={kpi.label}
+              className={`bg-white border rounded-xl p-4 ${
+                kpi.urgent && Number(kpi.value) > 0
+                  ? 'border-amber-300 bg-amber-50'
+                  : 'border-stone-200'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <p className="text-xs font-medium text-stone-500">{kpi.label}</p>
+                {kpi.urgent && Number(kpi.value) > 0 && (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                )}
+              </div>
+              <p className={`text-2xl font-bold mt-1 tabular-nums ${
+                kpi.urgent && Number(kpi.value) > 0 ? 'text-amber-700' : 'text-stone-900'
+              }`}>
+                {kpi.value}
+              </p>
+              <p className="text-xs text-stone-400 mt-0.5">{kpi.sub}</p>
+            </div>
+          ))}
         </div>
-        
+
+        {/* ── App Launcher ─────────────────────────────────── */}
+        <div className="space-y-6">
+          {LAUNCHPAD_GROUPS.map((group) => {
+            const visiblePages = group.pages.filter((p) => canAccess(userRole, p.href));
+            if (visiblePages.length === 0) return null;
+
+            return (
+              <div key={group.label}>
+                <SectionHeading
+                  title={group.label}
+                  subtitle={`${visiblePages.length} modules`}
+                />
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-3">
+                  {visiblePages.map((page) => {
+                    const IconComponent = page.icon;
+                    const badgeVal = 'badgeKey' in page && page.badgeKey
+                      ? stats[page.badgeKey as keyof typeof stats]
+                      : 0;
+                    const isUrgent = 'urgent' in page && page.urgent && badgeVal > 0;
+
+                    return (
+                      <Link
+                        key={page.label}
+                        href={page.href}
+                        className={`group relative flex flex-col gap-3 p-4 bg-white border rounded-xl hover:shadow-sm transition-all duration-150 ${
+                          isUrgent
+                            ? 'border-amber-300 hover:border-amber-400'
+                            : 'border-stone-200 hover:border-stone-300'
+                        }`}
+                      >
+                        {/* Icon */}
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          isUrgent
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-stone-100 text-stone-600 group-hover:bg-stone-200'
+                        } transition-colors`}>
+                          <IconComponent className="w-4.5 h-4.5" />
+                        </div>
+
+                        {/* Label + description */}
+                        <div>
+                          <h3 className="font-semibold text-sm text-stone-900 group-hover:text-amber-700 transition-colors leading-tight">
+                            {page.label}
+                          </h3>
+                          <p className="text-xs text-stone-400 mt-0.5 leading-relaxed line-clamp-2">
+                            {page.description}
+                          </p>
+                        </div>
+
+                        {/* Badge — static, no pulse */}
+                        {badgeVal > 0 && (
+                          <span className="absolute top-3 right-3 bg-amber-600 text-white rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-semibold">
+                            {badgeVal}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
       </div>
     </AdminLayout>
   );

@@ -8,7 +8,7 @@ import {
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import { Container } from '@/components/customer/Container';
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { generateReservationId } from '@/lib/idGenerator';

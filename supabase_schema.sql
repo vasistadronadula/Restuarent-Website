@@ -726,3 +726,58 @@ ALTER TABLE orders ALTER COLUMN payment_mode SET DEFAULT 'cash';
 -- 'pending' was never one of the app's payment states ('paid' | 'unpaid' |
 -- 'partial') — an unspecified payment is simply unpaid.
 ALTER TABLE orders ALTER COLUMN payment_status SET DEFAULT 'unpaid';
+
+-- ============================================================
+-- 14. ROLE MATRIX FIX — Employee Management goes admin-only,
+--     Chef gains inventory access. Safe & idempotent, same as the
+--     rest of this file.
+-- ============================================================
+--
+-- Two narrow helpers, following the same pattern as can_access_orders() and
+-- can_access_reservations() above, instead of widening is_admin() itself
+-- (which is shared by menu_items/coupons/restaurant_tables, where manager
+-- correctly keeps full access).
+--
+-- can_access_employees(): admin only. is_admin() currently resolves to
+-- "admin OR manager", so the "employees_admin_only" policy below has been
+-- silently giving every manager full read/write on salaries and phone
+-- numbers — Employee Management is supposed to be the one module manager
+-- can't touch.
+CREATE OR REPLACE FUNCTION public.can_access_employees()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'
+  );
+$$;
+
+-- can_access_inventory(): admin, manager, or chef. A chef logging stock used
+-- against a ticket needs the same read/write the inventory page already
+-- gives a manager — without this, granting the /admin/inventory route to
+-- chef in the UI would open a page every write on it fails against RLS.
+CREATE OR REPLACE FUNCTION public.can_access_inventory()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+  SELECT public.is_admin() OR EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'chef'
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.can_access_employees() TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.can_access_inventory() TO authenticated, anon;
+
+DROP POLICY IF EXISTS "employees_admin_only" ON employees;
+CREATE POLICY "employees_admin_only" ON employees FOR ALL
+  USING (public.can_access_employees()) WITH CHECK (public.can_access_employees());
+
+DROP POLICY IF EXISTS "inventory_admin_only" ON inventory_items;
+CREATE POLICY "inventory_admin_only" ON inventory_items FOR ALL
+  USING (public.can_access_inventory()) WITH CHECK (public.can_access_inventory());

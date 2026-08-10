@@ -51,18 +51,17 @@ function PlacedDialog({
     return () => { cancelled = true; };
   }, [order, invoiceNo]);
 
-  const printAgain = async () => {
+  const printAgain = () => {
     if (isPrinterConnected()) {
       setPrintState('printing');
-      const ok = await printOrder(order, invoiceNo);
-      setPrintState(ok ? 'printed' : 'failed');
+      void printOrder(order, invoiceNo).then((ok) => {
+        setPrintState(ok ? 'printed' : 'failed');
+      });
       return;
     }
-    setBrowserPrinting(true);
-    requestAnimationFrame(() => {
-      window.print();
-      setTimeout(() => setBrowserPrinting(false), 2000);
-    });
+    
+    // Call window.print() completely synchronously to avoid iOS/Safari/Chrome popup blocks
+    window.print();
   };
 
   const status = (() => {

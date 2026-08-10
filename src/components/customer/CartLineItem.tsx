@@ -29,14 +29,11 @@ export function CartLineItem({
   return (
     <li
       className={cn(
-        'bg-card flex items-center gap-3 rounded-xl border p-3 shadow-sm',
+        'bg-card flex items-center gap-2.5 sm:gap-3 rounded-xl border border-stone-200/80 dark:border-stone-800 p-2.5 sm:p-3.5 shadow-xs transition-colors hover:border-amber-500/40',
         className
       )}
     >
-      {/* eslint-disable-next-line @next/next/no-img-element -- dish images come
-          from Supabase Storage and arbitrary admin-pasted URLs, so they can't be
-          width-constrained through next/image's loader without a config entry
-          per host. */}
+      {/* Dish Image */}
       <img
         src={item.image}
         alt=""
@@ -45,27 +42,39 @@ export function CartLineItem({
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).src = FALLBACK_DISH_IMAGE;
         }}
-        className={cn('shrink-0 rounded-lg object-cover', compact ? 'size-14' : 'size-16')}
+        className={cn(
+          'shrink-0 rounded-lg object-cover bg-stone-100 dark:bg-stone-800',
+          compact ? 'size-12 sm:size-14' : 'size-14 sm:size-16'
+        )}
       />
 
+      {/* Item info */}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span
             className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'}
             role="img"
             aria-label={item.vegStatus === 'veg' ? 'Vegetarian' : 'Non-vegetarian'}
           />
-          <p className="truncate text-sm leading-tight font-bold">{item.name}</p>
+          <p className="truncate text-xs sm:text-sm leading-tight font-bold text-foreground">
+            {item.name}
+          </p>
+          {item.selectedPortion && (
+            <span className="text-[10px] sm:text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded capitalize">
+              {item.selectedPortion}
+            </span>
+          )}
         </div>
-        <p className="text-primary mt-0.5 font-extrabold tabular-nums">
+        <p className="text-primary mt-0.5 font-black text-xs sm:text-sm tabular-nums">
           {formatCurrency(unitPrice * item.quantity)}
         </p>
-        <p className="text-muted-foreground text-[11px] tabular-nums">
+        <p className="text-muted-foreground text-[10px] sm:text-[11px] tabular-nums">
           {formatCurrency(unitPrice)} × {item.quantity}
         </p>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5">
+      {/* Stepper and Remove Action */}
+      <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
         <QuantityStepper
           value={item.quantity}
           size={compact ? 'sm' : 'default'}
@@ -78,11 +87,11 @@ export function CartLineItem({
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-destructive hover:bg-destructive/10"
+            className="text-destructive hover:bg-destructive/10 size-7 sm:size-8"
             onClick={remove}
             aria-label={`Remove ${item.name} from cart`}
           >
-            <Trash2 />
+            <Trash2 className="size-3.5 sm:size-4" />
           </Button>
         )}
       </div>

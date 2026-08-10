@@ -13,19 +13,16 @@ import { usePosCart, type Portion } from '@/hooks/usePosCart';
 import { computeBillTotals, rupees } from '@/lib/billing';
 import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
 import { triggerNewOrderPush } from '@/lib/triggerPush';
-import { enablePushNotifications, getPushState, type PushState } from '@/lib/pushClient';
-import {
-  connectPrinter, isPrinterConnected, isPrinterSupported, printTestReceipt,
-  savedPaperWidth, savedPrinterName, setPaperWidth, type PaperWidth,
-} from '@/lib/thermalPrinter';
+import { markPosOrderPrinted } from '@/lib/posOrderTracker';
+import { isPrinterConnected } from '@/lib/thermalPrinter';
+import PrinterSettingsPanel from '@/components/admin/PrinterSettingsPanel';
 import type { Category, MenuItem, Order } from '@/types';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
-  Search, X, ShoppingBag, LayoutGrid, List, Bell, Bluetooth, Printer, Check,
+  Search, X, ShoppingBag, LayoutGrid, List, Printer,
 } from 'lucide-react';
 
 const CATEGORIES: { label: string; value: Category | 'all'; icon: string }[] = [
@@ -72,6 +69,27 @@ export default function PosPage() {
   } = usePosCart();
 
   const quantityInBill = (itemId: string) => quantityByMenuItem[itemId] || 0;
+
+  // "/" jumps straight to search — a counter running on a keyboard (desktop
+  // till, not a tablet) shouldn't need a mouse to start typing a dish name.
+  // Ignored while any other field has focus, so it never steals a keystroke
+  // out of the customer name/phone inputs or the cash-received box.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const active = document.activeElement;
+      const isTyping = active instanceof HTMLElement &&
+        (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+      if (isTyping) return;
+      e.preventDefault();
+      searchInputRef.current?.focus();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  const [printerSettingsOpen, setPrinterSettingsOpen] = useState(false);
+  const printerConnected = isPrinterConnected();
 
   const [placing, setPlacing] = useState(false);
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
@@ -140,6 +158,9 @@ export default function PosPage() {
         createdAt: new Date().toISOString(),
       };
 
+      // Mark this order as already handled before it can possibly reach the
+      // live orders feed — AutoOrderPrinter must not print a second copy.
+      markPosOrderPrinted(newOrder.id);
       await createOrderContext(newOrder);
       triggerNewOrderPush(newOrder.id);
 
@@ -164,17 +185,17 @@ export default function PosPage() {
     <AdminLayout title="POS Cashier Terminal">
       <div className="flex h-[var(--admin-content-h)] w-full max-w-full overflow-hidden text-stone-900 dark:text-stone-100">
         {/* Left Catalog Area */}
-        <div className="flex-1 flex flex-col min-w-0 bg-stone-100/60 dark:bg-stone-950 p-3 sm:p-4 gap-3 overflow-hidden">
+        <div className="flex-1 flex flex-col min-w-0 bg-stone-100/60 dark:bg-stone-950 p-2.5 sm:p-3.5 gap-2.5 overflow-hidden">
           {/* Top Search & Filter Bar */}
-          <div className="flex flex-col sm:flex-row items-center gap-3 bg-white dark:bg-stone-900 p-3 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 bg-white dark:bg-stone-900 p-2.5 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-xs">
             <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
               <Input
                 ref={searchInputRef}
-                placeholder="Search dish or category..."
+                placeholder="Search dish or category... (press /)"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 pr-9 bg-stone-50 dark:bg-stone-800 border-none rounded-xl text-xs font-bold"
+                className="pl-9 pr-9 h-10 bg-stone-50 dark:bg-stone-800 border-none rounded-xl text-xs font-bold"
               />
               {search && (
                 <button
@@ -221,11 +242,24 @@ export default function PosPage() {
                   <LayoutGrid className="w-4 h-4" />
                 </Button>
               </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPrinterSettingsOpen(true)}
+                className="h-9 rounded-xl text-xs font-bold gap-1.5 border-stone-200 dark:border-stone-800"
+                title={printerConnected ? 'Printer connected' : 'No printer connected'}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${printerConnected ? 'bg-emerald-500' : 'bg-stone-300 dark:bg-stone-600'}`} />
+                <Printer className="w-4 h-4" />
+                <span className="hidden lg:inline">Printer</span>
+              </Button>
             </div>
           </div>
 
           {/* Categories Pill Bar */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none flex-shrink-0">
+          <div className="flex gap-2 overflow-x-auto scrollbar-none flex-shrink-0">
             {CATEGORIES.map((cat) => {
               const isSelected = selectedCategory === cat.value;
               return (
@@ -372,6 +406,8 @@ export default function PosPage() {
           setPlacedOrder(null);
         }}
       />
+
+      <PrinterSettingsPanel open={printerSettingsOpen} onClose={() => setPrinterSettingsOpen(false)} />
     </AdminLayout>
   );
 }

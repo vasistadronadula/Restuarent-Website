@@ -4,30 +4,19 @@ import React from 'react';
 import Link from 'next/link';
 import { Clock, Mail, MapPin, Phone } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
 import { restaurantInfo } from '@/data/restaurantInfo';
 import { useCartStore } from '@/store/useCartStore';
 import { Separator } from '@/components/ui/separator';
 import PalaPittaLogo from './PalaPittaLogo';
 import { Container } from './Container';
 
-const QUICK_LINKS = [
+const NAV_LINKS = [
   { label: 'Home', href: '/' },
-  { label: 'About Us', href: '/about' },
   { label: 'Our Menu', href: '/menu' },
   { label: 'Reserve Table', href: '/reservation' },
+  { label: 'About Us', href: '/about' },
   { label: 'Contact', href: '/contact' },
-  // Kept public deliberately: AdminGuard bounces anyone who isn't staff, and
-  // this is how the counter staff reach the till from a shared device.
   { label: 'Staff Login', href: '/admin' },
-];
-
-const MENU_CATEGORIES = [
-  { label: 'Biryani', href: '/menu?category=biryani' },
-  { label: 'South Indian', href: '/menu?category=south-indian' },
-  { label: 'Tandoori', href: '/menu?category=tandoori' },
-  { label: 'Starters', href: '/menu?category=starters' },
-  { label: 'Desserts', href: '/menu?category=desserts' },
 ];
 
 const POLICY_LINKS = [
@@ -41,7 +30,6 @@ const HOURS = [
   'Takeaway & Dine-In',
 ];
 
-/** Lucide dropped brand glyphs, and WhatsApp is the one channel we have a real number for. */
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={className}>
@@ -53,10 +41,6 @@ function WhatsAppIcon({ className }: { className?: string }) {
 export default function Footer() {
   const closeCart = () => useCartStore.getState().closeCart();
 
-  // Rendered only once the real registration numbers are filled into
-  // restaurantInfo. The previous footer printed a fabricated GSTIN and FSSAI
-  // number, which is exactly what the note in that file warns against — a
-  // made-up registration number on a customer-facing page reads as a real one.
   const registrations = [
     restaurantInfo.gstin && `GSTIN: ${restaurantInfo.gstin}`,
     restaurantInfo.fssai && `FSSAI: ${restaurantInfo.fssai}`,
@@ -64,108 +48,101 @@ export default function Footer() {
 
   return (
     <footer
-      className="mt-auto bg-linear-to-b from-[#1A0A0A] to-[#2D0000] pt-14 text-white md:pt-16"
-      // Reserve room for the phone bottom nav so it never covers the policy
-      // links. It is the only fixed element left on the bottom edge — the
-      // floating cart bar that used to sit above it is gone.
+      className="mt-auto bg-stone-900 pt-10 text-white"
       style={{ paddingBottom: 'calc(1.5rem + var(--ppr-bottom-nav-h, 0px))' }}
     >
       <Container>
-        <div className="grid gap-10 md:grid-cols-12 md:gap-8">
+        <div className="grid gap-8 md:grid-cols-3">
+
           {/* Brand */}
-          <div className="md:col-span-4">
+          <div>
             <PalaPittaLogo variant="dark" size="medium" />
-            <p className="mt-5 max-w-75 text-sm leading-relaxed text-white/70">
-              Authentic Indian taste since 1998. Savour the rich heritage of Indian cuisine crafted
-              with love, tradition, and the finest spices from across India.
+            <p className="mt-4 text-sm leading-relaxed text-stone-400 max-w-64">
+              Authentic Indian taste since 1998. Savour the rich heritage of Telangana & Hyderabadi cuisine.
             </p>
-            <a
-              href={`https://wa.me/${restaurantInfo.whatsapp}`}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/8 px-3.5 py-2.5 text-sm font-semibold text-white/80 transition-colors hover:border-[#25D366]/40 hover:bg-[#25D366]/15 hover:text-white"
-            >
-              <WhatsAppIcon className="size-4 text-[#25D366]" />
-              Message us on WhatsApp
-            </a>
+            {restaurantInfo.whatsapp && (
+              <a
+                href={`https://wa.me/${restaurantInfo.whatsapp}`}
+                target="_blank"
+                rel="noreferrer noopener"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-stone-700 px-3 py-2 text-sm font-medium text-stone-300 transition-colors hover:border-emerald-600/50 hover:text-white"
+              >
+                <WhatsAppIcon className="size-4 text-emerald-400" />
+                WhatsApp us
+              </a>
+            )}
           </div>
 
-          <FooterColumn title="Quick Links" className="md:col-span-2">
-            {QUICK_LINKS.map((link) => (
-              <FooterLink key={link.href} href={link.href} onClick={closeCart}>
-                {link.label}
-              </FooterLink>
-            ))}
-          </FooterColumn>
+          {/* Navigation */}
+          <div>
+            <h2 className="text-sm font-semibold text-stone-200 mb-4">Navigation</h2>
+            <ul className="grid gap-2">
+              {NAV_LINKS.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    onClick={closeCart}
+                    className="text-sm text-stone-400 hover:text-white transition-colors"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
 
-          <FooterColumn title="Our Menu" className="md:col-span-2">
-            {MENU_CATEGORIES.map((c) => (
-              <FooterLink key={c.href} href={c.href} onClick={closeCart}>
-                {c.label}
-              </FooterLink>
-            ))}
-          </FooterColumn>
-
-          {/* Contact */}
-          <div className="md:col-span-4">
-            <h2 className="text-accent font-display mb-4 text-base font-bold">Contact Us</h2>
-
-            <ul className="grid gap-3.5 text-sm text-white/70">
+          {/* Contact & Hours */}
+          <div>
+            <h2 className="text-sm font-semibold text-stone-200 mb-4">Contact & Hours</h2>
+            <ul className="grid gap-3 text-sm text-stone-400">
               <li className="flex gap-3">
-                <MapPin className="text-accent mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <MapPin className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden="true" />
                 {restaurantInfo.addressLine}
               </li>
               <li className="flex gap-3">
-                <Phone className="text-accent mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <Phone className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden="true" />
                 <a
                   href={`tel:${restaurantInfo.phone.replace(/\s/g, '')}`}
-                  className="hover:text-accent transition-colors"
+                  className="hover:text-white transition-colors"
                 >
                   {restaurantInfo.phoneDisplay}
                 </a>
               </li>
               <li className="flex gap-3">
-                <Mail className="text-accent mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                <span className="min-w-0">
-                  <a
-                    href={`mailto:${restaurantInfo.email}`}
-                    className="hover:text-accent block break-all transition-colors"
-                  >
-                    {restaurantInfo.email}
-                  </a>
-                  <span className="block text-white/50">{restaurantInfo.website}</span>
-                </span>
+                <Mail className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden="true" />
+                <a
+                  href={`mailto:${restaurantInfo.email}`}
+                  className="hover:text-white break-all transition-colors"
+                >
+                  {restaurantInfo.email}
+                </a>
+              </li>
+              <li className="flex gap-3">
+                <Clock className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden="true" />
+                <div>
+                  {HOURS.map((h) => (
+                    <p key={h} className="text-sm leading-relaxed">{h}</p>
+                  ))}
+                </div>
               </li>
             </ul>
-
-            <div className="mt-5 rounded-xl border border-white/10 bg-white/6 p-4">
-              <p className="text-accent mb-2 flex items-center gap-1.5 text-xs font-bold">
-                <Clock className="size-3.5" aria-hidden="true" />
-                Opening Hours
-              </p>
-              {HOURS.map((h) => (
-                <p key={h} className="text-xs leading-relaxed text-white/65">
-                  {h}
-                </p>
-              ))}
-            </div>
           </div>
         </div>
 
-        <Separator className="my-8 bg-white/10" />
+        <Separator className="my-8 bg-stone-800" />
 
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-white/40">
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500">
           <p>
             © {new Date().getFullYear()} {restaurantInfo.name}. All rights reserved.
             {registrations.length > 0 && ` | ${registrations.join(' | ')}`}
           </p>
-          <nav aria-label="Policies" className="flex gap-5">
+          <nav aria-label="Policies" className="flex gap-4">
             {POLICY_LINKS.map((policy) => (
               <Link
                 key={policy.href}
                 href={policy.href}
                 onClick={closeCart}
-                className="hover:text-accent transition-colors"
+                className="hover:text-stone-300 transition-colors"
               >
                 {policy.label}
               </Link>
@@ -174,44 +151,5 @@ export default function Footer() {
         </div>
       </Container>
     </footer>
-  );
-}
-
-function FooterColumn({
-  title,
-  className,
-  children,
-}: {
-  title: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={cn('col-span-1', className)}>
-      <h2 className="text-accent font-display mb-4 text-base font-bold">{title}</h2>
-      <ul className="grid gap-2.5">{children}</ul>
-    </div>
-  );
-}
-
-function FooterLink({
-  href,
-  onClick,
-  children,
-}: {
-  href: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <li>
-      <Link
-        href={href}
-        onClick={onClick}
-        className="hover:text-accent inline-block text-sm text-white/65 transition-all hover:translate-x-1"
-      >
-        {children}
-      </Link>
-    </li>
   );
 }

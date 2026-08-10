@@ -10,7 +10,7 @@ import { receivesNotifications } from '@/lib/roleAccess';
 import { roleAppFor, type RoleApp } from '@/lib/roleApps';
 import { enablePushNotifications, getPushState, type PushState } from '@/lib/pushClient';
 import {
-  connectPrinter, disconnectPrinter, isPrinterConnected, isPrinterSupported,
+  connectPrinter, disconnectPrinter, isBluetoothPrinterConnected, isPrinterSupported,
   printTestReceipt, reconnectSavedPrinter, savedPrinterName,
 } from '@/lib/thermalPrinter';
 import type { UserRole } from '@/types';
@@ -69,7 +69,7 @@ function SetupSteps({
   const [pushState, setPushState] = useState<PushState>(() => getPushState());
   const [enablingPush, setEnablingPush] = useState(false);
   const [printerName, setPrinterName] = useState<string | null>(() =>
-    isPrinterConnected() ? savedPrinterName() || 'Bluetooth printer' : null
+    isBluetoothPrinterConnected() ? savedPrinterName() || 'Bluetooth printer' : null
   );
   const [connectingPrinter, setConnectingPrinter] = useState(false);
 
@@ -208,7 +208,7 @@ function SetupSteps({
               <p className="text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
                 <Bluetooth className="w-4 h-4" />
                 {printerName}
-                {isPrinterConnected() ? ' — orders print automatically' : ' — paired'}
+                {isBluetoothPrinterConnected() ? ' — orders print automatically' : ' — paired'}
               </p>
               <div className="flex gap-2">
                 <Button

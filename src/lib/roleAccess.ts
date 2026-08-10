@@ -1,9 +1,9 @@
 /**
  * roleAccess.ts — single source of truth for "who can see what" in /admin.
  *
- * AdminGuard, AdminSidebar, and AdminMobileBottomNav all import from here
- * instead of each hardcoding their own copy of the role → page mapping,
- * so the three can never drift out of sync with each other.
+ * AdminGuard (the redirect gate) and the dashboard's LAUNCHPAD_PAGES tile
+ * filter both import from here instead of each hardcoding their own copy of
+ * the role → page mapping, so the two can never drift out of sync.
  */
 
 import type { StaffRole, UserRole } from '@/types';
@@ -26,15 +26,18 @@ export const ROLE_HOME: Record<UserRole, string> = {
 // must also be unable to read/write the underlying data via the API.
 export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[] | 'all'> = {
   admin: 'all',
+  // Employee Management is admin-only (see requireAdmin.ts) — a manager runs
+  // the floor's customers/menu/inventory/coupons but does not hire, fire, or
+  // touch payroll.
   manager: [
     '/admin/customers',
-    '/admin/employees',
     '/admin/menu-management',
     '/admin/inventory',
     '/admin/coupons',
-    '/admin/performance',
   ],
-  chef: ['/admin/kitchen'],
+  // Inventory is here alongside Kitchen so a chef can log stock used/86'd
+  // dishes without needing a manager to do it for them.
+  chef: ['/admin/kitchen', '/admin/inventory'],
   // '/cashier' is an unlinked alias that renders the same POS billing screen
   // as '/admin/pos' — allowed so typing it doesn't bounce the one role it's
   // named for.
@@ -78,9 +81,9 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 // assigned, so picking a role visibly means picking permissions rather than
 // choosing an opaque label from a dropdown.
 export const ROLE_ACCESS_SUMMARY: Record<UserRole, string> = {
-  admin: 'Full access — every page, report and setting; bills are read-only and the till is cashier-only',
-  manager: 'Customers, team, menu, inventory & coupons',
-  chef: 'Kitchen Display only — receives order notifications',
+  admin: 'Full access — every page and report; watches orders/reservations/KDS without alerts, bills are read-only and the till is cashier-only',
+  manager: 'Customers, menu, inventory & coupons',
+  chef: 'Kitchen Display & inventory — receives order notifications',
   cashier: 'Orders, POS billing & bills — receives order notifications',
   waiter: 'Reservations & table management — receives reservation notifications',
   customer: 'No admin access',
@@ -102,7 +105,10 @@ export const STAFF_ROLES = ['admin', 'manager', 'chef', 'cashier', 'waiter'] as 
 // alerted about a page they can't open: the cashier and chef are alerted to
 // new orders, the server to new reservations. Admin and Manager receive no
 // notifications at all per business requirements — they watch the lists.
-export const ORDER_NOTIFICATION_ROLES: readonly UserRole[] = ['admin', 'manager', 'cashier', 'chef'] as const;
+// Mirrors can_receive_notifications() in supabase_schema.sql, which is the
+// real (server-side) gate on who can even register a push subscription —
+// this array must never grant a role that function denies.
+export const ORDER_NOTIFICATION_ROLES: readonly UserRole[] = ['cashier', 'chef'] as const;
 export const RESERVATION_NOTIFICATION_ROLES: readonly UserRole[] = ['waiter'] as const;
 
 // Union of the two — used to decide whether a device subscribes to Web Push
@@ -125,23 +131,18 @@ export function receivesNotifications(role: UserRole | null | undefined): boolea
 }
 
 // ─── Who may manage whom ─────────────────────────────────────────────────────
-// Managers can run the team page (create logins, edit HR details, disable
-// accounts) but may not touch admin accounts or hand out the admin role —
-// otherwise "manager" would silently be a path to full access. Enforced
-// server-side in the /api/admin/employees routes; the UI mirrors it.
+// Employee Management (creating logins, editing HR details, disabling
+// accounts, assigning roles) is admin-only — a manager runs the floor's
+// customers/menu/inventory/coupons but does not touch payroll or headcount.
+// Enforced server-side by requireAdmin.ts (which now rejects manager tokens
+// outright) and by the "employees_admin_only" RLS policy in
+// supabase_schema.sql; this is just the UI's copy of the same rule.
 export function assignableRoles(callerRole: UserRole | null | undefined): readonly StaffRole[] {
-  if (callerRole === 'admin') return STAFF_ROLES;
-  if (callerRole === 'manager') return STAFF_ROLES.filter((r) => r !== 'admin');
-  return [];
+  return callerRole === 'admin' ? STAFF_ROLES : [];
 }
 
-export function canManageStaffRole(
-  callerRole: UserRole | null | undefined,
-  targetRole: UserRole | null | undefined
-): boolean {
-  if (callerRole === 'admin') return true;
-  if (callerRole === 'manager') return targetRole !== 'admin';
-  return false;
+export function canManageStaffRole(callerRole: UserRole | null | undefined): boolean {
+  return callerRole === 'admin';
 }
 
 export function canAccess(role: UserRole | null | undefined, pathname: string): boolean {

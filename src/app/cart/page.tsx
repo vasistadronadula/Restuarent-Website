@@ -2,9 +2,8 @@
 
 import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Clock, Plus, ShoppingCart, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowRight, Clock, Plus, ShoppingBag, ShoppingCart, Trash2, ShieldCheck, Utensils } from 'lucide-react';
 
-import { formatCurrency, FALLBACK_DISH_IMAGE } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import { Container } from '@/components/customer/Container';
@@ -22,61 +21,11 @@ import {
   getCartSgst,
   getCartGrandTotal,
 } from '@/store/useCartStore';
-import { MenuItem } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Separator } from '@/components/ui/separator';
-
-// Quick add-on items for cross-selling in the cart.
-const ADD_ONS: MenuItem[] = [
-  {
-    id: 'des-01',
-    name: 'Hyderabadi Apricot Delight',
-    price: 149,
-    image: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=300&q=80',
-    vegStatus: 'veg',
-    category: 'desserts',
-    rating: 4.9,
-    reviewCount: 310,
-    isPopular: true,
-    isSpecial: true,
-    isAvailable: true,
-    description: 'Slow-cooked dried apricots served with thick malai cream.',
-    tags: ['Dessert', 'Bestseller'],
-  },
-  {
-    id: 'bev-01',
-    name: 'Pala Pitta Special Masala Lassi',
-    price: 89,
-    image: 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?w=300&q=80',
-    vegStatus: 'veg',
-    category: 'beverages',
-    rating: 4.8,
-    reviewCount: 190,
-    isPopular: true,
-    isSpecial: false,
-    isAvailable: true,
-    description: 'Refreshing churned sweet curd lassi with cardamom & roasted pistachios.',
-    tags: ['Drink', 'Refreshing'],
-  },
-  {
-    id: 'side-01',
-    name: 'Mirchi Ka Salan & Raitha Pack',
-    price: 49,
-    image: 'https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=300&q=80',
-    vegStatus: 'veg',
-    category: 'south-indian',
-    rating: 4.9,
-    reviewCount: 450,
-    isPopular: true,
-    isSpecial: true,
-    isAvailable: true,
-    description: 'Traditional Hyderabadi peanut sesame salan with fresh onion curd raitha.',
-    tags: ['Side', 'Biryani Pairing'],
-  },
-];
 
 export default function CartPage() {
   const items = useCartStore((s) => s.items);
@@ -101,46 +50,46 @@ export default function CartPage() {
 
   const totalItemsCount = getCartTotalItems(items);
 
-  // Never suggest something already in the basket.
-  const suggestions = ADD_ONS.filter((a) => !items.some((i) => i.id === a.id));
-
   if (items.length === 0) {
     const activeCoupons = coupons.filter((c) => c.isActive);
 
     return (
       <>
         <Navbar />
-        <main className="flex min-h-[75vh] items-center py-12">
-          <div className="mx-auto w-full max-w-lg px-5">
-            <Card className="rounded-3xl">
-              <CardContent className="p-8">
+        <main className="flex min-h-[75vh] items-center justify-center py-10 px-4">
+          <div className="w-full max-w-md">
+            <Card className="rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-sm bg-card">
+              <CardContent className="p-6 sm:p-8 text-center">
                 <EmptyState
                   icon={ShoppingCart}
                   title="Your cart is empty"
-                  description="You haven't added any dishes yet. Have a look at our Telangana, Andhra and Hyderabadi menu."
+                  description="You haven't added any dishes yet. Explore our authentic Telangana, Andhra, and Hyderabadi menu."
                   action={
-                    <Button asChild variant="brand" size="lg">
+                    <Button asChild variant="brand" size="lg" className="rounded-xl font-bold shadow-md">
                       <Link href="/menu">
+                        <Utensils className="mr-1.5 size-4" />
                         Browse Menu
-                        <ArrowRight />
+                        <ArrowRight className="ml-1 size-4" />
                       </Link>
                     </Button>
                   }
-                  className="py-4"
+                  className="py-2"
                 />
 
                 {activeCoupons.length > 0 && (
                   <>
                     <Separator className="my-6" />
-                    <p className="text-muted-foreground mb-3 text-center text-sm font-bold">
-                      Offers you can use today
-                    </p>
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {activeCoupons.map((c) => (
-                        <Badge key={c.code} variant="soft-warning" size="lg">
-                          {c.code} · {c.discount}% off
-                        </Badge>
-                      ))}
+                    <div className="space-y-2.5">
+                      <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
+                        Available Offers Today
+                      </p>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {activeCoupons.map((c) => (
+                          <Badge key={c.code} variant="soft-warning" size="lg" className="rounded-lg font-bold">
+                            {c.code} · {c.discount}% off
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                   </>
                 )}
@@ -157,126 +106,117 @@ export default function CartPage() {
     <>
       <Navbar />
 
-      <main className="min-h-[85vh] py-4 md:py-5">
-        <Container>
-          <header className="mb-3">
-            <h1 className="font-display text-xl font-black tracking-tight md:text-2xl">
-              Your Cart
-            </h1>
-            <p className="text-muted-foreground mt-0.5 text-xs sm:text-sm">
-              {totalItemsCount} {totalItemsCount === 1 ? 'item' : 'items'} · ready when you are
-            </p>
-          </header>
+      <main className="min-h-[85vh] py-5 sm:py-7 pb-[calc(var(--ppr-bottom-nav-h,0px)+2.5rem)] md:pb-12">
+        <Container className="max-w-6xl">
+          {/* Header */}
+          <div className="mb-5 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border/60 pb-4">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-400">
+                  <ShoppingBag className="size-5" />
+                </div>
+                <h1 className="font-display text-xl sm:text-2xl font-black tracking-tight">
+                  Your Cart
+                </h1>
+                <Badge className="bg-primary text-primary-foreground font-black text-xs px-2.5 py-0.5 rounded-full">
+                  {totalItemsCount} {totalItemsCount === 1 ? 'item' : 'items'}
+                </Badge>
+              </div>
+              <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
+                Review your selected dishes before proceeding to secure checkout
+              </p>
+            </div>
 
-          <div className="grid items-start gap-6 lg:grid-cols-[1fr_23rem]">
-            {/* ── Items ─────────────────────────────────────────────────── */}
-            <div className="grid gap-6">
-              <ul className="grid gap-3">
+            <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex rounded-xl font-bold text-xs h-9">
+              <Link href="/menu">
+                <Plus className="size-3.5 mr-1" />
+                Add More Dishes
+              </Link>
+            </Button>
+          </div>
+
+          {/* Cart Grid Layout */}
+          <div className="grid items-start gap-6 lg:grid-cols-12">
+            {/* ── Left Column: Items List ─────────────────────────────────── */}
+            <div className="lg:col-span-7 xl:col-span-7 flex flex-col gap-4">
+              <ul className="flex flex-col gap-3">
                 {items.map((item) => (
                   <CartLineItem key={`${item.id}-${item.selectedPortion}`} item={item} />
                 ))}
               </ul>
 
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <Button asChild variant="outline">
+              {/* Cart Action Buttons */}
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <Button asChild variant="outline" size="sm" className="rounded-xl font-bold text-xs h-9 sm:hidden">
                   <Link href="/menu">
-                    <Plus />
-                    Add more items
+                    <Plus className="size-3.5 mr-1" />
+                    Add More Items
                   </Link>
                 </Button>
+
                 <Button
                   variant="ghost"
-                  className="text-destructive hover:bg-destructive/10"
+                  size="sm"
+                  className="text-destructive hover:bg-destructive/10 text-xs font-bold h-9 rounded-xl ml-auto"
                   onClick={() => useCartStore.getState().clearCart()}
                 >
-                  <Trash2 />
-                  Clear cart
+                  <Trash2 className="size-3.5 mr-1.5" />
+                  Clear Entire Cart
                 </Button>
               </div>
-
-              {/* ── Cross-sell ─────────────────────────────────────────── */}
-              {suggestions.length > 0 && (
-                <section aria-labelledby="addons-heading">
-                  <h2
-                    id="addons-heading"
-                    className="font-display mb-3 flex items-center gap-2 text-lg font-bold"
-                  >
-                    <Sparkles className="text-accent size-5" />
-                    Goes well with your order
-                  </h2>
-                  <ul className="grid gap-3 sm:grid-cols-3">
-                    {suggestions.map((addon) => (
-                      <AddOnCard key={addon.id} item={addon} />
-                    ))}
-                  </ul>
-                </section>
-              )}
             </div>
 
-            {/* ── Summary ───────────────────────────────────────────────── */}
-            <Card className="lg:sticky lg:top-24">
-              <CardContent className="grid gap-4">
-                <h2 className="font-display text-lg font-bold">Bill details</h2>
+            {/* ── Right Column: Order Summary ────────────────────────────── */}
+            <div className="lg:col-span-5 xl:col-span-5 lg:sticky lg:top-24 flex flex-col gap-4">
+              <Card className="rounded-2xl border border-stone-200/90 dark:border-stone-800 shadow-sm bg-card overflow-hidden">
+                <div className="bg-stone-50 dark:bg-stone-900/60 px-5 py-3.5 border-b border-border/80 flex items-center justify-between">
+                  <h2 className="font-display text-sm sm:text-base font-bold text-foreground">
+                    Bill Summary
+                  </h2>
+                  <span className="text-xs text-muted-foreground font-semibold">
+                    {totalItemsCount} {totalItemsCount === 1 ? 'dish' : 'dishes'}
+                  </span>
+                </div>
 
-                <CouponField
-                  subtotal={totals.subtotal}
-                  discountAmount={totals.discountAmount}
-                />
+                <CardContent className="p-5 sm:p-6 space-y-4">
+                  {/* Coupon / Promo Code Field */}
+                  <CouponField
+                    subtotal={totals.subtotal}
+                    discountAmount={totals.discountAmount}
+                  />
 
-                <BillSummary {...totals} />
+                  <Separator />
 
-                <Button asChild variant="brand" size="lg" className="w-full">
-                  <Link href="/checkout">
-                    Proceed to Checkout
-                    <ArrowRight />
-                  </Link>
-                </Button>
+                  {/* Calculated Bill Breakdown */}
+                  <BillSummary {...totals} />
 
-                <p className="text-muted-foreground flex items-center justify-center gap-1.5 text-xs">
-                  <Clock className="size-3.5" />
-                  Ready for pickup in about 25 minutes
-                </p>
-              </CardContent>
-            </Card>
+                  {/* Checkout Button */}
+                  <Button asChild variant="brand" size="lg" className="w-full h-12 rounded-xl text-base font-extrabold shadow-md">
+                    <Link href="/checkout">
+                      Proceed to Checkout
+                      <ArrowRight className="ml-1.5 size-4" />
+                    </Link>
+                  </Button>
+
+                  {/* Delivery & Assurance Info */}
+                  <div className="space-y-2 pt-1 border-t border-border/60">
+                    <p className="text-muted-foreground flex items-center justify-center gap-1.5 text-xs font-medium text-center">
+                      <Clock className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                      Freshly prepared · Ready in ~25-30 mins
+                    </p>
+                    <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/80">
+                      <ShieldCheck className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      100% Authentic Telugu & Hyderabadi Quality
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </Container>
       </main>
 
       <Footer />
     </>
-  );
-}
-
-function AddOnCard({ item }: { item: MenuItem }) {
-  return (
-    <li className="bg-card flex flex-col overflow-hidden rounded-xl border shadow-sm">
-      {/* eslint-disable-next-line @next/next/no-img-element -- remote dish art */}
-      <img
-        src={item.image || FALLBACK_DISH_IMAGE}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        className="h-24 w-full object-cover"
-      />
-      <div className="flex flex-1 flex-col gap-1 p-3">
-        <div className="flex items-start gap-1.5">
-          <span className="veg-indicator mt-1 shrink-0" role="img" aria-label="Vegetarian" />
-          <p className="text-[13px] leading-tight font-bold">{item.name}</p>
-        </div>
-        <p className="text-primary mt-auto pt-1 font-extrabold tabular-nums">
-          {formatCurrency(item.price)}
-        </p>
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-success text-success hover:bg-success/8 w-full"
-          onClick={() => useCartStore.getState().addItem(item)}
-          aria-label={`Add ${item.name} to cart`}
-        >
-          <Plus />
-          Add
-        </Button>
-      </div>
-    </li>
   );
 }

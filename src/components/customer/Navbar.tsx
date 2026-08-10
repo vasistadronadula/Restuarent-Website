@@ -119,25 +119,23 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Main Bar — Compact Apple-like glass navbar */}
+      {/* Main Bar */}
       <header
         className={cn(
-          'sticky top-0 z-40 w-full transition-all duration-300 border-b',
+          'sticky top-0 z-40 w-full transition-all duration-150 border-b bg-white',
           scrolled
-            ? 'bg-white/80 dark:bg-stone-950/80 backdrop-blur-xl border-stone-200/80 dark:border-stone-850/80 shadow-md shadow-stone-100/40 dark:shadow-black/20'
-            : 'bg-white/95 dark:bg-stone-950/95 backdrop-blur-md border-stone-200/50 dark:border-stone-905'
+            ? 'border-stone-200 shadow-sm shadow-stone-100/60'
+            : 'border-stone-100'
         )}
       >
-        <Container className="flex h-13 md:h-14 items-center justify-between">
-          {/* Logo & Home Link */}
-          <div className="flex items-center gap-4">
-            <Link href="/" aria-label={`${restaurantInfo.name} — Home`} className="flex items-center shrink-0">
-              <PalaPittaLogo variant="light" size="small" priority />
-            </Link>
-          </div>
+        <Container className="flex h-14 items-center justify-between">
+          {/* Logo */}
+          <Link href="/" aria-label={`${restaurantInfo.name} — Home`} className="flex items-center shrink-0">
+            <PalaPittaLogo variant="light" size="small" priority />
+          </Link>
 
-          {/* Desktop Nav Links (Apple style pills) */}
-          <nav aria-label="Main" className="hidden items-center gap-1 md:flex bg-stone-100/80 dark:bg-stone-900/60 p-1 rounded-full border border-stone-200/80 dark:border-stone-800/60">
+          {/* Desktop Nav Links */}
+          <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
             {NAV_LINKS.map((link) => {
               const active = isActive(link.href);
               const IconComponent = link.icon;
@@ -148,10 +146,10 @@ export default function Navbar() {
                   prefetch
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-extrabold transition-all outline-none',
+                    'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors outline-none',
                     active
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'text-stone-600 dark:text-stone-300 hover:text-stone-900 dark:hover:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800/80'
+                      ? 'text-amber-700 bg-amber-50'
+                      : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
                   )}
                 >
                   <IconComponent className="w-3.5 h-3.5" />
@@ -165,7 +163,7 @@ export default function Navbar() {
           <div className="flex items-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button asChild variant="outline" size="sm" className="relative rounded-full h-8 w-8 p-0 border-stone-200 dark:border-stone-850 bg-stone-100 dark:bg-stone-900 text-stone-700 dark:text-stone-200 hover:bg-amber-600 dark:hover:bg-amber-600 hover:text-white hover:border-amber-600">
+                <Button asChild variant="ghost" size="sm" className="relative h-9 w-9 p-0 text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-lg">
                   {/* CART_TARGET_ATTR marks where an added dish flies to. See
                       lib/flyToCart — it looks the target up at flight time so
                       this and the phone bottom-nav tab can both claim it. */}
@@ -175,14 +173,11 @@ export default function Navbar() {
                     aria-label={`Cart, ${totalItems} items`}
                     {...{ [CART_TARGET_ATTR]: '' }}
                   >
-                    <ShoppingCart className="w-4 h-4" />
+                    <ShoppingCart className="w-4.5 h-4.5" />
                     {totalItems > 0 && (
-                      <Badge
-                        size="sm"
-                        className="absolute -top-1.5 -right-1.5 min-w-4 h-4 text-[10px] bg-amber-600 text-white justify-center rounded-full px-1 font-black"
-                      >
+                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-semibold bg-amber-600 text-white rounded-full px-1">
                         {totalItems > 99 ? '99+' : totalItems}
-                      </Badge>
+                      </span>
                     )}
                   </Link>
                 </Button>
@@ -191,7 +186,7 @@ export default function Navbar() {
             </Tooltip>
 
             {isStaff && (
-              <Button asChild variant="secondary" size="sm" className="hidden md:inline-flex h-8 rounded-full text-xs font-bold bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-300 hover:bg-amber-500/20 dark:hover:bg-amber-500/30 border border-amber-500/20 dark:border-amber-500/30">
+              <Button asChild variant="outline" size="sm" className="hidden md:inline-flex h-8 rounded-lg text-xs font-medium border-stone-200 text-stone-700 hover:bg-stone-50">
                 <Link href={getRoleHome(userRole)} className="flex items-center gap-1.5">
                   <LayoutDashboard className="w-3.5 h-3.5" />
                   Dashboard
@@ -200,10 +195,10 @@ export default function Navbar() {
             )}
 
             {!user && (
-              <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex h-8 rounded-full text-xs font-bold border-stone-200 dark:border-stone-850 bg-stone-100 dark:bg-stone-900 text-stone-700 dark:text-stone-200 hover:bg-stone-200/80 dark:hover:bg-stone-800">
+              <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex h-8 rounded-lg text-xs font-medium border-stone-200 text-stone-700 hover:bg-stone-50">
                 <Link href={authHref.login} prefetch className="flex items-center gap-1.5">
                   <LogIn className="w-3.5 h-3.5" />
-                  Log In
+                  Log in
                 </Link>
               </Button>
             )}
@@ -213,71 +208,66 @@ export default function Navbar() {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
-                    className="h-8 gap-1.5 rounded-full px-2 text-xs text-stone-700 dark:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800"
+                    className="h-9 gap-2 rounded-lg px-2 text-sm text-stone-700 hover:bg-stone-100"
                     aria-label="Account menu"
                   >
-                    <Avatar className="w-6 h-6 border border-amber-500">
-                      <AvatarFallback className="bg-amber-600 text-white text-[10px] font-black">
+                    <Avatar className="w-7 h-7 border border-stone-200">
+                      <AvatarFallback className="bg-amber-600 text-white text-xs font-semibold">
                         {(userName || accountLabel || 'U').charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="hidden max-w-[90px] truncate font-extrabold md:block">
+                    <span className="hidden max-w-[90px] truncate font-medium md:block">
                       {userName?.split(' ')[0] || 'Account'}
                     </span>
-                    <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+                    <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
                   </Button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent align="end" sideOffset={6} className="w-60 p-0 rounded-2xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 text-stone-900 dark:text-white shadow-2xl overflow-hidden z-50">
-                  <div className="bg-gradient-to-br from-stone-100 to-amber-50 dark:from-stone-900 dark:to-amber-955 p-3 text-stone-900 dark:text-white border-b border-stone-200 dark:border-stone-800">
-                    <p className="truncate text-xs font-black">{userName || 'User'}</p>
-                    <p className="mt-0.5 text-[10px] truncate text-stone-500 dark:text-stone-400">{accountLabel}</p>
-                    <Badge variant="outline" className="mt-1.5 border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold">
-                      {roleBadge}
-                    </Badge>
+                <DropdownMenuContent align="end" sideOffset={6} className="w-56 p-1 rounded-xl bg-white border border-stone-200 text-stone-900 shadow-lg z-50">
+                  <div className="px-3 py-2 border-b border-stone-100 mb-1">
+                    <p className="truncate text-sm font-semibold text-stone-900">{userName || 'User'}</p>
+                    <p className="mt-0.5 text-xs truncate text-stone-500">{accountLabel}</p>
                   </div>
 
-                  <div className="p-1 space-y-0.5 text-xs">
-                    {isStaff && (
-                      <DropdownMenuItem asChild className="rounded-xl font-bold text-amber-600 dark:text-amber-400 focus:bg-stone-100 dark:focus:bg-stone-800 focus:text-amber-700 dark:focus:text-amber-300">
-                        <Link href={getRoleHome(userRole)} className="flex items-center gap-2">
-                          <LayoutDashboard className="w-4 h-4" />
-                          {getRoleDashboardLabel(userRole, userName)}
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-
-                    {accountLinks.map(({ label, href, icon: Icon }) => (
-                      <DropdownMenuItem key={href} asChild className="rounded-xl focus:bg-stone-100 dark:focus:bg-stone-800">
-                        <Link href={href} className="flex items-center gap-2">
-                          <Icon className="w-4 h-4 text-stone-500 dark:text-stone-400" />
-                          {label}
-                        </Link>
-                      </DropdownMenuItem>
-                    ))}
-
-                    <DropdownMenuItem asChild className="rounded-xl focus:bg-stone-100 dark:focus:bg-stone-800">
-                      <Link href="/reservation" className="flex items-center gap-2">
-                        <CalendarDays className="w-4 h-4 text-stone-500 dark:text-stone-400" />
-                        Book a Table
+                  {isStaff && (
+                    <DropdownMenuItem asChild className="rounded-lg text-amber-700 font-medium focus:bg-amber-50 focus:text-amber-800">
+                      <Link href={getRoleHome(userRole)} className="flex items-center gap-2">
+                        <LayoutDashboard className="w-4 h-4" />
+                        {getRoleDashboardLabel(userRole, userName)}
                       </Link>
                     </DropdownMenuItem>
+                  )}
 
-                    <DropdownMenuSeparator className="bg-stone-200 dark:bg-stone-800" />
-
-                    <DropdownMenuItem
-                      onClick={() => signOutUser()}
-                      className="rounded-xl text-rose-600 focus:bg-rose-50 dark:focus:bg-rose-950/30 focus:text-rose-600 dark:focus:text-rose-400 font-bold"
-                    >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Sign Out
+                  {accountLinks.map(({ label, href, icon: Icon }) => (
+                    <DropdownMenuItem key={href} asChild className="rounded-lg focus:bg-stone-50">
+                      <Link href={href} className="flex items-center gap-2 text-sm">
+                        <Icon className="w-4 h-4 text-stone-400" />
+                        {label}
+                      </Link>
                     </DropdownMenuItem>
-                  </div>
+                  ))}
+
+                  <DropdownMenuItem asChild className="rounded-lg focus:bg-stone-50">
+                    <Link href="/reservation" className="flex items-center gap-2 text-sm">
+                      <CalendarDays className="w-4 h-4 text-stone-400" />
+                      Book a Table
+                    </Link>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator className="bg-stone-100 my-1" />
+
+                  <DropdownMenuItem
+                    onClick={() => signOutUser()}
+                    className="rounded-lg text-rose-600 focus:bg-rose-50 focus:text-rose-700 text-sm"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign out
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
 
-            <Button asChild size="sm" className="hidden sm:inline-flex h-8 rounded-full text-xs font-black bg-amber-600 hover:bg-amber-700 text-white shadow-md px-4">
+            <Button asChild size="sm" className="hidden sm:inline-flex h-8 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white px-4">
               <Link href="/menu" prefetch>
                 Order Now
               </Link>
@@ -357,7 +347,7 @@ export default function Navbar() {
 function MobileSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <p className="text-[10px] font-black uppercase tracking-widest text-stone-500 px-2">
+      <p className="text-xs font-medium text-stone-400 px-3 mb-2">
         {label}
       </p>
       {children}
@@ -381,10 +371,10 @@ function MobileLink({
       <Link
         href={href}
         className={cn(
-          'flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold transition-all',
+          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
           active
-            ? 'bg-amber-600 text-white shadow-xs'
-            : 'text-stone-600 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-900 hover:text-stone-900 dark:hover:text-white'
+            ? 'bg-amber-600 text-white'
+            : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
         )}
       >
         <Icon className="w-4 h-4" />
