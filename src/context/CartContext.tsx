@@ -30,9 +30,9 @@ interface CartState {
 interface CartContextType {
   state: CartState;
   addItem: (item: MenuItem) => void;
-  removeItem: (id: string) => void;
-  increaseQty: (id: string) => void;
-  decreaseQty: (id: string) => void;
+  removeItem: (id: string, selectedPortion?: 'single' | 'full' | 'large') => void;
+  increaseQty: (id: string, selectedPortion?: 'single' | 'full' | 'large') => void;
+  decreaseQty: (id: string, selectedPortion?: 'single' | 'full' | 'large') => void;
   clearCart: () => void;
   toggleCart: () => void;
   openCart: () => void;
@@ -80,9 +80,9 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     () => ({
       state: { items, isOpen, couponCode, couponDiscount },
       addItem: (item) => useCartStore.getState().addItem(item),
-      removeItem: (id) => useCartStore.getState().removeItem(id),
-      increaseQty: (id) => useCartStore.getState().increaseQty(id),
-      decreaseQty: (id) => useCartStore.getState().decreaseQty(id),
+      removeItem: (id, portion) => useCartStore.getState().removeItem(id, portion),
+      increaseQty: (id, portion) => useCartStore.getState().increaseQty(id, portion),
+      decreaseQty: (id, portion) => useCartStore.getState().decreaseQty(id, portion),
       clearCart: () => useCartStore.getState().clearCart(),
       toggleCart: () => useCartStore.getState().toggleCart(),
       openCart: () => useCartStore.getState().openCart(),

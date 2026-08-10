@@ -24,7 +24,7 @@ export function CartLineItem({
   className?: string;
 }) {
   const unitPrice = item.selectedPrice ?? item.price;
-  const remove = () => useCartStore.getState().removeItem(item.id);
+  const remove = () => useCartStore.getState().removeItem(item.id, item.selectedPortion);
 
   return (
     <li
@@ -79,21 +79,10 @@ export function CartLineItem({
           value={item.quantity}
           size={compact ? 'sm' : 'default'}
           label={`quantity of ${item.name}`}
-          onIncrease={() => useCartStore.getState().increaseQty(item.id)}
-          onDecrease={() => useCartStore.getState().decreaseQty(item.id)}
+          onIncrease={() => useCartStore.getState().increaseQty(item.id, item.selectedPortion)}
+          onDecrease={() => useCartStore.getState().decreaseQty(item.id, item.selectedPortion)}
           onRemove={remove}
         />
-        {!compact && item.quantity > 1 && (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-destructive hover:bg-destructive/10 size-7 sm:size-8"
-            onClick={remove}
-            aria-label={`Remove ${item.name} from cart`}
-          >
-            <Trash2 className="size-3.5 sm:size-4" />
-          </Button>
-        )}
       </div>
     </li>
   );

@@ -11,9 +11,9 @@ interface CartState {
   
   // Actions
   addItem: (item: MenuItem & { selectedPortion?: 'single' | 'full' | 'large'; selectedPrice?: number }) => void;
-  removeItem: (id: string) => void;
-  increaseQty: (id: string) => void;
-  decreaseQty: (id: string) => void;
+  removeItem: (id: string, selectedPortion?: 'single' | 'full' | 'large') => void;
+  increaseQty: (id: string, selectedPortion?: 'single' | 'full' | 'large') => void;
+  decreaseQty: (id: string, selectedPortion?: 'single' | 'full' | 'large') => void;
   clearCart: () => void;
   openCart: () => void;
   closeCart: () => void;
@@ -49,20 +49,28 @@ export const useCartStore = create<CartState>()(
           return { items: [...state.items, { ...incoming, quantity: 1 }] };
         }),
 
-      removeItem: (id) =>
+      removeItem: (id, portion = 'full') =>
         set((state) => ({
-          items: state.items.filter((i) => i.id !== id),
+          items: state.items.filter((i) => !(i.id === id && (i.selectedPortion || 'full') === portion)),
         })),
 
-      increaseQty: (id) =>
+      increaseQty: (id, portion = 'full') =>
         set((state) => ({
-          items: state.items.map((i) => (i.id === id ? { ...i, quantity: i.quantity + 1 } : i)),
+          items: state.items.map((i) =>
+            i.id === id && (i.selectedPortion || 'full') === portion
+              ? { ...i, quantity: i.quantity + 1 }
+              : i
+          ),
         })),
 
-      decreaseQty: (id) =>
+      decreaseQty: (id, portion = 'full') =>
         set((state) => ({
           items: state.items
-            .map((i) => (i.id === id ? { ...i, quantity: i.quantity - 1 } : i))
+            .map((i) =>
+              i.id === id && (i.selectedPortion || 'full') === portion
+                ? { ...i, quantity: i.quantity - 1 }
+                : i
+            )
             .filter((i) => i.quantity > 0),
         })),
 
