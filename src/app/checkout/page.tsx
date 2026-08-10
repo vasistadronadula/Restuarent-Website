@@ -542,7 +542,7 @@ function CheckoutForm() {
 
                 <div className="flex items-baseline justify-between text-left">
                   <span className="text-muted-foreground text-sm">Amount</span>
-                  <span className="text-xl font-black">{formatCurrency(grandTotal)}</span>
+                  <span className="text-xl font-black">{formatCurrency(completedOrder.grandTotal)}</span>
                 </div>
 
                 <Separator />

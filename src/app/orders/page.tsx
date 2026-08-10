@@ -13,7 +13,7 @@ import { cn, formatCurrency } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import { Container } from '@/components/customer/Container';
-import PrintBillButton from '@/components/bill/PrintBillButton';
+import ViewBillDialog from '@/components/bill/ViewBillDialog';
 import { generateInvoiceNo } from '@/lib/idGenerator';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
@@ -396,7 +396,7 @@ function OrderCard({
               {formatCurrency(order.grandTotal)}
             </p>
             <div className="flex flex-wrap gap-2">
-              <PrintBillButton order={order} invoiceNo={generateInvoiceNo(order.id)} />
+              <ViewBillDialog order={order} />
               <Button variant="brand" size="sm" onClick={() => onReorder(order.items)}>
                 <RotateCcw />
                 Reorder
