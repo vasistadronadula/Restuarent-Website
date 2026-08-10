@@ -13,13 +13,13 @@ export function PageHeader({
   title, subtitle, action,
 }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-      <div className="space-y-1">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-stone-900 dark:text-white tracking-tight leading-tight">
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
+      <div>
+        <h1 className="text-xl font-semibold text-stone-900 leading-tight">
           {title}
         </h1>
         {subtitle && (
-          <p className="text-xs sm:text-sm font-semibold text-stone-500 dark:text-stone-400 max-w-2xl leading-relaxed">
+          <p className="text-sm text-stone-500 mt-0.5 max-w-2xl leading-relaxed">
             {subtitle}
           </p>
         )}
@@ -36,31 +36,31 @@ export function StatCard({
   accent?: string; trend?: { label: string; up: boolean } | null; href?: string;
 }) {
   const inner = (
-    <div className={`p-5 sm:p-6 rounded-3xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-[#1C1C1E] shadow-sm dark:shadow-none h-full flex flex-col justify-between transition-all duration-200 ${href ? 'hover:border-amber-400 dark:hover:border-amber-600 hover:shadow-md hover:-translate-y-0.5 cursor-pointer' : ''}`}>
-      <div className="flex items-center justify-between gap-3 mb-3">
-        <div className="flex items-center gap-3 min-w-0">
+    <div className={`p-4 rounded-xl border border-stone-200 bg-white h-full flex flex-col justify-between ${href ? 'hover:border-stone-300 hover:shadow-sm cursor-pointer transition-all' : ''}`}>
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2 min-w-0">
           <div
-            className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 text-base font-bold shadow-xs"
-            style={{ backgroundColor: `${accent}18`, color: accent }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            style={{ backgroundColor: `${accent}15`, color: accent }}
           >
-            <div className="w-5 h-5 flex items-center justify-center">{icon}</div>
+            <div className="w-4 h-4 flex items-center justify-center">{icon}</div>
           </div>
-          <span className="text-xs font-black uppercase tracking-wider text-stone-600 dark:text-stone-400 truncate">
+          <span className="text-xs font-medium text-stone-500 truncate">
             {label}
           </span>
         </div>
         {trend && (
-          <Badge className={`text-[10px] font-extrabold px-2 py-0.5 rounded-lg border-none ${trend.up ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-rose-500/15 text-rose-700 dark:text-rose-400'}`}>
+          <Badge className={`text-xs font-medium px-2 py-0.5 rounded-md border-none ${trend.up ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
             {trend.label}
           </Badge>
         )}
       </div>
-      <div className="min-w-0 pt-1">
-        <div className="text-2xl sm:text-3xl font-black text-stone-900 dark:text-white leading-tight tracking-tight">
+      <div>
+        <div className="text-2xl font-bold text-stone-900 leading-tight tabular-nums">
           {value}
         </div>
         {sub && (
-          <div className="text-xs font-semibold text-stone-500 dark:text-stone-400 mt-1.5 truncate">
+          <div className="text-xs text-stone-400 mt-0.5 truncate">
             {sub}
           </div>
         )}
@@ -78,7 +78,7 @@ export function SectionCard({
   children, noPadding = false, className = '',
 }: { children: React.ReactNode; noPadding?: boolean; className?: string }) {
   return (
-    <div className={`rounded-3xl border border-stone-200/80 dark:border-stone-800 bg-white dark:bg-[#1C1C1E] shadow-sm dark:shadow-none overflow-hidden ${noPadding ? '' : 'p-6 sm:p-8'} ${className}`}>
+    <div className={`rounded-xl border border-stone-200 bg-white overflow-hidden ${noPadding ? '' : 'p-4 sm:p-5'} ${className}`}>
       {children}
     </div>
   );
@@ -88,13 +88,13 @@ export function SectionHeading({
   title, subtitle, action,
 }: { title: React.ReactNode; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex justify-between items-start gap-4 mb-5 flex-wrap">
-      <div className="min-w-0 space-y-0.5">
-        <h3 className="text-base sm:text-lg font-black text-stone-900 dark:text-stone-100 tracking-tight">
+    <div className="flex justify-between items-center gap-4 mb-4 flex-wrap">
+      <div className="min-w-0">
+        <h3 className="text-base font-semibold text-stone-900">
           {title}
         </h3>
         {subtitle && (
-          <p className="text-xs sm:text-sm text-stone-500 dark:text-stone-400 font-medium">{subtitle}</p>
+          <p className="text-sm text-stone-500 mt-0.5">{subtitle}</p>
         )}
       </div>
       {action}
@@ -109,28 +109,26 @@ export function AlertTile({
   tone?: 'warning' | 'danger' | 'info'; href: string;
 }) {
   const tones = {
-    warning: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20',
-    danger: 'bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20',
-    info: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20',
+    warning: 'bg-amber-50 text-amber-700 border-amber-200',
+    danger: 'bg-rose-50 text-rose-700 border-rose-200',
+    info: 'bg-sky-50 text-sky-700 border-sky-200',
   }[tone];
 
   return (
     <Link href={href} className="no-underline block">
-      <div className={`flex items-center gap-3 p-3 rounded-xl border transition-transform hover:translate-x-1 ${tones}`}>
-        <div className="w-8 h-8 rounded-lg bg-white dark:bg-stone-900 flex items-center justify-center text-sm shadow-xs flex-shrink-0">
+      <div className={`flex items-center gap-3 p-3 rounded-lg border transition-colors hover:brightness-95 ${tones}`}>
+        <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-sm flex-shrink-0">
           {icon}
         </div>
         <div className="min-w-0 flex-1">
-          <h4 className="text-xs font-extrabold text-stone-900 dark:text-stone-100 leading-tight">
+          <h4 className="text-sm font-medium text-stone-900 leading-tight">
             {label}
           </h4>
           {detail && (
-            <p className="text-[11px] text-stone-500 truncate font-medium mt-0.5">
-              {detail}
-            </p>
+            <p className="text-xs text-stone-500 truncate mt-0.5">{detail}</p>
           )}
         </div>
-        <Badge className="min-w-[24px] h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-extrabold">
+        <Badge className="min-w-[24px] h-5 px-1.5 rounded-full flex items-center justify-center text-xs font-semibold">
           {count}
         </Badge>
       </div>
@@ -144,7 +142,7 @@ export function StatusChip({
   const p = (palette || orderStatusColors)[status] || { label: status, color: '#78716C', bg: '#F5F5F4' };
   return (
     <Badge
-      className="font-extrabold text-[10px] px-2 py-0.5 border-none"
+      className="font-medium text-xs px-2 py-0.5 border-none"
       style={{ backgroundColor: p.bg, color: p.color }}
     >
       {p.label}
@@ -156,11 +154,11 @@ export function EmptyState({
   emoji = '📭', title, subtitle, action,
 }: { emoji?: string; title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="text-center py-8 px-4">
-      <div className="text-3xl mb-2">{emoji}</div>
-      <h3 className="font-extrabold text-stone-900 dark:text-stone-100 text-sm">{title}</h3>
+    <div className="text-center py-12 px-4">
+      <div className="text-3xl mb-3">{emoji}</div>
+      <h3 className="font-semibold text-stone-900 text-sm">{title}</h3>
       {subtitle && (
-        <p className="text-xs text-stone-500 dark:text-stone-400 mt-1 font-medium">{subtitle}</p>
+        <p className="text-sm text-stone-500 mt-1">{subtitle}</p>
       )}
       {action && <div className="mt-4">{action}</div>}
     </div>
@@ -172,7 +170,7 @@ export function RoleBadge({ role }: { role: UserRole | null | undefined }) {
   const c = roleColors[role];
   return (
     <Badge
-      className="font-extrabold text-[9px] uppercase tracking-wider px-2 py-0.5 border-none"
+      className="font-medium text-xs px-2 py-0.5 border-none"
       style={{ backgroundColor: c.bg, color: c.color }}
     >
       {ROLE_LABELS[role]}

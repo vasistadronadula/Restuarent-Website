@@ -1,5 +1,6 @@
 'use client';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
@@ -8,12 +9,11 @@ import {
 } from 'recharts';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
-import { useAuth } from '@/context/AuthContext';
 import { PageHeader, StatCard, SectionCard, EmptyState } from '@/components/admin/ui';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
-  ShoppingBag, Calendar, Package, TrendingUp, Clock, ArrowLeft
+  ShoppingBag, Calendar, Package, TrendingUp, ArrowLeft
 } from 'lucide-react';
 
 const dayKey = (d: Date) => {
@@ -111,13 +111,14 @@ export default function PerformancePage() {
   const recentOrders = useMemo(() => orders.slice(0, 5), [orders]);
 
   return (
-    <AdminLayout title="Live Performance Analytics">
+    <AdminLayout title="Performance">
       <div className="space-y-4 w-full max-w-full">
+        {/* Header */}
         <PageHeader
-          title="Live Performance Analytics"
+          title="Performance Analytics"
           subtitle="Real-time sales tracking, active orders monitor, and performance stats"
           action={
-            <Button asChild variant="outline" size="sm" className="h-8 rounded-lg text-xs font-bold">
+            <Button asChild variant="outline" size="sm" className="h-8 text-xs">
               <Link href="/admin">
                 <ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Back to Dashboard
               </Link>
@@ -125,78 +126,65 @@ export default function PerformancePage() {
           }
         />
 
-        {/* Stat Cards */}
+        {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard
-            icon={<TrendingUp className="w-5 h-5" />}
+            icon={<TrendingUp className="w-4 h-4" />}
             label="Today's Revenue"
             value={money(stats.todayRevenue)}
             sub={`${stats.todayOrders} orders today`}
             accent="#c62828"
           />
           <StatCard
-            icon={<ShoppingBag className="w-5 h-5" />}
+            icon={<ShoppingBag className="w-4 h-4" />}
             label="Active Orders"
             value={stats.pendingOrders}
-            sub="Awaiting kitchen or dispatch"
+            sub="In kitchen or preparing"
             accent="#d97706"
           />
           <StatCard
-            icon={<Calendar className="w-5 h-5" />}
+            icon={<Calendar className="w-4 h-4" />}
             label="Today's Bookings"
             value={stats.todayBookings}
-            sub="Confirmed reservations today"
+            sub="Confirmed bookings"
             accent="#10b981"
           />
           <StatCard
-            icon={<Package className="w-5 h-5" />}
+            icon={<Package className="w-4 h-4" />}
             label="Low Stock Items"
             value={stats.lowStock}
-            sub="Below minimum threshold"
+            sub="Below threshold"
             accent="#f59e0b"
           />
         </div>
 
-        {/* Performance charts & Recent orders split grid */}
+        {/* Breakdown split */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          
-          {/* Sales Chart Panel */}
+          {/* Chart */}
           <div className="lg:col-span-2">
             <SectionCard className="h-full">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 pb-2 border-b border-stone-100">
                 <div>
-                  <h3 className="font-extrabold text-sm text-stone-900 dark:text-stone-100">
-                    Sales Performance
-                  </h3>
-                  <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
-                    Last 7 Days Sales Trend
-                  </p>
+                  <h3 className="text-sm font-semibold text-stone-900">Sales Trend</h3>
+                  <p className="text-xs text-stone-400 mt-0.5">Last 7 days performance metrics</p>
                 </div>
-                <div className="flex gap-1.5 p-1 bg-stone-100 dark:bg-stone-850 rounded-xl w-fit lg:w-auto">
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                <div className="flex gap-1 bg-stone-100 p-1 rounded-lg">
+                  <button
                     onClick={() => setChartMetric('revenue')}
-                    className={`h-7 px-3 text-[10px] font-extrabold rounded-lg flex-1 sm:flex-none whitespace-nowrap ${
-                      chartMetric === 'revenue' 
-                        ? 'bg-white dark:bg-stone-900 text-stone-955 dark:text-white shadow-xs' 
-                        : 'text-stone-500 hover:text-stone-900 dark:hover:text-white dark:text-stone-400'
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      chartMetric === 'revenue' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'
                     }`}
                   >
                     Revenue
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  </button>
+                  <button
                     onClick={() => setChartMetric('orders')}
-                    className={`h-7 px-3 text-[10px] font-extrabold rounded-lg flex-1 sm:flex-none whitespace-nowrap ${
-                      chartMetric === 'orders' 
-                        ? 'bg-white dark:bg-stone-900 text-stone-955 dark:text-white shadow-xs' 
-                        : 'text-stone-500 hover:text-stone-900 dark:hover:text-white dark:text-stone-400'
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      chartMetric === 'orders' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'
                     }`}
                   >
                     Orders
-                  </Button>
+                  </button>
                 </div>
               </div>
 
@@ -205,21 +193,20 @@ export default function PerformancePage() {
                   <AreaChart data={chartData} margin={{ left: -10, right: 10, top: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#D97706" stopOpacity={0.25} />
+                        <stop offset="5%" stopColor="#D97706" stopOpacity={0.2} />
                         <stop offset="95%" stopColor="#D97706" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E5E4" className="dark:stroke-stone-850" opacity={0.15} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E5E4" opacity={0.5} />
                     <XAxis dataKey="label" stroke="#A8A29E" fontSize={11} tickLine={false} />
                     <YAxis stroke="#A8A29E" fontSize={11} tickLine={false} />
                     <RechartsTooltip
                       contentStyle={{
-                        backgroundColor: '#1C1917',
+                        backgroundColor: '#1c1917',
                         border: 'none',
-                        borderRadius: '12px',
-                        color: '#FFF',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
+                        borderRadius: '8px',
+                        color: '#fff',
+                        fontSize: '12px',
                       }}
                       formatter={(val: any) => [
                         chartMetric === 'revenue' ? money(Number(val || 0)) : `${val} orders`,
@@ -230,7 +217,7 @@ export default function PerformancePage() {
                       type="monotone"
                       dataKey={chartMetric}
                       stroke="#D97706"
-                      strokeWidth={2.5}
+                      strokeWidth={2}
                       fillOpacity={1}
                       fill="url(#chartGradient)"
                     />
@@ -240,19 +227,15 @@ export default function PerformancePage() {
             </SectionCard>
           </div>
 
-          {/* Recent Orders Panel */}
+          {/* Recent Activity */}
           <div>
             <SectionCard className="h-full flex flex-col">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-stone-100">
                 <div>
-                  <h3 className="font-extrabold text-sm text-stone-900 dark:text-stone-100">
-                    Recent Incoming Orders
-                  </h3>
-                  <p className="text-[10px] font-semibold text-stone-400 uppercase tracking-wider">
-                    Latest Activity Monitor
-                  </p>
+                  <h3 className="text-sm font-semibold text-stone-900">Recent Orders</h3>
+                  <p className="text-xs text-stone-400 mt-0.5">Real-time incoming monitor</p>
                 </div>
-                <Button asChild variant="outline" size="sm" className="h-7 px-2.5 text-[10px] font-extrabold rounded-lg">
+                <Button asChild variant="outline" size="sm" className="h-7 text-xs px-2.5">
                   <Link href="/admin/orders">View All</Link>
                 </Button>
               </div>
@@ -265,23 +248,23 @@ export default function PerformancePage() {
                     <Link 
                       key={o.id} 
                       href="/admin/orders" 
-                      className="flex items-center justify-between p-2.5 rounded-xl hover:bg-stone-50 dark:hover:bg-stone-850/40 border border-stone-200/30 dark:border-stone-850/30 transition-colors"
+                      className="flex items-center justify-between p-2.5 rounded-lg border border-stone-100 hover:bg-stone-50 transition-colors"
                     >
                       <div className="min-w-0">
-                        <div className="text-xs font-black text-stone-800 dark:text-stone-200 truncate">
-                          {o.customerName || 'Walk-in Customer'}
+                        <div className="text-xs font-semibold text-stone-800 truncate">
+                          {o.customerName || 'Walk-in'}
                         </div>
-                        <div className="text-[10px] text-stone-400 mt-0.5 flex items-center gap-1.5 font-semibold">
+                        <div className="text-xs text-stone-400 mt-0.5 flex items-center gap-1">
                           <span className="uppercase">{o.orderType}</span>
                           <span>·</span>
                           <span>{o.items?.length || 0} items</span>
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0 ml-3">
-                        <div className="text-xs font-black text-amber-700 dark:text-amber-500">
+                        <div className="text-xs font-semibold text-stone-900">
                           {money(o.grandTotal)}
                         </div>
-                        <div className="text-[9px] font-black uppercase text-stone-400 mt-0.5">
+                        <div className="text-xs text-stone-400 mt-0.5">
                           {o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
                         </div>
                       </div>
@@ -291,7 +274,6 @@ export default function PerformancePage() {
               </div>
             </SectionCard>
           </div>
-
         </div>
       </div>
     </AdminLayout>

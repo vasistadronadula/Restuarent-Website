@@ -4,13 +4,12 @@ import React, { useState, useMemo } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { Customer } from '@/types';
-import { PageHeader, StatCard, SectionCard } from '@/components/admin/ui';
 import { DataTable } from '@/components/ui/data-table';
 import { ColumnDef } from '@tanstack/react-table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Users, Star, Phone, Mail, Eye, X, DollarSign } from 'lucide-react';
+import { Users, Star, Phone, Mail, Eye } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 export default function CustomersPage() {
@@ -21,31 +20,27 @@ export default function CustomersPage() {
   const totalRevenue = useMemo(() => customers.reduce((s, c) => s + c.totalSpent, 0), [customers]);
 
   const getCustomerOrders = (phoneOrId: string) =>
-    orders.filter((o) => o.customerPhone === phoneOrId || o.customerId === phoneOrId || o.customerName === phoneOrId);
+    orders.filter((o) => o.customerPhone === phoneOrId || o.customerId === phoneOrId);
 
   const columns = useMemo<ColumnDef<any, Customer>[]>(() => [
     {
       accessorKey: 'name',
-      header: 'Customer Name',
+      header: 'Customer',
       cell: ({ row }) => {
         const c = row.original;
         return (
           <div className="flex items-center gap-3">
-            <Avatar className="w-9 h-9 border border-amber-500/30">
-              <AvatarFallback className="bg-amber-600 text-white font-black text-xs">
+            <Avatar className="w-8 h-8 flex-shrink-0">
+              <AvatarFallback className="bg-amber-100 text-amber-800 text-xs font-semibold">
                 {c.name.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
-              <div className="font-extrabold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
-                <span>{c.name}</span>
-                {c.isVip && (
-                  <Badge className="bg-amber-500 text-white font-extrabold text-[9px] px-1.5 py-0">
-                    VIP
-                  </Badge>
-                )}
+              <div className="font-medium text-sm text-stone-900 flex items-center gap-1.5">
+                {c.name}
+                {c.isVip && <Badge className="bg-amber-100 text-amber-800 text-xs font-medium px-1.5 py-0 border-none">VIP</Badge>}
               </div>
-              <div className="text-xs text-stone-400 font-medium">{c.phone}</div>
+              <div className="text-xs text-stone-400">{c.phone}</div>
             </div>
           </div>
         );
@@ -55,203 +50,151 @@ export default function CustomersPage() {
       accessorKey: 'email',
       header: 'Email',
       cell: ({ row }) => (
-        <span className="text-xs text-stone-600 dark:text-stone-300 font-medium">
-          {row.original.email || 'N/A'}
-        </span>
+        <span className="text-sm text-stone-600">{row.original.email || '—'}</span>
       ),
     },
     {
       accessorKey: 'totalOrders',
-      header: 'Total Orders',
+      header: 'Orders',
       cell: ({ row }) => (
-        <Badge variant="outline" className="font-bold text-xs">
-          {row.original.totalOrders} orders
-        </Badge>
+        <span className="text-sm text-stone-700 tabular-nums">{row.original.totalOrders}</span>
       ),
     },
     {
       accessorKey: 'totalSpent',
       header: 'Total Spent',
       cell: ({ row }) => (
-        <span className="font-black text-amber-700 dark:text-amber-500">
+        <span className="font-semibold text-sm text-stone-900 tabular-nums">
           ₹{row.original.totalSpent.toLocaleString('en-IN')}
         </span>
       ),
     },
     {
       accessorKey: 'loyaltyPoints',
-      header: 'Loyalty Points',
+      header: 'Points',
       cell: ({ row }) => (
-        <div className="flex items-center gap-1 font-bold text-emerald-600 text-xs">
-          <Star className="w-3.5 h-3.5 fill-emerald-600" />
-          <span>{row.original.loyaltyPoints || 0} pts</span>
-        </div>
+        <span className="text-sm text-emerald-700 tabular-nums">{row.original.loyaltyPoints || 0}</span>
       ),
     },
     {
       id: 'actions',
-      header: 'Actions',
+      header: '',
       cell: ({ row }) => (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setSelected(row.original)}
-          className="h-8 px-2.5 text-xs font-bold"
-        >
-          <Eye className="w-3.5 h-3.5 mr-1" /> Profile
+        <Button variant="outline" size="sm" onClick={() => setSelected(row.original)} className="h-8 px-2.5 text-xs">
+          <Eye className="w-3.5 h-3.5 mr-1" /> View
         </Button>
       ),
     },
   ], []);
 
   return (
-    <AdminLayout title="Customers Directory">
+    <AdminLayout title="Customers">
       <div className="space-y-4 w-full max-w-full">
-        <PageHeader
-          title="Customer Directory & Loyalty"
-          subtitle="Diner spend history, VIP status, and order tracking"
-        />
-
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          <StatCard
-            icon={<Users className="w-5 h-5" />}
-            label="Total Diners"
-            value={customers.length}
-            sub="Registered customers"
-            accent="#2563EB"
-          />
-          <StatCard
-            icon={<Star className="w-5 h-5" />}
-            label="VIP Customers"
-            value={vipCount}
-            sub="Frequent diners"
-            accent="#D97706"
-          />
-          <StatCard
-            icon={<DollarSign className="w-5 h-5" />}
-            label="Lifetime Customer Spend"
-            value={`₹${totalRevenue.toLocaleString('en-IN')}`}
-            sub="Total gross spend"
-            accent="#059669"
-          />
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <h1 className="text-xl font-semibold text-stone-900">Customers</h1>
+            <p className="text-sm text-stone-500 mt-0.5">
+              {customers.length} total · {vipCount} VIP · ₹{totalRevenue.toLocaleString('en-IN')} lifetime spend
+            </p>
+          </div>
         </div>
 
-        <SectionCard noPadding className="p-3">
+        {/* Table */}
+        <div className="bg-white rounded-xl border border-stone-200">
           <DataTable
             columns={columns}
             data={customers}
             searchKey="name"
-            searchPlaceholder="Search customer name or phone..."
-            height="480px"
+            searchPlaceholder="Search name or phone…"
+            height="520px"
             rowHeight={60}
             enableVirtualization={true}
             getRowId={(c) => c.phone || c.id}
             renderMobileCard={(c) => (
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <Avatar className="w-9 h-9 border border-amber-500/30 flex-shrink-0">
-                    <AvatarFallback className="bg-amber-600 text-white font-black text-xs">
-                      {c.name.slice(0, 2).toUpperCase()}
-                    </AvatarFallback>
+                  <Avatar className="w-9 h-9 flex-shrink-0">
+                    <AvatarFallback className="bg-amber-100 text-amber-800 text-xs font-semibold">{c.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                   <div className="min-w-0">
-                    <div className="font-extrabold text-xs text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                    <div className="text-sm font-medium text-stone-900 flex items-center gap-1.5">
                       <span className="truncate">{c.name}</span>
-                      {c.isVip && (
-                        <Badge className="bg-amber-500 text-white font-extrabold text-[9px] px-1.5 py-0 flex-shrink-0">
-                          VIP
-                        </Badge>
-                      )}
+                      {c.isVip && <Badge className="bg-amber-100 text-amber-800 text-xs font-medium px-1.5 py-0 border-none shrink-0">VIP</Badge>}
                     </div>
-                    <div className="text-[10px] text-stone-400 font-medium mt-0.5 truncate">
-                      {c.phone}{c.email ? ` · ${c.email}` : ''}
-                    </div>
+                    <div className="text-xs text-stone-400">{c.phone}</div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  <span className="font-black text-amber-700 dark:text-amber-500 text-xs tabular">
-                    ₹{c.totalSpent.toLocaleString('en-IN')}
-                  </span>
-                  <span className="text-[10px] font-bold text-emerald-600">
-                    {c.totalOrders} orders · {c.loyaltyPoints || 0} pts
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelected(c)}
-                    className="h-7 px-2.5 text-[10px] font-bold mt-0.5"
-                  >
-                    <Eye className="w-3 h-3 mr-1" /> Profile
-                  </Button>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className="font-semibold text-sm text-stone-900 tabular-nums">₹{c.totalSpent.toLocaleString('en-IN')}</span>
+                  <span className="text-xs text-stone-400">{c.totalOrders} orders</span>
+                  <Button variant="outline" size="sm" onClick={() => setSelected(c)} className="h-7 px-2.5 text-xs mt-0.5">View</Button>
                 </div>
               </div>
             )}
           />
-        </SectionCard>
+        </div>
       </div>
 
-      {/* Customer Profile Modal */}
+      {/* Customer Profile Dialog */}
       <Dialog open={!!selected} onOpenChange={(val) => { if (!val) setSelected(null); }}>
         {selected && (
-          <DialogContent className="max-w-md p-0 overflow-hidden rounded-3xl bg-white dark:bg-[#1C1C1E] border border-stone-200/50 dark:border-[#2C2C2E]/60 shadow-2xl">
-            <DialogHeader className="p-6 pr-14 bg-white dark:bg-[#1C1C1E] text-stone-900 dark:text-white border-b border-stone-100 dark:border-[#2C2C2E]/60">
+          <DialogContent className="max-w-md rounded-xl bg-white border border-stone-200">
+            <DialogHeader className="pb-3 border-b border-stone-100">
               <div className="flex items-center gap-3">
-                <Avatar className="w-10 h-10 border border-amber-500/30">
-                  <AvatarFallback className="bg-amber-600 text-white font-black text-xs">
-                    {selected.name.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
+                <Avatar className="w-10 h-10">
+                  <AvatarFallback className="bg-amber-100 text-amber-800 font-semibold">{selected.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
-                  <DialogTitle className="text-stone-900 dark:text-white font-black text-base leading-tight">
-                    {selected.name}
-                  </DialogTitle>
-                  <p className="text-[10px] text-stone-400 font-semibold mt-0.5">{selected.phone}</p>
+                  <DialogTitle className="text-base font-semibold text-stone-900">{selected.name}</DialogTitle>
+                  <p className="text-xs text-stone-400 mt-0.5">{selected.phone}</p>
                 </div>
               </div>
             </DialogHeader>
 
-            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-2 gap-3 p-3.5 bg-stone-50/50 dark:bg-stone-900/40 border border-stone-200/30 dark:border-[#2C2C2E]/40 rounded-xl text-center">
-                <div>
-                  <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Total Spent</div>
-                  <div className="text-base font-black text-amber-700 dark:text-amber-500 mt-0.5">
-                    ₹{selected.totalSpent.toLocaleString('en-IN')}
-                  </div>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto py-1">
+              {/* Stats */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-stone-50 rounded-lg p-3 text-center">
+                  <div className="text-xs text-stone-400 mb-1">Total Spent</div>
+                  <div className="text-base font-bold text-stone-900">₹{selected.totalSpent.toLocaleString('en-IN')}</div>
                 </div>
-                <div>
-                  <div className="text-[10px] font-bold text-stone-400 uppercase tracking-wider">Loyalty Points</div>
-                  <div className="text-base font-black text-emerald-600 mt-0.5">
-                    {selected.loyaltyPoints || 0} pts
-                  </div>
+                <div className="bg-stone-50 rounded-lg p-3 text-center">
+                  <div className="text-xs text-stone-400 mb-1">Loyalty Points</div>
+                  <div className="text-base font-bold text-emerald-700">{selected.loyaltyPoints || 0} pts</div>
                 </div>
               </div>
 
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center gap-2 text-stone-600 dark:text-stone-300">
-                  <Mail className="w-4 h-4 text-stone-400 dark:text-stone-500" />
-                  <span className="font-semibold">{selected.email || 'No email registered'}</span>
+              {/* Contact info */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-stone-600">
+                  <Mail className="w-4 h-4 text-stone-400" />
+                  {selected.email || 'No email'}
                 </div>
-                <div className="flex items-center gap-2 text-stone-600 dark:text-stone-300">
-                  <Phone className="w-4 h-4 text-stone-400 dark:text-stone-500" />
-                  <span className="font-semibold">{selected.phone}</span>
+                <div className="flex items-center gap-2 text-sm text-stone-600">
+                  <Phone className="w-4 h-4 text-stone-400" />
+                  {selected.phone}
+                </div>
+                <div className="flex items-center gap-2 text-sm text-stone-600">
+                  <Users className="w-4 h-4 text-stone-400" />
+                  {selected.totalOrders} orders · {selected.isVip ? '⭐ VIP' : 'Regular'}
                 </div>
               </div>
 
+              {/* Order history */}
               <div>
-                <h4 className="text-[10px] font-black uppercase tracking-wider text-stone-400 mb-2">Recent Order History</h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto border border-stone-200/50 dark:border-[#2C2C2E]/65 rounded-xl p-3 bg-stone-50/20 dark:bg-[#1C1C1E]/40">
+                <div className="text-xs font-medium text-stone-500 mb-2">Recent Orders</div>
+                <div className="border border-stone-100 rounded-lg divide-y divide-stone-100 max-h-48 overflow-y-auto">
                   {getCustomerOrders(selected.phone).length === 0 ? (
-                    <div className="text-xs text-stone-400 text-center py-3">No past order records</div>
+                    <div className="text-sm text-stone-400 text-center py-4">No order records</div>
                   ) : (
                     getCustomerOrders(selected.phone).map((o) => (
-                      <div key={o.id} className="flex justify-between items-center text-xs pb-2 border-b border-stone-100/60 dark:border-stone-800 last:border-0 last:pb-0 last:border-b-0">
+                      <div key={o.id} className="flex justify-between items-center px-3 py-2 text-sm">
                         <div>
-                          <span className="font-extrabold text-stone-850 dark:text-stone-100">{o.id}</span>
-                          <div className="text-[9px] text-stone-400">{new Date(o.createdAt || o.orderDate || Date.now()).toLocaleDateString()}</div>
+                          <div className="font-medium text-stone-900">{o.id}</div>
+                          <div className="text-xs text-stone-400">{new Date(o.createdAt || o.orderDate || Date.now()).toLocaleDateString()}</div>
                         </div>
-                        <div className="font-black text-amber-700 dark:text-amber-500">
-                          ₹{o.grandTotal}
-                        </div>
+                        <span className="font-medium text-stone-900 tabular-nums">₹{o.grandTotal}</span>
                       </div>
                     ))
                   )}
