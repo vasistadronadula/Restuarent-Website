@@ -6,9 +6,11 @@ import { toast } from 'sonner';
 
 import { cn, formatCurrency } from '@/lib/utils';
 import { useCoupons } from '@/lib/queries';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useEffect } from 'react';
 
 /**
  * Apply / remove a promo code.
@@ -29,6 +31,15 @@ export function CouponField({
   const [input, setInput] = useState('');
   const { data: coupons = [] } = useCoupons();
   const couponCode = useCartStore((s) => s.couponCode);
+  const user = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    if (!user && couponCode) {
+      useCartStore.getState().removeCoupon();
+    }
+  }, [user, couponCode]);
+
+  if (!user) return null;
 
   const apply = () => {
     const code = input.toUpperCase().trim();

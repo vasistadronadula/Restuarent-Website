@@ -242,7 +242,7 @@ export default function HomePage() {
               </div>
 
               {/* Coupon offer — static banner, no pulse */}
-              {activeCoupons.length > 0 && (
+              {user && activeCoupons.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setOffersOpen(true)}
@@ -392,7 +392,7 @@ export default function HomePage() {
       </main>
 
       {/* Coupons Dialog */}
-      <Dialog modal={false} open={offersOpen} onOpenChange={setOffersOpen}>
+      <Dialog modal={false} open={Boolean(user && offersOpen)} onOpenChange={setOffersOpen}>
         <DialogContent className="max-w-md p-6 rounded-2xl bg-white border-stone-200">
           <DialogHeader>
             <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
