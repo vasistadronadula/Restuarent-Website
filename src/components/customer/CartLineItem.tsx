@@ -83,7 +83,7 @@ export function CartLineItem({
           onDecrease={() => useCartStore.getState().decreaseQty(item.id)}
           onRemove={remove}
         />
-        {!compact && (
+        {!compact && item.quantity > 1 && (
           <Button
             variant="ghost"
             size="icon-sm"

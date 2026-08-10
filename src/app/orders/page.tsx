@@ -218,7 +218,7 @@ export default function OrderHistoryPage() {
       <Navbar />
 
       <main className="min-h-screen py-6 md:py-8 bg-stone-50/50 dark:bg-stone-950/30">
-        <Container className="max-w-4xl">
+        <Container className="max-w-[1400px]">
           {/* Header Card */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
@@ -340,7 +340,7 @@ export default function OrderHistoryPage() {
               </CardContent>
             </Card>
           ) : (
-            <ul className="grid gap-5">
+            <ul className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
               {filteredOrders.map((order) => (
                 <OrderCard key={order.id} order={order} onReorder={handleReorder} />
               ))}
