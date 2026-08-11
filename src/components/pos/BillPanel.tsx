@@ -313,20 +313,31 @@ export default function BillPanel({
             </div>
 
             {paymentMode === 'cash' && (
-              <div className="space-y-2 rounded-xl bg-stone-100/70 dark:bg-stone-800/50 p-2.5">
+              <div className="space-y-2 rounded-xl bg-amber-500/10 border border-amber-200 dark:border-amber-900/50 p-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-extrabold text-stone-500 flex items-center gap-1">
-                    <Banknote className="w-3.5 h-3.5" /> Cash received
+                  <span className="text-[11px] font-black text-amber-900 dark:text-amber-300 flex items-center gap-1">
+                    <Banknote className="w-3.5 h-3.5 text-amber-600" /> CASH TENDERED
                   </span>
                   {changeDue > 0 && (
-                    <span className="text-xs font-black text-emerald-700 dark:text-emerald-400">
-                      Change due {rupees(changeDue)}
+                    <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-300">
+                      CHANGE: {rupees(changeDue)}
                     </span>
                   )}
                 </div>
 
                 {quickCashAmounts.length > 0 && (
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-1.5 flex-wrap">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={receivedAmount === totals.grandTotal ? 'default' : 'outline'}
+                      onClick={() => setCashReceived(String(Math.ceil(totals.grandTotal)))}
+                      className={`flex-1 h-8 text-xs font-black rounded-lg ${
+                        receivedAmount === totals.grandTotal ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-white dark:bg-stone-800'
+                      }`}
+                    >
+                      Exact
+                    </Button>
                     {quickCashAmounts.map((amount) => (
                       <Button
                         key={amount}
@@ -334,8 +345,8 @@ export default function BillPanel({
                         size="sm"
                         variant={receivedAmount === amount ? 'default' : 'outline'}
                         onClick={() => setCashReceived(String(amount))}
-                        className={`flex-1 h-8 text-xs font-bold rounded-lg ${
-                          receivedAmount === amount ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''
+                        className={`flex-1 h-8 text-xs font-black rounded-lg ${
+                          receivedAmount === amount ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-white dark:bg-stone-800'
                         }`}
                       >
                         {rupees(amount)}
@@ -346,15 +357,15 @@ export default function BillPanel({
 
                 <Input
                   inputMode="numeric"
-                  placeholder="Or type amount received"
+                  placeholder="Or enter cash received..."
                   value={cashReceived}
                   onChange={(e) => setCashReceived(e.target.value.replace(/\D/g, ''))}
-                  className="h-9 text-sm font-bold rounded-lg bg-white dark:bg-stone-900 border-stone-300 dark:border-stone-700"
+                  className="h-9 text-sm font-black rounded-lg bg-white dark:bg-stone-900 border-amber-300 dark:border-amber-800"
                 />
 
                 {cashShort && (
-                  <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400">
-                    Short by {rupees(totals.grandTotal - receivedAmount)}
+                  <p className="text-[11px] font-extrabold text-rose-600 dark:text-rose-400">
+                    Need {rupees(totals.grandTotal - receivedAmount)} more cash
                   </p>
                 )}
               </div>
@@ -363,18 +374,19 @@ export default function BillPanel({
         )}
 
         <Button
-          className={`w-full h-12 rounded-xl text-base font-black flex justify-between px-4 text-white shadow-lg transition-all ${
+          className={`w-full h-13 rounded-xl text-base font-black flex justify-between px-5 text-white shadow-xl transition-all active:scale-[0.98] ${
             blocked
               ? 'bg-stone-300 dark:bg-stone-800 text-stone-500 shadow-none cursor-not-allowed'
-              : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+              : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
           }`}
           onClick={onPlace}
           disabled={blocked || isPlacing}
         >
-          <span>
-            {isPlacing ? 'Saving…' : empty ? 'Add items to bill' : needsTable ? 'Pick a table first' : 'Charge'}
+          <span className="flex items-center gap-2">
+            <span>⚡</span>
+            <span>{isPlacing ? 'Processing Order…' : empty ? 'Add Items to Ticket' : 'CHARGE & PRINT'}</span>
           </span>
-          <span>{rupees(totals.grandTotal)}</span>
+          <span className="text-lg font-black">{rupees(totals.grandTotal)}</span>
         </Button>
       </div>
     </div>

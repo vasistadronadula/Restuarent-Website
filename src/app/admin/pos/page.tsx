@@ -42,14 +42,26 @@ const CATEGORIES: { label: string; value: Category | 'all'; icon: string }[] = [
 
 export default function PosPage() {
   const { user } = useAuth();
-  const { addOrderLocallyAndDB: createOrderContext } = useAdmin();
+  const { addOrderLocallyAndDB: createOrderContext, categories: dbCategories } = useAdmin();
   const { data: menuItems = [] } = useMenuItems();
   const { data: tables = [] } = useTables();
 
-  const [selectedCategory, setSelectedCategory] = useState<Category | 'all'>('all');
+  // Dynamic category options built from DB
+  const dynamicCategories = useMemo(() => {
+    const list: { label: string; value: string }[] = [{ label: 'All Bestsellers', value: 'all' }];
+    dbCategories
+      .filter((c) => c.isActive)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .forEach((c) => {
+        list.push({ label: c.name, value: c.slug });
+      });
+    return list;
+  }, [dbCategories]);
+
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'non-veg' | 'egg'>('all');
   const [search, setSearch] = useState('');
-  const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('rows');
+  const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('cards');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [orderType, setOrderType] = useState<PosOrderType>('counter');
@@ -70,19 +82,17 @@ export default function PosPage() {
 
   const quantityInBill = (itemId: string) => quantityByMenuItem[itemId] || 0;
 
-  // "/" jumps straight to search — a counter running on a keyboard (desktop
-  // till, not a tablet) shouldn't need a mouse to start typing a dish name.
-  // Ignored while any other field has focus, so it never steals a keystroke
-  // out of the customer name/phone inputs or the cash-received box.
+  // "/" jumps to search, "Enter" or "Ctrl+Enter" triggers place order if cart not empty
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
-      const active = document.activeElement;
-      const isTyping = active instanceof HTMLElement &&
-        (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
-      if (isTyping) return;
-      e.preventDefault();
-      searchInputRef.current?.focus();
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        const active = document.activeElement;
+        const isTyping = active instanceof HTMLElement &&
+          (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+        if (isTyping) return;
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -122,10 +132,6 @@ export default function PosPage() {
 
   const handlePlaceOrder = async () => {
     if (lines.length === 0) return;
-    if (orderType === 'dine-in' && tableNumber === '') {
-      toast.error('Pick a table first');
-      return;
-    }
 
     setPlacing(true);
     try {
@@ -158,8 +164,6 @@ export default function PosPage() {
         createdAt: new Date().toISOString(),
       };
 
-      // Mark this order as already handled before it can possibly reach the
-      // live orders feed — AutoOrderPrinter must not print a second copy.
       markPosOrderPrinted(newOrder.id);
       await createOrderContext(newOrder);
       triggerNewOrderPush(newOrder.id);
@@ -174,7 +178,7 @@ export default function PosPage() {
       setCustomerPhone('');
       setTableNumber('');
       setMobileBillOpen(false);
-      toast.success('Order placed successfully! 🛒');
+      toast.success('Order charged & printed successfully! ⚡');
     } catch {
       toast.error('Failed to place order');
     } finally {
@@ -261,7 +265,7 @@ export default function PosPage() {
 
           {/* Categories Pill Bar */}
           <div className="flex gap-2 overflow-x-auto scrollbar-none flex-shrink-0">
-            {CATEGORIES.map((cat) => {
+            {dynamicCategories.map((cat) => {
               const isSelected = selectedCategory === cat.value;
               return (
                 <Button
@@ -274,7 +278,6 @@ export default function PosPage() {
                     isSelected ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-md' : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800'
                   }`}
                 >
-                  <span className="mr-1.5">{cat.icon}</span>
                   {cat.label}
                 </Button>
               );

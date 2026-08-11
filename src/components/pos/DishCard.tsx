@@ -27,12 +27,19 @@ function DishCard({ item, inBill, quantityByPortion, onAdd, onDecrement }: Props
   const unitPrice = portions.length === 1 ? portions[0].price : item.price;
   const vegColorClass = isVeg ? 'bg-emerald-600 border-emerald-600' : isEgg ? 'bg-amber-600 border-amber-600' : 'bg-rose-600 border-rose-600';
 
+  const handleCardClick = () => {
+    if (!hasPortionChoice) {
+      onAdd(item);
+    }
+  };
+
   return (
     <div
-      className={`rounded-xl border flex flex-col h-full bg-white dark:bg-stone-900 overflow-hidden text-left transition-all ${
+      onClick={handleCardClick}
+      className={`rounded-xl border flex flex-col h-full bg-white dark:bg-stone-900 overflow-hidden text-left transition-all select-none cursor-pointer group active:scale-[0.98] ${
         active
-          ? 'border-amber-600 shadow-md shadow-amber-600/10'
-          : 'border-stone-200 dark:border-stone-800 shadow-xs'
+          ? 'border-amber-600 ring-2 ring-amber-500/20 shadow-md shadow-amber-600/10'
+          : 'border-stone-200 dark:border-stone-800 shadow-xs hover:border-amber-400'
       }`}
     >
       <div className="relative w-full h-16 sm:h-20 lg:h-22 bg-stone-100 dark:bg-stone-800 overflow-hidden flex-shrink-0">
@@ -41,15 +48,21 @@ function DishCard({ item, inBill, quantityByPortion, onAdd, onDecrement }: Props
           alt={item.name}
           fill
           sizes="(max-width:600px) 50vw, (max-width:1200px) 25vw, 160px"
-          className="object-cover"
+          className="object-cover group-hover:scale-105 transition-transform duration-300"
         />
 
-        <div className="absolute top-1 left-1 w-3.5 h-3.5 rounded-sm bg-white border border-stone-200 flex items-center justify-center shadow-xs">
+        <div className="absolute top-1 left-1 w-3.5 h-3.5 rounded-sm bg-white border border-stone-200 flex items-center justify-center shadow-xs z-10">
           <div className={`w-1.5 h-1.5 rounded-full ${vegColorClass}`} />
         </div>
 
+        {item.prepTime && (
+          <div className="absolute bottom-1 left-1 bg-stone-900/80 backdrop-blur-xs text-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-0.5 z-10">
+            <span>⏱️ {item.prepTime}m</span>
+          </div>
+        )}
+
         {active && (
-          <div className="absolute top-1 right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[11px] font-black shadow-md">
+          <div className="absolute top-1 right-1 min-w-[20px] h-5 px-1.5 rounded-full bg-amber-600 text-white flex items-center justify-center text-[11px] font-black shadow-md z-10">
             {inBill}
           </div>
         )}
