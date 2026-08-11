@@ -1,31 +1,26 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import Image from 'next/image';
 import {
-  Plus, Minus, Trash2, ShoppingBag, X, ChevronDown, ChevronUp, ShoppingCart, Banknote,
+  Plus, Minus, Trash2, ShoppingBag, X, UtensilsCrossed, LayoutGrid, Banknote, QrCode, CreditCard,
 } from 'lucide-react';
 import { MAX_LINE_QTY, type PosLine } from '@/hooks/usePosCart';
 import type { BillTotals } from '@/lib/billing';
 import { rupees, rupeesExact } from '@/lib/billing';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80';
 
 export type PosOrderType = 'dine-in' | 'counter';
 
 export const ORDER_TYPES: { type: PosOrderType; label: string; icon: string }[] = [
-  { type: 'counter', label: 'Counter', icon: '⚡' },
-  { type: 'dine-in', label: 'Dine-in', icon: '🍽️' },
+  { type: 'dine-in', label: 'Dine In', icon: '🍽️' },
+  { type: 'counter', label: 'Takeaway', icon: '🛍️' },
 ];
 
 export const PAYMENT_MODES = [
-  { mode: 'cash', label: 'Cash', icon: '💵' },
-  { mode: 'upi', label: 'UPI', icon: '📱' },
-  { mode: 'card', label: 'Card', icon: '💳' },
+  { mode: 'cash', label: 'Cash', icon: Banknote, color: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
+  { mode: 'upi', label: 'UPI', icon: QrCode, color: 'bg-purple-600 hover:bg-purple-700 text-white' },
+  { mode: 'card', label: 'Card', icon: CreditCard, color: 'bg-blue-600 hover:bg-blue-700 text-white' },
 ] as const;
 
 export type PosPaymentMode = (typeof PAYMENT_MODES)[number]['mode'];
@@ -80,55 +75,15 @@ export default function BillPanel({
   const changeDue = Math.max(0, receivedAmount - totals.grandTotal);
   const cashShort = paymentMode === 'cash' && receivedAmount > 0 && receivedAmount < totals.grandTotal;
 
-  const quickCashAmounts = useMemo(() => {
-    const total = Math.ceil(totals.grandTotal);
-    if (total <= 0) return [];
-    const roundedUp = [50, 100, 500, 2000]
-      .map((step) => Math.ceil(total / step) * step)
-      .filter((amount) => amount > total);
-    return Array.from(new Set([total, ...roundedUp])).slice(0, 4);
-  }, [totals.grandTotal]);
-
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white dark:bg-stone-900 border-l border-stone-200/80 dark:border-stone-800">
-      <div className="flex-shrink-0 px-4 py-3 bg-stone-50 dark:bg-stone-800/60 border-b border-stone-200/80 dark:border-stone-800 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <ShoppingBag className="w-5 h-5 text-amber-600" />
-          <h3 className="font-extrabold text-sm text-stone-900 dark:text-stone-100">
-            Active Ticket
-          </h3>
-          {totalUnits > 0 && (
-            <Badge className="bg-amber-600 text-white font-black text-xs px-2 py-0.5 rounded-full">
-              {totalUnits} items
-            </Badge>
-          )}
+    <div className="flex flex-col h-full min-h-0 bg-white dark:bg-stone-900 border-l border-stone-200/80 dark:border-stone-800 p-4 space-y-4">
+      {/* ── 1. ORDER TYPE Header ── */}
+      <div className="space-y-2 flex-shrink-0">
+        <div className="text-[11px] font-bold tracking-wider text-stone-400 uppercase">
+          ORDER TYPE
         </div>
-        <div className="flex items-center gap-1">
-          {!empty && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClear}
-              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-xs font-bold h-8"
-            >
-              Clear
-            </Button>
-          )}
-          {onClose && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onClose}
-              className="h-8 w-8 text-stone-400"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
-      </div>
 
-      <div className="p-3 border-b border-stone-200/80 dark:border-stone-800 space-y-2 bg-stone-50/50 dark:bg-stone-900/50">
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {ORDER_TYPES.map((t) => (
             <Button
               key={t.type}
@@ -136,267 +91,191 @@ export default function BillPanel({
               variant={orderType === t.type ? 'default' : 'outline'}
               size="sm"
               onClick={() => onOrderType(t.type)}
-              className={`flex-1 font-extrabold text-xs h-9 rounded-xl ${
+              className={`font-bold text-xs h-11 rounded-xl gap-2 transition-all ${
                 orderType === t.type
-                  ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-xs'
-                  : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800'
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'
+                  : 'border-stone-200 dark:border-stone-700 bg-white dark:bg-stone-800 text-stone-700 dark:text-stone-200'
               }`}
             >
-              {t.icon} {t.label}
+              <span>{t.icon}</span>
+              <span>{t.label}</span>
             </Button>
           ))}
         </div>
 
+        {/* Table Selector */}
         {orderType === 'dine-in' && (
-          <div>
-            <Select
-              value={tableNumber === '' ? '' : String(tableNumber)}
-              onValueChange={(val) => onTableNumber(val === '' ? '' : Number(val))}
-            >
-              <SelectTrigger className="w-full bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 rounded-xl text-xs font-bold">
-                <SelectValue placeholder="Select Table *" />
-              </SelectTrigger>
-              <SelectContent>
-                {tables.length === 0 && <SelectItem value="" disabled>No tables set up</SelectItem>}
-                {tables.map((t) => (
-                  <SelectItem key={t.id} value={String(t.tableNumber)}>
-                    Table {t.tableNumber} · {t.capacity} seats {t.description ? `(${t.description})` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="pt-1">
+            <div className="text-[11px] font-bold text-stone-500 mb-1">
+              Table Selection
+            </div>
+            <div className="flex gap-2">
+              <Select
+                value={tableNumber === '' ? '' : String(tableNumber)}
+                onValueChange={(val) => onTableNumber(val === '' ? '' : Number(val))}
+              >
+                <SelectTrigger className={`flex-1 bg-white dark:bg-stone-800 rounded-xl text-xs font-bold h-10 ${needsTable ? 'border-rose-500' : 'border-stone-200 dark:border-stone-700'}`}>
+                  <SelectValue placeholder="Select Table" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tables.length === 0 && <SelectItem value="" disabled>No tables set up</SelectItem>}
+                  {tables.map((t) => (
+                    <SelectItem key={t.id} value={String(t.tableNumber)}>
+                      Table {t.tableNumber} · {t.capacity} seats
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="icon" className="size-10 rounded-xl border-stone-200 shrink-0">
+                <LayoutGrid className="size-4 text-stone-500" />
+              </Button>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <hr className="border-stone-100 dark:border-stone-800" />
+
+      {/* ── 2. CART ITEMS SECTION ── */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex items-center justify-between pb-2">
+          <h3 className="font-extrabold text-sm text-stone-900 dark:text-stone-100">
+            CART ({totalUnits} {totalUnits === 1 ? 'Item' : 'Items'})
+          </h3>
+          {!empty && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-rose-500 hover:text-rose-600 text-xs font-bold flex items-center gap-1 hover:underline"
+            >
+              <span>Clear Cart</span>
+              <Trash2 className="size-3.5" />
+            </button>
+          )}
+        </div>
+
         {empty ? (
-          <div className="text-center py-12 px-4 text-stone-400">
-            <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-30 text-stone-400" />
-            <h4 className="font-bold text-sm text-stone-600 dark:text-stone-400">
-              No items yet
-            </h4>
-            <p className="text-xs text-stone-400 mt-0.5">
-              Tap a dish to start the bill
-            </p>
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-stone-400">
+            <ShoppingBag className="size-12 opacity-20 mb-2" />
+            <p className="text-xs font-bold text-stone-500">Cart is empty</p>
+            <p className="text-[11px] text-stone-400 mt-0.5">Select items to start bill</p>
           </div>
         ) : (
-          <div className="divide-y divide-stone-100 dark:divide-stone-800">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1 scrollbar-none">
             {lines.map((line) => (
-              <div key={line.key} className="flex items-center gap-2.5 px-3 py-2">
-                <div className="relative w-9 h-9 rounded-lg overflow-hidden flex-shrink-0 bg-stone-100 dark:bg-stone-800">
-                  <Image src={line.image || FALLBACK_IMAGE} alt="" fill sizes="36px" className="object-cover" />
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">
-                    {line.name}
-                  </h4>
-                  <div className="text-[11px] text-stone-500">
-                    {rupeesExact(line.unitPrice)} each
+              <div
+                key={line.key}
+                className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-stone-50 dark:bg-stone-800/40 border border-stone-100 dark:border-stone-800"
+              >
+                {/* Veg/Non-Veg dot */}
+                <div className="flex items-start gap-2 min-w-0 flex-1">
+                  <span className="shrink-0 mt-1">
+                    <span className="inline-block size-2.5 rounded-full bg-emerald-600" />
+                  </span>
+                  <div className="min-w-0">
+                    <h4 className="text-xs font-bold text-stone-900 dark:text-stone-100 truncate">
+                      {line.name}
+                    </h4>
+                    <p className="text-[11px] text-stone-400 font-semibold">
+                      ₹{line.unitPrice} {line.portion ? `· ${line.portion}` : ''}
+                    </p>
                   </div>
                 </div>
 
-                <QuantityStepper
-                  line={line}
-                  onIncrement={onIncrement}
-                  onDecrement={onDecrement}
-                  onSetQuantity={onSetQuantity}
-                  onRemove={onRemove}
-                />
-
-                <div className="w-14 text-right text-xs font-extrabold text-stone-900 dark:text-stone-100 flex-shrink-0">
-                  {rupees(line.unitPrice * line.quantity)}
+                {/* Quantity Stepper */}
+                <div className="flex items-center gap-1 bg-white dark:bg-stone-800 rounded-lg border border-stone-200 dark:border-stone-700 px-1.5 py-0.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => (line.quantity <= 1 ? onRemove(line.key) : onDecrement(line.key))}
+                    className="p-1 text-stone-500 hover:text-rose-600"
+                  >
+                    <Minus className="size-3" />
+                  </button>
+                  <span className="text-xs font-black px-1.5 text-stone-900 dark:text-stone-100 min-w-[16px] text-center">
+                    {line.quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onIncrement(line.key)}
+                    className="p-1 text-stone-500 hover:text-blue-600"
+                  >
+                    <Plus className="size-3" />
+                  </button>
                 </div>
+
+                {/* Price */}
+                <div className="text-xs font-black text-stone-900 dark:text-stone-100 shrink-0 w-14 text-right">
+                  ₹{line.unitPrice * line.quantity}
+                </div>
+
+                {/* Remove */}
+                <button
+                  type="button"
+                  onClick={() => onRemove(line.key)}
+                  className="text-stone-400 hover:text-rose-600 p-1 shrink-0"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      <div className="flex-shrink-0 px-4 py-3 bg-stone-50/80 dark:bg-stone-800/80 border-t border-stone-200/80 dark:border-stone-800 space-y-3">
-        {!empty && (
-          <>
-            <div className="space-y-1 text-xs">
-              <Row label="Subtotal" value={rupeesExact(totals.subtotal)} />
-              {totals.discountAmount > 0 && (
-                <Row label="Discount" value={`-${rupeesExact(totals.discountAmount)}`} />
-              )}
-              <Row label="CGST 2.5%" value={rupeesExact(totals.cgst)} />
-              <Row label="SGST 2.5%" value={rupeesExact(totals.sgst)} />
-              {Math.abs(totals.roundOff) >= 0.01 && (
-                <Row
-                  label="Round off"
-                  value={`${totals.roundOff > 0 ? '+' : '-'}${rupeesExact(Math.abs(totals.roundOff))}`}
-                />
-              )}
-            </div>
+      <hr className="border-stone-100 dark:border-stone-800" />
 
-            <div className="flex gap-1.5">
-              {PAYMENT_MODES.map((p) => (
-                <Button
-                  key={p.mode}
-                  type="button"
-                  variant={paymentMode === p.mode ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => onPaymentMode(p.mode)}
-                  className={`flex-1 font-bold text-xs h-9 rounded-lg ${
-                    paymentMode === p.mode
-                      ? 'bg-stone-900 dark:bg-stone-100 text-white dark:text-stone-900'
-                      : 'border-stone-300 dark:border-stone-700'
-                  }`}
-                >
-                  {p.icon} {p.label}
-                </Button>
-              ))}
-            </div>
+      {/* ── 3. BILL BREAKDOWN & GRAND TOTAL ── */}
+      <div className="space-y-2 flex-shrink-0">
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between text-stone-500">
+            <span>Subtotal</span>
+            <span className="font-bold text-stone-800 dark:text-stone-200">₹{totals.subtotal.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-stone-500">
+            <span>Discount</span>
+            <span className="font-bold text-emerald-600">-₹{totals.discountAmount.toFixed(2)}</span>
+          </div>
+          <div className="flex justify-between text-stone-500">
+            <span>Tax (5%)</span>
+            <span className="font-bold text-stone-800 dark:text-stone-200">₹{(totals.cgst + totals.sgst).toFixed(2)}</span>
+          </div>
+        </div>
 
-            {paymentMode === 'cash' && (
-              <div className="space-y-2 rounded-xl bg-amber-500/10 border border-amber-200 dark:border-amber-900/50 p-2.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-black text-amber-900 dark:text-amber-300 flex items-center gap-1">
-                    <Banknote className="w-3.5 h-3.5 text-amber-600" /> CASH TENDERED
-                  </span>
-                  {changeDue > 0 && (
-                    <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-300">
-                      CHANGE: {rupees(changeDue)}
-                    </span>
-                  )}
-                </div>
-
-                {quickCashAmounts.length > 0 && (
-                  <div className="flex gap-1.5 flex-wrap">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={receivedAmount === totals.grandTotal ? 'default' : 'outline'}
-                      onClick={() => setCashReceived(String(Math.ceil(totals.grandTotal)))}
-                      className={`flex-1 h-8 text-xs font-black rounded-lg ${
-                        receivedAmount === totals.grandTotal ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-white dark:bg-stone-800'
-                      }`}
-                    >
-                      Exact
-                    </Button>
-                    {quickCashAmounts.map((amount) => (
-                      <Button
-                        key={amount}
-                        type="button"
-                        size="sm"
-                        variant={receivedAmount === amount ? 'default' : 'outline'}
-                        onClick={() => setCashReceived(String(amount))}
-                        className={`flex-1 h-8 text-xs font-black rounded-lg ${
-                          receivedAmount === amount ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-white dark:bg-stone-800'
-                        }`}
-                      >
-                        {rupees(amount)}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-
-                <Input
-                  inputMode="numeric"
-                  placeholder="Or enter cash received..."
-                  value={cashReceived}
-                  onChange={(e) => setCashReceived(e.target.value.replace(/\D/g, ''))}
-                  className="h-9 text-sm font-black rounded-lg bg-white dark:bg-stone-900 border-amber-300 dark:border-amber-800"
-                />
-
-                {cashShort && (
-                  <p className="text-[11px] font-extrabold text-rose-600 dark:text-rose-400">
-                    Need {rupees(totals.grandTotal - receivedAmount)} more cash
-                  </p>
-                )}
-              </div>
-            )}
-          </>
-        )}
-
-        <Button
-          className={`w-full h-13 rounded-xl text-base font-black flex justify-between px-5 text-white shadow-xl transition-all active:scale-[0.98] ${
-            blocked
-              ? 'bg-stone-300 dark:bg-stone-800 text-stone-500 shadow-none cursor-not-allowed'
-              : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30'
-          }`}
-          onClick={onPlace}
-          disabled={blocked || isPlacing}
-        >
-          <span className="flex items-center gap-2">
-            <span>⚡</span>
-            <span>{isPlacing ? 'Processing Order…' : empty ? 'Add Items to Ticket' : 'CHARGE & PRINT'}</span>
+        <div className="flex items-center justify-between pt-2 border-t border-stone-200 dark:border-stone-800">
+          <span className="text-sm font-extrabold text-stone-900 dark:text-stone-100">Grand Total</span>
+          <span className="text-xl font-black text-blue-600 dark:text-blue-400">
+            ₹{totals.grandTotal.toFixed(2)}
           </span>
-          <span className="text-lg font-black">{rupees(totals.grandTotal)}</span>
-        </Button>
+        </div>
       </div>
-    </div>
-  );
-}
 
-const MAX_QTY_DIGITS = String(MAX_LINE_QTY).length;
+      {/* ── 4. PAYMENT ACTION BUTTONS ── */}
+      <div className="space-y-2 flex-shrink-0 pt-1">
+        <div className="text-[11px] font-bold tracking-wider text-stone-400 uppercase">
+          PAYMENT
+        </div>
 
-function QuantityStepper({
-  line, onIncrement, onDecrement, onSetQuantity, onRemove,
-}: {
-  line: PosLine;
-  onIncrement: (key: string) => void;
-  onDecrement: (key: string) => void;
-  onSetQuantity: (key: string, qty: number) => void;
-  onRemove: (key: string) => void;
-}) {
-  const [draft, setDraft] = useState<string | null>(null);
-  const [lastQuantity, setLastQuantity] = useState(line.quantity);
-
-  if (line.quantity !== lastQuantity) {
-    setLastQuantity(line.quantity);
-    setDraft(null);
-  }
-
-  const handleChange = (raw: string) => {
-    const digits = raw.replace(/\D/g, '').replace(/^0+/, '').slice(0, MAX_QTY_DIGITS);
-    setDraft(digits);
-    if (digits !== '') onSetQuantity(line.key, Number(digits));
-  };
-
-  const atMinimum = line.quantity <= 1;
-
-  return (
-    <div className="flex items-center gap-1 flex-shrink-0">
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => (atMinimum ? onRemove(line.key) : onDecrement(line.key))}
-        className={`w-9 h-9 rounded-lg p-0 ${atMinimum ? 'text-rose-600 border-rose-200 hover:bg-rose-50' : 'text-stone-600 border-stone-300'}`}
-      >
-        {atMinimum ? <Trash2 className="w-4 h-4" /> : <Minus className="w-4 h-4" />}
-      </Button>
-
-      <Input
-        value={draft ?? String(line.quantity)}
-        onChange={(e) => handleChange(e.target.value)}
-        onFocus={(e) => e.target.select()}
-        onBlur={() => setDraft(null)}
-        inputMode="numeric"
-        className="w-9 h-9 text-center font-black text-xs p-0 border-stone-300 dark:border-stone-700 rounded-lg"
-      />
-
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={() => onIncrement(line.key)}
-        disabled={line.quantity >= MAX_LINE_QTY}
-        className="w-9 h-9 rounded-lg p-0 text-amber-700 border-amber-300 hover:bg-amber-50"
-      >
-        <Plus className="w-4 h-4" />
-      </Button>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between text-xs text-stone-600 dark:text-stone-400">
-      <span>{label}</span>
-      <span className="font-bold text-stone-800 dark:text-stone-200">{value}</span>
+        <div className="grid grid-cols-3 gap-2">
+          {PAYMENT_MODES.map((p) => {
+            const Icon = p.icon;
+            return (
+              <Button
+                key={p.mode}
+                type="button"
+                onClick={() => {
+                  onPaymentMode(p.mode);
+                  if (!blocked) onPlace();
+                }}
+                disabled={blocked || isPlacing}
+                className={`h-12 rounded-xl font-extrabold text-xs flex flex-col items-center justify-center gap-1 shadow-md transition-all active:scale-[0.97] ${p.color} ${blocked ? 'opacity-50 cursor-not-allowed shadow-none' : ''}`}
+              >
+                <Icon className="size-4" />
+                <span>{p.label}</span>
+              </Button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

@@ -21,24 +21,23 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/textarea';
 import {
-  Search, X, ShoppingBag, LayoutGrid, List, Printer,
+  Search, X, ShoppingBag, LayoutGrid, List, Printer, Gift, ChevronRight, Sparkles,
+  Utensils, Coffee, Pizza, Flame, Cake, Cookie, Sandwich, IceCream, Soup,
 } from 'lucide-react';
 
-const CATEGORIES: { label: string; value: Category | 'all'; icon: string }[] = [
-  { label: 'All', value: 'all', icon: '🍱' },
-  { label: 'Combos', value: 'combos', icon: '🎁' },
-  { label: 'Starters', value: 'starters', icon: '🍗' },
-  { label: 'Tandoori', value: 'tandoori', icon: '🔥' },
-  { label: 'Biryani', value: 'biryani', icon: '🍚' },
-  { label: 'South Indian', value: 'south-indian', icon: '🥘' },
-  { label: 'North Indian', value: 'north-indian', icon: '🍛' },
-  { label: 'Chinese', value: 'chinese', icon: '🥡' },
-  { label: 'Rice', value: 'rice', icon: '🍙' },
-  { label: 'Breads', value: 'breads', icon: '🫓' },
-  { label: 'Desserts', value: 'desserts', icon: '🍮' },
-  { label: 'Beverages', value: 'beverages', icon: '🥤' },
-];
+const CATEGORY_ICONS: Record<string, any> = {
+  all: LayoutGrid,
+  starters: Utensils,
+  biryani: Flame,
+  'south-indian': Utensils,
+  'north-indian': Utensils,
+  chinese: Soup,
+  combos: Gift,
+  desserts: Cake,
+  beverages: Coffee,
+};
 
 export default function PosPage() {
   const { user } = useAuth();
@@ -46,14 +45,17 @@ export default function PosPage() {
   const { data: menuItems = [] } = useMenuItems();
   const { data: tables = [] } = useTables();
 
-  // Dynamic category options built from DB
-  const dynamicCategories = useMemo(() => {
-    const list: { label: string; value: string }[] = [{ label: 'All Bestsellers', value: 'all' }];
+  const [specialInstructions, setSpecialInstructions] = useState('');
+
+  // Dynamic categories built from DB
+  const categoriesList = useMemo(() => {
+    const list = [{ name: 'All Items', slug: 'all', icon: LayoutGrid }];
     dbCategories
       .filter((c) => c.isActive)
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .forEach((c) => {
-        list.push({ label: c.name, value: c.slug });
+        const IconComponent = CATEGORY_ICONS[c.slug] || Utensils;
+        list.push({ name: c.name, slug: c.slug, icon: IconComponent });
       });
     return list;
   }, [dbCategories]);
@@ -64,8 +66,8 @@ export default function PosPage() {
   const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('cards');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const [orderType, setOrderType] = useState<PosOrderType>('counter');
-  const [tableNumber, setTableNumber] = useState<number | ''>('');
+  const [orderType, setOrderType] = useState<PosOrderType>('dine-in');
+  const [tableNumber, setTableNumber] = useState<number | ''>(7);
   const [paymentMode, setPaymentMode] = useState<PosPaymentMode>('cash');
 
   const {
@@ -80,7 +82,7 @@ export default function PosPage() {
 
   const quantityInBill = (itemId: string) => quantityByMenuItem[itemId] || 0;
 
-  // "/" jumps to search, "Enter" or "Ctrl+Enter" triggers place order if cart not empty
+  // Keyboard shortcut "/" for search
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
@@ -158,6 +160,7 @@ export default function PosPage() {
         cgst: totals.cgst,
         sgst: totals.sgst,
         grandTotal: totals.grandTotal,
+        notes: specialInstructions.trim() || undefined,
         createdAt: new Date().toISOString(),
       };
 
@@ -171,7 +174,7 @@ export default function PosPage() {
       setConfirmOpen(true);
 
       clearCart();
-      setTableNumber('');
+      setSpecialInstructions('');
       setMobileBillOpen(false);
       toast.success('Order charged & printed successfully! ⚡');
     } catch {
@@ -181,15 +184,79 @@ export default function PosPage() {
     }
   };
 
+  const selectedCategoryLabel = useMemo(() => {
+    return categoriesList.find((c) => c.slug === selectedCategory)?.name || 'All Items';
+  }, [categoriesList, selectedCategory]);
+
   return (
-    <AdminLayout title="POS Cashier Terminal">
-      <div className="flex h-[var(--admin-content-h)] w-full max-w-full overflow-hidden text-stone-900 dark:text-stone-100">
-        {/* Left Catalog Area */}
-        <div className="flex-1 flex flex-col min-w-0 bg-stone-100/60 dark:bg-stone-950 p-2.5 sm:p-3.5 gap-2.5 overflow-hidden">
+    <AdminLayout title="Cashier POS Terminal">
+      <div className="flex h-[var(--admin-content-h)] w-full max-w-full overflow-hidden text-stone-900 dark:text-stone-100 bg-stone-50/60 dark:bg-stone-950">
+        
+        {/* ── 1. LEFT COLUMN: VERTICAL CATEGORIES & EXTRAS ── */}
+        <div className="hidden lg:flex flex-col w-56 shrink-0 border-r border-stone-200/80 dark:border-stone-800 bg-white dark:bg-stone-900 p-3 space-y-4 overflow-y-auto scrollbar-none">
+          <div>
+            <div className="text-[11px] font-extrabold tracking-wider text-stone-400 uppercase mb-2 px-2">
+              CATEGORIES
+            </div>
+
+            <div className="space-y-1">
+              {categoriesList.map((cat) => {
+                const isSelected = selectedCategory === cat.slug;
+                const IconComponent = cat.icon;
+                return (
+                  <button
+                    key={cat.slug}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.slug)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-xs transition-all text-left ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                        : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800'
+                    }`}
+                  >
+                    <IconComponent className="size-4 shrink-0" />
+                    <span className="truncate">{cat.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <hr className="border-stone-100 dark:border-stone-800" />
+
+          {/* Loyalty Points Card */}
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/70 dark:border-amber-900/50 p-3 flex items-center justify-between cursor-pointer hover:bg-amber-100/60 transition-colors">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Gift className="size-5 text-amber-600 shrink-0" />
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-stone-500">Loyalty Points</div>
+                <div className="text-xs font-black text-amber-900 dark:text-amber-200 truncate">120 Points</div>
+              </div>
+            </div>
+            <ChevronRight className="size-4 text-amber-500 shrink-0" />
+          </div>
+
+          {/* Special Instructions Box */}
+          <div className="space-y-1.5 pt-1">
+            <div className="text-[11px] font-bold text-stone-400 px-1">
+              Special Instructions
+            </div>
+            <Textarea
+              placeholder="Add order notes (e.g. No onion, Less spicy...)"
+              value={specialInstructions}
+              onChange={(e) => setSpecialInstructions(e.target.value)}
+              className="min-h-[80px] rounded-xl text-xs bg-stone-50 dark:bg-stone-800 border-stone-200 dark:border-stone-700 resize-none p-2.5"
+            />
+          </div>
+        </div>
+
+        {/* ── 2. MIDDLE COLUMN: DISHES GRID ── */}
+        <div className="flex-1 flex flex-col min-w-0 p-3 sm:p-4 gap-3 overflow-hidden">
+          
           {/* Top Search & Filter Bar */}
-          <div className="flex flex-col sm:flex-row items-center gap-2.5 bg-white dark:bg-stone-900 p-2.5 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-stone-900 p-2.5 rounded-2xl border border-stone-200/80 dark:border-stone-800 shadow-xs shrink-0">
             <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400" />
               <Input
                 ref={searchInputRef}
                 placeholder="Search dish or category... (press /)"
@@ -203,12 +270,12 @@ export default function PosPage() {
                   onClick={() => setSearch('')}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="size-4" />
                 </button>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
+            <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto shrink-0">
               {(['all', 'veg', 'non-veg', 'egg'] as const).map((v) => (
                 <Button
                   key={v}
@@ -217,29 +284,29 @@ export default function PosPage() {
                   size="sm"
                   onClick={() => setVegFilter(v)}
                   className={`rounded-xl text-xs font-bold capitalize px-3 h-9 ${
-                    vegFilter === v ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''
+                    vegFilter === v ? 'bg-blue-600 hover:bg-blue-700 text-white' : ''
                   }`}
                 >
                   {v}
                 </Button>
               ))}
 
-              <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-xl ml-auto sm:ml-0">
-                <Button
-                  variant={layoutMode === 'rows' ? 'default' : 'ghost'}
-                  size="icon"
-                  onClick={() => setLayoutMode('rows')}
-                  className="h-7 w-7 rounded-lg"
-                >
-                  <List className="w-4 h-4" />
-                </Button>
+              <div className="flex bg-stone-100 dark:bg-stone-800 p-1 rounded-xl">
                 <Button
                   variant={layoutMode === 'cards' ? 'default' : 'ghost'}
                   size="icon"
                   onClick={() => setLayoutMode('cards')}
                   className="h-7 w-7 rounded-lg"
                 >
-                  <LayoutGrid className="w-4 h-4" />
+                  <LayoutGrid className="size-4" />
+                </Button>
+                <Button
+                  variant={layoutMode === 'rows' ? 'default' : 'ghost'}
+                  size="icon"
+                  onClick={() => setLayoutMode('rows')}
+                  className="h-7 w-7 rounded-lg"
+                >
+                  <List className="size-4" />
                 </Button>
               </div>
 
@@ -251,48 +318,36 @@ export default function PosPage() {
                 className="h-9 rounded-xl text-xs font-bold gap-1.5 border-stone-200 dark:border-stone-800"
                 title={printerConnected ? 'Printer connected' : 'No printer connected'}
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${printerConnected ? 'bg-emerald-500' : 'bg-stone-300 dark:bg-stone-600'}`} />
-                <Printer className="w-4 h-4" />
-                <span className="hidden lg:inline">Printer</span>
+                <span className={`size-1.5 rounded-full ${printerConnected ? 'bg-emerald-500' : 'bg-stone-300 dark:bg-stone-600'}`} />
+                <Printer className="size-4" />
               </Button>
             </div>
           </div>
 
-          {/* Categories Pill Bar */}
-          <div className="flex gap-2 overflow-x-auto scrollbar-none flex-shrink-0">
-            {dynamicCategories.map((cat) => {
-              const isSelected = selectedCategory === cat.value;
-              return (
-                <Button
-                  key={cat.value}
-                  type="button"
-                  variant={isSelected ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedCategory(cat.value)}
-                  className={`rounded-full px-4 text-xs font-bold whitespace-nowrap h-9 ${
-                    isSelected ? 'bg-amber-600 hover:bg-amber-700 text-white shadow-md' : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800'
-                  }`}
-                >
-                  {cat.label}
-                </Button>
-              );
-            })}
+          {/* Grid Title & Count */}
+          <div className="flex items-center justify-between px-1 shrink-0">
+            <h3 className="font-black text-base text-stone-900 dark:text-stone-100">
+              {selectedCategoryLabel}
+            </h3>
+            <span className="text-xs font-bold text-stone-400">
+              {filteredDishes.length} items
+            </span>
           </div>
 
-          {/* Catalog Dishes Grid/List */}
-          <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-stone-200/80 dark:border-stone-800 bg-stone-50/50 dark:bg-stone-900/50 p-2 sm:p-3">
+          {/* Catalog Dishes Grid */}
+          <div className="flex-1 min-h-0 overflow-y-auto scrollbar-none rounded-2xl">
             {filteredDishes.length === 0 ? (
-              <div className="text-center py-16 text-stone-400">
+              <div className="text-center py-16 text-stone-400 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200/80">
                 <div className="text-4xl mb-2">🍽️</div>
                 <h4 className="font-extrabold text-sm text-stone-700 dark:text-stone-300">
-                  No dishes match your filter
+                  No items found
                 </h4>
                 <p className="text-xs text-stone-400 mt-0.5">
-                  Try clearing your search or switching categories
+                  Try clearing search or switching category filter
                 </p>
               </div>
             ) : layoutMode === 'rows' ? (
-              <div className="divide-y divide-stone-200/60 dark:divide-stone-800 bg-white dark:bg-stone-900 rounded-xl overflow-hidden shadow-xs">
+              <div className="divide-y divide-stone-200/60 dark:divide-stone-800 bg-white dark:bg-stone-900 rounded-2xl overflow-hidden shadow-xs border border-stone-200/80">
                 {filteredDishes.map((item) => (
                   <DishListRow
                     key={item.id}
@@ -305,7 +360,7 @@ export default function PosPage() {
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5 pb-4">
                 {filteredDishes.map((item) => (
                   <DishCard
                     key={item.id}
@@ -321,7 +376,7 @@ export default function PosPage() {
           </div>
         </div>
 
-        {/* Desktop Bill Panel Sidebar */}
+        {/* ── 3. RIGHT COLUMN: TICKET & CHECKOUT PANEL ── */}
         <div className="hidden md:block w-96 flex-shrink-0 h-full">
           <BillPanel
             lines={lines}
@@ -376,13 +431,13 @@ export default function PosPage() {
           <div className="md:hidden fixed left-4 right-4 z-30 bottom-[max(1rem,env(safe-area-inset-bottom,0px))]">
             <Button
               onClick={() => setMobileBillOpen(true)}
-              className="w-full h-14 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-2xl shadow-2xl flex justify-between px-5 text-base"
+              className="w-full h-14 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-2xl shadow-2xl flex justify-between px-5 text-base"
             >
               <div className="flex items-center gap-2">
-                <ShoppingBag className="w-5 h-5" />
+                <ShoppingBag className="size-5" />
                 <span>{totalUnits} items</span>
               </div>
-              <span>View Bill · {rupees(totals.grandTotal)}</span>
+              <span>View Cart · ₹{totals.grandTotal.toFixed(2)}</span>
             </Button>
           </div>
         )}
