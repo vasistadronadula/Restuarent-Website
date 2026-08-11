@@ -38,7 +38,7 @@ export default function FoodMenuSlider() {
       .filter((c) => c.isActive)
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .forEach((c) => {
-        list.push({ id: c.slug, label: `${c.icon || '🍽️'} ${c.name}` });
+        list.push({ id: c.slug, label: c.name });
       });
     return list;
   }, [categories]);

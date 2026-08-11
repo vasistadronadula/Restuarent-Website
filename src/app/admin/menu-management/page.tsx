@@ -61,7 +61,6 @@ const BLANK_ITEM_FORM: MenuItemFormValues = {
 const BLANK_CATEGORY_FORM: CategoryFormValues = {
   name: '',
   slug: '',
-  icon: '🍽️',
   image: '',
   sortOrder: 0,
   isActive: true,
@@ -392,7 +391,6 @@ export default function MenuManagementPage() {
     catForm.reset({
       name: cat.name,
       slug: cat.slug,
-      icon: cat.icon || '🍽️',
       image: cat.image || '',
       sortOrder: cat.sortOrder,
       isActive: cat.isActive,
@@ -406,7 +404,6 @@ export default function MenuManagementPage() {
       id: editingCat?.id ?? generateCategoryId(slug),
       name: values.name,
       slug,
-      icon: values.icon || '🍽️',
       image: values.image || '',
       sortOrder: values.sortOrder,
       isActive: values.isActive,
@@ -486,8 +483,8 @@ export default function MenuManagementPage() {
               className="object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-lg">
-              {row.original.icon || '🍽️'}
+            <div className="w-full h-full flex items-center justify-center font-bold text-amber-700 bg-amber-50 text-sm">
+              {(row.original.name || 'C')[0].toUpperCase()}
             </div>
           )}
         </div>
@@ -498,9 +495,8 @@ export default function MenuManagementPage() {
       header: 'Category',
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="flex items-center gap-2 font-medium text-sm text-stone-900">
-            <span className="text-base">{row.original.icon}</span>
-            <span className="truncate">{row.original.name}</span>
+          <div className="font-medium text-sm text-stone-900 truncate">
+            {row.original.name}
           </div>
           <div className="text-xs text-stone-400 font-mono truncate mt-0.5">
             {row.original.slug}
@@ -575,18 +571,15 @@ export default function MenuManagementPage() {
           {cat.image ? (
             <Image src={cat.image} alt="" fill sizes="48px" className="object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-xl">
-              {cat.icon || '🍽️'}
+            <div className="w-full h-full flex items-center justify-center font-bold text-amber-700 bg-amber-50 text-sm">
+              {(cat.name || 'C')[0].toUpperCase()}
             </div>
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="text-base">{cat.icon}</span>
-                <span className="truncate text-sm font-medium text-stone-900">{cat.name}</span>
-              </div>
+              <span className="truncate text-sm font-medium text-stone-900 block">{cat.name}</span>
               <div className="text-xs text-stone-400 flex items-center gap-2 mt-0.5">
                 <span className="font-mono">{cat.slug}</span>
                 <span>·</span>
@@ -820,16 +813,13 @@ export default function MenuManagementPage() {
         size="md"
       >
         <TextField control={catForm.control} name="name" label="Category Name" placeholder="e.g. Tandoori Specials" autoFocus />
-        <div className="grid gap-3.5 sm:grid-cols-2">
-          <TextField
-            control={catForm.control}
-            name="slug"
-            label="Slug"
-            placeholder={autoSlug || 'auto-generated'}
-            hint="URL-safe key. Auto-fills from name."
-          />
-          <TextField control={catForm.control} name="icon" label="Emoji Icon" placeholder="🍽️" hint="One emoji for the sidebar" />
-        </div>
+        <TextField
+          control={catForm.control}
+          name="slug"
+          label="Slug"
+          placeholder={autoSlug || 'auto-generated'}
+          hint="URL-safe key. Auto-fills from name."
+        />
         <NumberField control={catForm.control} name="sortOrder" label="Sort Order" placeholder="1" hint="Lower numbers appear first in the menu" />
         <ImageUploadField control={catForm.control} name="image" label="Category Image" hint="Upload a circular thumbnail for the customer menu sidebar" />
         <SwitchField control={catForm.control} name="isActive" label="Active" hint="Inactive categories are hidden from the customer menu" />

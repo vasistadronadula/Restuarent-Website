@@ -66,14 +66,6 @@ const LAUNCHPAD_GROUPS = [
         description: 'Edit dishes, prices, portions, categories',
       },
       {
-        label: 'Inventory & Stock',
-        href: '/admin/inventory',
-        icon: Package,
-        description: 'Stock levels, thresholds, alerts, restocks',
-        badgeKey: 'lowStock',
-        urgent: true,
-      },
-      {
         label: 'Coupons & Offers',
         href: '/admin/coupons',
         icon: Ticket,
@@ -113,7 +105,7 @@ const LAUNCHPAD_GROUPS = [
 ] as const;
 
 export default function AdminDashboard() {
-  const { orders, inventory } = useAdmin();
+  const { orders, menuItems } = useAdmin();
   const { user } = useAuth();
 
   const [nowTs, setNowTs] = useState(0);
@@ -137,7 +129,7 @@ export default function AdminDashboard() {
   const stats = useMemo(() => {
     if (!todayStr) {
       return {
-        todayRevenue: 0, todayOrders: 0, pendingOrders: 0, lowStock: 0,
+        todayRevenue: 0, todayOrders: 0, pendingOrders: 0, activeDishes: 0,
       };
     }
 
@@ -157,14 +149,12 @@ export default function AdminDashboard() {
       }
     }
 
-    const lowStock = inventory.filter(
-      (i) => i.currentStock <= i.minStockThreshold
-    ).length;
+    const activeDishes = menuItems.filter((i) => i.isAvailable).length;
 
     return {
-      todayRevenue, todayOrders, pendingOrders, lowStock,
+      todayRevenue, todayOrders, pendingOrders, activeDishes,
     };
-  }, [orders, inventory, todayStr]);
+  }, [orders, menuItems, todayStr]);
 
   const firstName = user?.user_metadata?.full_name?.split(' ')[0]
     || user?.user_metadata?.name?.split(' ')[0]
@@ -201,10 +191,9 @@ export default function AdminDashboard() {
               urgent: stats.pendingOrders > 0,
             },
             {
-              label: 'Low Stock Items',
-              value: stats.lowStock.toString(),
-              sub: 'below threshold',
-              urgent: stats.lowStock > 0,
+              label: 'Active Menu Items',
+              value: stats.activeDishes.toString(),
+              sub: 'available to order',
             },
           ].map((kpi) => (
             <div

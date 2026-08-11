@@ -260,7 +260,6 @@ export const categorySchema = z.object({
     .min(1, 'Slug is required')
     .max(40, 'Slug must be 40 characters or fewer')
     .regex(/^[a-z0-9-]+$/, 'Use lowercase letters, numbers and hyphens only'),
-  icon: z.string().trim().max(10, 'One emoji at most'),
   image: z.string().trim(), // base64 data URL or storage URL
   sortOrder: z.coerce
     .number({ message: 'Sort order must be a number' })

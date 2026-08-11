@@ -55,14 +55,14 @@ function MenuBrowser() {
 
   // Build dynamic category items from DB
   const CATEGORY_ITEMS = useMemo(() => {
-    const items: { id: string; label: string; image: string; icon: string }[] = [
-      { id: 'all', label: 'All Items', icon: '🍱', image: '' },
+    const items: { id: string; label: string; image: string }[] = [
+      { id: 'all', label: 'All Items', image: '' },
     ];
     categories
       .filter((c) => c.isActive)
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .forEach((c) => {
-        items.push({ id: c.slug, label: c.name, image: c.image || '', icon: c.icon || '🍽️' });
+        items.push({ id: c.slug, label: c.name, image: c.image || '' });
       });
     return items;
   }, [categories]);
@@ -309,8 +309,8 @@ function MenuBrowser() {
                         className="object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-amber-50 text-lg">
-                        {cat.icon}
+                      <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-700 font-bold text-sm">
+                        {(cat.label || 'C')[0].toUpperCase()}
                       </div>
                     )}
                   </div>
@@ -363,8 +363,8 @@ function MenuBrowser() {
                               className="object-cover"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-amber-50 text-sm">
-                              {cat.icon}
+                            <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-700 font-bold text-xs">
+                              {(cat.label || 'C')[0].toUpperCase()}
                             </div>
                           )}
                         </div>

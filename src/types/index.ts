@@ -28,7 +28,7 @@ export interface MenuCategory {
   id: string;
   name: string;        // display label, e.g. "Biryani & Pulao"
   slug: string;        // URL/code key, e.g. "biryani"
-  icon: string;        // emoji
+  icon?: string;       // emoji icon (optional)
   image: string;       // admin-uploaded photo URL (Supabase Storage)
   sortOrder: number;
   isActive: boolean;

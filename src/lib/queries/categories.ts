@@ -58,7 +58,7 @@ export function useAddCategory() {
         id: cat.id,
         name: cat.name,
         slug: cat.slug,
-        icon: cat.icon,
+        icon: cat.icon || null,
         image: cat.image || null,
         sort_order: cat.sortOrder,
         is_active: cat.isActive,
@@ -87,7 +87,7 @@ export function useUpdateCategory() {
         .update({
           name: cat.name,
           slug: cat.slug,
-          icon: cat.icon,
+          icon: cat.icon || null,
           image: cat.image || null,
           sort_order: cat.sortOrder,
           is_active: cat.isActive,
