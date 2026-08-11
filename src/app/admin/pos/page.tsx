@@ -8,7 +8,7 @@ import BillPanel, { type PosOrderType, type PosPaymentMode } from '@/components/
 import OrderPlacedDialog from '@/components/pos/OrderPlacedDialog';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
-import { useMenuItems, useTables } from '@/lib/queries';
+import { useCategories, useMenuItems, useTables } from '@/lib/queries';
 import { usePosCart, type Portion } from '@/hooks/usePosCart';
 import { computeBillTotals, rupees } from '@/lib/billing';
 import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  Search, X, ShoppingBag, LayoutGrid, List, Printer, Gift, ChevronRight, Sparkles,
+  Search, X, ShoppingBag, LayoutGrid, List, Printer, Sparkles,
   Utensils, Coffee, Pizza, Flame, Cake, Cookie, Sandwich, IceCream, Soup,
 } from 'lucide-react';
 
@@ -34,7 +34,7 @@ const CATEGORY_ICONS: Record<string, any> = {
   'south-indian': Utensils,
   'north-indian': Utensils,
   chinese: Soup,
-  combos: Gift,
+  combos: Sparkles,
   desserts: Cake,
   beverages: Coffee,
 };
@@ -42,15 +42,20 @@ const CATEGORY_ICONS: Record<string, any> = {
 export default function PosPage() {
   const { user } = useAuth();
   const { addOrderLocallyAndDB: createOrderContext, categories: dbCategories } = useAdmin();
+  const { data: queryCategories = [] } = useCategories();
   const { data: menuItems = [] } = useMenuItems();
   const { data: tables = [] } = useTables();
 
   const [specialInstructions, setSpecialInstructions] = useState('');
 
-  // Dynamic categories built from DB
+  // Live categories synced from Menu Management (Context DB or React Query)
+  const activeCategories = useMemo(() => {
+    return dbCategories.length > 0 ? dbCategories : queryCategories;
+  }, [dbCategories, queryCategories]);
+
   const categoriesList = useMemo(() => {
     const list = [{ name: 'All Items', slug: 'all', icon: LayoutGrid }];
-    dbCategories
+    activeCategories
       .filter((c) => c.isActive)
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .forEach((c) => {
@@ -58,7 +63,7 @@ export default function PosPage() {
         list.push({ name: c.name, slug: c.slug, icon: IconComponent });
       });
     return list;
-  }, [dbCategories]);
+  }, [activeCategories]);
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'non-veg' | 'egg'>('all');
@@ -67,7 +72,7 @@ export default function PosPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const [orderType, setOrderType] = useState<PosOrderType>('dine-in');
-  const [tableNumber, setTableNumber] = useState<number | ''>(7);
+  const [tableNumber, setTableNumber] = useState<number | ''>('');
   const [paymentMode, setPaymentMode] = useState<PosPaymentMode>('cash');
 
   const {
@@ -110,14 +115,25 @@ export default function PosPage() {
   const totals = useMemo(() => computeBillTotals(subtotal), [subtotal]);
 
   const filteredDishes = useMemo(() => {
+    const selectedCatObj = activeCategories.find((c) => c.slug === selectedCategory);
+
     return menuItems.filter((item) => {
       const q = search.toLowerCase().trim();
-      const matchSearch = !q || item.name.toLowerCase().includes(q) || (item.category && item.category.toLowerCase().includes(q));
-      const matchCategory = selectedCategory === 'all' || item.category === selectedCategory;
+      const matchSearch =
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        (item.category && item.category.toLowerCase().includes(q));
+
+      const matchCategory =
+        selectedCategory === 'all' ||
+        item.category === selectedCategory ||
+        (selectedCatObj && item.category === selectedCatObj.name) ||
+        (item.category && item.category.toLowerCase() === selectedCategory.toLowerCase());
+
       const matchVeg = vegFilter === 'all' || item.vegStatus === vegFilter;
       return matchSearch && matchCategory && matchVeg && item.isAvailable !== false;
     });
-  }, [menuItems, search, selectedCategory, vegFilter]);
+  }, [menuItems, search, selectedCategory, vegFilter, activeCategories]);
 
   const handleAddDish = useCallback((item: MenuItem, portion?: Portion) => {
     addDish(item, portion);
@@ -131,7 +147,15 @@ export default function PosPage() {
   }, [lines, decrementLine]);
 
   const handlePlaceOrder = async () => {
-    if (lines.length === 0) return;
+    if (lines.length === 0) {
+      toast.error('Cart is empty! Please add items before placing order.');
+      return;
+    }
+
+    if (orderType === 'dine-in' && tableNumber === '') {
+      toast.error('⚠️ Please select a Table for Dine-In order!');
+      return;
+    }
 
     setPlacing(true);
     try {
@@ -175,6 +199,7 @@ export default function PosPage() {
 
       clearCart();
       setSpecialInstructions('');
+      setTableNumber('');
       setMobileBillOpen(false);
       toast.success('Order charged & printed successfully! ⚡');
     } catch {
@@ -223,18 +248,6 @@ export default function PosPage() {
           </div>
 
           <hr className="border-stone-100 dark:border-stone-800" />
-
-          {/* Loyalty Points Card */}
-          <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/70 dark:border-amber-900/50 p-3 flex items-center justify-between cursor-pointer hover:bg-amber-100/60 transition-colors">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Gift className="size-5 text-amber-600 shrink-0" />
-              <div className="min-w-0">
-                <div className="text-[10px] font-bold text-stone-500">Loyalty Points</div>
-                <div className="text-xs font-black text-amber-900 dark:text-amber-200 truncate">120 Points</div>
-              </div>
-            </div>
-            <ChevronRight className="size-4 text-amber-500 shrink-0" />
-          </div>
 
           {/* Special Instructions Box */}
           <div className="space-y-1.5 pt-1">
@@ -322,6 +335,29 @@ export default function PosPage() {
                 <Printer className="size-4" />
               </Button>
             </div>
+          </div>
+
+          {/* Mobile & Tablet Category Horizontal Scroll Bar */}
+          <div className="lg:hidden flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none shrink-0">
+            {categoriesList.map((cat) => {
+              const isSelected = selectedCategory === cat.slug;
+              const IconComponent = cat.icon;
+              return (
+                <button
+                  key={cat.slug}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat.slug)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-extrabold text-xs shrink-0 transition-all ${
+                    isSelected
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                      : 'bg-white dark:bg-stone-900 border border-stone-200/80 dark:border-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800'
+                  }`}
+                >
+                  <IconComponent className="size-3.5 shrink-0" />
+                  <span>{cat.name}</span>
+                </button>
+              );
+            })}
           </div>
 
           {/* Grid Title & Count */}

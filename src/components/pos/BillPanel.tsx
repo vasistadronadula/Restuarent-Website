@@ -106,16 +106,17 @@ export default function BillPanel({
         {/* Table Selector */}
         {orderType === 'dine-in' && (
           <div className="pt-1">
-            <div className="text-[11px] font-bold text-stone-500 mb-1">
-              Table Selection
+            <div className="flex items-center justify-between text-[11px] font-bold text-stone-500 mb-1">
+              <span>Table Selection</span>
+              {needsTable && <span className="text-rose-500 font-extrabold">* Required</span>}
             </div>
             <div className="flex gap-2">
               <Select
                 value={tableNumber === '' ? '' : String(tableNumber)}
                 onValueChange={(val) => onTableNumber(val === '' ? '' : Number(val))}
               >
-                <SelectTrigger className={`flex-1 bg-white dark:bg-stone-800 rounded-xl text-xs font-bold h-10 ${needsTable ? 'border-rose-500' : 'border-stone-200 dark:border-stone-700'}`}>
-                  <SelectValue placeholder="Select Table" />
+                <SelectTrigger className={`flex-1 bg-white dark:bg-stone-800 rounded-xl text-xs font-bold h-10 transition-colors ${needsTable ? 'border-rose-500 ring-2 ring-rose-500/20 bg-rose-50/50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-300' : 'border-stone-200 dark:border-stone-700'}`}>
+                  <SelectValue placeholder="-- Select Table --" />
                 </SelectTrigger>
                 <SelectContent>
                   {tables.length === 0 && <SelectItem value="" disabled>No tables set up</SelectItem>}
@@ -126,10 +127,15 @@ export default function BillPanel({
                   ))}
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="icon" className="size-10 rounded-xl border-stone-200 shrink-0">
+              <Button variant="outline" size="icon" className="size-10 rounded-xl border-stone-200 dark:border-stone-700 shrink-0">
                 <LayoutGrid className="size-4 text-stone-500" />
               </Button>
             </div>
+            {needsTable && (
+              <p className="text-[11px] font-extrabold text-rose-500 mt-1 flex items-center gap-1">
+                ⚠️ Please select a table for Dine In order
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -158,7 +164,7 @@ export default function BillPanel({
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-stone-400">
             <ShoppingBag className="size-12 opacity-20 mb-2" />
             <p className="text-xs font-bold text-stone-500">Cart is empty</p>
-            <p className="text-[11px] text-stone-400 mt-0.5">Select items to start bill</p>
+            <p className="text-[11px] text-stone-400 mt-0.5">Select items from menu to start bill</p>
           </div>
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1 scrollbar-none">
@@ -249,32 +255,62 @@ export default function BillPanel({
         </div>
       </div>
 
-      {/* ── 4. PAYMENT ACTION BUTTONS ── */}
-      <div className="space-y-2 flex-shrink-0 pt-1">
-        <div className="text-[11px] font-bold tracking-wider text-stone-400 uppercase">
-          PAYMENT
+      {/* ── 4. PAYMENT TYPE SELECTION & PLACE ORDER ── */}
+      <div className="space-y-3 flex-shrink-0 pt-1">
+        <div>
+          <div className="text-[11px] font-extrabold tracking-wider text-stone-400 uppercase mb-1.5">
+            PAYMENT TYPE
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            {PAYMENT_MODES.map((p) => {
+              const Icon = p.icon;
+              const isSelected = paymentMode === p.mode;
+              return (
+                <Button
+                  key={p.mode}
+                  type="button"
+                  onClick={() => onPaymentMode(p.mode)}
+                  className={`h-11 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all ${
+                    isSelected
+                      ? `${p.color} ring-2 ring-offset-1 ring-stone-400 dark:ring-stone-600 shadow-md scale-[1.02]`
+                      : 'bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-700 hover:bg-stone-200 dark:hover:bg-stone-700'
+                  }`}
+                >
+                  <Icon className="size-4" />
+                  <span>{p.label}</span>
+                </Button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
-          {PAYMENT_MODES.map((p) => {
-            const Icon = p.icon;
-            return (
-              <Button
-                key={p.mode}
-                type="button"
-                onClick={() => {
-                  onPaymentMode(p.mode);
-                  if (!blocked) onPlace();
-                }}
-                disabled={blocked || isPlacing}
-                className={`h-12 rounded-xl font-extrabold text-xs flex flex-col items-center justify-center gap-1 shadow-md transition-all active:scale-[0.97] ${p.color} ${blocked ? 'opacity-50 cursor-not-allowed shadow-none' : ''}`}
-              >
-                <Icon className="size-4" />
-                <span>{p.label}</span>
-              </Button>
-            );
-          })}
-        </div>
+        {/* Place Order CTA Button */}
+        <Button
+          type="button"
+          onClick={() => {
+            if (!blocked) {
+              onPlace();
+            }
+          }}
+          disabled={blocked || isPlacing}
+          className={`w-full h-12 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all ${
+            blocked ? 'opacity-50 cursor-not-allowed shadow-none' : ''
+          }`}
+        >
+          {isPlacing ? (
+            <>
+              <span className="animate-spin text-sm">⏳</span>
+              <span>Placing Order...</span>
+            </>
+          ) : (
+            <>
+              <span>⚡ Place Order</span>
+              <span className="opacity-70">·</span>
+              <span>₹{totals.grandTotal.toFixed(2)}</span>
+            </>
+          )}
+        </Button>
       </div>
     </div>
   );
