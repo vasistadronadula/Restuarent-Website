@@ -66,8 +66,6 @@ export default function PosPage() {
 
   const [orderType, setOrderType] = useState<PosOrderType>('counter');
   const [tableNumber, setTableNumber] = useState<number | ''>('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
   const [paymentMode, setPaymentMode] = useState<PosPaymentMode>('cash');
 
   const {
@@ -141,8 +139,7 @@ export default function PosPage() {
       const newOrder: Order = {
         id: orderId,
         orderId,
-        customerName: customerName.trim() || 'Walk-in Customer',
-        customerPhone: customerPhone.trim() || undefined,
+        customerName: 'Counter Customer',
         tableNumber: orderType === 'dine-in' && tableNumber !== '' ? Number(tableNumber) : undefined,
         orderType,
         paymentMode,
@@ -174,8 +171,6 @@ export default function PosPage() {
       setConfirmOpen(true);
 
       clearCart();
-      setCustomerName('');
-      setCustomerPhone('');
       setTableNumber('');
       setMobileBillOpen(false);
       toast.success('Order charged & printed successfully! ⚡');
@@ -337,10 +332,6 @@ export default function PosPage() {
             tables={tables}
             tableNumber={tableNumber}
             onTableNumber={setTableNumber}
-            customerName={customerName}
-            onCustomerName={setCustomerName}
-            customerPhone={customerPhone}
-            onCustomerPhone={setCustomerPhone}
             paymentMode={paymentMode}
             onPaymentMode={setPaymentMode}
             onIncrement={incrementLine}
@@ -365,10 +356,6 @@ export default function PosPage() {
               tables={tables}
               tableNumber={tableNumber}
               onTableNumber={setTableNumber}
-              customerName={customerName}
-              onCustomerName={setCustomerName}
-              customerPhone={customerPhone}
-              onCustomerPhone={setCustomerPhone}
               paymentMode={paymentMode}
               onPaymentMode={setPaymentMode}
               onIncrement={incrementLine}

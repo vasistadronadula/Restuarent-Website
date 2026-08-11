@@ -41,11 +41,6 @@ export interface BillPanelProps {
   tableNumber: number | '';
   onTableNumber: (n: number | '') => void;
 
-  customerName: string;
-  onCustomerName: (v: string) => void;
-  customerPhone: string;
-  onCustomerPhone: (v: string) => void;
-
   paymentMode: PosPaymentMode;
   onPaymentMode: (m: PosPaymentMode) => void;
 
@@ -64,7 +59,6 @@ export interface BillPanelProps {
 export default function BillPanel({
   lines, totals, totalUnits,
   orderType, onOrderType, tables, tableNumber, onTableNumber,
-  customerName, onCustomerName, customerPhone, onCustomerPhone,
   paymentMode, onPaymentMode,
   onIncrement, onDecrement, onSetQuantity, onRemove, onClear,
   onPlace, isPlacing, onClose, compact = false,
@@ -73,17 +67,7 @@ export default function BillPanel({
   const needsTable = orderType === 'dine-in' && tableNumber === '';
   const blocked = empty || needsTable;
 
-  const [detailsChoice, setDetailsChoice] = useState<boolean | null>(null);
-  const detailsOpen = needsTable || (detailsChoice ?? !compact);
-
   // ── Cash tendered / change due ──────────────────────────────────────────
-  // The one calculation every cashier otherwise does in their head. Cleared
-  // whenever the mode leaves cash or the bill empties out (order placed or
-  // cart cleared), so a stale amount never carries over onto the next order.
-  // Reset happens during render (same "did a tracked value change" pattern
-  // QuantityStepper below uses for its own draft) rather than in an effect,
-  // which would otherwise cost this component an extra cascading render on
-  // every single mode/cart change.
   const [cashReceived, setCashReceived] = useState('');
   const [cashResetKey, setCashResetKey] = useState('');
   const nextCashResetKey = `${paymentMode}:${empty}`;
@@ -96,8 +80,6 @@ export default function BillPanel({
   const changeDue = Math.max(0, receivedAmount - totals.grandTotal);
   const cashShort = paymentMode === 'cash' && receivedAmount > 0 && receivedAmount < totals.grandTotal;
 
-  // A handful of denominations a cashier is actually handed, plus the exact
-  // total — never more than four so the row stays one thumb's reach wide.
   const quickCashAmounts = useMemo(() => {
     const total = Math.ceil(totals.grandTotal);
     if (total <= 0) return [];
@@ -107,25 +89,17 @@ export default function BillPanel({
     return Array.from(new Set([total, ...roundedUp])).slice(0, 4);
   }, [totals.grandTotal]);
 
-  const detailsSummary = [
-    orderType === 'dine-in'
-      ? (tableNumber === '' ? 'Dine-in · no table' : `Dine-in · Table ${tableNumber}`)
-      : 'Counter',
-    customerName.trim() || 'Walk-in',
-    customerPhone.trim(),
-  ].filter(Boolean).join('  ·  ');
-
   return (
     <div className="flex flex-col h-full min-h-0 bg-white dark:bg-stone-900 border-l border-stone-200/80 dark:border-stone-800">
       <div className="flex-shrink-0 px-4 py-3 bg-stone-50 dark:bg-stone-800/60 border-b border-stone-200/80 dark:border-stone-800 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <ShoppingBag className="w-5 h-5 text-amber-600" />
           <h3 className="font-extrabold text-sm text-stone-900 dark:text-stone-100">
-            Current Order
+            Active Ticket
           </h3>
           {totalUnits > 0 && (
             <Badge className="bg-amber-600 text-white font-black text-xs px-2 py-0.5 rounded-full">
-              {totalUnits}
+              {totalUnits} items
             </Badge>
           )}
         </div>
@@ -153,84 +127,49 @@ export default function BillPanel({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <button
-          type="button"
-          onClick={() => setDetailsChoice(!detailsOpen)}
-          className={`w-full flex items-center justify-between px-4 py-2.5 border-b border-stone-200/80 dark:border-stone-800 text-left transition-colors ${
-            needsTable ? 'bg-rose-50 dark:bg-rose-950/20' : 'bg-stone-50/50 dark:bg-stone-800/30 hover:bg-stone-100 dark:hover:bg-stone-800/60'
-          }`}
-        >
-          <div className="min-w-0 flex-1">
-            <div className="text-[10px] font-extrabold tracking-wider text-stone-400">
-              ORDER DETAILS
-            </div>
-            <div className={`text-xs font-bold truncate ${needsTable ? 'text-rose-600 dark:text-rose-400' : 'text-stone-800 dark:text-stone-200'}`}>
-              {detailsSummary}
-            </div>
-          </div>
-          {detailsOpen ? <ChevronUp className="w-4 h-4 text-stone-400" /> : <ChevronDown className="w-4 h-4 text-stone-400" />}
-        </button>
+      <div className="p-3 border-b border-stone-200/80 dark:border-stone-800 space-y-2 bg-stone-50/50 dark:bg-stone-900/50">
+        <div className="flex gap-2">
+          {ORDER_TYPES.map((t) => (
+            <Button
+              key={t.type}
+              type="button"
+              variant={orderType === t.type ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => onOrderType(t.type)}
+              className={`flex-1 font-extrabold text-xs h-9 rounded-xl ${
+                orderType === t.type
+                  ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-xs'
+                  : 'border-stone-300 dark:border-stone-700 bg-white dark:bg-stone-800'
+              }`}
+            >
+              {t.icon} {t.label}
+            </Button>
+          ))}
+        </div>
 
-        {detailsOpen && (
-          <div className="p-3 border-b border-stone-200/80 dark:border-stone-800 space-y-3 bg-stone-50/30 dark:bg-stone-900/40">
-            <div className="flex gap-2">
-              {ORDER_TYPES.map((t) => (
-                <Button
-                  key={t.type}
-                  type="button"
-                  variant={orderType === t.type ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => onOrderType(t.type)}
-                  className={`flex-1 font-bold text-xs h-9 rounded-lg ${
-                    orderType === t.type
-                      ? 'bg-amber-600 text-white hover:bg-amber-700'
-                      : 'border-stone-300 dark:border-stone-700'
-                  }`}
-                >
-                  {t.icon} {t.label}
-                </Button>
-              ))}
-            </div>
-
-            {orderType === 'dine-in' && (
-              <div>
-                <Select
-                  value={tableNumber === '' ? '' : String(tableNumber)}
-                  onValueChange={(val) => onTableNumber(val === '' ? '' : Number(val))}
-                >
-                  <SelectTrigger className="w-full bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 rounded-lg text-xs font-bold">
-                    <SelectValue placeholder="Select Table *" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tables.length === 0 && <SelectItem value="" disabled>No tables set up</SelectItem>}
-                    {tables.map((t) => (
-                      <SelectItem key={t.id} value={String(t.tableNumber)}>
-                        Table {t.tableNumber} · {t.capacity} seats {t.description ? `(${t.description})` : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                placeholder="Customer Name"
-                value={customerName}
-                onChange={(e) => onCustomerName(e.target.value)}
-                className="bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 rounded-lg text-xs"
-              />
-              <Input
-                placeholder="Phone (10 digits)"
-                value={customerPhone}
-                onChange={(e) => onCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                className="bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 rounded-lg text-xs"
-              />
-            </div>
+        {orderType === 'dine-in' && (
+          <div>
+            <Select
+              value={tableNumber === '' ? '' : String(tableNumber)}
+              onValueChange={(val) => onTableNumber(val === '' ? '' : Number(val))}
+            >
+              <SelectTrigger className="w-full bg-white dark:bg-stone-800 border-stone-300 dark:border-stone-700 rounded-xl text-xs font-bold">
+                <SelectValue placeholder="Select Table *" />
+              </SelectTrigger>
+              <SelectContent>
+                {tables.length === 0 && <SelectItem value="" disabled>No tables set up</SelectItem>}
+                {tables.map((t) => (
+                  <SelectItem key={t.id} value={String(t.tableNumber)}>
+                    Table {t.tableNumber} · {t.capacity} seats {t.description ? `(${t.description})` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
+      </div>
 
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {empty ? (
           <div className="text-center py-12 px-4 text-stone-400">
             <ShoppingCart className="w-12 h-12 mx-auto mb-2 opacity-30 text-stone-400" />
