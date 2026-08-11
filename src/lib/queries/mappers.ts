@@ -7,7 +7,7 @@
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Order, Reservation, MenuItem, InventoryItem, Employee } from '@/types';
+import type { Order, Reservation, MenuItem, InventoryItem, Employee, MenuCategory } from '@/types';
 
 // ─── Restaurant table types ───────────────────────────────────────────────────
 
@@ -81,6 +81,17 @@ export function mapOrder(o: any): Order {
     razorpayPaymentId: o.razorpay_payment_id || undefined,
     userId: o.user_id || null,
     orderType: o.order_type || 'takeaway',
+    createdAt: o.created_at || undefined,
+    notes: o.notes || undefined,
+    delayMinutes: (() => {
+      if (o.delay_minutes != null) return Number(o.delay_minutes) || 0;
+      if (typeof o.notes === 'string' && o.notes.includes('[DELAY:')) {
+        const match = o.notes.match(/\[DELAY:(\d+)\]/);
+        if (match && match[1]) return parseInt(match[1], 10);
+      }
+      return 0;
+    })(),
+    estimatedMinutes: o.estimated_minutes ? Number(o.estimated_minutes) : undefined,
     // Dine-in bills print the table number, so it has to survive a refetch
     // — it used to exist only on the in-memory object the POS just built.
     tableNumber: o.table_number ?? undefined,
@@ -186,5 +197,18 @@ export function mapCoupon(c: any): Coupon {
     minOrder: Number(c.min_order) || 0,
     description: c.description || '',
     isActive: c.is_active ?? true,
+  };
+}
+
+export function mapCategory(c: any): MenuCategory {
+  return {
+    id: c.id,
+    name: c.name || '',
+    slug: c.slug || '',
+    icon: c.icon || '🍽️',
+    image: c.image || '',
+    sortOrder: Number(c.sort_order) || 0,
+    isActive: c.is_active ?? true,
+    createdAt: c.created_at || '',
   };
 }

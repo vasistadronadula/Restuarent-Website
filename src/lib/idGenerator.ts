@@ -73,3 +73,7 @@ export const generateInventoryId = (): string =>
  */
 export const generateMenuItemId = (): string =>
   `PPR-DSH-${getDateStamp()}-${rand4()}`;
+
+/** Generates a Category ID — CAT-biryani (from slug) or CAT-20260725-4821 */
+export const generateCategoryId = (slug?: string): string =>
+  slug ? `CAT-${slug}` : `CAT-${getDateStamp()}-${rand4()}`;

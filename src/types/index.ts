@@ -18,18 +18,22 @@ export type ReservationStatus = 'pending' | 'confirmed' | 'completed' | 'cancell
 export type StaffRole = 'admin' | 'manager' | 'chef' | 'cashier' | 'waiter';
 export type EmployeeRole = StaffRole;
 export type UserRole = 'customer' | StaffRole;
-export type Category =
-  | 'starters'
-  | 'south-indian'
-  | 'north-indian'
-  | 'chinese'
-  | 'biryani'
-  | 'tandoori'
-  | 'desserts'
-  | 'beverages'
-  | 'combos'
-  | 'rice'
-  | 'breads';
+// Category is a free-form string so admins can create new categories from the
+// UI without a code change. The original hardcoded values were:
+// 'starters' | 'south-indian' | 'north-indian' | 'chinese' | 'biryani' |
+// 'tandoori' | 'desserts' | 'beverages' | 'combos' | 'rice' | 'breads'
+export type Category = string;
+
+export interface MenuCategory {
+  id: string;
+  name: string;        // display label, e.g. "Biryani & Pulao"
+  slug: string;        // URL/code key, e.g. "biryani"
+  icon: string;        // emoji
+  image: string;       // admin-uploaded photo URL (Supabase Storage)
+  sortOrder: number;
+  isActive: boolean;
+  createdAt?: string;
+}
 
 export interface PortionPrices {
   single?: number;
@@ -122,6 +126,8 @@ export interface Order {
   razorpayPaymentId?: string;
   userId?: string | null;
   orderType?: OrderType;
+  delayMinutes?: number;
+  estimatedMinutes?: number;
 }
 
 export interface Reservation {

@@ -320,6 +320,28 @@ body[data-scroll-locked] {
   border-bottom: 7px solid #c62828;
 }
 
+.egg-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #d97706;
+  position: relative;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.egg-indicator::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #d97706;
+}
+
+
 /* ============================================================ */
 /* Admin shell metrics                                          */
 /* ------------------------------------------------------------ */
@@ -572,3 +594,149 @@ body[data-scroll-locked] {
   animation: pageFadeIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   will-change: opacity, transform;
 }
+
+/* Slow ping for the active order stage indicator */
+@keyframes pingSlow {
+  0% {
+    transform: scale(1);
+    opacity: 0.2;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.2;
+  }
+}
+
+.animate-ping-slow {
+  animation: pingSlow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Real-time Cooking & Stove Animations */
+@keyframes flameFlicker {
+  0%, 100% {
+    transform: scaleY(1) scaleX(1) rotate(0deg);
+    opacity: 0.95;
+  }
+  25% {
+    transform: scaleY(1.15) scaleX(0.92) rotate(-2deg);
+    opacity: 1;
+  }
+  50% {
+    transform: scaleY(0.9) scaleX(1.06) rotate(1deg);
+    opacity: 0.88;
+  }
+  75% {
+    transform: scaleY(1.22) scaleX(0.95) rotate(-1deg);
+    opacity: 1;
+  }
+}
+
+@keyframes flameFlickerSecondary {
+  0%, 100% {
+    transform: scaleY(0.95) scaleX(1.05) rotate(1deg);
+    opacity: 0.9;
+  }
+  30% {
+    transform: scaleY(1.2) scaleX(0.9) rotate(-2deg);
+    opacity: 1;
+  }
+  65% {
+    transform: scaleY(1.05) scaleX(1) rotate(2deg);
+    opacity: 0.85;
+  }
+}
+
+@keyframes steamRise {
+  0% {
+    transform: translateY(0px) scale(0.8) translateX(0);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.75;
+  }
+  60% {
+    transform: translateY(-20px) scale(1.15) translateX(3px);
+    opacity: 0.45;
+  }
+  100% {
+    transform: translateY(-40px) scale(1.4) translateX(-4px);
+    opacity: 0;
+  }
+}
+
+@keyframes steamRiseDelayed {
+  0% {
+    transform: translateY(0px) scale(0.7) translateX(0);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.8;
+  }
+  70% {
+    transform: translateY(-24px) scale(1.2) translateX(-3px);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(-46px) scale(1.5) translateX(4px);
+    opacity: 0;
+  }
+}
+
+@keyframes sizzleBounce {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-1.5px) rotate(1deg);
+  }
+  50% {
+    transform: translateY(1px) rotate(-1deg);
+  }
+  75% {
+    transform: translateY(-1px) rotate(0.5deg);
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(239, 68, 68, 0.7));
+  }
+}
+
+.animate-flame-main {
+  animation: flameFlicker 0.6s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.animate-flame-secondary {
+  animation: flameFlickerSecondary 0.45s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.animate-steam-1 {
+  animation: steamRise 2.4s ease-out infinite;
+}
+
+.animate-steam-2 {
+  animation: steamRiseDelayed 2.8s ease-out infinite 0.7s;
+}
+
+.animate-steam-3 {
+  animation: steamRise 2.2s ease-out infinite 1.3s;
+}
+
+.animate-sizzle {
+  animation: sizzleBounce 0.35s ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 2s ease-in-out infinite;
+}
+

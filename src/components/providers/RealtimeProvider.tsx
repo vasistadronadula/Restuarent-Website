@@ -72,10 +72,18 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       })
       .subscribe();
 
+    const categoriesChannel = supabase
+      .channel('rq_realtime_menu_categories')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_categories' }, () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.categories });
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(reservationsChannel);
       supabase.removeChannel(menuChannel);
+      supabase.removeChannel(categoriesChannel);
     };
   }, [queryClient]);
 

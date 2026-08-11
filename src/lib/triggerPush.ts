@@ -28,6 +28,23 @@ export async function triggerNewOrderPush(orderId: string): Promise<void> {
 }
 
 /**
+ * Ask the server to send an order confirmation + bill receipt to the
+ * customer's phone via WhatsApp. Fire-and-forget — a delivery failure
+ * is logged server-side but never surfaces to the customer.
+ */
+export async function triggerWhatsAppOrderConfirmation(orderId: string): Promise<void> {
+  try {
+    await fetch('/api/whatsapp/send-order-confirmation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId }),
+    });
+  } catch {
+    // Non-critical — silently ignore.
+  }
+}
+
+/**
  * Ask the server to notify servers about a new table reservation. Booking a
  * table doesn't require an account, so the token is attached when there is
  * one and omitted otherwise — the route accepts guests but only for a
@@ -50,3 +67,4 @@ export async function triggerNewReservationPush(reservationId: string): Promise<
     // Non-critical — silently ignore.
   }
 }
+

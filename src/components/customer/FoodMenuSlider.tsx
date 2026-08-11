@@ -30,7 +30,19 @@ const CATEGORIES = [
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80';
 
 export default function FoodMenuSlider() {
-  const { menuItems: liveMenuItems, isLoadingDB } = useAdmin();
+  const { menuItems: liveMenuItems, isLoadingDB, categories } = useAdmin();
+
+  const dynamicCategories = React.useMemo(() => {
+    const list = [{ id: 'all', label: '🔥 All Bestsellers' }];
+    categories
+      .filter((c) => c.isActive)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .forEach((c) => {
+        list.push({ id: c.slug, label: `${c.icon || '🍽️'} ${c.name}` });
+      });
+    return list;
+  }, [categories]);
+
   const [activeCategory, setActiveCategory] = useState('all');
   const [rawIndex, setRawIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -116,7 +128,7 @@ export default function FoodMenuSlider() {
         </div>
 
         <div className="flex gap-2 overflow-x-auto pb-2 w-full lg:w-auto scrollbar-none">
-          {CATEGORIES.map((cat) => {
+          {dynamicCategories.map((cat) => {
             const isSelected = activeCategory === cat.id;
             return (
               <Button

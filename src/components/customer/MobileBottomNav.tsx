@@ -27,11 +27,9 @@ const NAV_HEIGHT = 62;
 const HIDDEN_PREFIXES = ['/admin', '/cashier', '/checkout', '/login', '/signup', '/reset-password'];
 
 const NAV_ITEMS = [
-  { label: 'Home', href: '/', icon: Home },
   { label: 'Menu', href: '/menu', icon: BookOpen },
   { label: 'Cart', href: '/cart', icon: ShoppingCart, badge: true },
   { label: 'Orders', href: '/orders', icon: ReceiptText },
-  { label: 'Book', href: '/reservation', icon: UtensilsCrossed },
 ] as const;
 
 export default function MobileBottomNav() {

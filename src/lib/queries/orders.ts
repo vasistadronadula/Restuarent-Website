@@ -20,7 +20,13 @@ export function useOrders() {
       if (error) throw new Error(error.message);
       return (data || []).map(mapOrder);
     },
-    staleTime: 60_000, // realtime pushes invalidations; this is the backstop
+    staleTime: 5_000,
+    refetchInterval: (query) => {
+      const orders = query.state.data;
+      const hasActive = orders?.some((o) => ['pending', 'preparing', 'ready'].includes(o.status));
+      return hasActive ? 3000 : false;
+    },
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -39,7 +45,13 @@ export function useGuestOrders(ids: string[]) {
       return (data || []).map(mapOrder);
     },
     enabled: ids.length > 0,
-    staleTime: 60_000,
+    staleTime: 3_000,
+    refetchInterval: (query) => {
+      const orders = query.state.data;
+      const hasActive = orders?.some((o) => ['pending', 'preparing', 'ready'].includes(o.status));
+      return hasActive ? 3000 : 15_000;
+    },
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -59,7 +71,45 @@ export function useUpdateOrderStatus() {
         draft.map((o) => (o.id === id ? { ...o, status, orderStatus: status } : o))
       ),
     onError: (_err, _vars, context) => rollbackList(queryClient, context),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.orders }),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders });
+      queryClient.invalidateQueries({ queryKey: ['guest-orders'] });
+    },
+  });
+}
+
+export function useUpdateOrderPrepTime() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, delayMinutes, notes }: { id: string; delayMinutes: number; notes?: string }) => {
+      // First try updating delay_minutes and notes directly
+      let { error } = await supabase
+        .from('orders')
+        .update({
+          delay_minutes: delayMinutes,
+          notes: notes !== undefined ? notes : undefined,
+        })
+        .eq('id', id);
+
+      // If column delay_minutes does not exist in schema (error 42703), store delay in notes string
+      if (error?.code === '42703') {
+        const noteStr = `[DELAY:${delayMinutes}] ${notes || ''}`.trim();
+        ({ error } = await supabase.from('orders').update({ notes: noteStr }).eq('id', id));
+      }
+
+      if (error) throw new Error(error.message);
+      return true;
+    },
+    onMutate: ({ id, delayMinutes, notes }) =>
+      patchList<Order>(queryClient, queryKeys.orders, (draft) =>
+        draft.map((o) => (o.id === id ? { ...o, delayMinutes, notes: notes !== undefined ? notes : o.notes } : o))
+      ),
+    onError: (_err, _vars, context) => rollbackList(queryClient, context),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders });
+      queryClient.invalidateQueries({ queryKey: ['guest-orders'] });
+    },
   });
 }
 

@@ -12,7 +12,7 @@ import { useMenuItems, useTables } from '@/lib/queries';
 import { usePosCart, type Portion } from '@/hooks/usePosCart';
 import { computeBillTotals, rupees } from '@/lib/billing';
 import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
-import { triggerNewOrderPush } from '@/lib/triggerPush';
+import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
 import { markPosOrderPrinted } from '@/lib/posOrderTracker';
 import { isPrinterConnected } from '@/lib/thermalPrinter';
 import PrinterSettingsPanel from '@/components/admin/PrinterSettingsPanel';
@@ -163,6 +163,7 @@ export default function PosPage() {
       markPosOrderPrinted(newOrder.id);
       await createOrderContext(newOrder);
       triggerNewOrderPush(newOrder.id);
+      triggerWhatsAppOrderConfirmation(newOrder.id);
 
       setPlacedOrder(newOrder);
       setPlacedInvoiceNo(invoiceNo);

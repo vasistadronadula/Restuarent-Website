@@ -38,9 +38,7 @@ const CartDrawer = dynamic(() => import('./CartDrawer'), { ssr: false });
 const PHONE_HREF = `tel:${restaurantInfo.phone.replace(/\s/g, '')}`;
 
 const NAV_LINKS = [
-  { label: 'Home', href: '/', icon: Home },
   { label: 'Menu', href: '/menu', icon: BookOpen },
-  { label: 'Reservation', href: '/reservation', icon: CalendarDays },
   { label: 'My Orders', href: '/orders', icon: ReceiptText },
   { label: 'Contact', href: '/contact', icon: Mail },
 ];
@@ -130,7 +128,7 @@ export default function Navbar() {
       >
         <Container className="flex h-14 items-center justify-between">
           {/* Logo */}
-          <Link href="/" aria-label={`${restaurantInfo.name} — Home`} className="flex items-center shrink-0">
+          <Link href="/menu" aria-label={`${restaurantInfo.name} — Menu`} className="flex items-center shrink-0">
             <PalaPittaLogo variant="light" size="small" priority />
           </Link>
 
@@ -164,9 +162,6 @@ export default function Navbar() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button asChild variant="ghost" size="sm" className="relative h-9 w-9 p-0 text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-lg">
-                  {/* CART_TARGET_ATTR marks where an added dish flies to. See
-                      lib/flyToCart — it looks the target up at flight time so
-                      this and the phone bottom-nav tab can both claim it. */}
                   <Link
                     href="/cart"
                     prefetch
@@ -246,13 +241,6 @@ export default function Navbar() {
                       </Link>
                     </DropdownMenuItem>
                   ))}
-
-                  <DropdownMenuItem asChild className="rounded-lg focus:bg-stone-50">
-                    <Link href="/reservation" className="flex items-center gap-2 text-sm">
-                      <CalendarDays className="w-4 h-4 text-stone-400" />
-                      Book a Table
-                    </Link>
-                  </DropdownMenuItem>
 
                   <DropdownMenuSeparator className="bg-stone-100 my-1" />
 

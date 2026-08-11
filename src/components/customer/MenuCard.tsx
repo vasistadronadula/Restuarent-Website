@@ -1,161 +1,187 @@
 'use client';
 
-import React, { useState, memo } from 'react';
+import React, { memo } from 'react';
 import Image from 'next/image';
-import { Clock, Heart, Plus, Star } from 'lucide-react';
+import { Star, Clock } from 'lucide-react';
 
 import { cn, formatCurrency, FALLBACK_DISH_IMAGE } from '@/lib/utils';
 import { MenuItem } from '@/types';
-import { useDishPortion, PORTION_LABELS } from '@/hooks/useDishPortion';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { useDishPortion, PORTION_LABELS, type Portion } from '@/hooks/useDishPortion';
 import CartStepper from './CartStepper';
 
 interface Props {
   item: MenuItem;
-  compact?: boolean;
 }
 
-// Wrapped in React.memo — only re-renders when `item` changes or the specific
-// cart entry for the selected portion does.
-const MenuCard = memo(function MenuCard({ item, compact = false }: Props) {
-  const [liked, setLiked] = useState(false);
-
-  // Portion selection, pricing and the add/increase/decrease actions are shared
-  // with the dish rail and the dish list, so all three put an identical row in
-  // the cart for the same dish rather than three near-identical ones.
+const MenuCard = memo(function MenuCard({ item }: Props) {
   const {
-    availablePortions, hasPortions, selectedPortion, setSelectedPortion,
-    activePrice, cartItem, add, increase, decrease,
+    availablePortions,
+    hasPortions,
+    selectedPortion,
+    setSelectedPortion,
+    activePrice,
+    cartItem,
+    add,
+    increase,
+    decrease,
   } = useDishPortion(item);
 
   const unavailable = !item.isAvailable;
+  const inCart = !!cartItem;
+  const quantity = cartItem?.quantity || 0;
 
   return (
     <article
       className={cn(
-        'bg-card group relative flex h-full flex-col overflow-hidden rounded-2xl border shadow-sm transition-shadow duration-300 hover:shadow-lg',
-        unavailable && 'opacity-70'
+        'bg-white group relative flex flex-col items-stretch rounded-2xl border select-none transition-all duration-300 overflow-hidden h-full justify-between',
+        inCart
+          ? 'border-amber-500 shadow-md shadow-amber-500/5 ring-1 ring-amber-500/30 scale-[0.99]'
+          : 'border-stone-200/80 shadow-2xs hover:shadow-sm hover:border-stone-300 hover:scale-[1.01]',
+        unavailable && 'opacity-60 cursor-not-allowed'
       )}
     >
-      {/* Image */}
-      <div className={cn('relative overflow-hidden', compact ? 'h-37.5' : 'h-47.5')}>
+      {/* ── Top: Image with Overlays ── */}
+      <div className="relative w-full aspect-[4/3] bg-stone-50 overflow-hidden border-b border-stone-100/50">
         <Image
           src={item.image || FALLBACK_DISH_IMAGE}
-          alt=""
+          alt={item.name}
           fill
-          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 300px"
-          className="object-cover transition-transform duration-300 group-hover:scale-106"
+          sizes="(max-width: 640px) 45vw, 250px"
+          className="object-cover transition-transform duration-500 group-hover:scale-105"
         />
 
-        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
-          {item.isSpecial && <Badge variant="warning">Chef&apos;s Special</Badge>}
-          {item.isPopular && !item.isSpecial && <Badge>Popular</Badge>}
+        {/* Veg/Non-veg Status Tag */}
+        <div className="absolute top-2.5 left-2.5 z-10 bg-white/95 backdrop-blur-3xs p-1 rounded-lg shadow-3xs flex items-center justify-center">
+          <span
+            className={
+              item.vegStatus === 'veg'
+                ? 'veg-indicator'
+                : item.vegStatus === 'egg'
+                ? 'egg-indicator'
+                : 'non-veg-indicator'
+            }
+            role="img"
+            aria-label={
+              item.vegStatus === 'veg'
+                ? 'Vegetarian'
+                : item.vegStatus === 'egg'
+                ? 'Egg'
+                : 'Non-vegetarian'
+            }
+          />
         </div>
 
+        {/* Bestseller / Chef's Special badges */}
+        {item.isSpecial ? (
+          <div className="absolute top-2.5 right-2.5 z-10 bg-gradient-to-r from-orange-600 to-amber-500 text-white text-[9px] font-black tracking-wide uppercase px-2 py-0.5 rounded-full shadow-sm">
+            ★ Chef&apos;s Special
+          </div>
+        ) : item.isPopular ? (
+          <div className="absolute top-2.5 right-2.5 z-10 bg-amber-500 text-stone-950 text-[9px] font-black tracking-wide uppercase px-2 py-0.5 rounded-full shadow-sm">
+            🔥 Bestseller
+          </div>
+        ) : null}
+
+        {/* Out of Stock Ribbon */}
         {unavailable && (
-          <div className="absolute inset-0 grid place-items-center bg-black/60">
-            <Badge variant="outline" className="border-white/30 bg-white text-black">
-              Currently Unavailable
-            </Badge>
+          <div className="absolute inset-0 bg-black/60 z-10 flex items-center justify-center">
+            <span className="bg-rose-600 text-white text-[10px] font-black uppercase px-2.5 py-1 rounded-md tracking-wider shadow-md">
+              Sold Out
+            </span>
           </div>
         )}
-
-        <button
-          type="button"
-          onClick={() => setLiked(!liked)}
-          aria-pressed={liked}
-          aria-label={liked ? `Remove ${item.name} from favourites` : `Save ${item.name} to favourites`}
-          className="absolute top-2 right-2 grid size-8 place-items-center rounded-full bg-white/90 backdrop-blur-sm transition-transform hover:scale-110 focus-visible:ring-ring/40 focus-visible:ring-[3px] outline-none"
-        >
-          <Heart
-            className={cn('size-4', liked ? 'fill-primary text-primary' : 'text-neutral-600')}
-          />
-        </button>
       </div>
 
-      {/* Content */}
-      <div className={cn('flex flex-1 flex-col', compact ? 'p-3' : 'p-4')}>
-        <div className="mb-1 flex items-start gap-2">
-          <span
-            className={cn(
-              'mt-1 shrink-0',
-              item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'
-            )}
-            role="img"
-            aria-label={item.vegStatus === 'veg' ? 'Vegetarian' : 'Non-vegetarian'}
-          />
-          <h3 className={cn('font-display leading-snug font-bold', compact ? 'text-sm' : 'text-base')}>
+      {/* ── Bottom: Product Info ── */}
+      <div className="p-3.5 flex flex-col flex-1 justify-between gap-3 bg-white">
+        
+        {/* Name and Description */}
+        <div className="space-y-1">
+          <h3 className="text-xs sm:text-sm font-black text-stone-900 leading-snug line-clamp-1 group-hover:text-amber-600 transition-colors">
             {item.name}
           </h3>
-        </div>
 
-        {!compact && (
-          <p className="text-muted-foreground mb-2 line-clamp-2 text-xs leading-relaxed">
-            {item.description}
+          <div className="flex items-center gap-2 text-[10px] text-stone-500 font-bold">
+            <div className="flex items-center gap-0.5 text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">
+              <Star className="size-2.5 fill-current" />
+              <span>{item.rating?.toFixed(1) || '4.5'}</span>
+            </div>
+            {item.prepTime != null && item.prepTime > 0 && (
+              <div className="flex items-center gap-1 bg-stone-100 px-1.5 py-0.5 rounded text-stone-600">
+                <Clock className="size-2.5" />
+                <span>{item.prepTime}m</span>
+              </div>
+            )}
+          </div>
+
+          <p className="text-[11px] text-stone-400 font-medium line-clamp-2 leading-normal mt-1.5">
+            {item.description || 'No description available.'}
           </p>
-        )}
-
-        <div className="text-muted-foreground mb-2 flex items-center gap-3 text-xs">
-          <span className="flex items-center gap-1">
-            <Star className="fill-accent text-accent size-3.5" />
-            <span className="text-foreground font-bold">{item.rating}</span>
-            <span>({item.reviewCount})</span>
-          </span>
-          {item.prepTime && (
-            <span className="flex items-center gap-1">
-              <Clock className="size-3.5" />
-              {item.prepTime} min
-            </span>
-          )}
         </div>
 
-        {/* Portion selector — only when a dish genuinely has more than one size. */}
+        {/* Portion Selector (rendered only if dish has portions) */}
         {hasPortions && (
-          <div className="mb-3">
-            <p className="text-muted-foreground mb-1 text-[10px] font-bold tracking-wide uppercase">
-              Portion size
-            </p>
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              size="sm"
-              value={selectedPortion}
-              onValueChange={(val) => val && setSelectedPortion(val as typeof selectedPortion)}
-              className="w-full"
-            >
-              {availablePortions.map((portion) => (
-                <ToggleGroupItem key={portion} value={portion} className="text-[11px]">
-                  {PORTION_LABELS[portion].charAt(0)} {formatCurrency(item.portionPrices?.[portion] ?? 0)}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+          <div className="flex flex-wrap gap-1.5 my-1">
+            {availablePortions.map((portion: Portion) => {
+              const selected = portion === selectedPortion;
+              return (
+                <button
+                  key={portion}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedPortion(portion);
+                  }}
+                  className={cn(
+                    'rounded-md border px-2 py-0.5 text-[9px] font-bold transition-all outline-none',
+                    selected
+                      ? 'border-amber-500 bg-amber-500/10 text-amber-800 font-black'
+                      : 'border-stone-200 bg-stone-50 text-stone-500 hover:border-stone-300'
+                  )}
+                >
+                  {PORTION_LABELS[portion]}
+                </button>
+              );
+            })}
           </div>
         )}
 
-        {/* Price + action, pinned to the bottom so a short description doesn't
-            float the ADD button up out of line with its neighbours. */}
-        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
-          <span className={cn('text-primary font-extrabold', compact ? 'text-base' : 'text-lg')}>
-            {formatCurrency(activePrice)}
-          </span>
+        {/* Footer row: Price & Add Button */}
+        <div className="flex items-center justify-between mt-auto pt-2 border-t border-stone-100 gap-2">
+          <div className="flex flex-col">
+            <span className="text-[9px] text-stone-400 font-bold uppercase tracking-wider leading-none">Price</span>
+            <span className="font-mono text-xs sm:text-sm font-black text-stone-900 mt-0.5">
+              {formatCurrency(activePrice)}
+            </span>
+          </div>
 
-          {cartItem ? (
-            <CartStepper
-              quantity={cartItem.quantity}
-              onIncrease={increase}
-              onDecrease={decrease}
-              size="small"
-              label={item.name}
-            />
-          ) : (
-            <Button variant="brand" size="sm" disabled={unavailable} onClick={add}>
-              <Plus />
-              Add
-            </Button>
-          )}
+          {/* ADD / Stepper Control */}
+          <div onClick={(e) => e.stopPropagation()} className="shrink-0">
+            {cartItem ? (
+              <CartStepper
+                quantity={quantity}
+                onIncrease={increase}
+                onDecrease={decrease}
+                size="small"
+                label={item.name}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={add}
+                disabled={unavailable}
+                className={cn(
+                  'h-8 px-4.5 rounded-xl border-[1.5px] text-xs font-black tracking-wide transition-all outline-none active:scale-95 shadow-3xs',
+                  'border-emerald-650 bg-white text-emerald-600 hover:bg-emerald-600 hover:text-white',
+                  'disabled:border-stone-200 disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed disabled:shadow-none'
+                )}
+              >
+                ADD
+              </button>
+            )}
+          </div>
         </div>
+
       </div>
     </article>
   );

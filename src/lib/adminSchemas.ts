@@ -24,7 +24,7 @@
 
 import { z } from 'zod';
 
-import type { Category, VegStatus } from '@/types';
+import type { VegStatus } from '@/types';
 
 /** Rejects "   " — `.min(1)` alone accepts a string of spaces. */
 const requiredText = (label: string, min = 2) =>
@@ -85,17 +85,20 @@ const optionalUrl = z
 
 // ─── Menu item ────────────────────────────────────────────────────────────────
 
+// These are the default slugs — new categories added via the admin are stored
+// in the `menu_categories` DB table and the category field on menu_items is a
+// free-form string. The schema validates non-empty rather than enum membership.
 export const CATEGORY_VALUES = [
   'starters', 'south-indian', 'north-indian', 'chinese', 'biryani', 'tandoori',
   'desserts', 'beverages', 'combos', 'rice', 'breads',
-] as const satisfies readonly Category[];
+] as const;
 
 export const VEG_STATUS_VALUES = ['veg', 'non-veg', 'egg'] as const satisfies readonly VegStatus[];
 
 export const menuItemSchema = z
   .object({
     name: requiredText('Dish name'),
-    category: z.enum(CATEGORY_VALUES, { message: 'Pick a category' }),
+    category: z.string().trim().min(1, 'Pick a category'),
     vegStatus: z.enum(VEG_STATUS_VALUES, { message: 'Pick a veg status' }),
     price: money('Price', { max: 50_000 }).refine((v) => v > 0, 'Price must be more than ₹0'),
     // The three portion prices the storefront actually reads. Leaving all
@@ -246,3 +249,26 @@ export const diningTableSchema = z.object({
 });
 
 export type DiningTableFormValues = z.input<typeof diningTableSchema>;
+
+// ─── Category ─────────────────────────────────────────────────────────────────
+
+export const categorySchema = z.object({
+  name: requiredText('Category name'),
+  slug: z
+    .string()
+    .trim()
+    .min(1, 'Slug is required')
+    .max(40, 'Slug must be 40 characters or fewer')
+    .regex(/^[a-z0-9-]+$/, 'Use lowercase letters, numbers and hyphens only'),
+  icon: z.string().trim().max(10, 'One emoji at most'),
+  image: z.string().trim(), // base64 data URL or storage URL
+  sortOrder: z.coerce
+    .number({ message: 'Sort order must be a number' })
+    .int('Sort order must be a whole number')
+    .min(0, 'Sort order cannot be negative')
+    .max(999, 'Sort order cannot exceed 999'),
+  isActive: z.boolean(),
+});
+
+export type CategoryFormValues = z.input<typeof categorySchema>;
+export type CategoryFormOutput = z.output<typeof categorySchema>;

@@ -1,198 +1,214 @@
 'use client';
 
-import React from 'react';
-import { Clock, ExternalLink, Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
+import React, { useState } from 'react';
+import { Clock, ExternalLink, Mail, MapPin, Phone, Send } from 'lucide-react';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import { Container } from '@/components/customer/Container';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
-const contactInfo = [
-  { icon: <MapPin className="size-5" />, label: 'Address', value: '1/90/2/E/A, Sri Sai Nilayam, Vinayaka Nagar Colony,\nCircle 20, Madhapur, Hyderabad, TS – 500081', color: 'text-red-600 bg-red-500/10 border-red-500/20' },
-  { icon: <Phone className="size-5" />, label: 'Phone / Orders', value: '+91 70326 82089', color: 'text-emerald-600 bg-emerald-500/10 border-emerald-500/20' },
-  { icon: <Mail className="size-5" />, label: 'Email / Web', value: 'palapittaruchulu@gmail.com\nwww.palapittaruchulu.com', color: 'text-blue-600 bg-blue-500/10 border-blue-500/20' },
-  { icon: <MessageCircle className="size-5" />, label: 'WhatsApp Direct', value: '+91 70326 82089\nInstant Customer Support', color: 'text-green-600 bg-green-500/10 border-green-500/20' },
-];
-
-const hours = [
-  { day: 'Monday – Sunday', time: '12:00 PM – 11:00 PM' },
-  { day: 'Takeaway & Dine-In', time: '12:00 PM – 11:00 PM' },
-];
+const PHONE = '+91 70326 82089';
+const PHONE_RAW = '917032682089';
+const EMAIL = 'palapittaruchulu@gmail.com';
+const ADDRESS = '1/90/2/E/A, Sri Sai Nilayam, Vinayaka Nagar Colony, Circle 20, Madhapur, Hyderabad, TS – 500081';
+const MAPS_URL = 'https://maps.google.com/?q=Pala+Pitta+Ruchulu+Madhapur+Hyderabad';
+const WHATSAPP_URL = `https://wa.me/${PHONE_RAW}`;
 
 export default function ContactPage() {
-  const whatsappUrl = 'https://wa.me/917032682089';
+  const [name, setName] = useState('');
+  const [mobile, setMobile] = useState('');
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = `Hi Pala Pitta Ruchulu!\n\nName: ${name}\nMobile: ${mobile}\nMessage: ${message}`;
+    window.open(`https://wa.me/${PHONE_RAW}?text=${encodeURIComponent(text)}`, '_blank');
+  };
 
   return (
-    <div className="min-h-screen w-full bg-background flex flex-col">
+    <div className="min-h-screen w-full bg-stone-50 flex flex-col">
       <Navbar />
 
-      {/* Hero Header - Full Width */}
-      <section className="w-full bg-gradient-to-br from-[#1A0A0A] via-[#2A0C0C] to-[#C62828] py-4 md:py-5 text-center text-white px-4 sm:px-6">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-black mb-1 tracking-tight">
-          📞 Contact Us
-        </h1>
-        <p className="text-xs md:text-sm text-white/80 max-w-md mx-auto font-medium">
-          Connect with Pala Pitta Ruchulu instantly on WhatsApp for orders, inquiries & reservations!
-        </p>
-      </section>
+      <main className="flex-1 py-8 md:py-12">
+        <Container className="max-w-2xl">
 
-      {/* Main Container - Full Width */}
-      <section className="w-full bg-orange-50/40 dark:bg-zinc-900/40 py-10 md:py-16">
-        <Container>
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            
-            {/* Left Column – Contact Info + Map */}
-            <div className="lg:col-span-5 space-y-5">
-              {/* Info Cards */}
-              {contactInfo.map((info, i) => (
-                <Card key={i} className="p-4 shadow-sm hover:shadow-md transition-shadow border-border/80 bg-background">
-                  <CardContent className="p-0 flex gap-4 items-start">
-                    <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl border ${info.color}`}>
-                      {info.icon}
+          {/* Page title */}
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold text-stone-900">Contact Us</h1>
+            <p className="text-sm text-stone-500 mt-1">
+              We&apos;d love to hear from you. Reach out anytime!
+            </p>
+          </div>
+
+          <div className="space-y-6">
+
+            {/* ── Contact Details ───────────────────────────── */}
+            <Card className="rounded-2xl border border-stone-200/70 bg-white shadow-sm">
+              <CardContent className="p-5 sm:p-6 space-y-4">
+                <h2 className="text-sm font-bold text-stone-800 uppercase tracking-wider">
+                  Contact Details
+                </h2>
+
+                <div className="space-y-3.5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-600">
+                      <MapPin className="size-4.5" />
                     </div>
                     <div>
-                      <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">{info.label}</p>
-                      <p className="text-sm font-semibold text-foreground whitespace-pre-line mt-0.5">{info.value}</p>
+                      <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide">Address</p>
+                      <p className="text-sm font-medium text-stone-700 mt-0.5">{ADDRESS}</p>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-
-              {/* Hours Card */}
-              <Card className="p-5 shadow-sm border-border/80 bg-background">
-                <CardContent className="p-0">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Clock className="size-5 text-primary" />
-                    <h3 className="text-base font-bold text-foreground">Opening Hours</h3>
                   </div>
-                  <div className="space-y-2">
-                    {hours.map((h, i) => (
-                      <div key={i} className="flex justify-between text-xs sm:text-sm">
-                        <span className="text-muted-foreground">{h.day}</span>
-                        <span className="font-semibold text-foreground">{h.time}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* Map Embed Card */}
-              <Card className="overflow-hidden shadow-sm border-border/80 h-56 relative group">
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3806.267578789453!2d78.4189!3d17.4159!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTfCsDI0JzU3LjIiTiA3OMKwMjUnMDQuMCJF!5e0!3m2!1sen!2sin!4v1626000000000!5m2!1sen!2sin"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen={false}
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  className="w-full h-full"
-                />
-                <div className="absolute inset-0 bg-background/80 backdrop-blur-xs flex flex-col items-center justify-center gap-2 p-4 text-center">
-                  <MapPin className="size-10 text-primary" />
-                  <p className="text-sm font-extrabold text-foreground">Madhapur, Hyderabad</p>
-                  <Button
-                    asChild
-                    size="sm"
-                    className="font-bold rounded-xl shadow-sm text-xs"
-                  >
-                    <a
-                      href="https://maps.google.com/?q=Pala+Pitta+Ruchulu+Madhapur+Hyderabad"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open in Google Maps
-                      <ExternalLink className="size-3.5 ml-1" />
-                    </a>
-                  </Button>
+                  <div className="flex items-start gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-600">
+                      <Phone className="size-4.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide">Phone</p>
+                      <a href={`tel:${PHONE_RAW}`} className="text-sm font-semibold text-stone-700 hover:text-primary transition-colors mt-0.5 block">
+                        {PHONE}
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-600">
+                      <Mail className="size-4.5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-stone-400 uppercase tracking-wide">Email</p>
+                      <a href={`mailto:${EMAIL}`} className="text-sm font-semibold text-stone-700 hover:text-primary transition-colors mt-0.5 block">
+                        {EMAIL}
+                      </a>
+                    </div>
+                  </div>
                 </div>
-              </Card>
+              </CardContent>
+            </Card>
+
+            {/* ── Quick Actions ─────────────────────────────── */}
+            <div className="grid gap-3">
+              <a
+                href={`tel:+${PHONE_RAW}`}
+                className="flex items-center justify-center gap-2.5 rounded-2xl bg-white border border-stone-200/70 px-5 py-4 text-sm font-bold text-stone-800 shadow-sm transition-all hover:shadow-md hover:border-stone-300 active:scale-[0.98]"
+              >
+                <span className="text-lg">📞</span>
+                Call Now
+              </a>
+              <a
+                href={WHATSAPP_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2.5 rounded-2xl bg-emerald-500 px-5 py-4 text-sm font-bold text-white shadow-sm transition-all hover:bg-emerald-600 hover:shadow-md active:scale-[0.98]"
+              >
+                <span className="text-lg">💬</span>
+                WhatsApp
+              </a>
+              <a
+                href={MAPS_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-center gap-2.5 rounded-2xl bg-white border border-stone-200/70 px-5 py-4 text-sm font-bold text-stone-800 shadow-sm transition-all hover:shadow-md hover:border-stone-300 active:scale-[0.98]"
+              >
+                <span className="text-lg">📍</span>
+                Get Directions
+              </a>
             </div>
 
-            {/* Right Column – WhatsApp Support Box */}
-            <div className="lg:col-span-7">
-              <Card className="p-8 md:p-12 text-center rounded-3xl shadow-xl border-2 border-emerald-500/30 bg-gradient-to-b from-background to-emerald-500/5 min-h-[520px] flex flex-col items-center justify-center">
-                <CardContent className="p-0 flex flex-col items-center">
-                  <div className="size-24 rounded-full bg-emerald-500 text-white flex items-center justify-center mb-6 shadow-xl shadow-emerald-500/30 transform transition-transform hover:scale-105">
-                    <MessageCircle className="size-12" />
-                  </div>
+            {/* ── Opening Hours ─────────────────────────────── */}
+            <Card className="rounded-2xl border border-stone-200/70 bg-white shadow-sm">
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="size-4.5 text-amber-600" />
+                  <h2 className="text-sm font-bold text-stone-800 uppercase tracking-wider">Opening Hours</h2>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-stone-500">Monday – Sunday</span>
+                  <span className="font-semibold text-stone-800">12:00 PM – 11:00 PM</span>
+                </div>
+              </CardContent>
+            </Card>
 
-                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-black tracking-widest text-[11px] uppercase mb-3 px-3 py-1">
-                    ⚡ FASTEST SUPPORT
-                  </Badge>
+            {/* ── Google Map ────────────────────────────────── */}
+            <Card className="rounded-2xl border border-stone-200/70 overflow-hidden shadow-sm">
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3806.267578789453!2d78.4189!3d17.4159!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTfCsDI0JzU3LjIiTiA3OMKwMjUnMDQuMCJF!5e0!3m2!1sen!2sin!4v1626000000000!5m2!1sen!2sin"
+                width="100%"
+                height="240"
+                style={{ border: 0 }}
+                allowFullScreen={false}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                className="w-full"
+                title="Pala Pitta Ruchulu location"
+              />
+              <div className="p-3 flex items-center justify-between bg-white">
+                <span className="text-xs font-semibold text-stone-600">Madhapur, Hyderabad</span>
+                <a
+                  href={MAPS_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                >
+                  Open in Maps
+                  <ExternalLink className="size-3" />
+                </a>
+              </div>
+            </Card>
 
-                  <h2 className="text-2xl md:text-3xl font-black text-emerald-950 dark:text-emerald-100 mb-3">
-                    Chat Direct on WhatsApp 💬
-                  </h2>
+            {/* ── Contact Form ─────────────────────────────── */}
+            <Card className="rounded-2xl border border-stone-200/70 bg-white shadow-sm">
+              <CardContent className="p-5 sm:p-6">
+                <h2 className="text-sm font-bold text-stone-800 uppercase tracking-wider mb-4">
+                  Send a Message
+                </h2>
 
-                  <p className="text-xs md:text-sm text-muted-foreground max-w-md mx-auto mb-8 leading-relaxed">
-                    Skip the contact form! Click below to message Pala Pitta Ruchulu directly on WhatsApp for instant food orders, table bookings, catering queries & fast support.
-                  </p>
-
+                <form onSubmit={handleSubmit} className="space-y-3">
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your name"
+                    required
+                    className="rounded-xl border-stone-200 focus-visible:border-amber-500 focus-visible:ring-amber-500/20"
+                  />
+                  <Input
+                    value={mobile}
+                    onChange={(e) => setMobile(e.target.value)}
+                    placeholder="Mobile number"
+                    type="tel"
+                    required
+                    className="rounded-xl border-stone-200 focus-visible:border-amber-500 focus-visible:ring-amber-500/20"
+                  />
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Your message…"
+                    required
+                    rows={3}
+                    className="flex w-full rounded-xl border border-stone-200 bg-transparent px-3 py-2.5 text-sm placeholder:text-stone-400 focus-visible:outline-none focus-visible:border-amber-500 focus-visible:ring-2 focus-visible:ring-amber-500/20 resize-none"
+                  />
                   <Button
-                    asChild
-                    size="lg"
-                    className="w-full sm:w-auto font-black text-base md:text-lg bg-emerald-500 hover:bg-emerald-600 text-white px-8 py-6 rounded-2xl shadow-xl shadow-emerald-500/30 transition-all hover:-translate-y-0.5 gap-2"
+                    type="submit"
+                    variant="brand"
+                    className="w-full rounded-xl h-11 font-bold shadow-xs"
                   >
-                    <a href={whatsappUrl} target="_blank" rel="noreferrer">
-                      <MessageCircle className="size-6" />
-                      Chat on WhatsApp (+91 70326 82089)
-                      <ExternalLink className="size-5" />
-                    </a>
+                    <Send className="size-4 mr-2" />
+                    Send via WhatsApp
                   </Button>
+                </form>
 
-                  <div className="w-full my-8 border-t border-border/60" />
-
-                  <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase mb-4">
-                    Quick Action Links
-                  </p>
-
-                  <div className="flex flex-wrap justify-center gap-3">
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-bold hover:bg-emerald-500/10 gap-1.5"
-                    >
-                      <a href="https://wa.me/917032682089?text=Hi%20Pala%20Pitta%20Ruchulu,%20I%20want%20to%20place%20an%20order" target="_blank" rel="noreferrer">
-                        <MessageCircle className="size-3.5" />
-                        🍲 Place Food Order
-                      </a>
-                    </Button>
-
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-bold hover:bg-emerald-500/10 gap-1.5"
-                    >
-                      <a href="https://wa.me/917032682089?text=Hi%20Pala%20Pitta%20Ruchulu,%20I%20want%20to%20reserve%20a%20table" target="_blank" rel="noreferrer">
-                        <MessageCircle className="size-3.5" />
-                        🪑 Book Table
-                      </a>
-                    </Button>
-
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                      className="rounded-full border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-bold hover:bg-emerald-500/10 gap-1.5"
-                    >
-                      <a href="https://wa.me/917032682089?text=Hi%20Pala%20Pitta%20Ruchulu,%20I%20have%20a%20catering%20inquiry" target="_blank" rel="noreferrer">
-                        <MessageCircle className="size-3.5" />
-                        🎉 Party / Catering Inquiry
-                      </a>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                <p className="text-[11px] text-stone-400 text-center mt-3">
+                  This opens WhatsApp with your message pre-filled.
+                </p>
+              </CardContent>
+            </Card>
 
           </div>
         </Container>
-      </section>
+      </main>
 
       <Footer />
     </div>

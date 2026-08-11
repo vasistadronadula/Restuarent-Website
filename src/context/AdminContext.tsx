@@ -15,12 +15,13 @@ import { toast } from 'sonner';
 import { useAdminStore } from '@/store/useAdminStore';
 import {
   useOrders, useReservations, useMenuItems, useInventory, useEmployees,
-  useUpdateOrderStatus, useUpdateReservationStatus,
+  useUpdateOrderStatus, useUpdateOrderPrepTime, useUpdateReservationStatus,
   useAddMenuItem, useUpdateMenuItem, useDeleteMenuItem,
   useAddInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem,
   useCreateOrder, useCreateReservation,
+  useCategories, useAddCategory, useUpdateCategory, useDeleteCategory,
 } from '@/lib/queries';
-import { Order, Reservation, MenuItem, InventoryItem, Employee, Customer } from '@/types';
+import { Order, Reservation, MenuItem, InventoryItem, Employee, Customer, MenuCategory } from '@/types';
 
 interface AdminContextType {
   orders: Order[];
@@ -29,11 +30,13 @@ interface AdminContextType {
   employees: Employee[];
   menuItems: MenuItem[];
   inventory: InventoryItem[];
+  categories: MenuCategory[];
   addOrderLocallyAndDB: (newOrder: Order) => Promise<void>;
   addReservationLocallyAndDB: (newRes: Reservation) => Promise<void>;
   // Resolve to false instead of rejecting — they're bound directly to click
   // handlers, so a rejection would surface as an unhandled promise.
   updateOrderStatus: (id: string, status: Order['status']) => Promise<boolean>;
+  updateOrderPrepTime: (id: string, delayMinutes: number, notes?: string) => Promise<boolean>;
   updateReservationStatus: (id: string, status: Reservation['status']) => Promise<boolean>;
   // Each rejects with the server's own message when the write fails, so the
   // caller can await it and report the real outcome instead of assuming one.
@@ -45,6 +48,9 @@ interface AdminContextType {
   updateInventoryItem: (item: InventoryItem) => Promise<void>;
   deleteInventoryItem: (id: string) => Promise<void>;
   adjustInventoryQuantity: (id: string, delta: number) => Promise<void>;
+  addCategory: (cat: MenuCategory) => Promise<void>;
+  updateCategory: (cat: MenuCategory) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
   activeRole: 'admin' | 'manager' | 'cashier';
   setActiveRole: (role: 'admin' | 'manager' | 'cashier') => void;
   notification: { message: string; type: 'success' | 'error' | 'info' } | null;
@@ -65,10 +71,12 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   const { data: menuItems = [], isLoading: menuLoading } = useMenuItems();
   const { data: inventory = [], isLoading: invLoading } = useInventory();
   const { data: employees = [], isLoading: empLoading } = useEmployees();
+  const { data: categories = [], isLoading: catLoading } = useCategories();
 
-  const isLoadingDB = ordersLoading || resLoading || menuLoading || invLoading || empLoading;
+  const isLoadingDB = ordersLoading || resLoading || menuLoading || invLoading || empLoading || catLoading;
 
   const updateOrderStatusMutation = useUpdateOrderStatus();
+  const updateOrderPrepTimeMutation = useUpdateOrderPrepTime();
   const updateReservationStatusMutation = useUpdateReservationStatus();
   const addMenuItemMutation = useAddMenuItem();
   const updateMenuItemMutation = useUpdateMenuItem();
@@ -78,6 +86,9 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   const deleteInventoryItemMutation = useDeleteInventoryItem();
   const createOrderMutation = useCreateOrder();
   const createReservationMutation = useCreateReservation();
+  const addCategoryMutation = useAddCategory();
+  const updateCategoryMutation = useUpdateCategory();
+  const deleteCategoryMutation = useDeleteCategory();
 
   // Derive customers from orders (same logic as before)
   const customers: Customer[] = useMemo(() => {
@@ -153,6 +164,27 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
     notify(`Order ${id} updated to ${status}`);
+
+    // Fire-and-forget: notify customer via WhatsApp
+    if (['preparing', 'ready', 'delivered'].includes(status)) {
+      fetch('/api/whatsapp/send-status-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: id, newStatus: status }),
+      }).catch(() => {/* non-critical */});
+    }
+
+    return true;
+  };
+
+  const updateOrderPrepTime = async (id: string, delayMinutes: number, notes?: string): Promise<boolean> => {
+    try {
+      await updateOrderPrepTimeMutation.mutateAsync({ id, delayMinutes, notes });
+    } catch {
+      notify(`Failed to update prep time for order ${id}`, 'error');
+      return false;
+    }
+    notify(`Added +${delayMinutes}m delay to order ${id}`);
     return true;
   };
 
@@ -232,20 +264,33 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const addCategory = async (cat: MenuCategory) => {
+    await addCategoryMutation.mutateAsync(cat);
+  };
+
+  const updateCategory = async (cat: MenuCategory) => {
+    await updateCategoryMutation.mutateAsync(cat);
+  };
+
+  const deleteCategory = async (id: string) => {
+    await deleteCategoryMutation.mutateAsync(id);
+  };
+
   const notification = notificationState
     ? { message: notificationState.message, type: notificationState.type }
     : null;
 
   const value = useMemo(() => ({
-    orders, reservations, customers, employees, menuItems, inventory,
+    orders, reservations, customers, employees, menuItems, inventory, categories,
     addOrderLocallyAndDB, addReservationLocallyAndDB,
-    updateOrderStatus, updateReservationStatus,
+    updateOrderStatus, updateOrderPrepTime, updateReservationStatus,
     addMenuItem, updateMenuItem, deleteMenuItem, toggleMenuItemAvailability,
     addInventoryItem, updateInventoryItem, deleteInventoryItem, adjustInventoryQuantity,
+    addCategory, updateCategory, deleteCategory,
     activeRole, setActiveRole,
     notification, showNotification: notify, isLoadingDB,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [orders, reservations, customers, employees, menuItems, inventory, activeRole, notification, isLoadingDB]);
+  }), [orders, reservations, customers, employees, menuItems, inventory, categories, activeRole, notification, isLoadingDB]);
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
 };

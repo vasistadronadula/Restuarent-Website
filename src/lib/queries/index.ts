@@ -12,3 +12,4 @@ export * from './inventory';
 export * from './employees';
 export * from './tables';
 export * from './coupons';
+export * from './categories';

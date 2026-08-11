@@ -14,6 +14,7 @@ export const queryKeys = {
   employees: ['employees'] as const,
   tables: ['tables'] as const,
   coupons: ['coupons'] as const,
+  categories: ['menu-categories'] as const,
   /** Slot availability is per date+time, so it needs a parameterised key. */
   bookedTableSlots: (date: string, timeSlot: string) =>
     ['table-slots', date, timeSlot] as const,

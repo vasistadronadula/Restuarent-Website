@@ -2,7 +2,6 @@
 
 import React, { memo } from 'react';
 import Link from 'next/link';
-import { Clock, Flame, Star } from 'lucide-react';
 
 import { cn, formatCurrency, FALLBACK_DISH_IMAGE } from '@/lib/utils';
 import type { MenuItem } from '@/types';
@@ -76,34 +75,13 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
           {formatCurrency(activePrice)}
         </p>
 
-        {/* Rating and prep time. Both are quick scan signals — they sit on one
-            line so the description keeps its two full lines below. */}
-        <div className="mb-1.5 flex flex-wrap items-center gap-3">
-          <span className="border-success/35 inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5">
-            <Star className="fill-success text-success size-3" />
-            <span className="text-success text-xs font-extrabold">{item.rating}</span>
-            <span className="text-muted-foreground text-[11px]">({item.reviewCount})</span>
-          </span>
-
-          {item.prepTime && (
-            <span className="text-muted-foreground inline-flex items-center gap-1 text-[11.5px] font-semibold">
-              <Clock className="size-3" />
-              {item.prepTime} min
-            </span>
-          )}
-
-          {item.spiceLevel ? (
-            <span
-              className="inline-flex gap-px"
-              role="img"
-              aria-label={`Spice level ${item.spiceLevel} of 3`}
-            >
-              {Array.from({ length: item.spiceLevel }).map((_, i) => (
-                <Flame key={i} className="size-3 fill-[#E65100] text-[#E65100]" />
-              ))}
-            </span>
-          ) : null}
-        </div>
+        {/* Prep time badge — prominent customer-friendly callout */}
+        {item.prepTime != null && item.prepTime > 0 && (
+          <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-700">
+            <span>🕒</span>
+            Ready in {item.prepTime} mins
+          </div>
+        )}
 
         <p className="text-muted-foreground line-clamp-2 text-[12.5px] leading-relaxed sm:text-[13px]">
           {item.description}

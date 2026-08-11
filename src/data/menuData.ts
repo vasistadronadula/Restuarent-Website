@@ -1,4 +1,4 @@
-import { MenuItem, Category } from '@/types';
+import { MenuItem } from '@/types';
 import rawMenuItems from './menuItems.json';
 
 /**
@@ -13,7 +13,7 @@ export const menuItems: MenuItem[] = (rawMenuItems as Array<Record<string, unkno
   name: item.name as string,
   description: item.description as string,
   price: item.price as number,
-  category: item.category as Category,
+  category: item.category as string,
   vegStatus: item.vegStatus as MenuItem['vegStatus'],
   rating: 4.5,
   reviewCount: 0,
@@ -26,7 +26,7 @@ export const menuItems: MenuItem[] = (rawMenuItems as Array<Record<string, unkno
   portionPrices: item.portionPrices as MenuItem['portionPrices'],
 }));
 
-export const categoryLabels: Record<Category, string> = {
+export const categoryLabels: Record<string, string> = {
   combos: 'Unlimited & Party Combos',
   starters: 'Starters',
   tandoori: 'Tandoori',

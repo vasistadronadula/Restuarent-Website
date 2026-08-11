@@ -23,7 +23,7 @@ import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
 import { supabase } from '@/lib/supabase';
 import { normalizePhone } from '@/lib/validation';
 import { accountDisplayName, isInternalPhoneEmail } from '@/lib/phoneIdentity';
-import { triggerNewOrderPush } from '@/lib/triggerPush';
+import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
 import { restaurantInfo } from '@/data/restaurantInfo';
 import type { Order, PaymentMode, PaymentStatus } from '@/types';
 
@@ -234,6 +234,7 @@ function CheckoutForm() {
     }
 
     triggerNewOrderPush(id);
+    triggerWhatsAppOrderConfirmation(id);
     setCompletedOrder(newOrderObj);
     setPlaced(true);
     clearCart();
