@@ -38,7 +38,7 @@ const LAUNCHPAD_GROUPS = [
         label: 'Cashier POS',
         href: '/admin/pos',
         icon: Calculator,
-        description: 'Ring up sales, print receipts, take payments',
+        description: 'Ring up sales, print receipts, take counter payments',
       },
       {
         label: 'Live Orders',
@@ -53,13 +53,6 @@ const LAUNCHPAD_GROUPS = [
         href: '/admin/kitchen',
         icon: ChefHat,
         description: 'Kitchen display, cooking queues, lane progress',
-      },
-      {
-        label: 'Table Bookings',
-        href: '/admin/reservations',
-        icon: CalendarDays,
-        description: 'Reservations, table mapping, walk-in seating',
-        badgeKey: 'todayBookings',
       },
     ],
   },
@@ -81,18 +74,6 @@ const LAUNCHPAD_GROUPS = [
         urgent: true,
       },
       {
-        label: 'Customers',
-        href: '/admin/customers',
-        icon: Users,
-        description: 'Customer accounts, VIP status, order histories',
-      },
-      {
-        label: 'Employees & HR',
-        href: '/admin/employees',
-        icon: Briefcase,
-        description: 'Payroll, credentials, shift schedules',
-      },
-      {
         label: 'Coupons & Offers',
         href: '/admin/coupons',
         icon: Ticket,
@@ -101,7 +82,7 @@ const LAUNCHPAD_GROUPS = [
     ],
   },
   {
-    label: 'Reports',
+    label: 'Reports & Admin',
     pages: [
       {
         label: 'Bills Ledger',
@@ -132,8 +113,8 @@ const LAUNCHPAD_GROUPS = [
 ] as const;
 
 export default function AdminDashboard() {
-  const { orders, reservations, inventory, employees } = useAdmin();
-  const { user, userRole } = useAuth();
+  const { orders, inventory } = useAdmin();
+  const { user } = useAuth();
 
   const [nowTs, setNowTs] = useState(0);
   useEffect(() => {
@@ -156,8 +137,7 @@ export default function AdminDashboard() {
   const stats = useMemo(() => {
     if (!todayStr) {
       return {
-        todayRevenue: 0, todayOrders: 0, pendingOrders: 0,
-        todayBookings: 0, lowStock: 0, totalEmployees: 0,
+        todayRevenue: 0, todayOrders: 0, pendingOrders: 0, lowStock: 0,
       };
     }
 
@@ -177,37 +157,35 @@ export default function AdminDashboard() {
       }
     }
 
-    const todayBookings = reservations.filter(
-      (r) => r.date === todayStr && r.status !== 'cancelled'
-    ).length;
     const lowStock = inventory.filter(
       (i) => i.currentStock <= i.minStockThreshold
     ).length;
-    const totalEmployees = employees.length;
 
     return {
-      todayRevenue, todayOrders, pendingOrders,
-      todayBookings, lowStock, totalEmployees,
+      todayRevenue, todayOrders, pendingOrders, lowStock,
     };
-  }, [orders, reservations, inventory, employees, todayStr]);
+  }, [orders, inventory, todayStr]);
 
   const firstName = user?.user_metadata?.full_name?.split(' ')[0]
     || user?.user_metadata?.name?.split(' ')[0]
-    || 'there';
+    || 'Admin';
 
   return (
     <AdminLayout title="Dashboard">
       <div className="space-y-6 w-full max-w-full">
 
-        {/* Greeting + role */}
+        {/* Greeting */}
         <PageHeader
           title={`${greeting}, ${firstName}`}
           subtitle="Here's what's happening at the restaurant today."
           action={
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-stone-200 rounded-lg text-xs font-medium text-stone-500 shadow-xs flex-shrink-0">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              <span className="capitalize">{userRole || 'staff'}</span>
-            </div>
+            <Link
+              href="/admin/pos"
+              className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+            >
+              <Calculator className="w-4 h-4" />
+              <span>Open Cashier POS</span>
+            </Link>
           }
         />
 
@@ -255,66 +233,61 @@ export default function AdminDashboard() {
 
         {/* ── App Launcher ─────────────────────────────────── */}
         <div className="space-y-6">
-          {LAUNCHPAD_GROUPS.map((group) => {
-            const visiblePages = group.pages.filter((p) => canAccess(userRole, p.href));
-            if (visiblePages.length === 0) return null;
+          {LAUNCHPAD_GROUPS.map((group) => (
+            <div key={group.label}>
+              <SectionHeading
+                title={group.label}
+                subtitle={`${group.pages.length} modules`}
+              />
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3 mt-3">
+                {group.pages.map((page) => {
+                  const IconComponent = page.icon;
+                  const badgeVal = 'badgeKey' in page && page.badgeKey
+                    ? stats[page.badgeKey as keyof typeof stats]
+                    : 0;
+                  const isUrgent = 'urgent' in page && page.urgent && badgeVal > 0;
 
-            return (
-              <div key={group.label}>
-                <SectionHeading
-                  title={group.label}
-                  subtitle={`${visiblePages.length} modules`}
-                />
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 mt-3">
-                  {visiblePages.map((page) => {
-                    const IconComponent = page.icon;
-                    const badgeVal = 'badgeKey' in page && page.badgeKey
-                      ? stats[page.badgeKey as keyof typeof stats]
-                      : 0;
-                    const isUrgent = 'urgent' in page && page.urgent && badgeVal > 0;
+                  return (
+                    <Link
+                      key={page.label}
+                      href={page.href}
+                      className={`group relative flex flex-col gap-3 p-4 bg-white border rounded-xl hover:shadow-sm transition-all duration-150 ${
+                        isUrgent
+                          ? 'border-amber-300 hover:border-amber-400'
+                          : 'border-stone-200 hover:border-stone-300'
+                      }`}
+                    >
+                      {/* Icon */}
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        isUrgent
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-stone-100 text-stone-600 group-hover:bg-stone-200'
+                      } transition-colors`}>
+                        <IconComponent className="w-4.5 h-4.5" />
+                      </div>
 
-                    return (
-                      <Link
-                        key={page.label}
-                        href={page.href}
-                        className={`group relative flex flex-col gap-3 p-4 bg-white border rounded-xl hover:shadow-sm transition-all duration-150 ${
-                          isUrgent
-                            ? 'border-amber-300 hover:border-amber-400'
-                            : 'border-stone-200 hover:border-stone-300'
-                        }`}
-                      >
-                        {/* Icon */}
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          isUrgent
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-stone-100 text-stone-600 group-hover:bg-stone-200'
-                        } transition-colors`}>
-                          <IconComponent className="w-4.5 h-4.5" />
-                        </div>
+                      {/* Label + description */}
+                      <div>
+                        <h3 className="font-semibold text-sm text-stone-900 group-hover:text-amber-700 transition-colors leading-tight">
+                          {page.label}
+                        </h3>
+                        <p className="text-xs text-stone-400 mt-0.5 leading-relaxed line-clamp-2">
+                          {page.description}
+                        </p>
+                      </div>
 
-                        {/* Label + description */}
-                        <div>
-                          <h3 className="font-semibold text-sm text-stone-900 group-hover:text-amber-700 transition-colors leading-tight">
-                            {page.label}
-                          </h3>
-                          <p className="text-xs text-stone-400 mt-0.5 leading-relaxed line-clamp-2">
-                            {page.description}
-                          </p>
-                        </div>
-
-                        {/* Badge — static, no pulse */}
-                        {badgeVal > 0 && (
-                          <span className="absolute top-3 right-3 bg-amber-600 text-white rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-semibold">
-                            {badgeVal}
-                          </span>
-                        )}
-                      </Link>
-                    );
-                  })}
-                </div>
+                      {/* Badge */}
+                      {badgeVal > 0 && (
+                        <span className="absolute top-3 right-3 bg-amber-600 text-white rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-semibold">
+                          {badgeVal}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
 
       </div>

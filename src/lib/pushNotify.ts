@@ -148,7 +148,7 @@ export async function sendNewReservationPushNotification(reservationId: string):
     await sendToRoles(RESERVATION_NOTIFICATION_ROLES, {
       title: '📅 New reservation',
       body: `${reservation.name || 'A guest'} — ${reservation.guests || 2} guests${when ? ` · ${when}` : ''}`,
-      url: '/admin/reservations',
+      url: '/admin',
       tag: `ppr-reservation-${reservation.id}`,
     });
   } catch (err) {

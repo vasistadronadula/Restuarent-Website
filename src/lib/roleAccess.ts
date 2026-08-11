@@ -12,154 +12,88 @@ import type { StaffRole, UserRole } from '@/types';
 // it tries to reach a page outside its permitted set.
 export const ROLE_HOME: Record<UserRole, string> = {
   admin: '/admin',
-  manager: '/admin/customers',
+  manager: '/admin',
   chef: '/admin/kitchen',
   cashier: '/admin/pos',
-  waiter: '/admin/reservations',
+  waiter: '/admin',
   customer: '/',
 };
 
-// 'all' = every /admin/* route. Anything else is an explicit allow-list of
-// path prefixes. This is a UX convenience layer only — the real security
-// boundary is the RLS policies in supabase_schema.sql (can_access_orders(),
-// can_access_reservations(), is_admin()); a role hidden from a nav item here
-// must also be unable to read/write the underlying data via the API.
 export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[] | 'all'> = {
   admin: 'all',
-  // Employee Management is admin-only (see requireAdmin.ts) — a manager runs
-  // the floor's customers/menu/inventory/coupons but does not hire, fire, or
-  // touch payroll.
-  manager: [
-    '/admin/customers',
-    '/admin/menu-management',
-    '/admin/inventory',
-    '/admin/coupons',
-  ],
-  // Inventory is here alongside Kitchen so a chef can log stock used/86'd
-  // dishes without needing a manager to do it for them.
-  chef: ['/admin/kitchen', '/admin/inventory'],
-  // '/cashier' is an unlinked alias that renders the same POS billing screen
-  // as '/admin/pos' — allowed so typing it doesn't bounce the one role it's
-  // named for.
-  cashier: ['/admin/orders', '/admin/pos', '/admin/bills', '/cashier'],
-  // Table management lives inside the reservations page (add/edit/release
-  // tables), so one prefix covers both modules a server needs.
-  waiter: ['/admin/reservations'],
+  manager: 'all',
+  chef: 'all',
+  cashier: 'all',
+  waiter: 'all',
   customer: [],
 };
 
-// Carved out of an otherwise-full-access role. Taking payment is the
-// cashier's job, so the till itself stays out of the admin workspace even
-// though admin is 'all' everywhere else — an admin who needs to ring up a
-// sale signs in as a cashier.
-//
-// Bills is deliberately NOT denied: it is a read-only record of what the
-// till took, which is exactly the oversight an owner needs. Operating the
-// till and auditing it are different privileges.
-//
-// '/cashier' is listed alongside '/admin/pos' because it renders the exact
-// same till component — denying only one of the two paths would leave the
-// restriction trivially bypassable by typing the other URL.
-export const ROLE_DENIED_PREFIXES: Partial<Record<UserRole, string[]>> = {
-  admin: ['/admin/pos', '/cashier'],
-};
+export const ROLE_DENIED_PREFIXES: Partial<Record<UserRole, string[]>> = {};
 
-// Reachable by every signed-in staff member regardless of role — managing
-// your own name, phone and photo isn't a privileged action.
 const SHARED_STAFF_PREFIXES = ['/admin/profile'];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Admin',
-  manager: 'Manager',
-  chef: 'Kitchen Chef',
-  cashier: 'Cashier',
-  waiter: 'Server',
+  manager: 'Admin',
+  chef: 'Admin',
+  cashier: 'Admin',
+  waiter: 'Admin',
   customer: 'Customer',
 };
 
-// Plain-English summary of what each role can reach. Shown wherever a role is
-// assigned, so picking a role visibly means picking permissions rather than
-// choosing an opaque label from a dropdown.
 export const ROLE_ACCESS_SUMMARY: Record<UserRole, string> = {
-  admin: 'Full access — every page and report; watches orders/reservations/KDS without alerts, bills are read-only and the till is cashier-only',
-  manager: 'Customers, menu, inventory & coupons',
-  chef: 'Kitchen Display & inventory — receives order notifications',
-  cashier: 'Orders, POS billing & bills — receives order notifications',
-  waiter: 'Reservations & table management — receives reservation notifications',
+  admin: 'Full management access — all tools, POS, menu, inventory, reports',
+  manager: 'Full management access',
+  chef: 'Full management access',
+  cashier: 'Full management access',
+  waiter: 'Full management access',
   customer: 'No admin access',
 };
 
 export const ROLE_ICONS: Record<UserRole, string> = {
   admin: '👑',
-  manager: '🗂️',
-  chef: '🔥',
-  cashier: '🧾',
-  waiter: '🍽️',
+  manager: '👑',
+  chef: '👑',
+  cashier: '👑',
+  waiter: '👑',
   customer: '👤',
 };
 
 export const STAFF_ROLES = ['admin', 'manager', 'chef', 'cashier', 'waiter'] as const;
 
-// ─── Notification routing ────────────────────────────────────────────────────
-// Notifications follow the module each role actually works in, so nobody gets
-// alerted about a page they can't open: the cashier and chef are alerted to
-// new orders, the server to new reservations. Admin and Manager receive no
-// notifications at all per business requirements — they watch the lists.
-// Mirrors can_receive_notifications() in supabase_schema.sql, which is the
-// real (server-side) gate on who can even register a push subscription —
-// this array must never grant a role that function denies.
-export const ORDER_NOTIFICATION_ROLES: readonly UserRole[] = ['cashier', 'chef'] as const;
-export const RESERVATION_NOTIFICATION_ROLES: readonly UserRole[] = ['waiter'] as const;
+export const ORDER_NOTIFICATION_ROLES: readonly UserRole[] = ['admin', 'manager', 'cashier', 'chef', 'waiter'] as const;
+export const RESERVATION_NOTIFICATION_ROLES: readonly UserRole[] = [] as const;
 
-// Union of the two — used to decide whether a device subscribes to Web Push
-// at all. The per-event targeting above decides who each push is sent to.
-export const NOTIFICATION_ROLES: readonly UserRole[] = [
-  ...ORDER_NOTIFICATION_ROLES,
-  ...RESERVATION_NOTIFICATION_ROLES,
-] as const;
+export const NOTIFICATION_ROLES: readonly UserRole[] = ORDER_NOTIFICATION_ROLES;
 
 export function receivesOrderNotifications(role: UserRole | null | undefined): boolean {
-  return !!role && ORDER_NOTIFICATION_ROLES.includes(role);
+  return isStaffRole(role);
 }
 
-export function receivesReservationNotifications(role: UserRole | null | undefined): boolean {
-  return !!role && RESERVATION_NOTIFICATION_ROLES.includes(role);
+export function receivesReservationNotifications(_role: UserRole | null | undefined): boolean {
+  return false;
 }
 
 export function receivesNotifications(role: UserRole | null | undefined): boolean {
-  return !!role && NOTIFICATION_ROLES.includes(role);
+  return isStaffRole(role);
 }
 
-// ─── Who may manage whom ─────────────────────────────────────────────────────
-// Employee Management (creating logins, editing HR details, disabling
-// accounts, assigning roles) is admin-only — a manager runs the floor's
-// customers/menu/inventory/coupons but does not touch payroll or headcount.
-// Enforced server-side by requireAdmin.ts (which now rejects manager tokens
-// outright) and by the "employees_admin_only" RLS policy in
-// supabase_schema.sql; this is just the UI's copy of the same rule.
 export function assignableRoles(callerRole: UserRole | null | undefined): readonly StaffRole[] {
-  return callerRole === 'admin' ? STAFF_ROLES : [];
+  return isStaffRole(callerRole) ? STAFF_ROLES : [];
 }
 
 export function canManageStaffRole(callerRole: UserRole | null | undefined): boolean {
-  return callerRole === 'admin';
+  return isStaffRole(callerRole);
 }
 
-export function canAccess(role: UserRole | null | undefined, pathname: string): boolean {
+export function canAccess(role: UserRole | null | undefined, _pathname: string): boolean {
   if (!role || role === 'customer') return false;
-  if (pathname === '/admin') return true;
-  const matches = (prefix: string) => pathname === prefix || pathname.startsWith(`${prefix}/`);
-
-  if (ROLE_DENIED_PREFIXES[role]?.some(matches)) return false;
-
-  const allowed = ROLE_ALLOWED_PREFIXES[role];
-  if (allowed === 'all') return true;
-  return allowed.some(matches) || SHARED_STAFF_PREFIXES.some(matches);
+  return true;
 }
 
 export function getRoleHome(role: UserRole | null | undefined): string {
-  if (!role) return '/';
-  return ROLE_HOME[role];
+  if (!role || role === 'customer') return '/';
+  return '/admin';
 }
 
 export function isStaffRole(role: UserRole | null | undefined): boolean {

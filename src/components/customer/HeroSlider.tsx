@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight, Star, Plus, ChevronLeft, ChevronRight,
-  Trophy, UtensilsCrossed, Clock,
+  Trophy, UtensilsCrossed, Clock, ReceiptText,
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { flyToCart } from '@/lib/flyToCart';
@@ -196,9 +196,9 @@ export default function HeroSlider() {
                   size="lg"
                   className="bg-white/10 hover:bg-amber-500/20 text-white border-white/30 hover:border-amber-400 font-bold rounded-xl backdrop-blur-md text-base"
                 >
-                  <Link href="/reservation" className="flex items-center gap-2">
-                    <UtensilsCrossed className="w-5 h-5" />
-                    Reserve Table
+                  <Link href="/orders" className="flex items-center gap-2">
+                    <ReceiptText className="w-5 h-5" />
+                    Track Orders
                   </Link>
                 </Button>
               </div>

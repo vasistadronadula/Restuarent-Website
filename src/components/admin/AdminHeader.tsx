@@ -161,33 +161,18 @@ export default function AdminHeader({ title }: Props) {
 
           {/* Right Side: Quick Actions & Profile Dropdown */}
           <div className="flex items-center gap-2 sm:gap-3">
-            
-            {/* Auto Print Toggle + Printer Settings (Cashier Only) */}
-            {showAutoPrint && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setAutoPrint(!autoPrint)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                    autoPrint
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : 'bg-stone-50 text-stone-500 border-stone-200'
-                  }`}
-                  title="Toggle auto-print"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">{autoPrint ? 'Auto-Print ON' : 'Print OFF'}</span>
-                </button>
-                <button
-                  onClick={() => setPrinterSettingsOpen(true)}
-                  className="p-2 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
-                  title="Printer settings"
-                  aria-label="Printer settings"
-                >
-                  <Settings className="w-4 h-4" />
-                </button>
-              </div>
-            )}
 
+            {/* POS Quick Button */}
+            {pathname !== '/admin/pos' && (
+              <Link
+                href="/admin/pos"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Cashier POS</span>
+              </Link>
+            )}
+            
             {/* Live Clock / Date Badge */}
             <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-stone-50 border border-stone-200 text-stone-500 rounded-lg text-xs font-medium">
               <Clock className="w-3.5 h-3.5 text-stone-400" />
