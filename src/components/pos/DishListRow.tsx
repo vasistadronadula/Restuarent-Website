@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, Minus } from 'lucide-react';
+import { Plus, Minus, Check, Star } from 'lucide-react';
 import type { MenuItem } from '@/types';
 import { PORTION_LABEL, sellablePortions, type Portion } from '@/hooks/usePosCart';
 
@@ -22,32 +22,43 @@ function DishListRow({ item, inBill, quantityByPortion, onAdd, onDecrement }: Pr
   const hasPortionChoice = portions.length > 1;
   const unitPrice = portions.length === 1 ? portions[0].price : item.price;
 
-  const vegDotClass = isVeg
-    ? 'bg-emerald-600 border-emerald-600'
+  const vegDotColor = isVeg
+    ? 'border-emerald-600'
     : isEgg
-    ? 'bg-amber-500 border-amber-500'
-    : 'bg-rose-600 border-rose-600';
+    ? 'border-amber-500'
+    : 'border-rose-600';
+
+  const vegDotFill = isVeg
+    ? 'bg-emerald-600'
+    : isEgg
+    ? 'bg-amber-500'
+    : 'bg-rose-600';
 
   return (
     <div
-      className={`flex items-center gap-3 px-4 py-3 min-h-[68px] transition-all border-l-4 ${
+      className={`flex items-center gap-3.5 px-4 py-3 min-h-[64px] transition-all border-l-4 ${
         active
-          ? 'bg-orange-50 border-l-orange-500'
-          : 'bg-white border-l-transparent hover:bg-stone-50'
+          ? 'bg-blue-50/70 border-l-blue-600'
+          : 'bg-white border-l-transparent hover:bg-slate-50'
       }`}
     >
-      {/* Veg indicator */}
-      <span
-        className={`shrink-0 inline-flex size-4 rounded-[3px] border-2 items-center justify-center ${vegDotClass}`}
-      >
-        <span className="size-1.5 rounded-full bg-white/80" />
+      {/* Veg Indicator Dot */}
+      <span className={`shrink-0 size-4.5 rounded-[4px] border-2 bg-white flex items-center justify-center ${vegDotColor}`}>
+        <span className={`size-2 rounded-full ${vegDotFill}`} />
       </span>
 
-      {/* Name + price */}
+      {/* Name + Price */}
       <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-bold text-stone-900 leading-tight line-clamp-2">
-          {item.name}
-        </h4>
+        <div className="flex items-center gap-2">
+          <h4 className="text-sm font-bold text-slate-900 leading-tight truncate">
+            {item.name}
+          </h4>
+          {item.isPopular && (
+            <span className="shrink-0 text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-100 text-amber-900">
+              Top
+            </span>
+          )}
+        </div>
 
         {hasPortionChoice ? (
           <div className="flex gap-1.5 mt-1.5 flex-wrap">
@@ -59,10 +70,10 @@ function DishListRow({ item, inBill, quantityByPortion, onAdd, onDecrement }: Pr
                   key={portion}
                   type="button"
                   onClick={() => onAdd(item, portion)}
-                  className={`h-7 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                  className={`h-7 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 border ${
                     selected
-                      ? 'bg-orange-500 text-white shadow-sm'
-                      : 'bg-stone-100 text-stone-700 border border-stone-200 hover:bg-orange-50 hover:border-orange-300'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-blue-50'
                   }`}
                 >
                   {PORTION_LABEL[portion]} ₹{price}
@@ -76,46 +87,48 @@ function DishListRow({ item, inBill, quantityByPortion, onAdd, onDecrement }: Pr
             })}
           </div>
         ) : (
-          <span className="text-sm font-black text-orange-600 mt-0.5 block">₹{unitPrice}</span>
+          <span className="text-sm font-black text-slate-950 font-mono mt-0.5 block">
+            ₹{unitPrice}
+          </span>
         )}
       </div>
 
-      {/* Qty stepper or ADD */}
+      {/* Qty Stepper or Fast Add Button */}
       {hasPortionChoice ? (
         active && (
-          <span className="shrink-0 min-w-[32px] h-7 px-2.5 rounded-full bg-orange-500 text-white flex items-center justify-center text-xs font-black shadow-sm">
+          <span className="shrink-0 min-w-[32px] h-8 px-2.5 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs font-black shadow-xs font-mono">
             {inBill}
           </span>
         )
       ) : active ? (
-        <div className="flex items-center gap-0 bg-white border-2 border-orange-400 rounded-xl overflow-hidden shrink-0 shadow-sm">
+        <div className="flex items-center gap-0 bg-white border-2 border-blue-400 rounded-xl overflow-hidden shrink-0 shadow-xs">
           <button
             type="button"
             onClick={() => onDecrement?.(item)}
             aria-label={`Less ${item.name}`}
-            className="w-10 h-10 flex items-center justify-center text-orange-600 hover:bg-orange-50 transition-colors"
+            className="w-9 h-9 flex items-center justify-center text-blue-700 hover:bg-blue-50 transition-colors"
           >
-            <Minus className="w-4 h-4" />
+            <Minus className="size-4" />
           </button>
-          <span className="min-w-[28px] text-center text-sm font-black text-orange-700 px-1 tabular-nums">
+          <span className="min-w-[28px] text-center text-sm font-black text-blue-950 font-mono px-1 tabular-nums">
             {inBill}
           </span>
           <button
             type="button"
             onClick={() => onAdd(item)}
             aria-label={`More ${item.name}`}
-            className="w-10 h-10 flex items-center justify-center bg-orange-500 text-white hover:bg-orange-600 transition-colors"
+            className="w-9 h-9 flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 transition-colors"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="size-4" />
           </button>
         </div>
       ) : (
         <button
           type="button"
           onClick={() => onAdd(item)}
-          className="shrink-0 w-16 h-10 rounded-xl bg-orange-500 hover:bg-orange-600 active:scale-95 text-white text-sm font-bold flex items-center justify-center gap-1 transition-all shadow-sm"
+          className="shrink-0 h-9 px-4 rounded-xl bg-slate-900 hover:bg-blue-600 active:scale-95 text-white text-xs font-black flex items-center justify-center gap-1 transition-all shadow-xs"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="size-3.5" />
           Add
         </button>
       )}
