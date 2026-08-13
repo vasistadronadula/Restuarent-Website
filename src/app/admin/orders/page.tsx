@@ -34,17 +34,17 @@ function ElapsedTime({ placedAt }: { placedAt?: string }) {
     return () => clearInterval(t);
   }, []);
 
-  if (!placedAt) return <span className="text-xs text-stone-400">—</span>;
+  if (!placedAt) return <span className="text-xs text-slate-400 font-mono">—</span>;
 
   const mins = Math.max(0, Math.floor((now - new Date(placedAt).getTime()) / 60_000));
   const label = mins < 1 ? 'just now' : mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
 
   return (
     <span className={cn(
-      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs tabular-nums',
+      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums',
       mins >= 20 ? 'bg-rose-100 text-rose-700'
         : mins >= 10 ? 'bg-amber-100 text-amber-700'
-        : 'bg-stone-100 text-stone-500'
+        : 'bg-slate-100 text-slate-600'
     )}>
       <Clock className="size-3" /> {label}
     </span>
@@ -78,14 +78,14 @@ const LANES: {
     label: 'Ready for Pickup',
     icon: <CheckCircle2 className="size-4 text-emerald-600" />,
     borderColor: 'border-emerald-200',
-    ctaClass: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+    ctaClass: 'bg-[#059669] hover:bg-[#047857] text-white',
     cta: 'Mark Delivered',
     next: 'delivered',
   },
 ];
 
 const STATUS_PILLS: { key: OrderStatus | 'all'; label: string }[] = [
-  { key: 'all', label: 'All' },
+  { key: 'all', label: 'All Orders' },
   { key: 'pending', label: 'Pending' },
   { key: 'preparing', label: 'Preparing' },
   { key: 'ready', label: 'Ready' },
@@ -142,7 +142,7 @@ export default function OrdersPage() {
       accessorKey: 'id',
       header: 'Order ID',
       cell: ({ row }) => (
-        <span className="font-mono text-sm text-stone-900">{row.original.id}</span>
+        <span className="font-mono text-xs font-bold text-slate-900">{row.original.id}</span>
       ),
     },
     {
@@ -150,10 +150,10 @@ export default function OrdersPage() {
       header: 'Customer',
       cell: ({ row }) => (
         <div>
-          <div className="font-medium text-sm text-stone-900">
+          <div className="font-bold text-xs sm:text-sm text-slate-900">
             {row.original.customerName || 'Walk-in'}
           </div>
-          <div className="text-xs text-stone-400">{row.original.customerPhone || ''}</div>
+          <div className="text-[11px] text-slate-400 font-medium">{row.original.customerPhone || ''}</div>
         </div>
       ),
     },
@@ -161,7 +161,7 @@ export default function OrdersPage() {
       accessorKey: 'orderType',
       header: 'Type',
       cell: ({ row }) => (
-        <Badge variant="outline" className="uppercase text-xs font-medium bg-stone-50">
+        <Badge variant="outline" className="uppercase text-[10px] font-bold bg-slate-50 border-slate-200 text-slate-700">
           {row.original.orderType}
         </Badge>
       ),
@@ -170,7 +170,7 @@ export default function OrdersPage() {
       accessorKey: 'items',
       header: 'Items',
       cell: ({ row }) => (
-        <div className="max-w-xs truncate text-stone-600 text-sm">
+        <div className="max-w-xs truncate text-slate-600 text-xs font-medium">
           {row.original.items?.map((i) => `${i.name} ×${i.quantity}`).join(', ')}
         </div>
       ),
@@ -179,7 +179,7 @@ export default function OrdersPage() {
       accessorKey: 'grandTotal',
       header: 'Total',
       cell: ({ row }) => (
-        <span className="font-semibold text-stone-900 tabular-nums">₹{row.original.grandTotal}</span>
+        <span className="font-bold text-slate-900 font-mono tabular-nums">₹{row.original.grandTotal}</span>
       ),
     },
     {
@@ -196,11 +196,20 @@ export default function OrdersPage() {
         const next = nextStatus[currentSt];
         return (
           <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" onClick={() => setSelectedOrder(order)} className="h-8 px-2.5 text-xs">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedOrder(order)}
+              className="h-8 px-2.5 text-xs font-bold rounded-xl border-slate-200 text-slate-700 hover:bg-slate-50"
+            >
               <Eye className="w-3.5 h-3.5 mr-1" /> View
             </Button>
             {next && (
-              <Button size="sm" onClick={() => handleUpdateStatus(order.id, next)} className="h-8 px-2.5 text-xs bg-amber-600 hover:bg-amber-700 text-white">
+              <Button
+                size="sm"
+                onClick={() => handleUpdateStatus(order.id, next)}
+                className="h-8 px-2.5 text-xs font-bold rounded-xl bg-[#059669] hover:bg-[#047857] text-white shadow-2xs"
+              >
                 → {next}
               </Button>
             )}
@@ -212,22 +221,30 @@ export default function OrdersPage() {
 
   return (
     <AdminLayout title="Live Orders">
-      <div className="space-y-4 w-full max-w-full">
+      <div className="space-y-5 w-full max-w-full font-sans">
         {/* Header */}
         <PageHeader
           title="Live Orders"
           subtitle={`${statusCounts['pending'] || 0} pending · ${statusCounts['preparing'] || 0} preparing · ${statusCounts['ready'] || 0} ready`}
           action={
-            <div className="flex items-center gap-2 bg-stone-100 rounded-lg p-1">
+            <div className="flex items-center gap-1.5 bg-slate-100/90 rounded-xl p-1 border border-slate-200">
               <button
+                type="button"
                 onClick={() => setView('pipeline')}
-                className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', view === 'pipeline' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                  view === 'pipeline' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                )}
               >
                 <LayoutGrid className="size-3.5" /> Board
               </button>
               <button
+                type="button"
                 onClick={() => setView('table')}
-                className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors', view === 'table' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700')}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                  view === 'table' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                )}
               >
                 <Table2 className="size-3.5" /> Table
               </button>
@@ -242,19 +259,21 @@ export default function OrdersPage() {
               return (
                 <div key={lane.status} className="flex flex-col min-w-0">
                   {/* Lane header */}
-                  <div className={cn('mb-3 flex items-center justify-between px-3 py-2 rounded-lg border bg-white', lane.borderColor)}>
-                    <div className="flex items-center gap-2 text-sm font-medium text-stone-700">
+                  <div className={cn('mb-3 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border bg-white shadow-2xs', lane.borderColor)}>
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
                       {lane.icon}
                       <span>{lane.label}</span>
                     </div>
-                    <span className="text-sm font-semibold text-stone-600 tabular-nums">{laneList.length}</span>
+                    <span className="text-xs font-mono font-black text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md tabular-nums">
+                      {laneList.length}
+                    </span>
                   </div>
 
                   {/* Lane cards */}
                   <div className="space-y-3 min-h-[400px]">
                     {laneList.length === 0 ? (
-                      <div className="rounded-lg border-2 border-dashed border-stone-200 px-4 py-10 text-center text-sm text-stone-400">
-                        No orders here
+                      <div className="rounded-2xl border-2 border-dashed border-slate-200 px-4 py-12 text-center text-xs font-semibold text-slate-400 bg-white/50">
+                        No orders in this stage
                       </div>
                     ) : (
                       laneList.map((o) => {
@@ -264,44 +283,44 @@ export default function OrdersPage() {
                         return (
                           <div
                             key={o.id}
-                            className="cursor-pointer rounded-xl border border-stone-200 bg-white p-4 hover:border-stone-300 hover:shadow-sm transition-all"
+                            className="cursor-pointer rounded-2xl border border-slate-200/90 bg-white p-4 hover:border-emerald-300 hover:shadow-md transition-all active:scale-[0.99]"
                             onClick={() => setSelectedOrder(o)}
                           >
                             {/* Top bar */}
                             <div className="flex items-center justify-between gap-2 mb-2">
-                              <span className="font-mono text-sm font-medium text-stone-900 truncate">{o.id}</span>
+                              <span className="font-mono text-xs font-bold text-slate-900 truncate">#{o.id}</span>
                               <ElapsedTime placedAt={placed} />
                             </div>
 
                             {/* Customer & type */}
-                            <div className="flex items-center justify-between gap-2 text-sm text-stone-600 mb-3">
-                              <span className="truncate">{o.customerName || 'Walk-in'}</span>
-                              <Badge variant="outline" className="shrink-0 uppercase text-xs font-medium bg-stone-50">
+                            <div className="flex items-center justify-between gap-2 text-xs text-slate-600 mb-3">
+                              <span className="truncate font-bold text-slate-800">{o.customerName || 'Walk-in Diner'}</span>
+                              <Badge variant="outline" className="shrink-0 uppercase text-[10px] font-bold bg-slate-50 border-slate-200 text-slate-700">
                                 {o.orderType}{o.tableNumber ? ` · T${o.tableNumber}` : ''}
                               </Badge>
                             </div>
 
                             {/* Items */}
-                            <div className="space-y-1 py-2 border-y border-stone-100 mb-3">
+                            <div className="space-y-1 py-2 border-y border-slate-100 mb-3">
                               {(o.items || []).slice(0, 3).map((it, idx) => (
-                                <div key={idx} className="flex items-center justify-between gap-2 text-sm">
-                                  <span className="min-w-0 truncate text-stone-800">{it.name}</span>
-                                  <span className="shrink-0 text-xs text-stone-500 tabular-nums">×{it.quantity}</span>
+                                <div key={idx} className="flex items-center justify-between gap-2 text-xs">
+                                  <span className="min-w-0 truncate text-slate-700 font-medium">{it.name}</span>
+                                  <span className="shrink-0 text-[11px] text-slate-400 font-mono font-bold tabular-nums">×{it.quantity}</span>
                                 </div>
                               ))}
                               {(o.items || []).length > 3 && (
-                                <div className="text-xs text-stone-400">+{(o.items || []).length - 3} more</div>
+                                <div className="text-[11px] text-slate-400 font-medium">+{(o.items || []).length - 3} more items</div>
                               )}
                             </div>
 
                             {/* Total + CTA */}
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-stone-900 tabular-nums flex-1">₹{o.grandTotal}</span>
+                              <span className="font-mono font-bold text-slate-900 tabular-nums flex-1 text-sm">₹{o.grandTotal}</span>
                               {next && (
                                 <Button
                                   size="sm"
                                   onClick={(e) => { e.stopPropagation(); handleUpdateStatus(o.id, next); }}
-                                  className={cn('flex-1 h-8 text-xs font-medium rounded-lg', lane.ctaClass)}
+                                  className={cn('flex-1 h-8 text-xs font-bold rounded-xl shadow-2xs', lane.ctaClass)}
                                 >
                                   {lane.cta}
                                 </Button>
@@ -325,19 +344,19 @@ export default function OrdersPage() {
                   key={s.key}
                   onClick={() => setFilterStatus(s.key)}
                   className={cn(
-                    'flex items-center gap-1.5 shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap',
+                    'flex items-center gap-1.5 shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-all whitespace-nowrap',
                     filterStatus === s.key
-                      ? 'border-amber-600 bg-amber-600 text-white'
-                      : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
+                      ? 'border-[#059669] bg-[#059669] text-white shadow-2xs'
+                      : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                   )}
                 >
                   {s.label}
-                  <span className="tabular-nums">({statusCounts[s.key] || 0})</span>
+                  <span className="tabular-nums font-mono">({statusCounts[s.key] || 0})</span>
                 </button>
               ))}
             </div>
 
-            <div className="bg-white rounded-xl border border-stone-200">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
               <DataTable
                 columns={columns}
                 data={filtered}
@@ -356,60 +375,74 @@ export default function OrdersPage() {
       {/* Order details dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={(val) => { if (!val) setSelectedOrder(null); }}>
         {selectedOrder && (
-          <DialogContent className="max-w-lg rounded-xl bg-white border border-stone-200">
-            <DialogHeader className="pb-3 border-b border-stone-100">
-              <DialogTitle className="text-base font-semibold text-stone-900">
-                Order {selectedOrder.id}
+          <DialogContent className="max-w-lg rounded-3xl bg-white border border-slate-200 p-6">
+            <DialogHeader className="pb-3 border-b border-slate-100">
+              <DialogTitle className="text-base font-bold text-slate-900 flex items-center justify-between">
+                <span>Order #{selectedOrder.id}</span>
+                <span className="text-xs font-mono font-normal text-slate-400">
+                  {new Date(selectedOrder.createdAt || selectedOrder.orderDate || Date.now()).toLocaleTimeString()}
+                </span>
               </DialogTitle>
-              <p className="text-xs text-stone-400 mt-0.5">
-                {new Date(selectedOrder.createdAt || selectedOrder.orderDate || Date.now()).toLocaleString()}
-              </p>
             </DialogHeader>
 
-            <div className="space-y-4 max-h-[60vh] overflow-y-auto py-1">
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto py-2">
               {/* Customer */}
-              <div className="flex items-center justify-between p-3 bg-stone-50 rounded-lg border border-stone-100">
+              <div className="flex items-center justify-between p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
                 <div>
-                  <div className="text-xs text-stone-400 mb-0.5">Customer</div>
-                  <div className="text-sm font-medium text-stone-900">{selectedOrder.customerName || 'Walk-in'}</div>
-                  <div className="text-xs text-stone-500">{selectedOrder.customerPhone || 'No phone'}</div>
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Customer</div>
+                  <div className="text-sm font-bold text-slate-900">{selectedOrder.customerName || 'Walk-in Diner'}</div>
+                  <div className="text-xs text-slate-500 font-medium">{selectedOrder.customerPhone || 'No phone provided'}</div>
                 </div>
                 <StatusChip status={statusOf(selectedOrder)} />
               </div>
 
               {/* Items */}
               <div>
-                <div className="text-xs font-medium text-stone-500 mb-2">Order Items</div>
-                <div className="border border-stone-100 rounded-lg divide-y divide-stone-100">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Order Items</div>
+                <div className="border border-slate-100 rounded-2xl divide-y divide-slate-100 overflow-hidden">
                   {selectedOrder.items?.map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center px-3 py-2 text-sm">
-                      <span className="text-stone-800">{item.name} <span className="text-stone-400">×{item.quantity}</span></span>
-                      <span className="font-medium text-stone-900 tabular-nums">₹{item.price * item.quantity}</span>
+                    <div key={idx} className="flex justify-between items-center px-3.5 py-2.5 text-xs">
+                      <span className="text-slate-800 font-medium">
+                        {item.name} <span className="text-slate-400 font-mono">×{item.quantity}</span>
+                      </span>
+                      <span className="font-bold text-slate-900 font-mono tabular-nums">₹{item.price * item.quantity}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Total */}
-              <div className="flex justify-between items-center pt-2 border-t border-stone-100 text-sm font-semibold">
+              <div className="flex justify-between items-center pt-3 border-t border-slate-100 text-sm font-bold">
                 <span>Grand Total</span>
-                <span className="text-base text-stone-900 tabular-nums">₹{selectedOrder.grandTotal}</span>
+                <span className="text-lg text-slate-900 font-mono font-black tabular-nums">₹{selectedOrder.grandTotal}</span>
               </div>
             </div>
 
-            <DialogFooter className="flex flex-wrap gap-2 pt-3 border-t border-stone-100">
+            <DialogFooter className="flex flex-wrap gap-2 pt-3 border-t border-slate-100">
               {statusOf(selectedOrder) !== 'preparing' && statusOf(selectedOrder) !== 'delivered' && (
-                <Button size="sm" onClick={() => handleUpdateStatus(selectedOrder.id, 'preparing')} className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-8">
+                <Button
+                  size="sm"
+                  onClick={() => handleUpdateStatus(selectedOrder.id, 'preparing')}
+                  className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold h-9 rounded-xl"
+                >
                   Mark Preparing
                 </Button>
               )}
               {statusOf(selectedOrder) !== 'ready' && statusOf(selectedOrder) !== 'delivered' && (
-                <Button size="sm" onClick={() => handleUpdateStatus(selectedOrder.id, 'ready')} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8">
+                <Button
+                  size="sm"
+                  onClick={() => handleUpdateStatus(selectedOrder.id, 'ready')}
+                  className="bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold h-9 rounded-xl"
+                >
                   Mark Ready
                 </Button>
               )}
               {statusOf(selectedOrder) !== 'delivered' && (
-                <Button size="sm" onClick={() => handleUpdateStatus(selectedOrder.id, 'delivered')} className="bg-sky-600 hover:bg-sky-700 text-white text-xs h-8">
+                <Button
+                  size="sm"
+                  onClick={() => handleUpdateStatus(selectedOrder.id, 'delivered')}
+                  className="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold h-9 rounded-xl"
+                >
                   <Truck className="size-3.5 mr-1" /> Delivered
                 </Button>
               )}

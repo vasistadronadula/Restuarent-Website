@@ -11,7 +11,7 @@ import {
   Users, Package, TrendingUp, ShieldCheck,
   ClipboardList, CalendarDays, ChefHat, BookOpen, Calculator,
   BarChart3, Receipt, Ticket, Briefcase, UserCircle,
-  AlertTriangle,
+  AlertTriangle, ArrowRight, Sparkles,
 } from 'lucide-react';
 
 const dayKey = (d: Date) => {
@@ -162,73 +162,79 @@ export default function AdminDashboard() {
 
   return (
     <AdminLayout title="Dashboard">
-      <div className="space-y-6 w-full max-w-full">
+      <div className="space-y-7 w-full max-w-full font-sans">
 
-        {/* Greeting */}
+        {/* Greeting Header */}
         <PageHeader
           title={`${greeting}, ${firstName}`}
           subtitle="Here's what's happening at the restaurant today."
           action={
             <Link
               href="/admin/pos"
-              className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#059669] hover:bg-[#047857] text-white rounded-xl text-xs font-bold shadow-xs transition-all active:scale-[0.98]"
             >
               <Calculator className="w-4 h-4" />
               <span>Open Cashier POS</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           }
         />
 
         {/* ── Today's Status — 4 KPI cards ─────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
           {[
-            { label: "Today's Revenue", value: money(stats.todayRevenue), sub: 'excluding cancelled' },
-            { label: "Today's Orders", value: stats.todayOrders.toString(), sub: 'all statuses' },
+            { label: "Today's Revenue", value: money(stats.todayRevenue), sub: 'excluding cancelled', icon: '💰' },
+            { label: "Today's Orders", value: stats.todayOrders.toString(), sub: 'all statuses', icon: '🧾' },
             {
               label: 'Pending Orders',
               value: stats.pendingOrders.toString(),
               sub: 'need attention',
               urgent: stats.pendingOrders > 0,
+              icon: '⏳',
             },
             {
               label: 'Active Menu Items',
               value: stats.activeDishes.toString(),
               sub: 'available to order',
+              icon: '🍽️',
             },
           ].map((kpi) => (
             <div
               key={kpi.label}
-              className={`bg-white border rounded-xl p-4 ${
+              className={`bg-white border rounded-2xl p-4 sm:p-5 shadow-2xs transition-all ${
                 kpi.urgent && Number(kpi.value) > 0
-                  ? 'border-amber-300 bg-amber-50'
-                  : 'border-stone-200'
+                  ? 'border-amber-300 bg-amber-50/50'
+                  : 'border-slate-200/90'
               }`}
             >
               <div className="flex items-start justify-between">
-                <p className="text-xs font-medium text-stone-500">{kpi.label}</p>
+                <p className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                  <span>{kpi.icon}</span>
+                  <span>{kpi.label}</span>
+                </p>
                 {kpi.urgent && Number(kpi.value) > 0 && (
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                  <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
                 )}
               </div>
-              <p className={`text-2xl font-bold mt-1 tabular-nums ${
-                kpi.urgent && Number(kpi.value) > 0 ? 'text-amber-700' : 'text-stone-900'
+              <p className={`text-2xl sm:text-3xl font-black mt-2 tabular-nums font-mono ${
+                kpi.urgent && Number(kpi.value) > 0 ? 'text-amber-800' : 'text-slate-900'
               }`}>
                 {kpi.value}
               </p>
-              <p className="text-xs text-stone-400 mt-0.5">{kpi.sub}</p>
+              <p className="text-xs text-slate-400 mt-1 font-medium">{kpi.sub}</p>
             </div>
           ))}
         </div>
 
-        {/* ── App Launcher ─────────────────────────────────── */}
-        <div className="space-y-6">
+        {/* ── App Launcher Modules ──────────────────────────── */}
+        <div className="space-y-7">
           {LAUNCHPAD_GROUPS.map((group) => (
             <div key={group.label}>
               <SectionHeading
                 title={group.label}
-                subtitle={`${group.pages.length} modules`}
+                subtitle={`${group.pages.length} operational modules`}
               />
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3 mt-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3.5 mt-3">
                 {group.pages.map((page) => {
                   const IconComponent = page.icon;
                   const badgeVal = 'badgeKey' in page && page.badgeKey
@@ -240,34 +246,34 @@ export default function AdminDashboard() {
                     <Link
                       key={page.label}
                       href={page.href}
-                      className={`group relative flex flex-col gap-3 p-4 bg-white border rounded-xl hover:shadow-sm transition-all duration-150 ${
+                      className={`group relative flex flex-col gap-3 p-4 sm:p-4.5 bg-white border rounded-2xl hover:shadow-md transition-all duration-150 active:scale-[0.99] ${
                         isUrgent
-                          ? 'border-amber-300 hover:border-amber-400'
-                          : 'border-stone-200 hover:border-stone-300'
+                          ? 'border-amber-300 hover:border-amber-400 bg-amber-50/20'
+                          : 'border-slate-200/90 hover:border-emerald-300 hover:bg-emerald-50/10'
                       }`}
                     >
                       {/* Icon */}
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      <div className={`w-9.5 h-9.5 rounded-xl flex items-center justify-center flex-shrink-0 shadow-2xs ${
                         isUrgent
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-stone-100 text-stone-600 group-hover:bg-stone-200'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-slate-100 text-slate-700 group-hover:bg-[#059669] group-hover:text-white'
                       } transition-colors`}>
                         <IconComponent className="w-4.5 h-4.5" />
                       </div>
 
                       {/* Label + description */}
                       <div>
-                        <h3 className="font-semibold text-sm text-stone-900 group-hover:text-amber-700 transition-colors leading-tight">
+                        <h3 className="font-bold text-[13.5px] text-slate-900 group-hover:text-[#059669] transition-colors leading-tight">
                           {page.label}
                         </h3>
-                        <p className="text-xs text-stone-400 mt-0.5 leading-relaxed line-clamp-2">
+                        <p className="text-xs text-slate-400 mt-1 leading-relaxed line-clamp-2 font-medium">
                           {page.description}
                         </p>
                       </div>
 
                       {/* Badge */}
                       {badgeVal > 0 && (
-                        <span className="absolute top-3 right-3 bg-amber-600 text-white rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-semibold">
+                        <span className="absolute top-3 right-3 bg-amber-600 text-white rounded-full min-w-[20px] h-[20px] px-1 flex items-center justify-center text-[10px] font-black font-mono shadow-xs">
                           {badgeVal}
                         </span>
                       )}

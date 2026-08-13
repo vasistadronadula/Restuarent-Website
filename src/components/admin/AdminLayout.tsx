@@ -35,7 +35,7 @@ export default function AdminLayout({ children, title }: Props) {
   }, [notification, clearNotification]);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#FAFAF9] dark:bg-[#0A0A0A] w-full text-stone-900 dark:text-stone-100 antialiased">
+    <div className="flex flex-col min-h-screen bg-[#F8FAFC] w-full text-slate-900 font-sans antialiased">
       <AdminHeader title={title} />
 
       <main

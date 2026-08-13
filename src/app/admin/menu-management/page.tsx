@@ -638,18 +638,18 @@ export default function MenuManagementPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-stone-900">Menu Management</h1>
-            <p className="text-sm text-stone-500 mt-0.5">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Menu Management</h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
               {menuItems.length} dishes · {categories.length} categories · {menuItems.filter(i => i.isAvailable).length} available
             </p>
           </div>
           <div className="flex items-center gap-2">
             {activeTab === 'items' ? (
-              <Button onClick={openAddItem} className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4">
+              <Button onClick={openAddItem} className="h-9.5 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold px-4 rounded-xl shadow-xs transition-all active:scale-[0.98]">
                 <Plus className="size-4 mr-1.5" /> Add Dish
               </Button>
             ) : (
-              <Button onClick={openAddCat} className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4">
+              <Button onClick={openAddCat} className="h-9.5 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold px-4 rounded-xl shadow-xs transition-all active:scale-[0.98]">
                 <Plus className="size-4 mr-1.5" /> Add Category
               </Button>
             )}
@@ -657,22 +657,22 @@ export default function MenuManagementPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl border border-stone-200 w-fit">
+        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 w-fit">
           <button
             type="button"
             onClick={() => setActiveTab('items')}
             className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all',
+              'flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all',
               activeTab === 'items'
-                ? 'bg-white text-stone-900 shadow-sm'
-                : 'text-stone-500 hover:text-stone-700'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-900'
             )}
           >
-            <UtensilsCrossed className="size-4" />
+            <UtensilsCrossed className="size-3.5" />
             Dishes
             <span className={cn(
-              'text-[10px] font-black px-1.5 py-0.5 rounded-md tabular-nums',
-              activeTab === 'items' ? 'bg-amber-100 text-amber-700' : 'bg-stone-200 text-stone-500'
+              'text-[10px] font-black px-1.5 py-0.5 rounded-md tabular-nums font-mono',
+              activeTab === 'items' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
             )}>
               {menuItems.length}
             </span>
@@ -681,17 +681,17 @@ export default function MenuManagementPage() {
             type="button"
             onClick={() => setActiveTab('categories')}
             className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all',
+              'flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all',
               activeTab === 'categories'
-                ? 'bg-white text-stone-900 shadow-sm'
-                : 'text-stone-500 hover:text-stone-700'
+                ? 'bg-white text-slate-900 shadow-2xs'
+                : 'text-slate-500 hover:text-slate-900'
             )}
           >
-            <FolderOpen className="size-4" />
+            <FolderOpen className="size-3.5" />
             Categories
             <span className={cn(
-              'text-[10px] font-black px-1.5 py-0.5 rounded-md tabular-nums',
-              activeTab === 'categories' ? 'bg-amber-100 text-amber-700' : 'bg-stone-200 text-stone-500'
+              'text-[10px] font-black px-1.5 py-0.5 rounded-md tabular-nums font-mono',
+              activeTab === 'categories' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
             )}>
               {categories.length}
             </span>
@@ -705,7 +705,7 @@ export default function MenuManagementPage() {
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
               <button
                 onClick={() => setCategoryFilter('all')}
-                className={cn('shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap', categoryFilter === 'all' ? 'border-amber-600 bg-amber-600 text-white' : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50')}
+                className={cn('shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-all whitespace-nowrap', categoryFilter === 'all' ? 'border-[#059669] bg-[#059669] text-white shadow-2xs' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
               >
                 All ({menuItems.length})
               </button>
@@ -713,7 +713,7 @@ export default function MenuManagementPage() {
                 <button
                   key={value}
                   onClick={() => setCategoryFilter(value)}
-                  className={cn('shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap', categoryFilter === value ? 'border-amber-600 bg-amber-600 text-white' : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50')}
+                  className={cn('shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-all whitespace-nowrap', categoryFilter === value ? 'border-[#059669] bg-[#059669] text-white shadow-2xs' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50')}
                 >
                   {label} ({menuItems.filter(i => i.category === value).length})
                 </button>
@@ -721,7 +721,7 @@ export default function MenuManagementPage() {
             </div>
 
             {/* Items table */}
-            <div className="bg-white rounded-xl border border-stone-200">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
               <DataTable
                 columns={itemColumns}
                 data={filteredItems}

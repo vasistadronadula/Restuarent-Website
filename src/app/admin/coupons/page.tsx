@@ -225,18 +225,21 @@ export default function CouponsPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-xl font-semibold text-stone-900">Coupons & Offers</h1>
-            <p className="text-sm text-stone-500 mt-0.5">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Coupons & Offers</h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1 font-medium">
               {coupons.length} total · {activeCount} active currently
             </p>
           </div>
-          <Button onClick={openAdd} className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4">
+          <Button
+            onClick={openAdd}
+            className="h-9.5 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold px-4 rounded-xl shadow-xs transition-all active:scale-[0.98]"
+          >
             <Plus className="size-4 mr-1.5" /> Create Code
           </Button>
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-xl border border-stone-200">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
           <DataTable
             columns={columns}
             data={coupons}
