@@ -9,7 +9,6 @@ import ServiceWorkerRegister from './ServiceWorkerRegister';
 import RoleManifestLink from './RoleManifestLink';
 import { useAdmin } from '@/context/AdminContext';
 import { useAdminStore } from '@/store/useAdminStore';
-import { PosSidebarProvider } from '@/context/PosSidebarContext';
 import { toast } from 'sonner';
 
 interface Props {
@@ -57,30 +56,28 @@ export default function AdminLayout({ children, title }: Props) {
   // and while it is open it covers the only other way to leave the page.
 
   return (
-    <PosSidebarProvider>
-      <div className="ad-shell flex min-h-screen w-full">
-        <AdminSidebar open={navOpen} onClose={() => setNavOpen(false)} wide={isFullBleed} posMode={isPosPage} />
+    <div className="ad-shell flex min-h-screen w-full">
+      <AdminSidebar open={navOpen} onClose={() => setNavOpen(false)} wide={isFullBleed} posMode={isPosPage} />
 
-        <div className="flex-1 min-w-0 flex flex-col">
-          <AdminHeader title={title} onOpenNav={() => setNavOpen(true)} wideNav={isFullBleed} />
+      <div className="flex-1 min-w-0 flex flex-col">
+        <AdminHeader title={title} onOpenNav={() => setNavOpen(true)} wideNav={isFullBleed} />
 
-          <main
-            className={
-              isPosPage
-                ? 'flex-1 w-full h-[calc(100vh-var(--ad-header-h))] overflow-hidden'
-                : isKitchenPage
-                ? 'flex-1 w-full min-h-[calc(100vh-var(--ad-header-h))]'
-                : 'flex-1 w-full box-border overflow-x-hidden px-4 sm:px-6 py-6'
-            }
-          >
-            {isFullBleed ? children : <div className="max-w-[1600px] mx-auto w-full">{children}</div>}
-          </main>
-        </div>
-
-        <AutoOrderPrinter />
-        <ServiceWorkerRegister />
-        <RoleManifestLink />
+        <main
+          className={
+            isPosPage
+              ? 'flex-1 w-full h-[calc(100vh-var(--ad-header-h))] overflow-hidden'
+              : isKitchenPage
+              ? 'flex-1 w-full min-h-[calc(100vh-var(--ad-header-h))]'
+              : 'flex-1 w-full box-border overflow-x-hidden px-4 sm:px-6 py-6'
+          }
+        >
+          {isFullBleed ? children : <div className="max-w-[1600px] mx-auto w-full">{children}</div>}
+        </main>
       </div>
-    </PosSidebarProvider>
+
+      <AutoOrderPrinter />
+      <ServiceWorkerRegister />
+      <RoleManifestLink />
+    </div>
   );
 }
