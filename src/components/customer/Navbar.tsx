@@ -263,7 +263,7 @@ export default function Navbar() {
                     size="sm"
                     onClick={() => signOutUser()}
                     aria-label="Sign out"
-                    className="hidden md:inline-flex h-9 w-9 p-0 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
+                    className="inline-flex h-9 w-9 p-0 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
                   >
                     <LogOut className="w-4 h-4" />
                   </Button>

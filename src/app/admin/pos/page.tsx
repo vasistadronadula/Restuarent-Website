@@ -12,6 +12,7 @@ import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { useCategories, useMenuItems, useTables } from '@/lib/queries';
 import { usePosCart, type Portion } from '@/hooks/usePosCart';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { computeBillTotals } from '@/lib/billing';
 import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
 import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
@@ -55,7 +56,9 @@ export default function PosPage() {
 
   /* State */
   const [specialInstructions, setSpecialInstructions] = useState('');
-  const [packagingCharge, setPackagingCharge] = useState<number>(0);
+  // Takeaway is the default and it carries its own packaging charge, so the
+  // two start in sync rather than needing a first click on Takeaway to earn it.
+  const [packagingCharge, setPackagingCharge] = useState<number>(20);
 
   /* Live Clock State */
   const [timeStr, setTimeStr] = useState('');
@@ -110,8 +113,15 @@ export default function PosPage() {
   const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('cards');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Below `md` the catalog always renders as text rows — no photos to load
+  // or scroll past on a phone screen and a slow connection — regardless of
+  // the grid/list toggle, which is desktop-only chrome anyway (hidden below
+  // `sm`).
+  const isMobile = useMediaQuery('(max-width: 767px)');
+  const effectiveLayoutMode = isMobile ? 'rows' : layoutMode;
+
   /* Order Configuration */
-  const [orderType, setOrderType] = useState<PosOrderType>('dine-in');
+  const [orderType, setOrderType] = useState<PosOrderType>('counter');
   const [tableNumber, setTableNumber] = useState<number | ''>('');
   const [paymentMode, setPaymentMode] = useState<PosPaymentMode>('cash');
 
@@ -400,8 +410,9 @@ export default function PosPage() {
               </span>
             </button>
 
-            {/* Grid / List Layout Switcher */}
-            <div className="hidden sm:flex items-center gap-1.5">
+            {/* Grid / List Layout Switcher — desktop/tablet only; below `md`
+                the catalog always runs as image-free rows (see effectiveLayoutMode). */}
+            <div className="hidden md:flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setLayoutMode('cards')}
@@ -442,10 +453,11 @@ export default function PosPage() {
             instead, so nothing needs to make room for it. */}
         <div className="flex-1 min-h-0 flex w-full overflow-hidden md:pr-[300px] lg:pr-[380px] xl:pr-[420px]">
 
-          {/* Category rail — icon-only on a phone-width screen so the dish
-              grid still gets most of the width; labels appear from `sm` up
-              once there's room to read them. */}
-          <div className="w-14 sm:w-40 md:w-44 lg:w-52 shrink-0 h-full overflow-y-auto scrollbar-none border-r-2 border-ad-line bg-ad-ink">
+          {/* Category rail — desktop/tablet only (`md` up). Below that the
+              same list runs as a horizontal strip above the dish list
+              instead, since a vertical rail on a phone-width screen either
+              crowds out the dishes or shrinks to unreadable icons. */}
+          <div className="hidden md:block w-44 lg:w-52 shrink-0 h-full overflow-y-auto scrollbar-none border-r-2 border-ad-line bg-ad-ink">
             {categoriesList.map((cat) => {
               const Icon = cat.icon;
               return (
@@ -455,10 +467,10 @@ export default function PosPage() {
                   onClick={() => setSelectedCategory(cat.slug)}
                   data-active={selectedCategory === cat.slug}
                   title={cat.name}
-                  className="w-full flex items-center justify-center sm:justify-start gap-2.5 px-2 sm:px-4 py-3 text-[13px] font-semibold leading-tight text-[rgba(243,242,242,0.55)] border-l-4 border-transparent data-[active=true]:text-white data-[active=true]:bg-[rgba(243,242,242,0.08)] data-[active=true]:border-l-ad-accent transition-colors"
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-semibold leading-tight text-[rgba(243,242,242,0.55)] border-l-4 border-transparent data-[active=true]:text-white data-[active=true]:bg-[rgba(243,242,242,0.08)] data-[active=true]:border-l-ad-accent transition-colors"
                 >
                   <Icon className="size-4.5 shrink-0" />
-                  <span className="hidden sm:inline truncate">{cat.name}</span>
+                  <span className="truncate">{cat.name}</span>
                 </button>
               );
             })}
@@ -473,6 +485,27 @@ export default function PosPage() {
               <span className="size-1.5 bg-ad-accent animate-pulse shrink-0" />
               <span className="ad-num text-[12px]">{timeStr}</span>
               <span className="hidden sm:inline text-[11px] opacity-70 truncate max-w-25">{cashierName}</span>
+            </div>
+
+            {/* Mobile category strip — replaces the desktop rail below `md`. */}
+            <div className="md:hidden border-b-2 border-ad-line px-3 py-2 shrink-0 overflow-x-auto scrollbar-none">
+              <div className="flex items-center gap-1.5 w-max">
+                {categoriesList.map((cat) => {
+                  const Icon = cat.icon;
+                  return (
+                    <button
+                      key={cat.slug}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat.slug)}
+                      data-active={selectedCategory === cat.slug}
+                      className="ad-tab shrink-0 flex items-center gap-1.5"
+                    >
+                      <Icon className="size-3.5 shrink-0" />
+                      <span>{cat.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             {/* Table Allocation Fast Strip (Visible when Dine-In is active) */}
@@ -516,7 +549,7 @@ export default function PosPage() {
                   <p className="ad-h text-[16px]">No dishes match</p>
                   <p className="text-[13px] ad-muted mt-1.5">Clear the search or switch category.</p>
                 </div>
-              ) : layoutMode === 'rows' ? (
+              ) : effectiveLayoutMode === 'rows' ? (
                 <div className="border-2 border-ad-line divide-y divide-ad-hairline">
                   {filteredDishes.map((item) => (
                     <DishListRow
@@ -530,7 +563,7 @@ export default function PosPage() {
                   ))}
                 </div>
               ) : (
-                <div className="ad-grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 mb-6">
+                <div className="ad-grid md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 mb-6">
                   {filteredDishes.map((item) => (
                     <DishCard
                       key={item.id}
