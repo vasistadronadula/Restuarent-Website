@@ -8,7 +8,6 @@ import { RealtimeProvider } from '@/components/providers/RealtimeProvider';
 import { AuthProvider } from '@/context/AuthContext';
 import { AdminProvider } from '@/context/AdminContext';
 import { CartProvider } from '@/context/CartContext';
-import { PosSidebarProvider } from '@/context/PosSidebarContext';
 import MobileBottomNav from '@/components/customer/MobileBottomNav';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -56,21 +55,19 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <RealtimeProvider>
           <AdminProvider>
             <CartProvider>
-              <PosSidebarProvider>
-                <TooltipProvider>
-                  <SessionScopedCart />
-                  {children}
-                  <AuthModalHost />
-                  {/* No floating cart bar. The cart is reachable from the
-                      navbar icon and the phone bottom nav, both of which show
-                      a live count — a third persistent surface repeating the
-                      same number cost a strip of every screen and covered the
-                      footer. Adding to the cart is now acknowledged by the
-                      dish flying to that icon (lib/flyToCart). */}
-                  <MobileBottomNav />
-                  <Toaster />
-                </TooltipProvider>
-              </PosSidebarProvider>
+              <TooltipProvider>
+                <SessionScopedCart />
+                {children}
+                <AuthModalHost />
+                {/* No floating cart bar. The cart is reachable from the
+                    navbar icon and the phone bottom nav, both of which show
+                    a live count — a third persistent surface repeating the
+                    same number cost a strip of every screen and covered the
+                    footer. Adding to the cart is now acknowledged by the
+                    dish flying to that icon (lib/flyToCart). */}
+                <MobileBottomNav />
+                <Toaster />
+              </TooltipProvider>
             </CartProvider>
           </AdminProvider>
         </RealtimeProvider>

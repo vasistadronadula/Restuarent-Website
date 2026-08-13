@@ -185,14 +185,16 @@ export default function AdminHeader({ title, onOpenNav, wideNav = false }: Props
   return (
     <>
       <header className="sticky top-0 z-30 flex items-center gap-3 px-4 sm:px-6 h-[var(--ad-header-h)] border-b-2 border-ad-line bg-ad-bg">
-        <button
-          type="button"
-          onClick={onOpenNav}
-          className={`${wideNav ? 'xl:hidden' : 'lg:hidden'} -ml-2 ${iconBtn}`}
-          aria-label="Open navigation"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
+        {!isPosPage && (
+          <button
+            type="button"
+            onClick={onOpenNav}
+            className={`${wideNav ? 'xl:hidden' : 'lg:hidden'} -ml-2 ${iconBtn}`}
+            aria-label="Open navigation"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+        )}
 
         <div className="min-w-0">
           <div className="ad-kicker truncate">{pageKicker}</div>

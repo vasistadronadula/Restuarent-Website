@@ -10,7 +10,6 @@ import TableFloorMapModal from '@/components/pos/TableFloorMapModal';
 
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
-import { usePosSidebar } from '@/context/PosSidebarContext';
 import { useCategories, useMenuItems, useTables } from '@/lib/queries';
 import { usePosCart, type Portion } from '@/hooks/usePosCart';
 import { computeBillTotals, type DiscountOption } from '@/lib/billing';
@@ -102,14 +101,11 @@ export default function PosPage() {
   }, [activeCategories]);
 
   /* Filters */
-  // The category list itself lives in AdminSidebar's rail on this page (see
-  // PosSidebarContext) — this page only hands the list over and reads back
-  // whichever slug the cashier tapped there.
-  const posSidebar = usePosSidebar();
-  useEffect(() => {
-    posSidebar.setCategories(categoriesList);
-  }, [categoriesList, posSidebar]);
-  const selectedCategory = posSidebar.selected || categoriesList[0]?.slug || '';
+  // Categories load asynchronously, so an explicit pick is layered over a
+  // derived fallback to the first category — no effect needed to "catch up"
+  // once the list arrives.
+  const [pickedCategory, setSelectedCategory] = useState<string>('');
+  const selectedCategory = pickedCategory || categoriesList[0]?.slug || '';
   const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'non-veg' | 'egg'>('all');
   const [search, setSearch] = useState('');
   const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('cards');
@@ -449,12 +445,33 @@ export default function PosPage() {
           </div>
         </div>
 
-        {/* ── 2. MAIN BODY: Product Ordering Catalog ──
-            Category picking now lives in the main admin rail on the left
-            (see AdminLayout → AdminSidebar posMode), so the full width here
-            is dish grid. The right edge is padded clear of the fixed cart
-            panel below so the last column of dishes never sits behind it. */}
+        {/* ── 2. MAIN BODY: Category Rail | Product Catalog ──
+            The admin nav rail doesn't render on this page at all (see
+            AdminLayout) — this slim icon-only rail is POS's own, and the
+            right edge is padded clear of the fixed cart panel below so the
+            last column of dishes never sits behind it. */}
         <div className="flex-1 min-h-0 flex w-full overflow-hidden md:pr-[380px] lg:pr-[420px]">
+
+          {/* Icon-only category rail — one tap to switch, no label hunting */}
+          <div className="w-[68px] shrink-0 h-full overflow-y-auto scrollbar-none border-r-2 border-ad-line bg-ad-ink">
+            {categoriesList.map((cat) => {
+              const Icon = cat.icon;
+              return (
+                <button
+                  key={cat.slug}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat.slug)}
+                  data-active={selectedCategory === cat.slug}
+                  title={cat.name}
+                  className="w-full flex flex-col items-center gap-1 px-1 py-3 text-[10px] font-semibold leading-tight text-[rgba(243,242,242,0.55)] border-l-4 border-transparent data-[active=true]:text-white data-[active=true]:bg-[rgba(243,242,242,0.08)] data-[active=true]:border-l-ad-accent transition-colors"
+                >
+                  <Icon className="size-4.5" />
+                  <span className="text-center line-clamp-2">{cat.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-ad-bg">
 
             {/* Table Allocation Fast Strip (Visible when Dine-In is active) */}

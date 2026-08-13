@@ -57,7 +57,13 @@ export default function AdminLayout({ children, title }: Props) {
 
   return (
     <div className="ad-shell flex min-h-screen w-full">
-      <AdminSidebar open={navOpen} onClose={() => setNavOpen(false)} wide={isFullBleed} posMode={isPosPage} />
+      {/* POS gets no admin nav rail at all — its own category rail (inside
+          the page) and fixed cart panel already claim the left and right
+          edges, and a second rail here would be a third column fighting
+          them for the same 1280px till screen. */}
+      {!isPosPage && (
+        <AdminSidebar open={navOpen} onClose={() => setNavOpen(false)} wide={isFullBleed} />
+      )}
 
       <div className="flex-1 min-w-0 flex flex-col">
         <AdminHeader title={title} onOpenNav={() => setNavOpen(true)} wideNav={isFullBleed} />
