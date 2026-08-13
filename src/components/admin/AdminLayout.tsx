@@ -2,7 +2,7 @@
 
 import React, { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import AdminHeader from './AdminHeader';
+import AdminSidebar from './AdminSidebar';
 import AutoOrderPrinter from './AutoOrderPrinter';
 import ServiceWorkerRegister from './ServiceWorkerRegister';
 import RoleManifestLink from './RoleManifestLink';
@@ -13,15 +13,15 @@ import { toast } from 'sonner';
 interface Props {
   children: ReactNode;
   title: string;
+  hideSidebar?: boolean;
 }
 
-export default function AdminLayout({ children, title }: Props) {
+export default function AdminLayout({ children, title, hideSidebar = false }: Props) {
   const pathname = usePathname();
   const clearNotification = useAdminStore((s) => s.clearNotification);
   const { notification } = useAdmin();
 
   const isPosPage = pathname === '/admin/pos' || pathname === '/cashier';
-  const isKitchenPage = pathname === '/admin/kitchen' || pathname === '/kds';
 
   React.useEffect(() => {
     if (notification) {
@@ -34,21 +34,30 @@ export default function AdminLayout({ children, title }: Props) {
     }
   }, [notification, clearNotification]);
 
-  return (
-    <div className="flex flex-col min-h-screen bg-[#F8FAFC] w-full text-slate-900 font-sans antialiased">
-      <AdminHeader title={title} />
+  if (isPosPage || hideSidebar) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#F8FAFC] w-full text-slate-900 font-sans antialiased">
+        <main className="flex-1 w-full h-screen overflow-hidden p-0">
+          {children}
+        </main>
+        <AutoOrderPrinter />
+        <ServiceWorkerRegister />
+        <RoleManifestLink />
+      </div>
+    );
+  }
 
-      <main
-        className={
-          isPosPage
-            ? 'flex-1 w-full h-[calc(100vh-3.5rem)] overflow-hidden p-0'
-            : isKitchenPage
-            ? 'flex-1 w-full min-h-[calc(100vh-3.5rem)] p-0'
-            : 'flex-1 w-full max-w-[1600px] mx-auto box-border overflow-x-hidden px-3 sm:px-5 lg:px-8 pt-4 sm:pt-5 pb-10'
-        }
-      >
-        {children}
-      </main>
+  return (
+    <div className="flex min-h-screen bg-[#F8FAFC] w-full text-slate-900 font-sans antialiased">
+      {/* Persistent RestoFlow Left Navigation */}
+      <AdminSidebar />
+
+      {/* Main Page Content */}
+      <div className="flex-1 min-w-0 flex flex-col min-h-screen overflow-x-hidden">
+        <main className="flex-1 w-full p-4 sm:p-6 lg:p-8 max-w-[1600px]">
+          {children}
+        </main>
+      </div>
 
       <AutoOrderPrinter />
       <ServiceWorkerRegister />
