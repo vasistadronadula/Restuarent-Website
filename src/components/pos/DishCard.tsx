@@ -2,10 +2,9 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Plus, Minus, Check, Sparkles, Star } from 'lucide-react';
+import { Plus, Minus, Check, Star } from 'lucide-react';
 import type { MenuItem } from '@/types';
 import { PORTION_LABEL, sellablePortions, type Portion } from '@/hooks/usePosCart';
-import { Badge } from '@/components/ui/badge';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=80';
 
@@ -48,10 +47,10 @@ function DishCard({ item, inBill, quantityByPortion, onAdd, onDecrement }: Props
   return (
     <div
       onClick={handleCardClick}
-      className={`rounded-3xl flex flex-col overflow-hidden text-left transition-all select-none cursor-pointer group active:scale-[0.98] duration-150 ${
+      className={`rounded-2xl flex flex-col overflow-hidden text-left transition-all select-none cursor-pointer group active:scale-[0.98] duration-150 relative ${
         active
-          ? 'border-2 border-blue-600 ring-4 ring-blue-500/15 shadow-lg shadow-blue-500/10 bg-white'
-          : 'border border-slate-200/90 shadow-xs hover:border-blue-400 hover:shadow-md bg-white'
+          ? 'border-2 border-emerald-600 bg-emerald-50/20 shadow-xs'
+          : 'border border-slate-200/90 shadow-2xs hover:border-slate-300 hover:shadow-md bg-white'
       }`}
     >
       {/* Food Photo Container */}
@@ -65,120 +64,97 @@ function DishCard({ item, inBill, quantityByPortion, onAdd, onDecrement }: Props
         />
 
         {/* Veg / Non-Veg Indicator Icon (Top Left) */}
-        <span className={`absolute top-2.5 left-2.5 size-4.5 rounded-[4px] border-2 bg-white/95 backdrop-blur-xs flex items-center justify-center ${vegDotColor} z-10 shadow-xs`}>
-          <span className={`size-2 rounded-full ${vegDotFill}`} />
+        <span
+          className={`absolute top-2 left-2 size-4 rounded-[3px] border-2 bg-white/95 backdrop-blur-xs flex items-center justify-center ${vegDotColor} z-10 shadow-2xs`}
+        >
+          <span className={`size-1.5 rounded-full ${vegDotFill}`} />
         </span>
 
-        {/* Popular / Chef Special Badges (Top Right) */}
-        <div className="absolute top-2.5 right-2.5 flex items-center gap-1 z-10">
-          {item.isPopular && (
-            <span className="bg-amber-500 text-slate-950 font-black text-[9px] uppercase px-2 py-0.5 rounded-full shadow-xs flex items-center gap-0.5">
-              <Star className="size-2.5 fill-current" /> Top
-            </span>
-          )}
-          {active && (
-            <span className="min-w-[24px] h-6 px-2 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black shadow-md">
-              {inBill}
-            </span>
-          )}
-        </div>
+        {/* Active Quantity Badge (Exact Match: Emerald Green Circle in Top Right) */}
+        {active && (
+          <div className="absolute top-2 right-2 size-6 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shadow-xs z-10 font-mono">
+            {inBill}
+          </div>
+        )}
       </div>
 
       {/* Card Body */}
-      <div className="p-3.5 flex flex-col gap-2 flex-1 min-w-0 justify-between">
+      <div className="p-3 flex flex-col flex-1 min-w-0 justify-between gap-1.5 bg-transparent">
         <div>
-          <h4 className="text-[15px] font-bold text-slate-900 leading-snug line-clamp-2 group-hover:text-blue-600 transition-colors">
+          <h4 className="text-[14px] font-bold text-slate-900 leading-snug line-clamp-1 group-hover:text-emerald-700 transition-colors">
             {item.name}
           </h4>
 
-          <div className="flex items-baseline justify-between mt-1">
-            <span className="text-lg font-black text-slate-950 font-mono">
-              ₹{unitPrice}
-            </span>
-            <span className="text-[11px] font-semibold text-slate-400">
-              {item.prepTime || 15}m prep
-            </span>
-          </div>
+          <p className="text-[11.5px] text-slate-500 line-clamp-2 leading-tight mt-0.5">
+            {item.description || `${item.category || 'Special dish'} freshly prepared`}
+          </p>
         </div>
 
-        {/* Portion Price Multi-Select (if multiple sizes) */}
-        {hasPortionChoice ? (
-          <div className="flex gap-1.5 flex-wrap pt-1">
-            {portions.map(({ portion, price }) => {
-              const portionKey = `${item.id}::${portion}`;
-              const portionQty = quantityByPortion ? quantityByPortion[portionKey] || 0 : 0;
-              const isSelected = portionQty > 0;
+        {/* Price Tag & Portions */}
+        <div className="pt-1 mt-auto">
+          {hasPortionChoice ? (
+            <div className="flex gap-1 flex-wrap">
+              {portions.map(({ portion, price }) => {
+                const portionKey = `${item.id}::${portion}`;
+                const portionQty = quantityByPortion ? quantityByPortion[portionKey] || 0 : 0;
+                const isSelected = portionQty > 0;
 
-              return (
-                <button
-                  key={portion}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAdd(item, portion);
-                  }}
-                  className={`flex-1 min-w-0 h-8.5 px-2 text-xs font-bold rounded-xl flex items-center justify-center gap-1 transition-all border ${
-                    isSelected
-                      ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
-                      : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-blue-50 hover:border-blue-300'
-                  }`}
-                >
-                  {isSelected && <Check className="size-3 shrink-0" />}
-                  <span className="truncate">{PORTION_LABEL[portion]} ₹{price}</span>
-                  {portionQty > 0 && (
-                    <span className="shrink-0 bg-white/30 text-white text-[10px] font-black px-1 rounded-full ml-0.5">
-                      {portionQty}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          /* One-Touch Add or Stepper */
-          <div className="pt-1">
-            {active ? (
-              <div className="flex items-center justify-between bg-blue-50/80 border-2 border-blue-400 rounded-2xl p-1 shadow-2xs">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDecrement?.(item);
-                  }}
-                  className="size-8.5 rounded-xl flex items-center justify-center text-blue-700 hover:bg-blue-100/80 active:scale-95 transition-all"
-                  aria-label={`Decrease ${item.name}`}
-                >
-                  <Minus className="size-4" />
-                </button>
-
-                <span className="text-sm font-black text-blue-900 font-mono px-2 tabular-nums">
-                  {inBill} in cart
-                </span>
-
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAdd(item);
-                  }}
-                  className="size-8.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white flex items-center justify-center shadow-xs transition-all"
-                  aria-label={`Increase ${item.name}`}
-                >
-                  <Plus className="size-4" />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleCardClick}
-                className="w-full h-9.5 rounded-2xl bg-slate-900 hover:bg-blue-600 active:scale-[0.98] text-white text-xs font-black flex items-center justify-center gap-1.5 transition-all shadow-xs"
-              >
-                <Plus className="size-4" />
-                <span>+ Add Item</span>
-              </button>
-            )}
-          </div>
-        )}
+                return (
+                  <button
+                    key={portion}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAdd(item, portion);
+                    }}
+                    className={`flex-1 min-w-0 h-7 px-1.5 text-[11px] font-bold rounded-lg flex items-center justify-center gap-1 transition-all border ${
+                      isSelected
+                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs'
+                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-emerald-50 hover:border-emerald-300'
+                    }`}
+                  >
+                    <span className="truncate">{PORTION_LABEL[portion]} ₹{price}</span>
+                    {portionQty > 0 && (
+                      <span className="shrink-0 bg-white/30 text-white text-[9px] font-black px-1 rounded-full">
+                        {portionQty}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between">
+              <span className="text-[14.5px] font-bold text-emerald-700 font-mono">
+                ₹{unitPrice.toFixed(2)}
+              </span>
+              {active && onDecrement && (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDecrement(item);
+                    }}
+                    className="size-6 rounded-md bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 flex items-center justify-center transition-colors"
+                  >
+                    <Minus className="size-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAdd(item);
+                    }}
+                    className="size-6 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white flex items-center justify-center transition-colors"
+                  >
+                    <Plus className="size-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
