@@ -4,37 +4,39 @@ import React from 'react';
 import { useCartStore } from '@/store/usePosCartStore';
 import { Percent } from 'lucide-react';
 
-const TAX_RATE = 0.08; // 8% fixed tax rate
-
 export default function BillingSummary() {
   const cartItems = useCartStore((s) => s.cartItems);
   const discount = useCartStore((s) => s.discount);
   const setDiscount = useCartStore((s) => s.setDiscount);
 
-  // Calculations
+  // Subtotal in ₹
   const subtotal = cartItems.reduce(
-    (sum, item) => sum + item.price * item.quantity,
+    (sum, item) => sum + (item.selectedPrice ?? item.price) * item.quantity,
     0
   );
 
   const discountAmount = (subtotal * discount) / 100;
   const taxableAmount = Math.max(0, subtotal - discountAmount);
-  const taxAmount = taxableAmount * TAX_RATE;
-  const total = taxableAmount + taxAmount;
+
+  // Standard Indian Restaurant GST: 5% (2.5% CGST + 2.5% SGST)
+  const cgst = taxableAmount * 0.025;
+  const sgst = taxableAmount * 0.025;
+  const totalTax = cgst + sgst;
+  const grandTotal = Math.round(taxableAmount + totalTax);
 
   return (
-    <div className="pt-4 border-t border-[#E2E8F0] space-y-2.5">
+    <div className="pt-3 border-t border-[#E2E8F0] space-y-2">
       {/* Subtotal */}
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-[#475569]">Subtotal</span>
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-[#475569]">Item Total</span>
         <span className="font-semibold text-[#0F172A]">
-          ${subtotal.toFixed(2)}
+          ₹{subtotal.toFixed(2)}
         </span>
       </div>
 
-      {/* Discount Input (Percentage) */}
-      <div className="flex items-center justify-between gap-3 text-sm">
-        <div className="flex items-center gap-1.5 text-[#475569]">
+      {/* Discount Input */}
+      <div className="flex items-center justify-between gap-2 text-xs">
+        <div className="flex items-center gap-1 text-[#475569]">
           <span>Discount</span>
           <div className="flex items-center gap-1">
             {[0, 5, 10, 15].map((pct) => (
@@ -42,7 +44,7 @@ export default function BillingSummary() {
                 key={pct}
                 type="button"
                 onClick={() => setDiscount(pct)}
-                className={`text-[11px] font-semibold px-1.5 py-0.5 rounded border transition-colors ${
+                className={`text-[10px] font-bold px-1.5 py-0.2 rounded border transition-colors ${
                   discount === pct
                     ? 'bg-[#2563EB] text-white border-[#2563EB]'
                     : 'bg-slate-50 text-[#475569] border-[#E2E8F0] hover:bg-slate-100'
@@ -54,8 +56,8 @@ export default function BillingSummary() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <div className="relative w-20">
+        <div className="flex items-center gap-1">
+          <div className="relative w-16">
             <input
               type="number"
               min="0"
@@ -67,39 +69,39 @@ export default function BillingSummary() {
               }}
               placeholder="0"
               aria-label="Discount percentage"
-              className="w-full text-right pr-6 pl-2 py-1 bg-slate-50 border border-[#E2E8F0] rounded-md text-xs font-semibold text-[#0F172A] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="w-full text-right pr-5 pl-1.5 py-0.5 bg-slate-50 border border-[#E2E8F0] rounded-md text-xs font-semibold text-[#0F172A] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#2563EB]"
             />
-            <Percent className="absolute right-2 top-1/2 -translate-y-1/2 size-3 text-[#475569] pointer-events-none" />
+            <Percent className="absolute right-1.5 top-1/2 -translate-y-1/2 size-2.5 text-[#475569] pointer-events-none" />
           </div>
           {discount > 0 && (
-            <span className="text-xs font-semibold text-[#16A34A] min-w-14 text-right">
-              -${discountAmount.toFixed(2)}
+            <span className="text-xs font-semibold text-[#16A34A] min-w-12 text-right">
+              -₹{discountAmount.toFixed(0)}
             </span>
           )}
         </div>
       </div>
 
-      {/* Fixed Tax (8%) */}
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-[#475569]">Tax (8% Fixed)</span>
-        <span className="font-semibold text-[#0F172A]">
-          ${taxAmount.toFixed(2)}
+      {/* Taxes (GST 5%: CGST 2.5% + SGST 2.5%) */}
+      <div className="flex items-center justify-between text-xs text-[#475569]">
+        <span>GST (CGST 2.5% + SGST 2.5%)</span>
+        <span className="font-medium text-[#0F172A]">
+          ₹{totalTax.toFixed(2)}
         </span>
       </div>
 
       {/* Divider */}
-      <div className="border-t border-[#E2E8F0] my-2" />
+      <div className="border-t border-[#E2E8F0] my-1.5" />
 
       {/* Grand Total */}
       <div className="flex items-center justify-between pt-0.5">
         <div>
-          <span className="text-base font-bold text-[#0F172A]">Total</span>
-          <span className="block text-[11px] text-[#475569]">
-            Includes all applicable taxes
+          <span className="text-sm font-bold text-[#0F172A]">Grand Total</span>
+          <span className="block text-[10px] text-[#475569]">
+            Net Payable (Inc. all taxes)
           </span>
         </div>
-        <span className="text-2xl font-extrabold text-[#0F172A] tracking-tight">
-          ${total.toFixed(2)}
+        <span className="text-xl font-extrabold text-[#0F172A] tracking-tight">
+          ₹{grandTotal}
         </span>
       </div>
     </div>

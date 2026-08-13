@@ -1,28 +1,31 @@
-export type MenuCategory = 'Starters' | 'Mains' | 'Desserts' | 'Beverages';
+import type {
+  MenuItem as DbMenuItem,
+  VegStatus,
+  OrderType,
+  PaymentMode,
+  MenuCategory as DbMenuCategory,
+} from '@/types';
 
-export interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  category: MenuCategory;
-  available: boolean;
-  description?: string;
-  image?: string;
-  vegStatus?: 'veg' | 'non-veg';
-}
+export type MenuItem = DbMenuItem;
 
 export interface CartItem extends MenuItem {
   quantity: number;
+  selectedPortion?: 'single' | 'full' | 'large';
+  selectedPrice?: number;
 }
 
 export interface OrderState {
+  orderType: OrderType;
   tableNumber: string;
   guestCount: number;
+  customerName: string;
+  customerPhone: string;
+  specialInstructions: string;
   cartItems: CartItem[];
   discount: number;
 }
 
-export type PaymentMethod = 'Cash' | 'Card' | 'UPI';
+export type PaymentMethod = 'Cash' | 'Card' | 'UPI' | 'QR';
 
 export interface HeldOrder {
   id: string;
@@ -33,4 +36,6 @@ export interface HeldOrder {
   discount: number;
   subtotal: number;
   total: number;
+  customerName?: string;
+  customerPhone?: string;
 }
