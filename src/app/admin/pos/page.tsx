@@ -214,8 +214,9 @@ export default function PosPage() {
     addDish(item, portion);
   }, [addDish]);
 
-  const handleDecrementDish = useCallback((item: MenuItem) => {
-    const line = lines.find((l) => l.menuItemId === item.id);
+  const handleDecrementDish = useCallback((item: MenuItem, portion?: Portion) => {
+    const key = portion ? `${item.id}::${portion}` : item.id;
+    const line = lines.find((l) => l.key === key) ?? lines.find((l) => l.menuItemId === item.id);
     if (line) decrementLine(line.key);
   }, [lines, decrementLine]);
 
@@ -563,7 +564,7 @@ export default function PosPage() {
                   ))}
                 </div>
               ) : (
-                <div className="ad-grid md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 mb-6">
+                <div className="ad-grid md:grid-cols-4 lg:grid-cols-5 mb-6">
                   {filteredDishes.map((item) => (
                     <DishCard
                       key={item.id}

@@ -10,7 +10,7 @@ interface Props {
   inBill: number;
   quantityByPortion?: Record<string, number>;
   onAdd: (item: MenuItem, portion?: Portion) => void;
-  onDecrement?: (item: MenuItem) => void;
+  onDecrement?: (item: MenuItem, portion?: Portion) => void;
 }
 
 function DishListRow({ item, inBill, quantityByPortion, onAdd, onDecrement }: Props) {
@@ -46,20 +46,41 @@ function DishListRow({ item, inBill, quantityByPortion, onAdd, onDecrement }: Pr
         </div>
 
         {hasPortionChoice ? (
-          <div className="flex gap-1.5 mt-1.5 flex-wrap">
+          <div className="flex gap-2 mt-1.5 flex-wrap">
             {portions.map(({ portion, price }) => {
               const qty = quantityByPortion?.[`${item.id}::${portion}`] || 0;
               const selected = qty > 0;
-              return (
+              return selected ? (
+                <div key={portion} className="flex items-center gap-1.5">
+                  <span className="text-[12px] ad-muted">{PORTION_LABEL[portion]}</span>
+                  <div className="flex items-center border border-ad-line overflow-hidden shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => onDecrement?.(item, portion)}
+                      className="ad-btn size-7 p-0 ad-hover-strong"
+                      aria-label={`Decrease ${item.name} ${PORTION_LABEL[portion]}`}
+                    >
+                      <Minus className="size-3" />
+                    </button>
+                    <span className="min-w-6 text-center ad-num text-[13px]">{qty}</span>
+                    <button
+                      type="button"
+                      onClick={() => onAdd(item, portion)}
+                      className="ad-btn ad-btn-primary size-7 p-0"
+                      aria-label={`Increase ${item.name} ${PORTION_LABEL[portion]}`}
+                    >
+                      <Plus className="size-3" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
                 <button
                   key={portion}
                   type="button"
                   onClick={() => onAdd(item, portion)}
                   className="ad-tab h-7 px-2.5 flex items-center gap-1"
-                  data-active={selected}
                 >
                   {PORTION_LABEL[portion]} ₹{price}
-                  {qty > 0 && <span className="tabular-nums">{qty}</span>}
                 </button>
               );
             })}

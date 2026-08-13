@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Plus, Minus, Check, Star } from 'lucide-react';
+import { Plus, Minus, Star } from 'lucide-react';
 import type { MenuItem } from '@/types';
 import { PORTION_LABEL, sellablePortions, type Portion } from '@/hooks/usePosCart';
 
@@ -13,7 +13,7 @@ interface Props {
   inBill: number;
   quantityByPortion?: Record<string, number>;
   onAdd: (item: MenuItem, portion?: Portion) => void;
-  onDecrement?: (item: MenuItem) => void;
+  onDecrement?: (item: MenuItem, portion?: Portion) => void;
 }
 
 function DishCard({ item, inBill, quantityByPortion, onAdd, onDecrement }: Props) {
@@ -80,29 +80,62 @@ function DishCard({ item, inBill, quantityByPortion, onAdd, onDecrement }: Props
           <span className="ad-num text-[14px]">₹{unitPrice}</span>
         </div>
 
-        {/* Portion Price Multi-Select (if multiple sizes) */}
+        {/* Portion rows — each size gets its own working +/- stepper instead
+            of one tap-to-add button, so a cashier can dial in "2 Half, 1
+            Full" without hunting for a decrement control that wasn't there. */}
         {hasPortionChoice ? (
-          <div className="flex gap-1 flex-wrap pt-0.5">
+          <div className="flex flex-col gap-1 pt-0.5">
             {portions.map(({ portion, price }) => {
               const portionKey = `${item.id}::${portion}`;
               const portionQty = quantityByPortion ? quantityByPortion[portionKey] || 0 : 0;
-              const isSelected = portionQty > 0;
+              const portionActive = portionQty > 0;
 
               return (
-                <button
-                  key={portion}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAdd(item, portion);
-                  }}
-                  className="ad-tab flex-1 min-w-0 h-6.5 px-1 text-[10px] flex items-center justify-center gap-1"
-                  data-active={isSelected}
-                >
-                  {isSelected && <Check className="size-2.5 shrink-0" />}
-                  <span className="truncate">{PORTION_LABEL[portion]} ₹{price}</span>
-                  {portionQty > 0 && <span className="shrink-0 tabular-nums">{portionQty}</span>}
-                </button>
+                <div key={portion} className="flex items-center justify-between gap-1.5">
+                  <span className="min-w-0 flex-1 text-[11px] font-semibold truncate">
+                    {PORTION_LABEL[portion]} <span className="ad-muted font-normal">₹{price}</span>
+                  </span>
+
+                  {portionActive ? (
+                    <div className="flex items-center border border-ad-line overflow-hidden shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDecrement?.(item, portion);
+                        }}
+                        className="ad-btn ad-btn-secondary size-5.5 p-0 border-0"
+                        aria-label={`Decrease ${item.name} ${PORTION_LABEL[portion]}`}
+                      >
+                        <Minus className="size-3" />
+                      </button>
+                      <span className="ad-num text-[11px] px-1 min-w-4 text-center">{portionQty}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAdd(item, portion);
+                        }}
+                        className="ad-btn ad-btn-primary size-5.5 p-0"
+                        aria-label={`Increase ${item.name} ${PORTION_LABEL[portion]}`}
+                      >
+                        <Plus className="size-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAdd(item, portion);
+                      }}
+                      className="ad-btn ad-btn-dark h-5.5 px-2 text-[10px] shrink-0"
+                    >
+                      <Plus className="size-2.5" />
+                      <span>Add</span>
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
