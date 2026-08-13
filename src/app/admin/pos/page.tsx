@@ -22,7 +22,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   Search, X, LayoutGrid, List,
   Utensils, Coffee, Flame, Cake, Soup, Sparkles,
-  Maximize2, Minimize2, ChevronRight, Zap,
+  Maximize2, Minimize2, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -55,8 +55,6 @@ export default function PosPage() {
 
   /* State */
   const [specialInstructions, setSpecialInstructions] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
   const [discount, setDiscount] = useState<DiscountOption>(0);
   const [packagingCharge, setPackagingCharge] = useState<number>(0);
 
@@ -93,21 +91,21 @@ export default function PosPage() {
   }, [dbCategories, queryCategories]);
 
   const categoriesList = useMemo(() => {
-    const list: { name: string; slug: string; emoji: string; icon: React.ComponentType<{ className?: string }> }[] = [
-      { name: 'All Items', slug: 'all', emoji: '✨', icon: LayoutGrid },
-    ];
-    activeCategories
+    return activeCategories
       .filter((c) => c.isActive)
       .sort((a, b) => a.sortOrder - b.sortOrder)
-      .forEach((c) => {
+      .map((c) => {
         const meta = CATEGORY_ICONS[c.slug] || { icon: Utensils, emoji: '🍽️' };
-        list.push({ name: c.name, slug: c.slug, emoji: meta.emoji, icon: meta.icon });
+        return { name: c.name, slug: c.slug, emoji: meta.emoji, icon: meta.icon };
       });
-    return list;
   }, [activeCategories]);
 
   /* Filters */
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  // Categories load asynchronously, so an explicit pick is layered over a
+  // derived fallback to the first category — no effect needed to "catch up"
+  // once the list arrives.
+  const [pickedCategory, setSelectedCategory] = useState<string>('');
+  const selectedCategory = pickedCategory || categoriesList[0]?.slug || '';
   const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'non-veg' | 'egg'>('all');
   const [search, setSearch] = useState('');
   const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('cards');
@@ -159,7 +157,7 @@ export default function PosPage() {
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
   const [placedInvoiceNo, setPlacedInvoiceNo] = useState<string | undefined>(undefined);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [mobileBillOpen, setMobileBillOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
 
   const totals = useMemo(
     () => computeBillTotals(subtotal, discount, packagingCharge),
@@ -180,14 +178,6 @@ export default function PosPage() {
     return set;
   }, [orders]);
 
-  /* Quick Rush-Hour Best Sellers */
-  const quickBestSellers = useMemo(() => {
-    const popular = menuItems.filter(
-      (m) => (m.isPopular || m.isSpecial || m.rating >= 4.5) && m.isAvailable !== false
-    );
-    return popular.length >= 4 ? popular.slice(0, 6) : menuItems.slice(0, 6);
-  }, [menuItems]);
-
   /* Filtered Dishes */
   const filteredDishes = useMemo(() => {
     const selectedCatObj = activeCategories.find((c) => c.slug === selectedCategory);
@@ -198,8 +188,10 @@ export default function PosPage() {
         item.name.toLowerCase().includes(q) ||
         (item.category && item.category.toLowerCase().includes(q));
 
+      // An empty search falls back to every dish for the category — that's
+      // how a cashier searches across categories without losing their place.
       const matchCategory =
-        selectedCategory === 'all' ||
+        !!q ||
         item.category === selectedCategory ||
         (selectedCatObj && item.category === selectedCatObj.name) ||
         (item.category && item.category.toLowerCase() === selectedCategory.toLowerCase());
@@ -238,8 +230,7 @@ export default function PosPage() {
       const newOrder: Order = {
         id: orderId,
         orderId,
-        customerName: customerName.trim() || 'Counter Customer',
-        customerPhone: customerPhone.trim() || undefined,
+        customerName: 'Counter Customer',
         tableNumber: orderType === 'dine-in' && tableNumber !== '' ? Number(tableNumber) : undefined,
         orderType,
         paymentMode,
@@ -275,12 +266,10 @@ export default function PosPage() {
 
       clearCart();
       setSpecialInstructions('');
-      setCustomerName('');
-      setCustomerPhone('');
       setDiscount(0);
       setPackagingCharge(0);
       setTableNumber('');
-      setMobileBillOpen(false);
+      setCartOpen(false);
       toast.success('Order settled & printed in sub-10s! ⚡');
     } catch {
       toast.error('Failed to complete order');
@@ -333,10 +322,6 @@ export default function PosPage() {
     onTableNumber: setTableNumber,
     paymentMode,
     onPaymentMode: setPaymentMode,
-    customerName,
-    onCustomerName: setCustomerName,
-    customerPhone,
-    onCustomerPhone: setCustomerPhone,
     discount,
     onDiscount: setDiscount,
     packagingCharge,
@@ -460,61 +445,34 @@ export default function PosPage() {
           </div>
         </div>
 
-        {/* ── 2. MAIN SPLIT BODY (65% Product Ordering | 35% Checkout) ── */}
+        {/* ── 2. MAIN BODY: Category Sidebar | Product Ordering Catalog ── */}
         <div className="flex-1 min-h-0 flex w-full overflow-hidden">
 
           {/* ═══════════════════════════════════════════════════════════ */}
-          {/*  LEFT SECTION (65%): Product Ordering Catalog               */}
+          {/*  LEFT: Category Sidebar — replaces the horizontal tab bar   */}
+          {/*  so a full-height list of categories stays one tap away    */}
+          {/*  no matter how many the menu grows to.                     */}
           {/* ═══════════════════════════════════════════════════════════ */}
+          <div className="w-[92px] sm:w-[124px] shrink-0 h-full overflow-y-auto scrollbar-none border-r-2 border-ad-line bg-ad-surface">
+            {categoriesList.map((cat) => {
+              const Icon = cat.icon;
+              return (
+                <button
+                  key={cat.slug}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat.slug)}
+                  data-active={selectedCategory === cat.slug}
+                  className="w-full flex flex-col items-center gap-1 px-1.5 py-3 border-b border-ad-hairline text-[11px] font-semibold text-ad-muted data-[active=true]:text-ad-ink data-[active=true]:bg-ad-bg data-[active=true]:border-l-4 data-[active=true]:border-l-ad-accent transition-colors"
+                >
+                  <Icon className="size-4" />
+                  <span className="text-center leading-tight line-clamp-2">{cat.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/*  RIGHT: Product Ordering Catalog                            */}
           <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-ad-bg">
-
-            {/* Sticky Category Tabs Bar */}
-            <div className="border-b-2 border-ad-line px-3 sm:px-4 py-2.5 shrink-0">
-              <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-                {categoriesList.map((cat) => (
-                  <button
-                    key={cat.slug}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat.slug)}
-                    className="ad-tab shrink-0"
-                    data-active={selectedCategory === cat.slug}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* ⚡ Rush-Hour Best Sellers Strip (1-Tap Quick Add) */}
-            {quickBestSellers.length > 0 && selectedCategory === 'all' && !search && (
-              <div className="bg-ad-surface border-b border-ad-hairline px-3 sm:px-4 py-2 flex items-center gap-3 shrink-0 overflow-x-auto scrollbar-none">
-                <span className="ad-kicker flex items-center gap-1 shrink-0">
-                  <Zap className="size-3.5" /> Rush hits
-                </span>
-                <div className="flex items-center gap-2">
-                  {quickBestSellers.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => handleAddDish(item)}
-                      className="px-2.5 py-1 bg-ad-bg border border-ad-hairline hover:border-ad-accent text-[13px] font-semibold flex items-center gap-1.5 shrink-0 transition-colors"
-                    >
-                      <span
-                        className="size-1.5 rounded-full"
-                        style={{
-                          background:
-                            item.vegStatus === 'veg' ? 'var(--ad-ok)'
-                            : item.vegStatus === 'egg' ? 'var(--ad-warn)'
-                            : 'var(--ad-accent)',
-                        }}
-                      />
-                      <span className="truncate max-w-32">{item.name}</span>
-                      <span className="ad-num text-[12px]">₹{item.price}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Table Allocation Fast Strip (Visible when Dine-In is active) */}
             {orderType === 'dine-in' && (
@@ -587,44 +545,36 @@ export default function PosPage() {
             </div>
           </div>
 
-          {/* ═══════════════════════════════════════════════════════════ */}
-          {/*  RIGHT SECTION (35%): Sticky Cart & Checkout Panel          */}
-          {/* ═══════════════════════════════════════════════════════════ */}
-          <div className="hidden md:flex w-[350px] lg:w-[390px] xl:w-[420px] shrink-0 flex-col h-full bg-ad-surface border-l-2 border-ad-line">
-            <BillPanel {...billPanelProps} />
-          </div>
         </div>
 
-        {/* ── Mobile: View Cart Bottom Float Button ── */}
-        {lines.length > 0 && (
-          <div className="md:hidden fixed left-4 right-4 bottom-4 z-30">
-            <button
-              type="button"
-              onClick={() => setMobileBillOpen(true)}
-              className="ad-btn ad-btn-primary w-full h-13 justify-between px-5 text-[14px]"
-            >
-              <span className="flex items-center gap-2">
-                <span className="size-6.5 grid place-items-center bg-ad-bg text-ad-accent ad-num text-[12px]">
-                  {totalUnits}
-                </span>
-                <span>View cart</span>
-              </span>
-              <span className="ad-num text-[17px]">₹{totals.grandTotal.toFixed(2)}</span>
-            </button>
-          </div>
-        )}
+        {/* ── Cart Bar: bottom-right float, opens the ticket as a slide-over ──
+            Replaces the always-docked 390px panel — the catalog gets the
+            full width and the cart is one tap away instead of permanent
+            chrome eating a column of dishes. */}
+        <button
+          type="button"
+          onClick={() => setCartOpen(true)}
+          className="fixed right-4 bottom-4 z-30 ad-btn ad-btn-primary h-13 justify-between gap-3 px-5 text-[14px] shadow-lg"
+        >
+          <span className="flex items-center gap-2">
+            <span className="size-6.5 grid place-items-center bg-ad-bg text-ad-accent ad-num text-[12px]">
+              {totalUnits}
+            </span>
+            <span>Cart</span>
+          </span>
+          {totalUnits > 0 && <span className="ad-num text-[17px]">₹{totals.grandTotal.toFixed(2)}</span>}
+        </button>
 
-        {/* ── Mobile: Full Checkout Bottom Sheet ── */}
-        <Sheet open={mobileBillOpen} onOpenChange={setMobileBillOpen}>
+        <Sheet open={cartOpen} onOpenChange={setCartOpen}>
           <SheetContent
-            side="bottom"
+            side="right"
             showCloseButton={false}
-            className="p-0 h-[min(94dvh,780px)] bg-ad-surface overflow-hidden"
+            className="p-0 w-full sm:w-[400px] bg-ad-surface overflow-hidden"
           >
             <BillPanel
               {...billPanelProps}
               compact={true}
-              onClose={() => setMobileBillOpen(false)}
+              onClose={() => setCartOpen(false)}
             />
           </SheetContent>
         </Sheet>

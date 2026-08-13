@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   Plus, Minus, Trash2, Banknote, QrCode, CreditCard,
-  X, Send, User, Phone, Percent, Package, MessageSquarePlus,
+  X, Send, Percent, Package, MessageSquarePlus,
 } from 'lucide-react';
 import { type PosLine } from '@/hooks/usePosCart';
 import type { BillTotals, DiscountOption } from '@/lib/billing';
@@ -56,11 +56,6 @@ export interface BillPanelProps {
   paymentMode: PosPaymentMode;
   onPaymentMode: (m: PosPaymentMode) => void;
 
-  customerName: string;
-  onCustomerName: (name: string) => void;
-  customerPhone: string;
-  onCustomerPhone: (phone: string) => void;
-
   discount?: DiscountOption;
   onDiscount?: (d: DiscountOption) => void;
   packagingCharge?: number;
@@ -93,10 +88,6 @@ export default function BillPanel({
   onTableNumber,
   paymentMode,
   onPaymentMode,
-  customerName,
-  onCustomerName,
-  customerPhone,
-  onCustomerPhone,
   discount = 0,
   onDiscount,
   packagingCharge = 0,
@@ -242,30 +233,6 @@ export default function BillPanel({
             </div>
           </div>
         )}
-
-        {/* Customer Info (Optional Phone & Name) */}
-        <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-          <div className="relative">
-            <User className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-ad-muted z-10" />
-            <input
-              type="text"
-              placeholder="Customer name"
-              value={customerName}
-              onChange={(e) => onCustomerName(e.target.value)}
-              className="ad-input h-9 pl-7 pr-2 text-[13px]"
-            />
-          </div>
-          <div className="relative">
-            <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-ad-muted z-10" />
-            <input
-              type="tel"
-              placeholder="Phone"
-              value={customerPhone}
-              onChange={(e) => onCustomerPhone(e.target.value)}
-              className="ad-input h-9 pl-7 pr-2 text-[13px] tabular-nums"
-            />
-          </div>
-        </div>
       </div>
 
       {/* ── 3. CART ITEMS LIST ── */}

@@ -17,21 +17,17 @@ import type { Order } from '@/types';
  * pressure can't stop to do.
  *
  * Bytes are ESC/POS — what effectively every 58mm/80mm thermal printer
- * speaks. Two transports are supported, mirroring each other's pairing
- * shape (request access once, silently reconnect on later loads):
+ * speaks. Pairing is over Web Bluetooth only (Chrome/Edge on Android and
+ * desktop) — no cable, one transport, nothing for a cashier to choose
+ * between.
  *
- *  - Web Bluetooth, for wireless printers. Chrome/Edge on Android and
- *    desktop only.
- *  - Web Serial, for printers wired in over USB (the common case for a
- *    fixed counter till). Chrome/Edge on desktop only — not Android, not
- *    iOS Safari.
- *
- * `printOrder`/`printTestReceipt` write to whichever transport is
- * connected without the caller needing to know which one — a cashier's
- * printer is either paired over Bluetooth or plugged in, never both at
- * once. Neither transport exists on iOS Safari, which is why every function
- * here reports failure instead of throwing: the caller falls back to the
- * on-screen receipt dialog.
+ * The paper width is never asked for either: it is inferred from the
+ * paired device's advertised name (most 58mm units say so on the label
+ * and in the BLE name) and falls back to the 80mm counter standard
+ * otherwise. `printOrder`/`printTestReceipt` just print — the caller
+ * doesn't need to know transport or width. Web Bluetooth doesn't exist on
+ * iOS Safari, which is why every function here reports failure instead of
+ * throwing: the caller falls back to the on-screen receipt dialog.
  */
 
 // Serial-over-BLE service exposed by the common ESC/POS printer chipsets.
@@ -158,6 +154,7 @@ async function attach(target: BluetoothDeviceLike): Promise<boolean> {
     characteristic = null;
   });
   if (target.name) localStorage.setItem(DEVICE_NAME_KEY, target.name);
+  setPaperWidth(widthFromDeviceName(target.name));
   return true;
 }
 
@@ -217,164 +214,9 @@ export function disconnectPrinter(): void {
   if (typeof window !== 'undefined') localStorage.removeItem(DEVICE_NAME_KEY);
 }
 
-// ─── Wired (Web Serial / USB) pairing ────────────────────────────────────────
-//
-// The counter till is often plugged in rather than paired wirelessly — the
-// printer never walks away and USB means one less thing to lose signal.
-// Web Serial is Chrome/Edge desktop only (no Android, no iOS Safari), which
-// is why this is offered alongside Bluetooth rather than instead of it.
-
-const WIRED_LABEL_KEY = 'pala_pitta_printer_wired_label';
-const BAUD_RATE_KEY = 'pala_pitta_printer_baud';
-
-/** Baud rates covering effectively every USB/serial ESC/POS printer sold. */
-export const BAUD_RATES = [9600, 19200, 38400, 57600, 115200] as const;
-export type BaudRate = typeof BAUD_RATES[number];
-
-export function savedBaudRate(): BaudRate {
-  if (typeof window === 'undefined') return 9600;
-  const saved = Number(localStorage.getItem(BAUD_RATE_KEY));
-  return (BAUD_RATES as readonly number[]).includes(saved) ? (saved as BaudRate) : 9600;
-}
-
-export function setBaudRate(rate: BaudRate): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(BAUD_RATE_KEY, String(rate));
-}
-
-/** Name of the last paired wired printer, for showing "Connected to X" on load. */
-export function savedWiredPrinterName(): string | null {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem(WIRED_LABEL_KEY);
-}
-
-// Minimal Web Serial typings — same reasoning as the Bluetooth ones above.
-interface SerialPortLike {
-  readonly writable: WritableStream<Uint8Array> | null;
-  open: (options: { baudRate: number }) => Promise<void>;
-  close: () => Promise<void>;
-  getInfo?: () => { usbVendorId?: number; usbProductId?: number };
-}
-interface SerialLike {
-  requestPort: () => Promise<SerialPortLike>;
-  getPorts: () => Promise<SerialPortLike[]>;
-  addEventListener?: (type: string, listener: (event: { target?: unknown }) => void) => void;
-}
-
-function serial(): SerialLike | null {
-  if (typeof navigator === 'undefined') return null;
-  return (navigator as unknown as { serial?: SerialLike }).serial ?? null;
-}
-
-export function isWiredPrinterSupported(): boolean {
-  return !!serial();
-}
-
-let serialPort: SerialPortLike | null = null;
-let serialWriter: WritableStreamDefaultWriter<Uint8Array> | null = null;
-let serialDisconnectListenerAttached = false;
-
-export function isWiredPrinterConnected(): boolean {
-  return !!serialWriter;
-}
-
-function labelFor(port: SerialPortLike): string {
-  const info = port.getInfo?.();
-  if (info?.usbVendorId != null && info?.usbProductId != null) {
-    const hex = (n: number) => n.toString(16).padStart(4, '0');
-    return `USB printer (${hex(info.usbVendorId)}:${hex(info.usbProductId)})`;
-  }
-  return 'USB printer';
-}
-
-async function attachSerial(port: SerialPortLike, baudRate: BaudRate): Promise<boolean> {
-  try {
-    await port.open({ baudRate });
-  } catch {
-    // Already open from an earlier attach in this same page session, or a
-    // device that refused the requested baud rate.
-    if (!port.writable) return false;
-  }
-  if (!port.writable) return false;
-
-  serialPort = port;
-  serialWriter = port.writable.getWriter();
-
-  const s = serial();
-  if (s?.addEventListener && !serialDisconnectListenerAttached) {
-    serialDisconnectListenerAttached = true;
-    s.addEventListener('disconnect', (event) => {
-      if (event.target === serialPort) {
-        serialWriter = null;
-        serialPort = null;
-      }
-    });
-  }
-
-  localStorage.setItem(WIRED_LABEL_KEY, labelFor(port));
-  return true;
-}
-
-/**
- * Show the browser's Serial port picker and pair a printer. Must be called
- * from a user gesture. Returns the port label, or null if the cashier
- * cancelled or the port couldn't be opened.
- */
-export async function connectWiredPrinter(baudRate: BaudRate = savedBaudRate()): Promise<string | null> {
-  const s = serial();
-  if (!s) return null;
-
-  try {
-    const port = await s.requestPort();
-    const ok = await attachSerial(port, baudRate);
-    if (!ok) return null;
-    setBaudRate(baudRate);
-    return savedWiredPrinterName();
-  } catch {
-    // Cancelled picker, or a port that refused to open.
-    return null;
-  }
-}
-
-/**
- * Silently reconnect a wired printer this browser was already granted
- * access to. Called on load so the cashier doesn't re-pick the port every
- * shift. Chrome/Edge desktop only.
- */
-export async function reconnectSavedWiredPrinter(): Promise<boolean> {
-  const s = serial();
-  if (!s || isWiredPrinterConnected()) return isWiredPrinterConnected();
-
-  try {
-    const ports = await s.getPorts();
-    const port = ports[0];
-    if (!port) return false;
-    return await attachSerial(port, savedBaudRate());
-  } catch {
-    return false;
-  }
-}
-
-export function disconnectWiredPrinter(): void {
-  try {
-    serialWriter?.close();
-  } catch {
-    // Already gone — nothing to clean up.
-  }
-  try {
-    serialPort?.close();
-  } catch {
-    // Already gone — nothing to clean up.
-  }
-  serialWriter = null;
-  serialPort = null;
-  if (typeof window !== 'undefined') localStorage.removeItem(WIRED_LABEL_KEY);
-}
-
-/** Either transport ready to print — what callers deciding "silent print or
- *  fall back to the dialog" actually want, regardless of which one it is. */
+/** What callers deciding "silent print or fall back to the dialog" want. */
 export function isPrinterConnected(): boolean {
-  return isBluetoothPrinterConnected() || isWiredPrinterConnected();
+  return isBluetoothPrinterConnected();
 }
 
 // ─── ESC/POS receipt ─────────────────────────────────────────────────────────
@@ -434,6 +276,13 @@ class EscPosBuilder {
   feed(lines = 1) { return this.raw(ESC, 0x64, lines); }
   cut() { return this.raw(GS, 0x56, 0x42, 0x00); }
   build() { return new Uint8Array(this.parts); }
+}
+
+/** Infers the roll width from a paired device's advertised name — a "58"
+ *  anywhere in it (58mm units routinely brand themselves that way) means the
+ *  narrow roll; everything else defaults to the 80mm counter standard. */
+function widthFromDeviceName(name: string | null | undefined): PaperWidth {
+  return name && /58/.test(name) ? 58 : 80;
 }
 
 /**
@@ -593,40 +442,30 @@ export function buildReceiptBytes(
 }
 
 /**
- * Writes a receipt to whichever transport is actually connected. Bluetooth
- * goes out in small chunks — BLE caps a single write at ~512 bytes and many
- * printers choke well before that — while Web Serial has no such limit and
- * takes the whole buffer in one write.
+ * Writes a receipt over Bluetooth in small chunks — BLE caps a single write
+ * at ~512 bytes and many printers choke well before that.
  */
 async function sendBytes(payload: Uint8Array): Promise<boolean> {
-  if (characteristic && isBluetoothPrinterConnected()) {
-    const CHUNK = 180;
-    for (let i = 0; i < payload.length; i += CHUNK) {
-      const chunk = payload.slice(i, i + CHUNK);
-      if (characteristic.properties.write) {
-        await characteristic.writeValue(chunk);
-      } else if (characteristic.writeValueWithoutResponse) {
-        await characteristic.writeValueWithoutResponse(chunk);
-      } else {
-        return false;
-      }
+  if (!characteristic || !isBluetoothPrinterConnected()) return false;
+
+  const CHUNK = 180;
+  for (let i = 0; i < payload.length; i += CHUNK) {
+    const chunk = payload.slice(i, i + CHUNK);
+    if (characteristic.properties.write) {
+      await characteristic.writeValue(chunk);
+    } else if (characteristic.writeValueWithoutResponse) {
+      await characteristic.writeValueWithoutResponse(chunk);
+    } else {
+      return false;
     }
-    return true;
   }
-
-  if (serialWriter && isWiredPrinterConnected()) {
-    await serialWriter.write(payload);
-    return true;
-  }
-
-  return false;
+  return true;
 }
 
 /**
- * Send a receipt to the connected printer, Bluetooth or wired. Returns false
- * when there's no printer attached or the write failed, so the caller can
- * fall back to the on-screen receipt instead of a counter silently losing a
- * ticket.
+ * Send a receipt to the paired printer. Returns false when there's no
+ * printer attached or the write failed, so the caller can fall back to the
+ * on-screen receipt instead of a counter silently losing a ticket.
  */
 export async function printOrder(order: Order, invoiceNo?: string): Promise<boolean> {
   if (!isPrinterConnected()) return false;
@@ -654,15 +493,14 @@ export async function printTestReceipt(): Promise<boolean> {
   const width = COLUMNS[paper];
   const { divider, row } = layout(width);
   const shop = billHeader();
-  const transport = isBluetoothPrinterConnected() ? 'Bluetooth' : 'Wired (USB)';
 
   const b = new EscPosBuilder();
   b.init().align('center').bold(true).double(true).line(shop.name).double(false).bold(false)
     .line('Printer connected')
     .line(divider('='))
     .align('left')
-    .line(row('Connection', transport))
-    .line(row('Paper', `${paper}mm`))
+    .line(row('Connection', 'Bluetooth'))
+    .line(row('Paper', `${paper}mm (auto)`))
     .line(row('Columns', String(width)))
     .line(row('Time', new Date().toLocaleString('en-IN')))
     .line(divider())
