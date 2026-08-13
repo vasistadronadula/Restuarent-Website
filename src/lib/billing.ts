@@ -21,23 +21,41 @@ export interface BillTotals {
   taxable: number;
   cgst: number;
   sgst: number;
+  packagingCharge?: number;
   /** What the customer actually pays — whole rupees. */
   grandTotal: number;
-  /** grandTotal − (taxable + taxes). Printed as its own line when non-zero. */
+  /** grandTotal − (taxable + taxes + packaging). Printed as its own line when non-zero. */
   roundOff: number;
 }
 
-export function computeBillTotals(subtotal: number, discountPercent = 0): BillTotals {
-  const safeSubtotal = Number.isFinite(subtotal) && subtotal > 0 ? subtotal : 0;
-  const safePercent = Number.isFinite(discountPercent)
-    ? Math.min(Math.max(discountPercent, 0), 100)
-    : 0;
+export type DiscountOption =
+  | { type: 'percent'; value: number }
+  | { type: 'flat'; value: number }
+  | number;
 
-  const discountAmount = round2((safeSubtotal * safePercent) / 100);
+export function computeBillTotals(
+  subtotal: number,
+  discount: DiscountOption = 0,
+  packagingCharge = 0
+): BillTotals {
+  const safeSubtotal = Number.isFinite(subtotal) && subtotal > 0 ? subtotal : 0;
+  let discountAmount = 0;
+
+  if (typeof discount === 'number') {
+    const safePercent = Math.min(Math.max(discount, 0), 100);
+    discountAmount = round2((safeSubtotal * safePercent) / 100);
+  } else if (discount.type === 'percent') {
+    const safePercent = Math.min(Math.max(discount.value, 0), 100);
+    discountAmount = round2((safeSubtotal * safePercent) / 100);
+  } else if (discount.type === 'flat') {
+    discountAmount = round2(Math.min(Math.max(discount.value, 0), safeSubtotal));
+  }
+
   const taxable = round2(Math.max(0, safeSubtotal - discountAmount));
   const cgst = round2(taxable * HALF_GST_RATE);
   const sgst = round2(taxable * HALF_GST_RATE);
-  const payable = taxable + cgst + sgst;
+  const safePackaging = Math.max(0, packagingCharge || 0);
+  const payable = taxable + cgst + sgst + safePackaging;
   const grandTotal = Math.round(payable);
 
   return {
@@ -46,6 +64,7 @@ export function computeBillTotals(subtotal: number, discountPercent = 0): BillTo
     taxable,
     cgst,
     sgst,
+    packagingCharge: safePackaging > 0 ? safePackaging : undefined,
     grandTotal,
     roundOff: round2(grandTotal - payable),
   };

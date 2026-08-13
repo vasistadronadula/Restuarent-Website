@@ -29,6 +29,7 @@ export interface PosLine {
   vegStatus: VegStatus;
   portion?: Portion;
   image?: string;
+  notes?: string;
 }
 
 type Action =
@@ -36,6 +37,7 @@ type Action =
   | { type: 'increment'; key: string }
   | { type: 'decrement'; key: string }
   | { type: 'setQuantity'; key: string; quantity: number }
+  | { type: 'setNotes'; key: string; notes: string }
   | { type: 'remove'; key: string }
   | { type: 'clear' };
 
@@ -84,6 +86,11 @@ function reducer(state: PosLine[], action: Action): PosLine[] {
       }
       return state.map((l) =>
         l.key === action.key ? { ...l, quantity: clampQty(action.quantity) } : l
+      );
+    }
+    case 'setNotes': {
+      return state.map((l) =>
+        l.key === action.key ? { ...l, notes: action.notes.trim() || undefined } : l
       );
     }
     case 'remove':
@@ -166,6 +173,10 @@ export function usePosCart() {
     (key: string, quantity: number) => dispatch({ type: 'setQuantity', key, quantity }),
     []
   );
+  const setNotes = useCallback(
+    (key: string, notes: string) => dispatch({ type: 'setNotes', key, notes }),
+    []
+  );
 
   const subtotal = useMemo(
     () => lines.reduce((sum, l) => sum + l.unitPrice * l.quantity, 0),
@@ -206,6 +217,7 @@ export function usePosCart() {
     increment,
     decrement,
     setQuantity,
+    setNotes,
     remove,
     clear,
   };

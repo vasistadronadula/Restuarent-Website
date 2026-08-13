@@ -7,14 +7,12 @@ import DishListRow from '@/components/pos/DishListRow';
 import BillPanel, { type PosOrderType, type PosPaymentMode } from '@/components/pos/BillPanel';
 import OrderPlacedDialog from '@/components/pos/OrderPlacedDialog';
 import TableFloorMapModal from '@/components/pos/TableFloorMapModal';
-import HeldOrdersModal, { type HeldOrder } from '@/components/pos/HeldOrdersModal';
-import ShiftSummaryModal from '@/components/pos/ShiftSummaryModal';
 
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { useCategories, useMenuItems, useTables } from '@/lib/queries';
 import { usePosCart, type Portion } from '@/hooks/usePosCart';
-import { computeBillTotals } from '@/lib/billing';
+import { computeBillTotals, type DiscountOption } from '@/lib/billing';
 import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
 import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
 import { markPosOrderPrinted } from '@/lib/posOrderTracker';
@@ -27,8 +25,8 @@ import { Badge } from '@/components/ui/badge';
 import {
   Search, X, ShoppingBag, LayoutGrid, List,
   Utensils, Coffee, Flame, Cake, Soup, Sparkles,
-  Maximize2, Minimize2, PauseCircle, BarChart3,
-  ChevronRight
+  Maximize2, Minimize2, ChevronRight, Clock, UserCheck,
+  Zap, Radio
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -63,6 +61,35 @@ export default function PosPage() {
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [discount, setDiscount] = useState<DiscountOption>(0);
+  const [packagingCharge, setPackagingCharge] = useState<number>(0);
+
+  /* Live Clock State */
+  const [timeStr, setTimeStr] = useState('');
+  useEffect(() => {
+    const updateTime = () => {
+      setTimeStr(
+        new Date().toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+      );
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  /* Cashier Display Name */
+  const cashierName = useMemo(() => {
+    return (
+      user?.user_metadata?.name ||
+      user?.user_metadata?.full_name ||
+      user?.email?.split('@')[0] ||
+      'Cashier'
+    );
+  }, [user]);
 
   /* Categories */
   const activeCategories = useMemo(() => {
@@ -95,14 +122,19 @@ export default function PosPage() {
   const [tableNumber, setTableNumber] = useState<number | ''>('');
   const [paymentMode, setPaymentMode] = useState<PosPaymentMode>('cash');
 
+  /* Handle Order Type Change */
+  const handleOrderTypeChange = (type: PosOrderType) => {
+    setOrderType(type);
+    if (type === 'counter' && packagingCharge === 0) {
+      setPackagingCharge(20);
+    } else if (type === 'dine-in') {
+      setPackagingCharge(0);
+    }
+  };
+
   /* Modals & Dialogs */
   const [tableMapOpen, setTableMapOpen] = useState(false);
-  const [heldOrdersOpen, setHeldOrdersOpen] = useState(false);
-  const [shiftSummaryOpen, setShiftSummaryOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-
-  /* Parked / Held Orders List */
-  const [heldOrders, setHeldOrders] = useState<HeldOrder[]>([]);
 
   /* Cart Hook */
   const {
@@ -110,6 +142,7 @@ export default function PosPage() {
     increment: incrementLine,
     decrement: decrementLine,
     setQuantity: setLineQuantity,
+    setNotes: setLineNotes,
     remove: removeLine,
     add: addDish,
     clear: clearCart,
@@ -132,7 +165,32 @@ export default function PosPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [mobileBillOpen, setMobileBillOpen] = useState(false);
 
-  const totals = useMemo(() => computeBillTotals(subtotal), [subtotal]);
+  const totals = useMemo(
+    () => computeBillTotals(subtotal, discount, packagingCharge),
+    [subtotal, discount, packagingCharge]
+  );
+
+  /* Active Occupied Tables */
+  const occupiedTableNumbers = useMemo(() => {
+    const set = new Set<number>();
+    orders.forEach((o) => {
+      if (
+        (o.status === 'pending' || o.status === 'preparing' || o.status === 'ready') &&
+        typeof o.tableNumber === 'number'
+      ) {
+        set.add(o.tableNumber);
+      }
+    });
+    return set;
+  }, [orders]);
+
+  /* Quick Rush-Hour Best Sellers */
+  const quickBestSellers = useMemo(() => {
+    const popular = menuItems.filter(
+      (m) => (m.isPopular || m.isSpecial || m.rating >= 4.5) && m.isAvailable !== false
+    );
+    return popular.length >= 4 ? popular.slice(0, 6) : menuItems.slice(0, 6);
+  }, [menuItems]);
 
   /* Filtered Dishes */
   const filteredDishes = useMemo(() => {
@@ -163,51 +221,6 @@ export default function PosPage() {
     const line = lines.find((l) => l.menuItemId === item.id);
     if (line) decrementLine(line.key);
   }, [lines, decrementLine]);
-
-  /* Hold Active Order */
-  const handleHoldOrder = () => {
-    if (lines.length === 0) {
-      toast.error('Cart is empty, nothing to hold');
-      return;
-    }
-    const newHeld: HeldOrder = {
-      id: generateOrderId(),
-      heldAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      orderType,
-      tableNumber,
-      customerName: customerName.trim() || undefined,
-      customerPhone: customerPhone.trim() || undefined,
-      lines: [...lines],
-      subtotal: totals.subtotal,
-      totalUnits,
-    };
-    setHeldOrders((prev) => [newHeld, ...prev]);
-    clearCart();
-    setCustomerName('');
-    setCustomerPhone('');
-    setTableNumber('');
-    toast.success(`Ticket #${newHeld.id.slice(-4)} parked successfully!`);
-  };
-
-  /* Restore Held Order */
-  const handleRestoreHeldOrder = (held: HeldOrder) => {
-    clearCart();
-    setOrderType(held.orderType);
-    setTableNumber(held.tableNumber);
-    setCustomerName(held.customerName || '');
-    setCustomerPhone(held.customerPhone || '');
-    // re-add lines
-    held.lines.forEach((l) => {
-      const matchItem = menuItems.find((m) => m.id === l.menuItemId);
-      if (matchItem) {
-        for (let i = 0; i < l.quantity; i++) {
-          addDish(matchItem, l.portion);
-        }
-      }
-    });
-    setHeldOrders((prev) => prev.filter((ho) => ho.id !== held.id));
-    toast.success(`Restored ticket #${held.id.slice(-4)}`);
-  };
 
   /* Complete Checkout & Place Order */
   const handlePlaceOrder = async () => {
@@ -243,9 +256,11 @@ export default function PosPage() {
           price: l.unitPrice,
           quantity: l.quantity,
           portion: l.portion,
+          notes: l.notes,
         })),
         subtotal: totals.subtotal,
         discountAmount: totals.discountAmount,
+        deliveryCharge: totals.packagingCharge,
         cgst: totals.cgst,
         sgst: totals.sgst,
         grandTotal: totals.grandTotal,
@@ -266,6 +281,8 @@ export default function PosPage() {
       setSpecialInstructions('');
       setCustomerName('');
       setCustomerPhone('');
+      setDiscount(0);
+      setPackagingCharge(0);
       setTableNumber('');
       setMobileBillOpen(false);
       toast.success('Order settled & printed in sub-10s! ⚡');
@@ -283,10 +300,8 @@ export default function PosPage() {
 
   /* Refs for keyboard shortcuts */
   const handlePlaceOrderRef = useRef(handlePlaceOrder);
-  const handleHoldOrderRef = useRef(handleHoldOrder);
   useEffect(() => {
     handlePlaceOrderRef.current = handlePlaceOrder;
-    handleHoldOrderRef.current = handleHoldOrder;
   });
 
   /* Keyboard Shortcuts */
@@ -302,9 +317,6 @@ export default function PosPage() {
       } else if (e.key === 'F2' || (e.ctrlKey && e.key === 'Enter')) {
         e.preventDefault();
         handlePlaceOrderRef.current();
-      } else if (e.key === 'F4') {
-        e.preventDefault();
-        handleHoldOrderRef.current();
       } else if (e.key === 'Escape' && isTyping) {
         (active as HTMLElement).blur();
       }
@@ -319,7 +331,7 @@ export default function PosPage() {
     totals,
     totalUnits,
     orderType,
-    onOrderType: setOrderType,
+    onOrderType: handleOrderTypeChange,
     tables,
     tableNumber,
     onTableNumber: setTableNumber,
@@ -329,14 +341,18 @@ export default function PosPage() {
     onCustomerName: setCustomerName,
     customerPhone,
     onCustomerPhone: setCustomerPhone,
+    discount,
+    onDiscount: setDiscount,
+    packagingCharge,
+    onPackagingCharge: setPackagingCharge,
     onIncrement: incrementLine,
     onDecrement: decrementLine,
     onSetQuantity: setLineQuantity,
+    onSetLineNotes: setLineNotes,
     onRemove: removeLine,
     onClear: clearCart,
     onPlace: handlePlaceOrder,
     onSendToKitchen: handleSendToKitchen,
-    onHoldOrder: handleHoldOrder,
     onOpenTableMap: () => setTableMapOpen(true),
     isPlacing: placing,
   };
@@ -395,8 +411,20 @@ export default function PosPage() {
             ))}
           </div>
 
-          {/* Right: Cashier Action Shortcuts */}
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* Right: Cashier Info & Action Shortcuts */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Live Clock & Cashier Badge */}
+            <div className="hidden xl:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] font-bold text-slate-600">
+              <div className="flex items-center gap-1">
+                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-emerald-700">Live</span>
+              </div>
+              <span className="text-slate-300">|</span>
+              <span className="text-slate-900 font-mono">{timeStr}</span>
+              <span className="text-slate-300">|</span>
+              <span className="text-slate-700 truncate max-w-[100px]">👤 {cashierName}</span>
+            </div>
+
             {/* Table Floor Map Trigger */}
             <Button
               type="button"
@@ -413,37 +441,6 @@ export default function PosPage() {
               <span className="hidden sm:inline">
                 {tableNumber !== '' ? `Table #${tableNumber}` : 'Tables'}
               </span>
-            </Button>
-
-            {/* Parked / Held Orders Trigger */}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setHeldOrdersOpen(true)}
-              className="h-8 px-2.5 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold gap-1 shadow-2xs relative"
-              title="Parked / Held tickets (F4)"
-            >
-              <PauseCircle className="size-3.5 text-amber-600" />
-              <span className="hidden sm:inline">Parked</span>
-              {heldOrders.length > 0 && (
-                <span className="size-4.5 rounded-full bg-amber-500 text-white font-mono text-[10px] font-black flex items-center justify-center">
-                  {heldOrders.length}
-                </span>
-              )}
-            </Button>
-
-            {/* Till / Shift Summary Trigger */}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setShiftSummaryOpen(true)}
-              className="h-8 px-2.5 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold gap-1 shadow-2xs"
-              title="Till Shift Reconciliation"
-            >
-              <BarChart3 className="size-3.5 text-purple-600" />
-              <span className="hidden lg:inline">Shift</span>
             </Button>
 
             {/* Grid / List Layout Switcher */}
@@ -519,6 +516,41 @@ export default function PosPage() {
               </div>
             </div>
 
+            {/* ⚡ Rush-Hour Best Sellers Strip (1-Tap Quick Add) */}
+            {quickBestSellers.length > 0 && selectedCategory === 'all' && !search && (
+              <div className="bg-amber-50/70 border-b border-amber-200/70 px-3 sm:px-4 py-1.5 flex items-center gap-2 shrink-0 overflow-x-auto scrollbar-none">
+                <div className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-amber-900 shrink-0">
+                  <Zap className="size-3.5 text-amber-600 fill-amber-500" />
+                  <span>Rush Top Hits:</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {quickBestSellers.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleAddDish(item)}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100/70 border border-amber-200 text-xs font-bold text-slate-800 flex items-center gap-1.5 shrink-0 transition-all shadow-2xs hover:scale-105 active:scale-95"
+                    >
+                      <span
+                        className={cn(
+                          'size-1.5 rounded-full',
+                          item.vegStatus === 'veg'
+                            ? 'bg-emerald-600'
+                            : item.vegStatus === 'egg'
+                            ? 'bg-amber-500'
+                            : 'bg-rose-600'
+                        )}
+                      />
+                      <span className="truncate max-w-[130px]">{item.name}</span>
+                      <span className="font-mono text-[10.5px] font-bold text-amber-800 bg-amber-50 px-1 py-0.2 rounded">
+                        ₹{item.price}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Table Allocation Fast Strip (Visible when Dine-In is active) */}
             {orderType === 'dine-in' && (
               <div className="bg-blue-50/90 border-b border-blue-200/70 px-3 sm:px-4 py-1.5 flex items-center justify-between gap-2 shrink-0">
@@ -528,19 +560,24 @@ export default function PosPage() {
                   </span>
                   {tables.map((t) => {
                     const isSelected = tableNumber === t.tableNumber;
+                    const isOccupied = occupiedTableNumbers.has(t.tableNumber);
                     return (
                       <button
                         key={t.id}
                         type="button"
                         onClick={() => setTableNumber(t.tableNumber)}
                         className={cn(
-                          'px-2.5 py-0.5 rounded-lg text-xs font-black font-mono shrink-0 transition-all border',
+                          'px-2.5 py-0.5 rounded-lg text-xs font-black font-mono shrink-0 transition-all border flex items-center gap-1',
                           isSelected
                             ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                            : isOccupied
+                            ? 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100'
                             : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-100/60'
                         )}
                       >
-                        T#{t.tableNumber}
+                        {isOccupied && <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />}
+                        <span>T#{t.tableNumber}</span>
+                        {isOccupied && <span className="text-[9px] opacity-75">(Dining)</span>}
                       </button>
                     );
                   })}
@@ -661,21 +698,6 @@ export default function PosPage() {
             setTableNumber(tNum);
             setOrderType('dine-in');
           }}
-        />
-
-        <HeldOrdersModal
-          open={heldOrdersOpen}
-          onClose={() => setHeldOrdersOpen(false)}
-          heldOrders={heldOrders}
-          onRestore={handleRestoreHeldOrder}
-          onDelete={(id) => setHeldOrders((prev) => prev.filter((ho) => ho.id !== id))}
-        />
-
-        <ShiftSummaryModal
-          open={shiftSummaryOpen}
-          onClose={() => setShiftSummaryOpen(false)}
-          orders={orders}
-          cashierName={user?.user_metadata?.name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Vasishtha'}
         />
       </div>
     </AdminLayout>
