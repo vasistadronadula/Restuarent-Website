@@ -146,17 +146,6 @@ export default function ProfilePage() {
                 style={{ color: 'var(--ad-n600)', cursor: 'not-allowed' }}
               />
             </div>
-
-            <div className="ad-field sm:col-span-2">
-              <label htmlFor="pf-avatar">Photo URL</label>
-              <input
-                id="pf-avatar"
-                className="ad-input"
-                placeholder="https://…"
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-              />
-            </div>
           </div>
 
           <div className="flex gap-2 mt-6">

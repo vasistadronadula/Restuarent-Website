@@ -253,6 +253,7 @@ export const diningTableSchema = z.object({
 });
 
 export type DiningTableFormValues = z.input<typeof diningTableSchema>;
+export type DiningTableFormOutput = z.output<typeof diningTableSchema>;
 
 // ─── Category ─────────────────────────────────────────────────────────────────
 

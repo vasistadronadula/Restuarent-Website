@@ -12,13 +12,12 @@ import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { useCategories, useMenuItems, useTables } from '@/lib/queries';
 import { usePosCart, type Portion } from '@/hooks/usePosCart';
-import { computeBillTotals, type DiscountOption } from '@/lib/billing';
+import { computeBillTotals } from '@/lib/billing';
 import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
 import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
 import { markPosOrderPrinted } from '@/lib/posOrderTracker';
 import type { MenuItem, Order } from '@/types';
 import { toast } from 'sonner';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   Search, X, LayoutGrid, List,
   Utensils, Coffee, Flame, Cake, Soup, Sparkles,
@@ -55,7 +54,6 @@ export default function PosPage() {
 
   /* State */
   const [specialInstructions, setSpecialInstructions] = useState('');
-  const [discount, setDiscount] = useState<DiscountOption>(0);
   const [packagingCharge, setPackagingCharge] = useState<number>(0);
 
   /* Live Clock State */
@@ -157,11 +155,10 @@ export default function PosPage() {
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
   const [placedInvoiceNo, setPlacedInvoiceNo] = useState<string | undefined>(undefined);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
 
   const totals = useMemo(
-    () => computeBillTotals(subtotal, discount, packagingCharge),
-    [subtotal, discount, packagingCharge]
+    () => computeBillTotals(subtotal, 0, packagingCharge),
+    [subtotal, packagingCharge]
   );
 
   /* Active Occupied Tables */
@@ -266,10 +263,8 @@ export default function PosPage() {
 
       clearCart();
       setSpecialInstructions('');
-      setDiscount(0);
       setPackagingCharge(0);
       setTableNumber('');
-      setCartOpen(false);
       toast.success('Order settled & printed in sub-10s! ⚡');
     } catch {
       toast.error('Failed to complete order');
@@ -322,8 +317,6 @@ export default function PosPage() {
     onTableNumber: setTableNumber,
     paymentMode,
     onPaymentMode: setPaymentMode,
-    discount,
-    onDiscount: setDiscount,
     packagingCharge,
     onPackagingCharge: setPackagingCharge,
     onIncrement: incrementLine,
@@ -390,13 +383,6 @@ export default function PosPage() {
 
           {/* Right: Cashier Info & Action Shortcuts */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Live Clock & Cashier Badge */}
-            <div className="hidden xl:flex items-center gap-2 ad-kicker">
-              <span className="size-1.5 bg-ad-accent animate-pulse" />
-              <span className="ad-num text-[12px]">{timeStr}</span>
-              <span className="truncate max-w-25">{cashierName}</span>
-            </div>
-
             {/* Table Floor Map Trigger */}
             <button
               type="button"
@@ -450,7 +436,7 @@ export default function PosPage() {
             AdminLayout) — this slim icon-only rail is POS's own, and the
             right edge is padded clear of the fixed cart panel below so the
             last column of dishes never sits behind it. */}
-        <div className="flex-1 min-h-0 flex w-full overflow-hidden md:pr-[380px] lg:pr-[420px]">
+        <div className="flex-1 min-h-0 flex w-full overflow-hidden pr-[320px] sm:pr-[380px] lg:pr-[420px]">
 
           {/* Icon-only category rail — one tap to switch, no label hunting */}
           <div className="w-[68px] shrink-0 h-full overflow-y-auto scrollbar-none border-r-2 border-ad-line bg-ad-ink">
@@ -472,7 +458,16 @@ export default function PosPage() {
             })}
           </div>
 
-          <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-ad-bg">
+          <div className="relative flex-1 min-w-0 flex flex-col overflow-hidden bg-ad-bg">
+
+            {/* Live Clock overlay — floats over the catalog instead of eating
+                a slot in the control bar, which the veg filters and search
+                need more on a small till screen. */}
+            <div className="pointer-events-none absolute top-2 right-2 z-10 flex items-center gap-1.5 bg-ad-ink/85 backdrop-blur text-ad-bg px-2.5 py-1">
+              <span className="size-1.5 bg-ad-accent animate-pulse shrink-0" />
+              <span className="ad-num text-[12px]">{timeStr}</span>
+              <span className="hidden sm:inline text-[11px] opacity-70 truncate max-w-25">{cashierName}</span>
+            </div>
 
             {/* Table Allocation Fast Strip (Visible when Dine-In is active) */}
             {orderType === 'dine-in' && (
@@ -529,7 +524,7 @@ export default function PosPage() {
                   ))}
                 </div>
               ) : (
-                <div className="ad-grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 mb-6">
+                <div className="ad-grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 mb-6">
                   {filteredDishes.map((item) => (
                     <DishCard
                       key={item.id}
@@ -547,42 +542,12 @@ export default function PosPage() {
 
         </div>
 
-        {/* ── Cart: fixed to the right edge of the viewport, always visible
-            on desktop — not a toggled drawer, just docked there like a
-            till's ticket rail. Below `md` there's no room for a 380px
-            column, so it collapses to the same bottom-right open button +
-            slide-over sheet as before. */}
-        <div className="hidden md:flex flex-col fixed right-0 top-[var(--ad-header-h)] bottom-0 w-[380px] lg:w-[420px] z-20 bg-ad-surface border-l-2 border-ad-line">
+        {/* ── Cart: fixed to the right edge of the viewport, always visible —
+            not a toggled drawer or a bottom-right button, just permanently
+            docked there like a till's ticket rail. */}
+        <div className="flex flex-col fixed right-0 top-[var(--ad-header-h)] bottom-0 w-[320px] sm:w-[380px] lg:w-[420px] z-20 bg-ad-surface border-l-2 border-ad-line">
           <BillPanel {...billPanelProps} />
         </div>
-
-        <button
-          type="button"
-          onClick={() => setCartOpen(true)}
-          className="md:hidden fixed right-4 bottom-4 z-30 ad-btn ad-btn-primary h-13 justify-between gap-3 px-5 text-[14px] shadow-lg"
-        >
-          <span className="flex items-center gap-2">
-            <span className="size-6.5 grid place-items-center bg-ad-bg text-ad-accent ad-num text-[12px]">
-              {totalUnits}
-            </span>
-            <span>Cart</span>
-          </span>
-          {totalUnits > 0 && <span className="ad-num text-[17px]">₹{totals.grandTotal.toFixed(2)}</span>}
-        </button>
-
-        <Sheet open={cartOpen} onOpenChange={setCartOpen}>
-          <SheetContent
-            side="right"
-            showCloseButton={false}
-            className="md:hidden p-0 w-full sm:w-[400px] bg-ad-surface overflow-hidden"
-          >
-            <BillPanel
-              {...billPanelProps}
-              compact={true}
-              onClose={() => setCartOpen(false)}
-            />
-          </SheetContent>
-        </Sheet>
 
         {/* ========================================================== */}
         {/*  MODALS & DIALOGS                                          */}

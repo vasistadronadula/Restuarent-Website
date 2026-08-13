@@ -16,24 +16,10 @@ import MobileAppInstallModal from './MobileAppInstallModal';
 import PrinterSettingsPanel from './PrinterSettingsPanel';
 import { navItemForPath } from './adminNav';
 import {
-  Bell, RefreshCw, Globe, LogOut, Printer, User, Settings, Menu,
+  Bell, RefreshCw, Globe, LogOut, Printer, User, Settings, Menu, LayoutGrid,
 } from 'lucide-react';
 
-/** Which service the restaurant is in right now — the header's "Service:" line. */
-function servicePeriod(hour: number): string {
-  if (hour < 11) return 'Breakfast';
-  if (hour < 16) return 'Lunch';
-  if (hour < 19) return 'Snacks';
-  return 'Dinner';
-}
-
-/**
- * The wall clock, read through useSyncExternalStore rather than a setState
- * ticker: the store is the only thing that has to be cached per 30s bucket,
- * and the server snapshot is a constant, so hydration can't mismatch on a
- * value that is different by definition on the two sides.
- */
-type Stamp = { date: string; time: string; service: string } | null;
+type Stamp = { date: string; time: string } | null;
 
 const CLOCK_TICK_MS = 30_000;
 let clockBucket = -1;
@@ -52,7 +38,6 @@ function getClockSnapshot(): Stamp {
     clockSnapshot = {
       date: now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }),
       time: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-      service: servicePeriod(now.getHours()),
     };
   }
   return clockSnapshot;
@@ -68,8 +53,6 @@ function LiveStamp() {
   return (
     <div className="hidden xl:block text-[12px] leading-[1.3] text-right ad-muted">
       {stamp.date} · {stamp.time}
-      <br />
-      Service: {stamp.service}
     </div>
   );
 }
@@ -174,6 +157,8 @@ export default function AdminHeader({ title, onOpenNav, wideNav = false }: Props
 
   const showNotifications = showOrderAlerts || showReservationAlerts;
   const isPosPage = pathname === '/admin/pos' || pathname === '/cashier';
+  const isKitchenPage = pathname === '/admin/kitchen' || pathname === '/kds';
+  const isNavlessPage = isPosPage || isKitchenPage;
 
   const navItem = navItemForPath(pathname);
   const pageTitle = navItem?.title || title;
@@ -185,7 +170,7 @@ export default function AdminHeader({ title, onOpenNav, wideNav = false }: Props
   return (
     <>
       <header className="sticky top-0 z-30 flex items-center gap-3 px-4 sm:px-6 h-[var(--ad-header-h)] border-b-2 border-ad-line bg-ad-bg">
-        {!isPosPage && (
+        {!isNavlessPage && (
           <button
             type="button"
             onClick={onOpenNav}
@@ -200,6 +185,15 @@ export default function AdminHeader({ title, onOpenNav, wideNav = false }: Props
           <div className="ad-kicker truncate">{pageKicker}</div>
           <div className="ad-title truncate">{pageTitle}</div>
         </div>
+
+        {/* The admin nav rail never renders on POS/KDS (see AdminLayout), so
+            this is the only way back to the rest of the console from either. */}
+        {isNavlessPage && (
+          <Link href="/admin" className="ad-btn ad-btn-secondary ad-btn-sm shrink-0">
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Dashboard</span>
+          </Link>
+        )}
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <LiveStamp />
@@ -335,14 +329,6 @@ export default function AdminHeader({ title, onOpenNav, wideNav = false }: Props
                       <Settings className="w-4 h-4 ad-muted" /> Install {staffApp.shortName}
                     </button>
                   )}
-
-                  <Link
-                    href="/"
-                    className="flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium no-underline text-ad-ink ad-hover-strong"
-                    onClick={() => setProfileOpen(false)}
-                  >
-                    <Globe className="w-4 h-4 ad-muted" /> Customer site
-                  </Link>
                 </div>
 
                 <div className="p-1 border-t-2 border-ad-line">

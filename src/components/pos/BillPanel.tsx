@@ -1,14 +1,13 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   Plus, Minus, Trash2, Banknote, QrCode, CreditCard,
-  X, Send, Percent, Package, MessageSquarePlus,
+  X, Send, Package, MessageSquarePlus,
 } from 'lucide-react';
 import { type PosLine } from '@/hooks/usePosCart';
-import type { BillTotals, DiscountOption } from '@/lib/billing';
+import type { BillTotals } from '@/lib/billing';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
 
 export type PosOrderType = 'dine-in' | 'counter';
 
@@ -34,14 +33,6 @@ const QUICK_ITEM_NOTES = [
   '🚫 Less Oil',
 ];
 
-const DISCOUNT_PRESETS: { label: string; value: DiscountOption }[] = [
-  { label: '0%', value: 0 },
-  { label: '5%', value: { type: 'percent', value: 5 } },
-  { label: '10%', value: { type: 'percent', value: 10 } },
-  { label: '₹50 Flat', value: { type: 'flat', value: 50 } },
-  { label: '₹100 Flat', value: { type: 'flat', value: 100 } },
-];
-
 export interface BillPanelProps {
   lines: PosLine[];
   totals: BillTotals;
@@ -56,8 +47,6 @@ export interface BillPanelProps {
   paymentMode: PosPaymentMode;
   onPaymentMode: (m: PosPaymentMode) => void;
 
-  discount?: DiscountOption;
-  onDiscount?: (d: DiscountOption) => void;
   packagingCharge?: number;
   onPackagingCharge?: (fee: number) => void;
 
@@ -88,8 +77,6 @@ export default function BillPanel({
   onTableNumber,
   paymentMode,
   onPaymentMode,
-  discount = 0,
-  onDiscount,
   packagingCharge = 0,
   onPackagingCharge,
   onIncrement,
@@ -112,35 +99,6 @@ export default function BillPanel({
   /* Editing note key state */
   const [editingNoteKey, setEditingNoteKey] = useState<string | null>(null);
   const [customNoteInput, setCustomNoteInput] = useState('');
-
-  /* Smart Cash Quick Tender Calculator */
-  const [cashReceived, setCashReceived] = useState('');
-  const [cashResetKey, setCashResetKey] = useState('');
-  const nextCashResetKey = `${paymentMode}:${empty}:${totals.grandTotal}`;
-  if (nextCashResetKey !== cashResetKey) {
-    setCashResetKey(nextCashResetKey);
-    if (paymentMode !== 'cash' || empty) setCashReceived('');
-  }
-
-  const receivedAmount = Number(cashReceived) || 0;
-  const changeDue = Math.max(0, receivedAmount - totals.grandTotal);
-  const cashShort = paymentMode === 'cash' && receivedAmount > 0 && receivedAmount < totals.grandTotal;
-
-  // Preset denominations
-  const quickCashOptions = useMemo(() => {
-    const total = Math.ceil(totals.grandTotal);
-    const presets = [100, 200, 500, 1000, 2000];
-    const filtered = presets.filter((p) => p >= total);
-    return [total, ...filtered.slice(0, 3)];
-  }, [totals.grandTotal]);
-
-  const isDiscountActive = (d: DiscountOption) => {
-    if (typeof discount === 'number' && typeof d === 'number') return discount === d;
-    if (typeof discount === 'object' && typeof d === 'object') {
-      return discount.type === d.type && discount.value === d.value;
-    }
-    return false;
-  };
 
   return (
     <div className="flex flex-col h-full min-h-0 bg-ad-surface select-none">
@@ -385,46 +343,18 @@ export default function BillPanel({
         )}
       </div>
 
-      {/* ── 4. QUICK DISCOUNT & CHARGES BAR ── */}
-      {!empty && (
-        <div className="px-3.5 py-2.5 border-t-2 border-ad-line space-y-2 shrink-0">
-          <div className="flex items-center justify-between gap-2">
-            <span className="ad-kicker flex items-center gap-1">
-              <Percent className="size-3" /> Discount
-            </span>
-
-            {/* Packaging Charge Toggle (especially useful for Takeaway) */}
-            {onPackagingCharge && (
-              <button
-                type="button"
-                onClick={() => onPackagingCharge(packagingCharge > 0 ? 0 : 20)}
-                className="ad-tab flex items-center gap-1 px-2 py-0.5"
-                data-active={packagingCharge > 0}
-              >
-                <Package className="size-3" />
-                <span>Pack ₹20</span>
-              </button>
-            )}
-          </div>
-
-          {onDiscount && (
-            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-0.5">
-              {DISCOUNT_PRESETS.map((d) => {
-                const active = isDiscountActive(d.value);
-                return (
-                  <button
-                    key={d.label}
-                    type="button"
-                    onClick={() => onDiscount(d.value)}
-                    className="ad-tab shrink-0 px-2 py-0.5"
-                    data-active={active}
-                  >
-                    {d.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+      {/* ── 4. PACKAGING CHARGE ── */}
+      {!empty && onPackagingCharge && (
+        <div className="px-3.5 py-2.5 border-t-2 border-ad-line shrink-0">
+          <button
+            type="button"
+            onClick={() => onPackagingCharge(packagingCharge > 0 ? 0 : 20)}
+            className="ad-tab flex items-center gap-1 px-2 py-0.5"
+            data-active={packagingCharge > 0}
+          >
+            <Package className="size-3" />
+            <span>Pack ₹20</span>
+          </button>
         </div>
       )}
 
@@ -436,12 +366,6 @@ export default function BillPanel({
               <span className="ad-muted">Subtotal</span>
               <span className="ad-num text-[13px]">₹{totals.subtotal.toFixed(2)}</span>
             </div>
-            {totals.discountAmount > 0 && (
-              <div className="flex justify-between" style={{ color: 'var(--ad-ok)' }}>
-                <span>Discount</span>
-                <span className="ad-num text-[13px]">−₹{totals.discountAmount.toFixed(2)}</span>
-              </div>
-            )}
             {totals.packagingCharge && totals.packagingCharge > 0 && (
               <div className="flex justify-between">
                 <span className="ad-muted">Packaging</span>
@@ -483,50 +407,6 @@ export default function BillPanel({
               );
             })}
           </div>
-
-          {/* Smart Cash UX: Quick Amount Presets */}
-          {paymentMode === 'cash' && !empty && (
-            <div className="mt-2 space-y-1.5">
-              <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-                <span className="ad-kicker shrink-0">Tender</span>
-                {quickCashOptions.map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setCashReceived(String(opt))}
-                    className="ad-tab shrink-0 px-2 py-0.5"
-                    data-active={cashReceived === String(opt)}
-                  >
-                    ₹{opt}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <div className="relative flex-1">
-                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 ad-num text-[13px] text-ad-muted z-10">₹</span>
-                  <input
-                    type="number"
-                    min={0}
-                    placeholder="Cash tendered"
-                    value={cashReceived}
-                    onChange={(e) => setCashReceived(e.target.value)}
-                    className="ad-input h-9 pl-6 pr-2 tabular-nums"
-                  />
-                </div>
-
-                {receivedAmount > 0 && (
-                  <span className={cn('ad-tag h-9 px-3', cashShort ? 'ad-tag-accent' : 'ad-tag-ok')}>
-                    <span className="ad-num text-[13px]">
-                      {cashShort
-                        ? `Short ₹${(totals.grandTotal - receivedAmount).toFixed(0)}`
-                        : `Change ₹${changeDue.toFixed(0)}`}
-                    </span>
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* ── 7. SUB-10s ACTION BUTTONS ── */}

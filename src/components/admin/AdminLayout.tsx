@@ -57,11 +57,11 @@ export default function AdminLayout({ children, title }: Props) {
 
   return (
     <div className="ad-shell flex min-h-screen w-full">
-      {/* POS gets no admin nav rail at all — its own category rail (inside
-          the page) and fixed cart panel already claim the left and right
-          edges, and a second rail here would be a third column fighting
-          them for the same 1280px till screen. */}
-      {!isPosPage && (
+      {/* POS and KDS get no admin nav rail at all — both are till/kitchen
+          hardware running one screen all shift, and the console nav would
+          just be a permanent column of chrome nobody taps. The header's
+          Dashboard button is their way back to the rest of the console. */}
+      {!isFullBleed && (
         <AdminSidebar open={navOpen} onClose={() => setNavOpen(false)} wide={isFullBleed} />
       )}
 

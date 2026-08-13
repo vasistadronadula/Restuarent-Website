@@ -10,7 +10,7 @@
  */
 
 import {
-  BarChart3, BookOpen, Calculator, ChefHat, ClipboardList,
+  Armchair, BarChart3, BookOpen, Calculator, ChefHat, ClipboardList,
   LayoutGrid, Receipt, Ticket, TrendingUp, UserCircle,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -69,6 +69,15 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
     description: 'Cooking queues, lane progress, ticket bumping',
     icon: ChefHat,
     badge: 'kitchenTickets',
+    group: 'Service',
+  },
+  {
+    label: 'Tables',
+    href: '/admin/tables',
+    kicker: 'Front of house',
+    title: 'Table management',
+    description: 'Floor plan, live occupancy, seating and capacity',
+    icon: Armchair,
     group: 'Service',
   },
   {

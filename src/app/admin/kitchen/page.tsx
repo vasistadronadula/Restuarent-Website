@@ -6,14 +6,12 @@ import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { Order, OrderStatus } from '@/types';
 import { toast } from 'sonner';
-import { HairlineGrid, StatCell } from '@/components/admin/ui';
 import {
   Volume2, VolumeX, Flame, CheckCircle2, Clock,
   Check, History, Undo2, Utensils,
-  Maximize2, Minimize2, Search, X,
-  AlertTriangle, RotateCcw, ChefHat, ListFilter,
+  AlertTriangle, RotateCcw, ChefHat,
   CheckSquare, Square, Hourglass, Phone,
-  Sparkles, Layers, Coffee, Settings, HelpCircle,
+  Settings, HelpCircle,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import {
@@ -142,19 +140,9 @@ const SHORTCUTS: readonly [string, string][] = [
   ['Switch to new orders', '1'],
   ['Switch to in preparation', '2'],
   ['Switch to ready to pass', '3'],
-  ['Focus search', '/'],
   ['Toggle fullscreen', 'F'],
   ['Toggle sound alerts', 'M'],
   ['Toggle batch prep', 'B'],
-];
-
-/* Kitchen Stations definition */
-const STATIONS = [
-  { id: 'all', label: 'All Stations', icon: Layers },
-  { id: 'biryani', label: 'Biryani & Rice', match: ['biryani', 'rice', 'pulao'], icon: Flame },
-  { id: 'starters', label: 'Starters & Tandoor', match: ['starter', 'tandoor', 'kebab', 'tikka', 'fry', 'chinese'], icon: Utensils },
-  { id: 'curries', label: 'Curries & Gravies', match: ['curry', 'gravy', 'masala', 'dal', 'paneer'], icon: Sparkles },
-  { id: 'beverages', label: 'Drinks & Desserts', match: ['beverage', 'drink', 'dessert', 'sweet', 'ice cream', 'coffee', 'tea'], icon: Coffee },
 ];
 
 /* ================================================================== */
@@ -305,29 +293,12 @@ export default function KitchenDisplayPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [showBatch, setShowBatch] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStation, setSelectedStation] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'dine-in' | 'takeaway'>('all');
   const [sortMode, setSortMode] = useState<'fifo' | 'waiting' | 'table'>('fifo');
   const [viewLayout, setViewLayout] = useState<'kanban' | 'dense_grid'>('kanban');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [checkedItems, setCheckedItems] = useState<Record<string, Set<number>>>({});
   const [mobileLaneIdx, setMobileLaneIdx] = useState(0);
-
-  /* Live Clock */
-  const [currentTime, setCurrentTime] = useState('');
-  const [currentDate, setCurrentDate] = useState('');
-
-  useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-      setCurrentDate(now.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }));
-    };
-    update();
-    const id = setInterval(update, 1000);
-    return () => clearInterval(id);
-  }, []);
 
   /* Delay / Prep Extension Dialog */
   const [delayDialogOpen, setDelayDialogOpen] = useState(false);
@@ -376,10 +347,6 @@ export default function KitchenDisplayPage() {
       else if (e.key.toLowerCase() === 'b') setShowBatch((prev) => !prev);
       else if (e.key.toLowerCase() === 'h') setShowHistory((prev) => !prev);
       else if (e.key === '?') setShowShortcuts((prev) => !prev);
-      else if (e.key === '/') {
-        e.preventDefault();
-        document.getElementById('kds-search-input')?.focus();
-      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -421,28 +388,7 @@ export default function KitchenDisplayPage() {
           if (typeFilter === 'takeaway' && !type.includes('take') && !type.includes('pick') && !type.includes('counter')) return false;
         }
 
-        // Station filter
-        if (selectedStation !== 'all') {
-          const stationObj = STATIONS.find((st) => st.id === selectedStation);
-          if (stationObj && stationObj.match) {
-            const matchesStation = o.items?.some((item) => {
-              const nameLower = (item.name || '').toLowerCase();
-              return stationObj.match?.some((keyword) => nameLower.includes(keyword));
-            });
-            if (!matchesStation) return false;
-          }
-        }
-
-        // Search query
-        if (!searchQuery.trim()) return true;
-        const q = searchQuery.toLowerCase().trim();
-        return (
-          o.id.toLowerCase().includes(q) ||
-          (o.customerName && o.customerName.toLowerCase().includes(q)) ||
-          (o.customerPhone && o.customerPhone.includes(q)) ||
-          (o.tableNumber && o.tableNumber.toString().includes(q)) ||
-          o.items?.some((i) => i.name.toLowerCase().includes(q))
-        );
+        return true;
       })
       .sort((a, b) => {
         if (sortMode === 'waiting') {
@@ -455,7 +401,7 @@ export default function KitchenDisplayPage() {
         }
         return parseOrderTimestamp(a) - parseOrderTimestamp(b); // Standard FIFO
       });
-  }, [orders, searchQuery, typeFilter, selectedStation, sortMode]);
+  }, [orders, typeFilter, sortMode]);
 
   /* Lanes grouping */
   const laneOrders = useMemo(() => {
@@ -612,113 +558,25 @@ export default function KitchenDisplayPage() {
       <div className="flex flex-col w-full min-h-[calc(100vh-var(--ad-header-h))] bg-ad-bg text-ad-ink select-none pb-8">
 
         {/* ========================================================== */}
-        {/*  TOP FIXED COMMAND & CONTROL HEADER                        */}
+        {/*  SLIM COMMAND BAR — stats, history, sound. Everything else  */}
+        {/*  (branding, live clock, search, station tabs, batch prep,  */}
+        {/*  fullscreen) moved out: the admin Dashboard button in the  */}
+        {/*  console header above is now the way off this screen, and  */}
+        {/*  this bar stays small so the lanes below get the room.     */}
         {/* ========================================================== */}
-        <header className="sticky top-0 z-20 bg-ad-bg border-b-2 border-ad-line px-4 sm:px-6 py-3">
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 max-w-[1720px] mx-auto">
-
-            {/* Left: Branding + Live Clock + Status Badges */}
-            <div className="flex items-center gap-4 flex-wrap">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 grid place-items-center bg-ad-ink text-ad-bg shrink-0">
-                  <ChefHat className="size-5" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h1 className="ad-h text-[18px]">The pass</h1>
-                    <span className="ad-tag ad-tag-accent">
-                      <span className="size-1.5 bg-ad-accent animate-pulse" /> Live
-                    </span>
-                  </div>
-                  <div className="ad-kicker mt-1">
-                    {currentDate} · {currentTime || '00:00:00'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Status Metric Pills */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => { setSelectedStation('all'); setTypeFilter('all'); }}
-                  className="ad-tag ad-tag-solid"
-                >
-                  Active <span className="ad-num text-[12px]">{stats.totalActive}</span>
-                </button>
-                <span className="ad-tag ad-tag-outline">
-                  New <span className="ad-num text-[12px]">{stats.pendingCount}</span>
-                </span>
-                <span className="ad-tag ad-tag-outline">
-                  Cooking <span className="ad-num text-[12px]">{stats.preparingCount}</span>
-                </span>
-                <span className="ad-tag ad-tag-outline">
-                  Ready <span className="ad-num text-[12px]">{stats.readyCount}</span>
-                </span>
-                {stats.delayedCount > 0 && (
-                  <span className="ad-tag ad-tag-accent animate-pulse">
-                    Delayed <span className="ad-num text-[12px]">{stats.delayedCount}</span>
-                  </span>
-                )}
-              </div>
+        <header className="sticky top-0 z-20 bg-ad-bg border-b-2 border-ad-line px-4 sm:px-6 py-2">
+          <div className="flex items-center justify-between gap-3 max-w-[1720px] mx-auto">
+            <div className="flex items-center gap-4 flex-wrap text-[12px]">
+              <span className="ad-kicker">Tickets <b className="ad-num text-[13px] text-ad-ink">{stats.totalToday}</b></span>
+              <span className="ad-kicker">Avg prep <b className="ad-num text-[13px] text-ad-ink">{stats.avgPrep}m</b></span>
+              <span className="ad-kicker">On time <b className="ad-num text-[13px] text-ad-ink">{stats.onTimeRate}%</b></span>
+              <span className="ad-kicker" style={stats.delayedCount > 0 ? { color: 'var(--ad-accent)' } : undefined}>
+                Overdue <b className="ad-num text-[13px]">{stats.delayedCount}</b>
+              </span>
+              <span className="ad-kicker">In flight <b className="ad-num text-[13px] text-ad-ink">{formatCurrency(stats.activeRevenue)}</b></span>
             </div>
 
-            {/* Right: Station Selector + Search + Action Controls */}
-            <div className="flex items-center gap-2 flex-wrap justify-end">
-              {/* Search input */}
-              <div className="relative w-44 sm:w-56">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-ad-muted" />
-                <input
-                  id="kds-search-input"
-                  className="ad-input pl-8.5 pr-7"
-                  placeholder="Search ticket or dish… (/)"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ad-muted hover:text-ad-ink"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Station Filter Dropdown */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {STATIONS.map((station) => {
-                  const Icon = station.icon;
-                  return (
-                    <button
-                      key={station.id}
-                      type="button"
-                      onClick={() => setSelectedStation(station.id)}
-                      className="ad-tab flex items-center gap-1.5"
-                      data-active={selectedStation === station.id}
-                      title={station.label}
-                    >
-                      <Icon className="size-3.5 shrink-0" />
-                      <span className="hidden md:inline">{station.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Batch Prep Trigger */}
-              <button
-                type="button"
-                onClick={() => setShowBatch(!showBatch)}
-                className="ad-tab flex items-center gap-1.5"
-                data-active={showBatch}
-                title="View consolidated batch prep list"
-              >
-                <ListFilter className="size-4" />
-                <span className="hidden sm:inline">Batch prep</span>
-                {prepMatrix.length > 0 && <span className="tabular-nums opacity-70">{prepMatrix.length}</span>}
-              </button>
-
-              {/* History / Completed Drawer */}
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowHistory(!showHistory)}
@@ -730,7 +588,6 @@ export default function KitchenDisplayPage() {
                 <span className="tabular-nums opacity-70">{historyOrders.length}</span>
               </button>
 
-              {/* Audio Chime Toggle */}
               <button
                 type="button"
                 onClick={() => {
@@ -744,32 +601,9 @@ export default function KitchenDisplayPage() {
               >
                 {soundEnabled ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
               </button>
-
-              {/* Fullscreen Button */}
-              <button
-                type="button"
-                onClick={toggleFullscreen}
-                className="ad-btn ad-btn-secondary ad-btn-icon"
-                title="Toggle fullscreen"
-              >
-                {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-              </button>
             </div>
           </div>
         </header>
-
-        {/* ========================================================== */}
-        {/*  TOP ANALYTICS / KPI DASHBOARD WIDGETS                     */}
-        {/* ========================================================== */}
-        <section className="max-w-[1720px] w-full mx-auto px-4 sm:px-6 pt-4 pb-2">
-          <HairlineGrid cols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
-            <StatCell label="Tickets today" value={stats.totalToday} />
-            <StatCell label="Avg prep target" value={`${stats.avgPrep} min`} />
-            <StatCell label="On time" value={`${stats.onTimeRate}%`} />
-            <StatCell label="Overdue" value={stats.delayedCount} alert={stats.delayedCount > 0} />
-            <StatCell label="In flight" value={formatCurrency(stats.activeRevenue)} />
-          </HairlineGrid>
-        </section>
 
         {/* ========================================================== */}
         {/*  BATCH PREPARATION CONSOLIDATED RIBBON                     */}

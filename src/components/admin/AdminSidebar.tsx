@@ -47,7 +47,7 @@ export default function AdminSidebar({ open, onClose, wide = false }: Props) {
         <div className="min-w-0 flex-1">
           <div className="ad-num text-[20px] leading-none truncate">PALA PITTA</div>
           <div className="text-[10px] tracking-[0.18em] uppercase opacity-60 mt-1.5">
-            Restaurant OS
+            Restaurant
           </div>
         </div>
         <button
@@ -91,30 +91,26 @@ export default function AdminSidebar({ open, onClose, wide = false }: Props) {
       </nav>
 
       <div className="border-t-2 border-[rgba(243,242,242,0.28)]">
-        <div className="px-5 py-4 flex items-center gap-3">
-          <div className="w-[34px] h-[34px] flex-none grid place-items-center bg-ad-accent text-ad-bg ad-num text-[13px]">
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="text-[13px] font-semibold truncate">{name}</div>
-            <div className="text-[10px] tracking-[0.12em] uppercase opacity-55">
-              {userRole ? ROLE_LABELS[userRole] : 'Staff'}
+        <div className="px-5 py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-[34px] h-[34px] flex-none grid place-items-center bg-ad-accent text-ad-bg ad-num text-[13px]">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold truncate">{name}</div>
+              <div className="text-[10px] tracking-[0.12em] uppercase opacity-55">
+                {userRole ? ROLE_LABELS[userRole] : 'Staff'}
+              </div>
             </div>
           </div>
-        </div>
-        <div className="grid grid-cols-2 border-t border-[rgba(243,242,242,0.18)]">
-          <Link
-            href="/"
-            className="flex items-center justify-center gap-1.5 py-2.5 text-[10px] tracking-[0.12em] uppercase text-[rgba(243,242,242,0.65)] hover:bg-[rgba(243,242,242,0.09)] hover:text-white no-underline"
-          >
-            <Globe className="w-3.5 h-3.5" /> Website
-          </Link>
           <button
             type="button"
             onClick={signOutUser}
-            className="flex items-center justify-center gap-1.5 py-2.5 text-[10px] tracking-[0.12em] uppercase text-[rgba(243,242,242,0.65)] hover:bg-ad-accent hover:text-white border-l border-[rgba(243,242,242,0.18)]"
+            className="flex-none p-2 text-[rgba(243,242,242,0.65)] hover:bg-ad-accent hover:text-white transition-colors"
+            title="Sign out"
+            aria-label="Sign out"
           >
-            <LogOut className="w-3.5 h-3.5" /> Sign out
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
       </div>
