@@ -72,15 +72,19 @@ const phone = z
   .pipe(z.string().regex(INDIAN_MOBILE, 'Enter a valid 10-digit mobile number'));
 
 /**
- * A URL field that is genuinely optional. `z.url()` rejects '', so an empty
- * image box counted as an error and the dish could not be saved without one.
+ * An image field that is optional. Accepts storage URLs, web links, local paths,
+ * base64 data URLs, or empty strings.
  */
-const optionalUrl = z
+export const optionalImage = z
   .string()
   .trim()
   .refine(
-    (v) => v === '' || /^https?:\/\/\S+$/i.test(v),
-    'Enter a full URL starting with http:// or https://'
+    (v) =>
+      v === '' ||
+      /^https?:\/\/\S+$/i.test(v) ||
+      /^\/[^\s]+$/i.test(v) ||
+      /^data:image\/[a-zA-Z+.-]+;base64,[A-Za-z0-9+/=\s]+$/i.test(v),
+    'Enter a valid image URL, path, or upload a photo'
   );
 
 // ─── Menu item ────────────────────────────────────────────────────────────────
@@ -111,7 +115,7 @@ export const menuItemSchema = z
       .int('Prep time must be whole minutes')
       .min(1, 'Prep time must be at least 1 minute')
       .max(240, 'Prep time cannot exceed 4 hours'),
-    image: optionalUrl,
+    image: optionalImage,
     description: z.string().trim().max(500, 'Keep the description under 500 characters'),
     isAvailable: z.boolean(),
     isSpecial: z.boolean(),
@@ -260,7 +264,7 @@ export const categorySchema = z.object({
     .min(1, 'Slug is required')
     .max(40, 'Slug must be 40 characters or fewer')
     .regex(/^[a-z0-9-]+$/, 'Use lowercase letters, numbers and hyphens only'),
-  image: z.string().trim(), // base64 data URL or storage URL
+  image: optionalImage,
   sortOrder: z.coerce
     .number({ message: 'Sort order must be a number' })
     .int('Sort order must be a whole number')

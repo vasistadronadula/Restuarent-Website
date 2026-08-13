@@ -22,8 +22,8 @@ const nextConfig: NextConfig = {
     minimumCacheTTL: 2592000, // 30-day image caching
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
-      { protocol: "https", hostname: "images.unsplash.com" },
-      { protocol: "https", hostname: "*.supabase.co" },
+      { protocol: "https", hostname: "**" },
+      { protocol: "http", hostname: "**" },
     ],
   },
   // Production HTTP caching headers

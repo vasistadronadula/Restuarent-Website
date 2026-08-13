@@ -754,7 +754,7 @@ export default function MenuManagementPage() {
             <NumberField control={itemForm.control} name="portionLarge" label="Large" prefix="₹" placeholder="—" />
           </div>
         </div>
-        <ImageUploadField control={itemForm.control} name="image" label="Dish Photo" hint="Upload a photo from your device" />
+        <ImageUploadField control={itemForm.control} name="image" label="Dish Photo" folder="dishes" hint="Upload a photo directly from your device" />
         <TextAreaField control={itemForm.control} name="description" label="Description" rows={3} placeholder="Ingredients, cooking style…" />
         <SwitchField control={itemForm.control} name="isAvailable" label="Available to order" hint="Turn off to keep listed but unorderable" />
         <SwitchField control={itemForm.control} name="isSpecial" label="Chef's Special" hint="Features in the top showcase" />
@@ -791,7 +791,7 @@ export default function MenuManagementPage() {
           hint="URL-safe key. Auto-fills from name."
         />
         <NumberField control={catForm.control} name="sortOrder" label="Sort Order" placeholder="1" hint="Lower numbers appear first in the menu" />
-        <ImageUploadField control={catForm.control} name="image" label="Category Image" hint="Upload a circular thumbnail for the customer menu sidebar" />
+        <ImageUploadField control={catForm.control} name="image" label="Category Image" folder="categories" hint="Upload a circular thumbnail for the customer menu sidebar" />
         <SwitchField control={catForm.control} name="isActive" label="Active" hint="Inactive categories are hidden from the customer menu" />
       </FormDialog>
 

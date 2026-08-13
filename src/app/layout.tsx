@@ -25,13 +25,10 @@ const fraunces = Fraunces({
 // Admin console only — the Modernist design system leans on Archivo's 800 for
 // every heading, stat and uppercase label. `preload: false` keeps diners off
 // the hook for it: the @font-face ships in the shared stylesheet, but the file
-// is only fetched on the routes that actually render in it (/admin, /cashier).
 const archivo = Archivo({
   variable: "--font-archivo",
   subsets: ["latin"],
-  weight: ["400", "600", "800"],
   display: "swap",
-  preload: false,
 });
 
 import { Providers } from "./providers";

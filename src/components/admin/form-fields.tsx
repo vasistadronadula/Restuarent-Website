@@ -340,69 +340,234 @@ export function FormDialog<T extends FieldValues>({
 
 // ─── Image Upload ─────────────────────────────────────────────────────────────
 
+async function compressImageFile(
+  file: File,
+  maxWidth = 1200,
+  maxHeight = 1200,
+  quality = 0.85
+): Promise<File> {
+  if (typeof window === 'undefined' || !file.type.startsWith('image/') || file.size < 200 * 1024) {
+    return file;
+  }
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(file);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        canvas.toBlob(
+          (blob) => {
+            if (blob && blob.size < file.size) {
+              const compressedFile = new File([blob], file.name, {
+                type: outputType,
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            } else {
+              resolve(file);
+            }
+          },
+          outputType,
+          quality
+        );
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
 export function ImageUploadField<T extends FieldValues>({
-  control, name, label, hint, className,
-}: BaseFieldProps<T>) {
+  control,
+  name,
+  label,
+  hint,
+  className,
+  folder = 'dishes',
+}: BaseFieldProps<T> & { folder?: 'dishes' | 'categories' | 'general' }) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = React.useState(false);
+  const [uploadProgress, setUploadProgress] = React.useState<string>('');
+  const [showUrlInput, setShowUrlInput] = React.useState(false);
+  const [urlDraft, setUrlDraft] = React.useState('');
 
   return (
     <FormField
       control={control}
       name={name}
       render={({ field, fieldState }) => {
-        const handleFile = (file: File) => {
-          if (!file.type.startsWith('image/')) {
-            toast.error('Please select an image file (PNG, JPG, WEBP)');
-            return;
-          }
-          if (file.size > 5 * 1024 * 1024) {
-            toast.error('Image size must be less than 5MB');
-            return;
-          }
-          const reader = new FileReader();
-          reader.onload = () => {
-            if (typeof reader.result === 'string') {
-              field.onChange(reader.result);
-            }
-          };
-          reader.readAsDataURL(file);
-        };
+        const rawValue = field.value;
+        const imageVal: string = typeof rawValue === 'string' ? rawValue : '';
 
-        const imageVal = field.value || '';
+        const handleFile = async (file: File) => {
+          if (!file.type.startsWith('image/')) {
+            toast.error('Please select an image file (PNG, JPG, WEBP, AVIF)');
+            return;
+          }
+          if (file.size > 10 * 1024 * 1024) {
+            toast.error('Image size must be less than 10MB');
+            return;
+          }
+
+          setUploading(true);
+          setUploadProgress('Optimizing photo…');
+
+          try {
+            const optimized = await compressImageFile(file);
+
+            setUploadProgress('Uploading to cloud storage…');
+
+            const formData = new FormData();
+            formData.append('file', optimized);
+            formData.append('folder', folder);
+
+            const res = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData,
+            });
+
+            const data = await res.json();
+
+            if (!res.ok || !data.url) {
+              throw new Error(data.error || 'Failed to upload photo');
+            }
+
+            field.onChange(data.url);
+            toast.success('Photo uploaded successfully');
+          } catch (err) {
+            console.error('Upload error:', err);
+            // Local fallback so user can still proceed
+            const reader = new FileReader();
+            reader.onload = () => {
+              if (typeof reader.result === 'string') {
+                field.onChange(reader.result);
+                toast.info('Image attached locally');
+              }
+            };
+            reader.readAsDataURL(file);
+            toast.error((err as Error).message || 'Cloud upload failed');
+          } finally {
+            setUploading(false);
+            setUploadProgress('');
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
+          }
+        };
 
         return (
           <FormItem className={cn('gap-1.5', className)}>
-            <FormLabel className={labelClass}>{label}</FormLabel>
+            <div className="flex items-center justify-between">
+              <FormLabel className={labelClass}>{label}</FormLabel>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUrlInput(!showUrlInput);
+                  if (!showUrlInput) setUrlDraft(imageVal);
+                }}
+                className="text-[11px] font-medium text-ad-muted hover:text-ad-ink transition-colors cursor-pointer"
+              >
+                {showUrlInput ? 'Switch to Upload' : 'Enter URL instead'}
+              </button>
+            </div>
+
             <FormControl>
               <div>
                 <input
                   type="file"
                   ref={fileInputRef}
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) handleFile(file);
                   }}
                 />
-                {imageVal ? (
+
+                {showUrlInput ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="url"
+                      value={urlDraft}
+                      onChange={(e) => setUrlDraft(e.target.value)}
+                      placeholder="https://images.unsplash.com/..."
+                      className={cn(controlClass, 'flex-1 text-[13px]')}
+                    />
+                    <button
+                      type="button"
+                      className="ad-btn ad-btn-secondary shrink-0"
+                      onClick={() => {
+                        field.onChange(urlDraft.trim());
+                        toast.success('Image link set');
+                      }}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                ) : imageVal ? (
                   <div className="flex items-center gap-3.5 p-3 border border-ad-hairline bg-ad-surface">
-                    <div className="relative w-16 h-16 overflow-hidden shrink-0 bg-ad-n200">
-                      <img src={imageVal} alt="Dish preview" className="w-full h-full object-cover" />
+                    <div className="relative w-16 h-16 overflow-hidden shrink-0 bg-ad-n200 border border-ad-hairline">
+                      <img
+                        src={String(imageVal)}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold truncate m-0">Image uploaded</p>
-                      <p className="ad-kicker mt-0.5">From this device</p>
+                      <p className="text-[13px] font-semibold truncate m-0">
+                        {uploading ? uploadProgress : 'Photo attached'}
+                      </p>
+                      <p className="ad-kicker mt-0.5 truncate text-[10.5px]">
+                        {String(imageVal).startsWith('http') ? 'Cloud storage' : 'Uploaded file'}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button type="button" className="ad-btn ad-btn-secondary ad-btn-sm" onClick={() => fileInputRef.current?.click()}>
-                        Replace
+                      <button
+                        type="button"
+                        disabled={uploading}
+                        className="ad-btn ad-btn-secondary ad-btn-sm"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        {uploading ? <Loader2 className="size-3.5 animate-spin" /> : 'Replace'}
                       </button>
                       <button
                         type="button"
+                        disabled={uploading}
                         className="ad-btn ad-btn-sm"
                         style={{ color: 'var(--ad-a700)' }}
-                        onClick={() => field.onChange('')}
+                        onClick={() => {
+                          field.onChange('');
+                          setUrlDraft('');
+                        }}
                       >
                         Remove
                       </button>
@@ -410,18 +575,32 @@ export function ImageUploadField<T extends FieldValues>({
                   </div>
                 ) : (
                   <div
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => !uploading && fileInputRef.current?.click()}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
                       e.preventDefault();
+                      if (uploading) return;
                       const file = e.dataTransfer.files?.[0];
                       if (file) handleFile(file);
                     }}
-                    className="border-2 border-dashed border-ad-line hover:border-ad-accent p-5 text-center cursor-pointer transition-colors bg-ad-surface"
+                    className={cn(
+                      'border-2 border-dashed border-ad-line hover:border-ad-accent p-5 text-center cursor-pointer transition-colors bg-ad-surface',
+                      uploading && 'opacity-70 pointer-events-none cursor-wait'
+                    )}
                   >
-                    <UploadCloud className="w-5 h-5 mx-auto mb-2 text-ad-accent" />
-                    <p className="text-[13px] font-semibold m-0">Upload a dish photo</p>
-                    <p className="ad-kicker mt-1">PNG, JPG, WEBP · up to 5MB</p>
+                    {uploading ? (
+                      <div className="py-2">
+                        <Loader2 className="w-6 h-6 mx-auto mb-2 text-ad-accent animate-spin" />
+                        <p className="text-[13px] font-semibold m-0">{uploadProgress || 'Uploading photo…'}</p>
+                        <p className="ad-kicker mt-1">Please wait</p>
+                      </div>
+                    ) : (
+                      <>
+                        <UploadCloud className="w-6 h-6 mx-auto mb-2 text-ad-accent" />
+                        <p className="text-[13px] font-semibold m-0">Click or drag dish photo here</p>
+                        <p className="ad-kicker mt-1">PNG, JPG, WEBP · up to 10MB · No link needed</p>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
