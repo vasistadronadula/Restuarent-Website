@@ -79,11 +79,30 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       })
       .subscribe();
 
+    const tablesChannel = supabase
+      .channel('rq_realtime_tables')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurant_tables' }, () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.tables });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'table_reservations' }, () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.allTableSlots });
+      })
+      .subscribe();
+
+    const couponsChannel = supabase
+      .channel('rq_realtime_coupons')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'coupons' }, () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.coupons });
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(reservationsChannel);
       supabase.removeChannel(menuChannel);
       supabase.removeChannel(categoriesChannel);
+      supabase.removeChannel(tablesChannel);
+      supabase.removeChannel(couponsChannel);
     };
   }, [queryClient]);
 
