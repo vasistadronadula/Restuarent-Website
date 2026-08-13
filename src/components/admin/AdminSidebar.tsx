@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { ROLE_LABELS } from '@/lib/roleAccess';
 import { ADMIN_NAV, ADMIN_NAV_GROUPS, navItemForPath } from './adminNav';
 import { useAdminBadges } from './useAdminBadges';
+import { usePosSidebar } from '@/context/PosSidebarContext';
 import { Globe, LogOut, X } from 'lucide-react';
 
 interface Props {
@@ -19,6 +20,13 @@ interface Props {
    * permanent chrome there costs a column of dishes.
    */
   wide?: boolean;
+  /**
+   * On POS/cashier the rail's job shifts from site navigation to menu
+   * navigation — the cashier is never leaving this screen mid-shift, but
+   * flips category dozens of times an hour, so that's what earns the
+   * permanent left-hand real estate instead.
+   */
+  posMode?: boolean;
 }
 
 /**
@@ -27,11 +35,12 @@ interface Props {
  * Ink ground with the accent reserved for the active route, so at a glance
  * there is exactly one lit item on screen and it is always where you are.
  */
-export default function AdminSidebar({ open, onClose, wide = false }: Props) {
+export default function AdminSidebar({ open, onClose, wide = false, posMode = false }: Props) {
   const pathname = usePathname();
   const { user, userRole, signOutUser } = useAuth();
   const badges = useAdminBadges();
   const active = navItemForPath(pathname);
+  const posSidebar = usePosSidebar();
 
   const name = user?.user_metadata?.full_name || user?.user_metadata?.name || 'Staff';
   const initials = String(name)
@@ -61,7 +70,26 @@ export default function AdminSidebar({ open, onClose, wide = false }: Props) {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-2 px-3">
-        {ADMIN_NAV_GROUPS.map((group) => {
+        {posMode ? (
+          <div className="flex flex-col gap-0.5">
+            {posSidebar.categories.map((cat) => {
+              const Icon = cat.icon;
+              return (
+                <button
+                  key={cat.slug}
+                  type="button"
+                  onClick={() => { posSidebar.setSelected(cat.slug); onClose(); }}
+                  className="ad-nav-item flex items-center gap-2.5"
+                  data-active={posSidebar.selected === cat.slug}
+                  aria-current={posSidebar.selected === cat.slug ? 'page' : undefined}
+                >
+                  <Icon className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{cat.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : ADMIN_NAV_GROUPS.map((group) => {
           const items = ADMIN_NAV.filter((i) => i.group === group);
           if (!items.length) return null;
           return (

@@ -10,6 +10,7 @@ import TableFloorMapModal from '@/components/pos/TableFloorMapModal';
 
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
+import { usePosSidebar } from '@/context/PosSidebarContext';
 import { useCategories, useMenuItems, useTables } from '@/lib/queries';
 import { usePosCart, type Portion } from '@/hooks/usePosCart';
 import { computeBillTotals, type DiscountOption } from '@/lib/billing';
@@ -101,11 +102,14 @@ export default function PosPage() {
   }, [activeCategories]);
 
   /* Filters */
-  // Categories load asynchronously, so an explicit pick is layered over a
-  // derived fallback to the first category — no effect needed to "catch up"
-  // once the list arrives.
-  const [pickedCategory, setSelectedCategory] = useState<string>('');
-  const selectedCategory = pickedCategory || categoriesList[0]?.slug || '';
+  // The category list itself lives in AdminSidebar's rail on this page (see
+  // PosSidebarContext) — this page only hands the list over and reads back
+  // whichever slug the cashier tapped there.
+  const posSidebar = usePosSidebar();
+  useEffect(() => {
+    posSidebar.setCategories(categoriesList);
+  }, [categoriesList, posSidebar]);
+  const selectedCategory = posSidebar.selected || categoriesList[0]?.slug || '';
   const [vegFilter, setVegFilter] = useState<'all' | 'veg' | 'non-veg' | 'egg'>('all');
   const [search, setSearch] = useState('');
   const [layoutMode, setLayoutMode] = useState<'cards' | 'rows'>('cards');
@@ -445,33 +449,12 @@ export default function PosPage() {
           </div>
         </div>
 
-        {/* ── 2. MAIN BODY: Category Sidebar | Product Ordering Catalog ── */}
-        <div className="flex-1 min-h-0 flex w-full overflow-hidden">
-
-          {/* ═══════════════════════════════════════════════════════════ */}
-          {/*  LEFT: Category Sidebar — replaces the horizontal tab bar   */}
-          {/*  so a full-height list of categories stays one tap away    */}
-          {/*  no matter how many the menu grows to.                     */}
-          {/* ═══════════════════════════════════════════════════════════ */}
-          <div className="w-[92px] sm:w-[124px] shrink-0 h-full overflow-y-auto scrollbar-none border-r-2 border-ad-line bg-ad-surface">
-            {categoriesList.map((cat) => {
-              const Icon = cat.icon;
-              return (
-                <button
-                  key={cat.slug}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat.slug)}
-                  data-active={selectedCategory === cat.slug}
-                  className="w-full flex flex-col items-center gap-1 px-1.5 py-3 border-b border-ad-hairline text-[11px] font-semibold text-ad-muted data-[active=true]:text-ad-ink data-[active=true]:bg-ad-bg data-[active=true]:border-l-4 data-[active=true]:border-l-ad-accent transition-colors"
-                >
-                  <Icon className="size-4" />
-                  <span className="text-center leading-tight line-clamp-2">{cat.name}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/*  RIGHT: Product Ordering Catalog                            */}
+        {/* ── 2. MAIN BODY: Product Ordering Catalog ──
+            Category picking now lives in the main admin rail on the left
+            (see AdminLayout → AdminSidebar posMode), so the full width here
+            is dish grid. The right edge is padded clear of the fixed cart
+            panel below so the last column of dishes never sits behind it. */}
+        <div className="flex-1 min-h-0 flex w-full overflow-hidden md:pr-[380px] lg:pr-[420px]">
           <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-ad-bg">
 
             {/* Table Allocation Fast Strip (Visible when Dine-In is active) */}
@@ -547,14 +530,19 @@ export default function PosPage() {
 
         </div>
 
-        {/* ── Cart Bar: bottom-right float, opens the ticket as a slide-over ──
-            Replaces the always-docked 390px panel — the catalog gets the
-            full width and the cart is one tap away instead of permanent
-            chrome eating a column of dishes. */}
+        {/* ── Cart: fixed to the right edge of the viewport, always visible
+            on desktop — not a toggled drawer, just docked there like a
+            till's ticket rail. Below `md` there's no room for a 380px
+            column, so it collapses to the same bottom-right open button +
+            slide-over sheet as before. */}
+        <div className="hidden md:flex flex-col fixed right-0 top-[var(--ad-header-h)] bottom-0 w-[380px] lg:w-[420px] z-20 bg-ad-surface border-l-2 border-ad-line">
+          <BillPanel {...billPanelProps} />
+        </div>
+
         <button
           type="button"
           onClick={() => setCartOpen(true)}
-          className="fixed right-4 bottom-4 z-30 ad-btn ad-btn-primary h-13 justify-between gap-3 px-5 text-[14px] shadow-lg"
+          className="md:hidden fixed right-4 bottom-4 z-30 ad-btn ad-btn-primary h-13 justify-between gap-3 px-5 text-[14px] shadow-lg"
         >
           <span className="flex items-center gap-2">
             <span className="size-6.5 grid place-items-center bg-ad-bg text-ad-accent ad-num text-[12px]">
@@ -569,7 +557,7 @@ export default function PosPage() {
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="p-0 w-full sm:w-[400px] bg-ad-surface overflow-hidden"
+            className="md:hidden p-0 w-full sm:w-[400px] bg-ad-surface overflow-hidden"
           >
             <BillPanel
               {...billPanelProps}
