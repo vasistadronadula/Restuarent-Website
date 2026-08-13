@@ -3,12 +3,12 @@
 import React from 'react';
 import AdminGuard from '@/components/admin/AdminGuard';
 import POSClientWrapper from '@/components/pos/POSClientWrapper';
-import { menuItems as fallbackMenuItems } from '@/data/menuData';
+import { initialMenuItems } from '@/data/posMenuData';
 
 export default function CashierPage() {
   return (
     <AdminGuard>
-      <POSClientWrapper initialMenuItems={fallbackMenuItems} />
+      <POSClientWrapper initialMenuItems={initialMenuItems} />
     </AdminGuard>
   );
 }

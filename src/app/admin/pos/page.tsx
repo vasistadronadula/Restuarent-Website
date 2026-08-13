@@ -1,14 +1,22 @@
 import React from 'react';
 import POSClientWrapper from '@/components/pos/POSClientWrapper';
-import { menuItems as fallbackMenuItems } from '@/data/menuData';
+import { initialMenuItems } from '@/data/posMenuData';
+import { MenuItem, MenuCategory } from '@/types/pos';
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Point of Sale (POS) Billing | Pala Pitta Ruchulu',
   description:
-    'Real-time restaurant POS order entry and billing system connected directly to live Supabase database.',
+    'Frictionless high-volume restaurant POS order entry and billing system.',
 };
 
-export default function POSPage() {
-  return <POSClientWrapper initialMenuItems={fallbackMenuItems} />;
+/**
+ * POSPage (Server Component)
+ * Fetches or provides initial menu items server-side and passes them to the POS client hierarchy.
+ */
+export default async function POSPage() {
+  // In production, server-side menu fetching can happen here:
+  const menuItems: MenuItem[] = initialMenuItems;
+
+  return <POSClientWrapper initialMenuItems={menuItems} />;
 }
