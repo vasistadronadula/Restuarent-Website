@@ -16,12 +16,12 @@ import MobileAppInstallModal from './MobileAppInstallModal';
 import PrinterSettingsPanel from './PrinterSettingsPanel';
 import { navItemForPath } from './adminNav';
 import {
-  Bell, RefreshCw, Globe, LogOut, Printer, User, Settings, Menu, LayoutGrid,
+  Bell, RefreshCw, Globe, LogOut, Printer, User, Settings, Menu, LayoutGrid, Clock,
 } from 'lucide-react';
 
 type Stamp = { date: string; time: string } | null;
 
-const CLOCK_TICK_MS = 30_000;
+const CLOCK_TICK_MS = 10_000;
 let clockBucket = -1;
 let clockSnapshot: Stamp = null;
 
@@ -48,11 +48,13 @@ const getServerClockSnapshot = (): Stamp => null;
 function LiveStamp() {
   const stamp = useSyncExternalStore(subscribeClock, getClockSnapshot, getServerClockSnapshot);
 
-  if (!stamp) return <div className="w-26" aria-hidden />;
+  if (!stamp) return null;
 
   return (
-    <div className="hidden xl:block text-[12px] leading-[1.3] text-right ad-muted">
-      {stamp.date} · {stamp.time}
+    <div className="flex items-center gap-1.5 px-2.5 py-1 border border-ad-line bg-ad-surface text-ad-ink text-[12px] font-semibold tabular-nums shrink-0">
+      <Clock className="w-3.5 h-3.5 text-ad-accent shrink-0" />
+      <span>{stamp.time}</span>
+      <span className="hidden sm:inline ad-muted font-normal text-[11px]">· {stamp.date}</span>
     </div>
   );
 }
