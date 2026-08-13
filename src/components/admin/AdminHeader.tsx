@@ -12,6 +12,7 @@ import {
 import { roleAppFor } from '@/lib/roleApps';
 import { getPushState } from '@/lib/pushClient';
 import { useAutoPrint } from '@/hooks/useAutoPrint';
+import { isPrinterConnected } from '@/lib/thermalPrinter';
 import MobileAppInstallModal from './MobileAppInstallModal';
 import PrinterSettingsPanel from './PrinterSettingsPanel';
 import {
@@ -49,6 +50,19 @@ export default function AdminHeader({ title }: Props) {
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  const [printerConnected, setPrinterConnected] = useState(false);
+
+  useEffect(() => {
+    const check = () => setPrinterConnected(isPrinterConnected());
+    check();
+    const id = setInterval(check, 2000);
+    window.addEventListener('focus', check);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('focus', check);
+    };
+  }, []);
 
   const [autoPrint, setAutoPrint] = useAutoPrint();
 
@@ -116,16 +130,19 @@ export default function AdminHeader({ title }: Props) {
   const showAutoPrint = userRole === 'cashier';
   const showNotifications = showOrderAlerts || showReservationAlerts;
   const isDashboard = pathname === '/admin';
+  const isPosPage = pathname === '/admin/pos' || pathname === '/cashier';
+  const isKitchenPage = pathname === '/admin/kitchen' || pathname === '/kds';
+  const isFullBleedPage = isPosPage || isKitchenPage;
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-white border-b border-stone-200 shadow-sm">
-        <div className="mx-auto max-w-[1600px] h-14 flex items-center justify-between px-3 sm:px-5 lg:px-8">
+      <header className="sticky top-0 z-40 w-full bg-white border-b border-stone-200 shadow-xs">
+        <div className={`mx-auto ${isFullBleedPage ? 'w-full px-3 sm:px-4' : 'max-w-[1600px] px-3 sm:px-5 lg:px-8'} h-14 flex items-center justify-between`}>
           
           {/* Left Side: Brand Logo & Navigation Breadcrumbs */}
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2.5 min-w-0">
             <Link href="/admin" className="flex items-center gap-2 group flex-shrink-0">
-              <div className="bg-amber-600 text-white rounded-lg w-8 h-8 flex items-center justify-center font-bold text-sm shadow-sm">
+              <div className="bg-amber-600 text-white rounded-lg w-8 h-8 flex items-center justify-center font-bold text-sm shadow-xs">
                 P
               </div>
               <span className="font-semibold text-sm text-stone-800 hidden md:block">
@@ -160,13 +177,36 @@ export default function AdminHeader({ title }: Props) {
           </div>
 
           {/* Right Side: Quick Actions & Profile Dropdown */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5">
 
-            {/* POS Quick Button */}
-            {pathname !== '/admin/pos' && (
+            {/* POS Printer Connection Button (Visible when on POS page) */}
+            {isPosPage ? (
+              <button
+                type="button"
+                onClick={() => setPrinterSettingsOpen(true)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-2xs ${
+                  printerConnected
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                    : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                }`}
+                title={printerConnected ? 'Thermal printer connected (Bluetooth / USB) — click to manage' : 'Printer disconnected — click to connect Bluetooth / USB printer'}
+              >
+                <span className="relative flex h-2.5 w-2.5 shrink-0">
+                  {printerConnected && (
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  )}
+                  <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${printerConnected ? 'bg-emerald-600' : 'bg-amber-500'}`} />
+                </span>
+                <Printer className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline font-bold">
+                  {printerConnected ? 'Printer Ready' : 'Connect Printer'}
+                </span>
+              </button>
+            ) : (
+              /* POS Quick Button for non-POS pages */
               <Link
                 href="/admin/pos"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Cashier POS</span>
@@ -327,9 +367,13 @@ export default function AdminHeader({ title }: Props) {
       </header>
 
       <MobileAppInstallModal open={installOpen} onClose={closeInstallModal} />
-      {showAutoPrint && (
-        <PrinterSettingsPanel open={printerSettingsOpen} onClose={() => setPrinterSettingsOpen(false)} />
-      )}
+      <PrinterSettingsPanel
+        open={printerSettingsOpen}
+        onClose={() => {
+          setPrinterSettingsOpen(false);
+          setPrinterConnected(isPrinterConnected());
+        }}
+      />
     </>
   );
 }

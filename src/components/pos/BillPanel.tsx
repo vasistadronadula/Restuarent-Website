@@ -429,13 +429,13 @@ export default function BillPanel({
 
         {/* ── 6. SUB-10s ACTION BUTTONS ── */}
         <div className="space-y-2 pt-1">
-          {/* Complete Payment (Primary CTA) */}
+          {/* Complete Payment & Print (Primary CTA) */}
           <button
             type="button"
             onClick={() => { if (!blocked) onPlace(); }}
             disabled={blocked || isPlacing}
             className={cn(
-              'w-full h-14 rounded-2xl font-black text-sm sm:text-base text-white flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]',
+              'w-full h-13 rounded-2xl font-black text-sm sm:text-base text-white flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]',
               blocked || isPlacing
                 ? 'bg-slate-300 cursor-not-allowed shadow-none'
                 : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/25'
@@ -444,14 +444,15 @@ export default function BillPanel({
             {isPlacing ? (
               <>
                 <span className="animate-spin text-base">⏳</span>
-                <span>Charging & Printing…</span>
+                <span>Settling & Printing…</span>
               </>
             ) : (
               <>
-                <span>⚡ Complete Payment</span>
+                <span>⚡ Settle & Print Bill</span>
                 {!empty && (
                   <span className="font-mono text-sm opacity-90 font-bold">· ₹{totals.grandTotal.toFixed(2)}</span>
                 )}
+                <span className="text-[10px] font-mono opacity-70 bg-black/20 px-1.5 py-0.5 rounded-md hidden sm:inline">F2</span>
               </>
             )}
           </button>
@@ -464,10 +465,11 @@ export default function BillPanel({
               size="sm"
               disabled={empty || isPlacing}
               onClick={onSendToKitchen || onPlace}
-              className="h-10 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100 font-bold text-xs gap-1.5"
+              className="h-9 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100 font-bold text-xs gap-1.5"
             >
               <Send className="size-3.5 text-blue-600" />
-              Send to KOT
+              <span>Send KOT</span>
+              <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">F8</span>
             </Button>
 
             <Button
@@ -476,10 +478,11 @@ export default function BillPanel({
               size="sm"
               disabled={empty || isPlacing}
               onClick={onHoldOrder}
-              className="h-10 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100 font-bold text-xs gap-1.5"
+              className="h-9 rounded-xl border-slate-200 text-slate-700 hover:bg-slate-100 font-bold text-xs gap-1.5"
             >
               <PauseCircle className="size-3.5 text-amber-600" />
-              Hold Order
+              <span>Hold Ticket</span>
+              <span className="text-[10px] font-mono text-slate-400 hidden sm:inline">F4</span>
             </Button>
           </div>
         </div>

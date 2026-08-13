@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POS Billing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #3498db;
+      --primary-dark: #2980b9;
+      --accent: #f1c40f;
+      --accent-hover: #d4ac0d;
+      --neutral: #f7f7f7;
+      --neutral-card: #ffffff;
+      --neutral-border: #e0e0e0;
+      --text-dark: #2c3e50;
+      --text-muted: #666666;
+      --success: #2ecc71;
+      --error: #e74c3c;
+      --focus-ring: rgba(52, 152, 219, 0.4);
+      --font-family: 'Open Sans', sans-serif;
+      --radius: 8px;
+      --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      --transition: all 0.2s ease-in-out;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-dark);
+      background-color: var(--neutral);
+      min-width: 320px;
+      padding: 12px;
+    }
+
+    /* Headings */
+    h1 { font-size: 24px; font-weight: 700; }
+    h2 { font-size: 18px; font-weight: 600; }
+    h3 { font-size: 14px; font-weight: 600; }
+    p, span, label { font-size: 14px; }
+    .text-sm { font-size: 12px; color: var(--text-muted); }
+    .text-lg { font-size: 16px; }
+
+    /* Container */
+    .pos-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Header */
+    header.pos-header {
+      background: var(--neutral-card);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand-badge {
+      background: var(--primary);
+      color: #fff;
+      font-weight: 700;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+
+    /* Grid Layout */
+    .pos-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (min-width: 768px) {
+      body { padding: 16px; }
+      .pos-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      body { padding: 24px; }
+      .pos-grid {
+        grid-template-columns: 1.2fr 0.8fr;
+        align-items: start;
+      }
+    }
+
+    /* Cards */
+    .card {
+      background: var(--neutral-card);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--neutral-border);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .card-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--neutral-border);
+      padding-bottom: 12px;
+    }
+
+    /* Form Fields */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    @media (min-width: 480px) {
+      .form-row {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    label {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    input, select, textarea {
+      font-family: inherit;
+      font-size: 14px;
+      padding: 10px 12px;
+      border: 1px solid var(--neutral-border);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--text-dark);
+      transition: var(--transition);
+      width: 100%;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+
+    /* Items Table / List */
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .items-table th {
+      text-align: left;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      padding: 8px 4px;
+      border-bottom: 2px solid var(--neutral-border);
+    }
+
+    .items-table td {
+      padding: 10px 4px;
+      border-bottom: 1px solid var(--neutral);
+      font-size: 14px;
+      vertical-align: middle;
+    }
+
+    .qty-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .qty-btn {
+      width: 28px;
+      height: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--neutral-border);
+      background: var(--neutral);
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: var(--transition);
+    }
+
+    .qty-btn:hover:not(:disabled) {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .btn-delete {
+      background: transparent;
+      border: none;
+      color: var(--error);
+      cursor: pointer;
+      padding: 4px 8px;
+      font-size: 14px;
+      border-radius: 4px;
+      transition: var(--transition);
+    }
+
+    .btn-delete:hover {
+      background: rgba(231, 76, 60, 0.1);
+    }
+
+    /* Quick Add Item Bar */
+    .quick-add {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .quick-add input {
+      flex: 1 1 140px;
+    }
+
+    /* Totals Summary */
+    .totals-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      border-top: 1px dashed var(--neutral-border);
+      padding-top: 12px;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+    }
+
+    .total-row.grand-total {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary-dark);
+      border-top: 1px solid var(--neutral-border);
+      padding-top: 8px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 600;
+      padding: 12px 20px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      transition: var(--transition);
+      width: 100%;
+      text-align: center;
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background-color: var(--primary-dark);
+    }
+
+    .btn-accent {
+      background-color: var(--accent);
+      color: #2c3e50;
+    }
+
+    .btn-accent:hover:not(:disabled) {
+      background-color: var(--accent-hover);
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* Loading Spinner */
+    .spinner {
+      display: none;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .is-loading .spinner {
+      display: inline-block;
+    }
+
+    .is-loading .btn-text {
+      opacity: 0.8;
+    }
+
+    /* Success Message Modal / Alert */
+    .banner {
+      display: none;
+      padding: 16px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      margin-bottom: 12px;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .banner-success {
+      background-color: rgba(46, 204, 113, 0.15);
+      border: 1px solid var(--success);
+      color: #1b663e;
+    }
+
+    .banner-error {
+      background-color: rgba(231, 76, 60, 0.15);
+      border: 1px solid var(--error);
+      color: #922b21;
+    }
+  </style>
+</head>
+<body>
+  <main class="pos-container" role="main">
+    <!-- Header -->
+    <header class="pos-header">
+      <div class="brand">
+        <span class="brand-badge">POS</span>
+        <div>
+          <h1>Billing Terminal</h1>
+          <p class="text-sm">Counter #1 &bull; Active Shift</p>
+        </div>
+      </div>
+      <div class="text-sm" id="live-time" aria-live="polite"></div>
+    </header>
+
+    <!-- Success / Error Status Banner -->
+    <div id="status-banner" class="banner banner-success" role="alert" aria-live="assertive"></div>
+
+    <form id="pos-form" onsubmit="handlePayment(event)">
+      <div class="pos-grid">
+        <!-- Left Column: Customer & Items -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          
+          <!-- Customer Details Card -->
+          <section class="card" aria-labelledby="cust-info-title">
+            <div class="card-title">
+              <h2 id="cust-info-title">Customer Information</h2>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="cust-name">Customer Name</label>
+                <input type="text" id="cust-name" placeholder="e.g. Rahul Sharma" required autocomplete="name">
+              </div>
+              <div class="form-group">
+                <label for="cust-phone">Phone Number</label>
+                <input type="tel" id="cust-phone" placeholder="e.g. 9876543210" pattern="[0-9]{10}" title="10 digit mobile number" required autocomplete="tel">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="order-type">Order Type</label>
+                <select id="order-type">
+                  <option value="dine-in">Dine-In (Table Service)</option>
+                  <option value="takeaway">Takeaway / Parcel</option>
+                  <option value="delivery">Express Delivery</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="table-no">Table / Token #</label>
+                <input type="text" id="table-no" placeholder="e.g. T-04">
+              </div>
+            </div>
+          </section>
+
+          <!-- Order Items Card -->
+          <section class="card" aria-labelledby="order-items-title">
+            <div class="card-title">
+              <h2 id="order-items-title">Order Items</h2>
+              <span class="text-sm" id="item-count">3 items</span>
+            </div>
+
+            <!-- Quick Add Bar -->
+            <div class="quick-add">
+              <input type="text" id="quick-item-name" placeholder="Item name" aria-label="Item name">
+              <input type="number" id="quick-item-price" placeholder="Price (₹)" min="1" step="0.5" style="max-width: 100px;" aria-label="Price">
+              <button type="button" class="btn btn-accent" style="width: auto; padding: 10px 16px; font-size: 14px;" onclick="addCustomItem()">+ Add</button>
+            </div>
+
+            <!-- Table of Items -->
+            <table class="items-table" aria-label="Selected order items">
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th style="text-align: center;">Qty</th>
+                  <th style="text-align: right;">Price</th>
+                  <th style="text-align: right;">Total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="items-tbody">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </section>
+        </div>
+
+        <!-- Right Column: Payment & Summary -->
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          
+          <!-- Payment Method Card -->
+          <section class="card" aria-labelledby="payment-title">
+            <div class="card-title">
+              <h2 id="payment-title">Payment Details</h2>
+            </div>
+
+            <div class="form-group">
+              <label for="payment-method">Payment Method</label>
+              <select id="payment-method" required onchange="handlePaymentMethodChange()">
+                <option value="cash">💵 Cash Payment</option>
+                <option value="upi" selected>📱 UPI / QR Code</option>
+                <option value="card">💳 Credit / Debit Card</option>
+                <option value="netbanking">🏦 Net Banking</option>
+              </select>
+            </div>
+
+            <div class="form-group" id="tendered-group" style="display: none;">
+              <label for="cash-tendered">Cash Tendered (₹)</label>
+              <input type="number" id="cash-tendered" placeholder="Amount received" min="0" oninput="calculateChange()">
+              <p class="text-sm" id="change-due">Change Due: ₹0.00</p>
+            </div>
+
+            <!-- Totals Card Info -->
+            <div class="totals-list">
+              <div class="total-row">
+                <span class="text-muted">Subtotal</span>
+                <span id="subtotal-val">₹0.00</span>
+              </div>
+              <div class="total-row">
+                <span class="text-muted">GST (5%)</span>
+                <span id="tax-val">₹0.00</span>
+              </div>
+              <div class="total-row">
+                <span class="text-muted">Discount</span>
+                <span id="discount-val">-₹0.00</span>
+              </div>
+              <div class="total-row grand-total">
+                <span>Grand Total</span>
+                <span id="grand-total-val">₹0.00</span>
+              </div>
+            </div>
+
+            <button type="submit" id="pay-btn" class="btn btn-primary" style="margin-top: 8px;">
+              <span class="spinner" aria-hidden="true"></span>
+              <span class="btn-text">Complete Payment</span>
+            </button>
+
+            <button type="button" class="btn" style="background: var(--neutral); color: var(--text-dark); font-size: 14px; padding: 8px;" onclick="resetForm()">
+              Clear Bill
+            </button>
+          </section>
+        </div>
+      </div>
+    </form>
+  </main>
+
+  <script>
+    // State
+    let items = [
+      { id: 1, name: 'Special Chicken Biryani', price: 280, qty: 1 },
+      { id: 2, name: 'Paneer Butter Masala', price: 220, qty: 1 },
+      { id: 3, name: 'Butter Naan (2 pcs)', price: 80, qty: 2 }
+    ];
+
+    function updateTime() {
+      const el = document.getElementById('live-time');
+      if (el) {
+        const now = new Date();
+        el.textContent = now.toLocaleDateString() + ' ' + now.toLocaleTimeString();
+      }
+    }
+    setInterval(updateTime, 1000);
+    updateTime();
+
+    function renderItems() {
+      const tbody = document.getElementById('items-tbody');
+      const countEl = document.getElementById('item-count');
+      tbody.innerHTML = '';
+
+      let subtotal = 0;
+      let totalQty = 0;
+
+      items.forEach((item, index) => {
+        const itemTotal = item.price * item.qty;
+        subtotal += itemTotal;
+        totalQty += item.qty;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${item.name}</strong><br><span class="text-sm">₹${item.price.toFixed(2)} each</span></td>
+          <td style="text-align: center;">
+            <div class="qty-controls">
+              <button type="button" class="qty-btn" onclick="updateQty(${index}, -1)" aria-label="Decrease quantity" ${item.qty <= 1 ? 'disabled' : ''}>-</button>
+              <span style="min-width: 20px; text-align: center;">${item.qty}</span>
+              <button type="button" class="qty-btn" onclick="updateQty(${index}, 1)" aria-label="Increase quantity">+</button>
+            </div>
+          </td>
+          <td style="text-align: right;">₹${item.price.toFixed(2)}</td>
+          <td style="text-align: right; font-weight: 600;">₹${itemTotal.toFixed(2)}</td>
+          <td style="text-align: right;">
+            <button type="button" class="btn-delete" onclick="removeItem(${index})" aria-label="Remove item">✕</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      countEl.textContent = `${totalQty} item${totalQty === 1 ? '' : 's'}`;
+
+      // Calculate totals
+      const tax = subtotal * 0.05;
+      const discount = 0;
+      const grandTotal = subtotal + tax - discount;
+
+      document.getElementById('subtotal-val').textContent = `₹${subtotal.toFixed(2)}`;
+      document.getElementById('tax-val').textContent = `₹${tax.toFixed(2)}`;
+      document.getElementById('discount-val').textContent = `-₹${discount.toFixed(2)}`;
+      document.getElementById('grand-total-val').textContent = `₹${grandTotal.toFixed(2)}`;
+
+      calculateChange();
+    }
+
+    function updateQty(index, delta) {
+      if (items[index]) {
+        items[index].qty += delta;
+        if (items[index].qty <= 0) items[index].qty = 1;
+        renderItems();
+      }
+    }
+
+    function removeItem(index) {
+      items.splice(index, 1);
+      renderItems();
+    }
+
+    function addCustomItem() {
+      const nameInput = document.getElementById('quick-item-name');
+      const priceInput = document.getElementById('quick-item-price');
+      const name = nameInput.value.trim();
+      const price = parseFloat(priceInput.value);
+
+      if (!name || isNaN(price) || price <= 0) {
+        alert('Please enter a valid item name and positive price.');
+        return;
+      }
+
+      items.push({ id: Date.now(), name, price, qty: 1 });
+      nameInput.value = '';
+      priceInput.value = '';
+      renderItems();
+    }
+
+    function handlePaymentMethodChange() {
+      const method = document.getElementById('payment-method').value;
+      const tenderedGroup = document.getElementById('tendered-group');
+      if (method === 'cash') {
+        tenderedGroup.style.display = 'flex';
+      } else {
+        tenderedGroup.style.display = 'none';
+      }
+    }
+
+    function calculateChange() {
+      const method = document.getElementById('payment-method').value;
+      if (method !== 'cash') return;
+
+      const grandTotalText = document.getElementById('grand-total-val').textContent.replace('₹', '');
+      const grandTotal = parseFloat(grandTotalText) || 0;
+      const tendered = parseFloat(document.getElementById('cash-tendered').value) || 0;
+      const change = Math.max(0, tendered - grandTotal);
+
+      document.getElementById('change-due').textContent = `Change Due: ₹${change.toFixed(2)}`;
+    }
+
+    function handlePayment(e) {
+      e.preventDefault();
+
+      if (items.length === 0) {
+        showBanner('Cannot process payment: Cart is empty.', false);
+        return;
+      }
+
+      const payBtn = document.getElementById('pay-btn');
+      const btnText = payBtn.querySelector('.btn-text');
+      const customerName = document.getElementById('cust-name').value;
+      const paymentMethod = document.getElementById('payment-method').options[document.getElementById('payment-method').selectedIndex].text;
+      const grandTotal = document.getElementById('grand-total-val').textContent;
+
+      // Loading state
+      payBtn.disabled = true;
+      payBtn.classList.add('is-loading');
+      btnText.textContent = 'Processing Payment...';
+      hideBanner();
+
+      // Simulate slow network processing (1.2s)
+      setTimeout(() => {
+        payBtn.disabled = false;
+        payBtn.classList.remove('is-loading');
+        btnText.textContent = 'Complete Payment';
+
+        const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+        showBanner(`✅ Payment Successful! Order #${orderId} for ${customerName} (${grandTotal} via ${paymentMethod}) has been confirmed.`, true);
+
+        // Reset inputs
+        items = [];
+        renderItems();
+        document.getElementById('pos-form').reset();
+        handlePaymentMethodChange();
+      }, 1200);
+    }
+
+    function showBanner(msg, isSuccess) {
+      const banner = document.getElementById('status-banner');
+      banner.textContent = msg;
+      banner.className = 'banner ' + (isSuccess ? 'banner-success' : 'banner-error');
+      banner.style.display = 'block';
+      banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function hideBanner() {
+      const banner = document.getElementById('status-banner');
+      banner.style.display = 'none';
+    }
+
+    function resetForm() {
+      if (confirm('Are you sure you want to clear this billing session?')) {
+        items = [];
+        renderItems();
+        document.getElementById('pos-form').reset();
+        handlePaymentMethodChange();
+        hideBanner();
+      }
+    }
+
+    // Initial render
+    renderItems();
+  </script>
+</body>
+</html>
