@@ -3,11 +3,9 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
-import { ROLE_LABELS } from '@/lib/roleAccess';
 import { ADMIN_NAV, ADMIN_NAV_GROUPS, navItemForPath } from './adminNav';
 import { useAdminBadges } from './useAdminBadges';
-import { Globe, LogOut, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface Props {
   /** Drawer state. Above the pinned breakpoint the rail is always visible. */
@@ -29,17 +27,8 @@ interface Props {
  */
 export default function AdminSidebar({ open, onClose, wide = false }: Props) {
   const pathname = usePathname();
-  const { user, userRole, signOutUser } = useAuth();
   const badges = useAdminBadges();
   const active = navItemForPath(pathname);
-
-  const name = user?.user_metadata?.full_name || user?.user_metadata?.name || 'Staff';
-  const initials = String(name)
-    .split(' ')
-    .map((p: string) => p[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || 'PP';
 
   const rail = (
     <>
@@ -89,31 +78,6 @@ export default function AdminSidebar({ open, onClose, wide = false }: Props) {
           );
         })}
       </nav>
-
-      <div className="border-t-2 border-[rgba(243,242,242,0.28)]">
-        <div className="px-5 py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-[34px] h-[34px] flex-none grid place-items-center bg-ad-accent text-ad-bg ad-num text-[13px]">
-              {initials}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold truncate">{name}</div>
-              <div className="text-[10px] tracking-[0.12em] uppercase opacity-55">
-                {userRole ? ROLE_LABELS[userRole] : 'Staff'}
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={signOutUser}
-            className="flex-none p-2 text-[rgba(243,242,242,0.65)] hover:bg-ad-accent hover:text-white transition-colors"
-            title="Sign out"
-            aria-label="Sign out"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
     </>
   );
 

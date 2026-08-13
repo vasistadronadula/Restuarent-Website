@@ -11,7 +11,7 @@
 
 import {
   Armchair, BarChart3, BookOpen, Calculator, ChefHat, ClipboardList,
-  LayoutGrid, Receipt, Ticket, TrendingUp, UserCircle,
+  LayoutGrid, Receipt, Ticket, TrendingUp, UserCircle, Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -124,6 +124,15 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
     description: 'Real-time sales graphs and daily targets',
     icon: TrendingUp,
     group: 'Insight',
+  },
+  {
+    label: 'Employees',
+    href: '/admin/employees',
+    kicker: 'Account',
+    title: 'Employee management',
+    description: 'Staff logins, roles, shifts and salaries',
+    icon: Users,
+    group: 'Account',
   },
   {
     label: 'Profile',

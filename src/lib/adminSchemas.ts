@@ -233,7 +233,9 @@ export const editEmployeeSchema = z.object({
 });
 
 export type NewEmployeeFormValues = z.input<typeof newEmployeeSchema>;
+export type NewEmployeeFormOutput = z.output<typeof newEmployeeSchema>;
 export type EditEmployeeFormValues = z.input<typeof editEmployeeSchema>;
+export type EditEmployeeFormOutput = z.output<typeof editEmployeeSchema>;
 
 // ─── Dining table ─────────────────────────────────────────────────────────────
 

@@ -566,14 +566,14 @@ export default function KitchenDisplayPage() {
         {/* ========================================================== */}
         <header className="sticky top-0 z-20 bg-ad-bg border-b-2 border-ad-line px-4 sm:px-6 py-2">
           <div className="flex items-center justify-between gap-3 max-w-[1720px] mx-auto">
-            <div className="flex items-center gap-4 flex-wrap text-[12px]">
+            <div className="flex items-center gap-3 sm:gap-4 flex-wrap text-[12px]">
               <span className="ad-kicker">Tickets <b className="ad-num text-[13px] text-ad-ink">{stats.totalToday}</b></span>
-              <span className="ad-kicker">Avg prep <b className="ad-num text-[13px] text-ad-ink">{stats.avgPrep}m</b></span>
+              <span className="ad-kicker hidden sm:inline">Avg prep <b className="ad-num text-[13px] text-ad-ink">{stats.avgPrep}m</b></span>
               <span className="ad-kicker">On time <b className="ad-num text-[13px] text-ad-ink">{stats.onTimeRate}%</b></span>
               <span className="ad-kicker" style={stats.delayedCount > 0 ? { color: 'var(--ad-accent)' } : undefined}>
                 Overdue <b className="ad-num text-[13px]">{stats.delayedCount}</b>
               </span>
-              <span className="ad-kicker">In flight <b className="ad-num text-[13px] text-ad-ink">{formatCurrency(stats.activeRevenue)}</b></span>
+              <span className="ad-kicker hidden sm:inline">In flight <b className="ad-num text-[13px] text-ad-ink">{formatCurrency(stats.activeRevenue)}</b></span>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">

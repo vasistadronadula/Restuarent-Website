@@ -255,6 +255,23 @@ export default function Navbar() {
               </DropdownMenu>
             )}
 
+            {user && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => signOutUser()}
+                    aria-label="Sign out"
+                    className="hidden md:inline-flex h-9 w-9 p-0 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Sign out</TooltipContent>
+              </Tooltip>
+            )}
+
             <Button asChild size="sm" className="hidden sm:inline-flex h-8 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white px-4">
               <Link href="/menu" prefetch>
                 Order Now

@@ -18,6 +18,7 @@ import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/tri
 import { markPosOrderPrinted } from '@/lib/posOrderTracker';
 import type { MenuItem, Order } from '@/types';
 import { toast } from 'sonner';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   Search, X, LayoutGrid, List,
   Utensils, Coffee, Flame, Cake, Soup, Sparkles,
@@ -155,6 +156,7 @@ export default function PosPage() {
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
   const [placedInvoiceNo, setPlacedInvoiceNo] = useState<string | undefined>(undefined);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
 
   const totals = useMemo(
     () => computeBillTotals(subtotal, 0, packagingCharge),
@@ -265,6 +267,7 @@ export default function PosPage() {
       setSpecialInstructions('');
       setPackagingCharge(0);
       setTableNumber('');
+      setCartOpen(false);
       toast.success('Order settled & printed in sub-10s! ⚡');
     } catch {
       toast.error('Failed to complete order');
@@ -345,7 +348,7 @@ export default function PosPage() {
         {/* ── 1. CASHIER FAST CONTROL BAR ── */}
         <div className="h-[56px] bg-ad-bg border-b-2 border-ad-line px-3 sm:px-4 flex items-center justify-between gap-2.5 shrink-0 z-20">
           {/* Left: Quick Search */}
-          <div className="relative w-44 sm:w-60 md:w-72 shrink-0">
+          <div className="relative w-32 sm:w-60 md:w-72 shrink-0">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-ad-muted" />
             <input
               ref={searchInputRef}
@@ -433,13 +436,16 @@ export default function PosPage() {
 
         {/* ── 2. MAIN BODY: Category Rail | Product Catalog ──
             The admin nav rail doesn't render on this page at all (see
-            AdminLayout) — this slim icon-only rail is POS's own, and the
-            right edge is padded clear of the fixed cart panel below so the
-            last column of dishes never sits behind it. */}
-        <div className="flex-1 min-h-0 flex w-full overflow-hidden pr-[320px] sm:pr-[380px] lg:pr-[420px]">
+            AdminLayout). The right edge is padded clear of the cart panel
+            below — but only from `md` up, where the cart is actually docked
+            there; on phones/small tablets the cart lives in a bottom sheet
+            instead, so nothing needs to make room for it. */}
+        <div className="flex-1 min-h-0 flex w-full overflow-hidden md:pr-[300px] lg:pr-[380px] xl:pr-[420px]">
 
-          {/* Icon-only category rail — one tap to switch, no label hunting */}
-          <div className="w-[68px] shrink-0 h-full overflow-y-auto scrollbar-none border-r-2 border-ad-line bg-ad-ink">
+          {/* Category rail — icon-only on a phone-width screen so the dish
+              grid still gets most of the width; labels appear from `sm` up
+              once there's room to read them. */}
+          <div className="w-14 sm:w-40 md:w-44 lg:w-52 shrink-0 h-full overflow-y-auto scrollbar-none border-r-2 border-ad-line bg-ad-ink">
             {categoriesList.map((cat) => {
               const Icon = cat.icon;
               return (
@@ -449,10 +455,10 @@ export default function PosPage() {
                   onClick={() => setSelectedCategory(cat.slug)}
                   data-active={selectedCategory === cat.slug}
                   title={cat.name}
-                  className="w-full flex flex-col items-center gap-1 px-1 py-3 text-[10px] font-semibold leading-tight text-[rgba(243,242,242,0.55)] border-l-4 border-transparent data-[active=true]:text-white data-[active=true]:bg-[rgba(243,242,242,0.08)] data-[active=true]:border-l-ad-accent transition-colors"
+                  className="w-full flex items-center justify-center sm:justify-start gap-2.5 px-2 sm:px-4 py-3 text-[13px] font-semibold leading-tight text-[rgba(243,242,242,0.55)] border-l-4 border-transparent data-[active=true]:text-white data-[active=true]:bg-[rgba(243,242,242,0.08)] data-[active=true]:border-l-ad-accent transition-colors"
                 >
-                  <Icon className="size-4.5" />
-                  <span className="text-center line-clamp-2">{cat.name}</span>
+                  <Icon className="size-4.5 shrink-0" />
+                  <span className="hidden sm:inline truncate">{cat.name}</span>
                 </button>
               );
             })}
@@ -542,12 +548,46 @@ export default function PosPage() {
 
         </div>
 
-        {/* ── Cart: fixed to the right edge of the viewport, always visible —
-            not a toggled drawer or a bottom-right button, just permanently
-            docked there like a till's ticket rail. */}
-        <div className="flex flex-col fixed right-0 top-[var(--ad-header-h)] bottom-0 w-[320px] sm:w-[380px] lg:w-[420px] z-20 bg-ad-surface border-l-2 border-ad-line">
+        {/* ── Cart: fixed to the right edge from `md` up, where a 300px+
+            column still leaves the dish grid usable — permanently docked
+            there like a till's ticket rail, no toggle needed. Below `md`
+            (phones, small tablets) that column would eat the whole screen,
+            so it collapses to a bottom-right open button + a bottom sheet. */}
+        <div className="hidden md:flex flex-col fixed right-0 top-[var(--ad-header-h)] bottom-0 w-[300px] lg:w-[380px] xl:w-[420px] z-20 bg-ad-surface border-l-2 border-ad-line">
           <BillPanel {...billPanelProps} />
         </div>
+
+        {lines.length > 0 && (
+          <div className="md:hidden fixed left-4 right-4 bottom-4 z-30">
+            <button
+              type="button"
+              onClick={() => setCartOpen(true)}
+              className="ad-btn ad-btn-primary w-full h-13 justify-between px-5 text-[14px] shadow-lg"
+            >
+              <span className="flex items-center gap-2">
+                <span className="size-6.5 grid place-items-center bg-ad-bg text-ad-accent ad-num text-[12px]">
+                  {totalUnits}
+                </span>
+                <span>View cart</span>
+              </span>
+              <span className="ad-num text-[17px]">₹{totals.grandTotal.toFixed(2)}</span>
+            </button>
+          </div>
+        )}
+
+        <Sheet open={cartOpen} onOpenChange={setCartOpen}>
+          <SheetContent
+            side="bottom"
+            showCloseButton={false}
+            className="md:hidden p-0 h-[min(94dvh,780px)] bg-ad-surface overflow-hidden"
+          >
+            <BillPanel
+              {...billPanelProps}
+              compact={true}
+              onClose={() => setCartOpen(false)}
+            />
+          </SheetContent>
+        </Sheet>
 
         {/* ========================================================== */}
         {/*  MODALS & DIALOGS                                          */}
