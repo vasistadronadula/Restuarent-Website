@@ -10,56 +10,56 @@
  * the cream canvas and the red/orange brand instead of fighting them.
  */
 
-const ink = '#0F172A';        // near-black slate
-const inkSoft = '#334155';
-const muted = '#64748B';
-const faint = '#94A3B8';
-const line = '#E2E8F0';
-const lineSoft = '#F1F5F9';
+const ink = '#1C1917';        // near-black, warm
+const inkSoft = '#44403C';
+const muted = '#78716C';
+const faint = '#A8A29E';
+const line = '#E7E5E4';
+const lineSoft = '#F1EFED';
 
-const brand = '#059669';      // Emerald green (RestoFlow primary)
-const brandDark = '#047857';
-const accent = '#10B981';     // Light emerald
-const accentDark = '#059669';
+const brand = '#C62828';      // Pala Pitta red
+const brandDark = '#9B1C1C';
+const accent = '#EA580C';     // orange — AA on white, unlike #FF9800
+const accentDark = '#C2410C';
 
 export const adminColors = {
   // ── Surfaces ──────────────────────────────────────────────
-  canvas: '#F8FAFC',          // crisp clean light slate canvas
-  bgPage: '#F8FAFC',
+  canvas: '#FBF8F5',          // page background (warm cream)
+  bgPage: '#FBF8F5',
   bgPanel: '#FFFFFF',
-  bgPanelAlt: '#F8FAFC',
-  bgSubtle: '#F1F5F9',
+  bgPanelAlt: '#FDFBF9',
+  bgSubtle: '#FAFAF9',
   bgDanger: '#FEF2F2',
   bgDangerPanel: '#FFFFFF',
 
   // ── Brand ─────────────────────────────────────────────────
   brand,
   brandDark,
-  brandSoft: '#ECFDF5',
+  brandSoft: '#FEF2F2',
   accent,
   accentDark,
-  accentSoft: '#F0FDF4',
+  accentSoft: '#FFF7ED',
   // Legacy aliases — kept so existing pages keep compiling.
   accentRed: brand,
   accentRedDark: brandDark,
   accentOrange: accent,
   accentOrangeDark: accentDark,
-  gradientBrand: `linear-gradient(135deg, ${brand}, ${brandDark})`,
-  gradientBrandSoft: 'linear-gradient(135deg, rgba(5,150,105,0.06), rgba(16,185,129,0.05))',
-  gradientDanger: `linear-gradient(135deg, #DC2626, #B91C1C)`,
+  gradientBrand: `linear-gradient(135deg, ${brand}, ${accent})`,
+  gradientBrandSoft: 'linear-gradient(135deg, rgba(198,40,40,0.06), rgba(234,88,12,0.05))',
+  gradientDanger: `linear-gradient(135deg, ${brand}, ${accent})`,
 
   // ── Semantic status (AA on white) ─────────────────────────
-  success: '#059669',
-  successBg: '#ECFDF5',
-  successBorder: '#A7F3D0',
-  warning: '#D97706',
+  success: '#15803D',
+  successBg: '#F0FDF4',
+  successBorder: '#BBF7D0',
+  warning: '#B45309',
   warningBg: '#FFFBEB',
   warningBorder: '#FDE68A',
-  danger: '#DC2626',
-  dangerStrong: '#B91C1C',
+  danger: '#B91C1C',
+  dangerStrong: '#991B1B',
   dangerBg: '#FEF2F2',
   dangerBorder: '#FECACA',
-  info: '#2563EB',
+  info: '#1D4ED8',
   infoBg: '#EFF6FF',
   infoBorder: '#BFDBFE',
   neutral: muted,
@@ -77,10 +77,10 @@ export const adminColors = {
   borderSubtle: lineSoft,
   divider: lineSoft,
 
-  // ── Elevation ─────────────────────────────────────────────
-  shadowSm: '0 1px 2px rgba(15,23,42,0.04), 0 1px 3px rgba(15,23,42,0.06)',
-  shadowMd: '0 4px 12px rgba(15,23,42,0.06), 0 2px 4px rgba(15,23,42,0.04)',
-  shadowLg: '0 12px 32px rgba(15,23,42,0.08), 0 4px 8px rgba(15,23,42,0.04)',
+  // ── Elevation — soft and warm, not gray smudge ────────────
+  shadowSm: '0 1px 2px rgba(28,25,23,0.04), 0 1px 3px rgba(28,25,23,0.06)',
+  shadowMd: '0 4px 12px rgba(28,25,23,0.06), 0 2px 4px rgba(28,25,23,0.04)',
+  shadowLg: '0 12px 32px rgba(28,25,23,0.10), 0 4px 8px rgba(28,25,23,0.05)',
 
   // ── Radius scale ──────────────────────────────────────────
   radiusSm: '8px',

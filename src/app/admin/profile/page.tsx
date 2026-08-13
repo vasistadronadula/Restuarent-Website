@@ -97,54 +97,54 @@ export default function ProfilePage() {
 
           <div className="md:col-span-8">
             <SectionCard className="space-y-4">
-              <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2.5">
-                <User className="w-4 h-4 text-[#059669]" /> Personal Details
+              <h3 className="font-semibold text-sm text-stone-900 flex items-center gap-2 border-b border-stone-100 pb-2.5">
+                <User className="w-4 h-4 text-amber-600" /> Personal Details
               </h3>
 
-              <div className="space-y-3.5">
+              <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-semibold text-slate-600 block mb-1">Full Name</label>
+                  <label className="text-xs text-stone-500 block mb-1">Full Name</label>
                   <Input
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="focus-visible:ring-emerald-500 rounded-xl"
+                    className="focus-visible:ring-amber-500"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-600 block mb-1">Phone Number</label>
+                  <label className="text-xs text-stone-500 block mb-1">Phone Number</label>
                   <Input
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="focus-visible:ring-emerald-500 rounded-xl"
+                    className="focus-visible:ring-amber-500"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-600 block mb-1">Email Address</label>
+                  <label className="text-xs text-stone-500 block mb-1">Email Address</label>
                   <Input
                     disabled
                     value={user?.email || ''}
-                    className="bg-slate-50 cursor-not-allowed text-slate-500 rounded-xl font-mono text-xs"
+                    className="bg-stone-50 cursor-not-allowed text-stone-500"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-600 block mb-1">Avatar Image URL</label>
+                  <label className="text-xs text-stone-500 block mb-1">Avatar Image URL</label>
                   <Input
                     placeholder="https://..."
                     value={avatarUrl}
                     onChange={(e) => setAvatarUrl(e.target.value)}
-                    className="focus-visible:ring-emerald-500 rounded-xl"
+                    className="focus-visible:ring-amber-500"
                   />
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-100 flex justify-end">
+              <div className="pt-3 border-t border-stone-100 flex justify-end">
                 <Button
                   disabled={saving}
                   onClick={handleSave}
-                  className="bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold h-9.5 px-5 rounded-xl shadow-xs transition-all active:scale-[0.98]"
+                  className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-9 px-4"
                 >
                   Save Profile Changes
                 </Button>

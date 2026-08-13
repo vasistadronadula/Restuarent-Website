@@ -1,380 +1,283 @@
 'use client';
 
-import React, { useState } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useCallback, useMemo, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { toast } from 'sonner';
+import { Edit2, Plus, Trash2 } from 'lucide-react';
+
 import AdminLayout from '@/components/admin/AdminLayout';
 import {
-  Search, Plus, MoreHorizontal, Calendar, Users,
-  X, Check, Clock
-} from 'lucide-react';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
+  useCoupons, useAddCoupon, useUpdateCoupon, useDeleteCoupon, type Coupon,
+} from '@/lib/queries';
+import { couponSchema, type CouponFormOutput, type CouponFormValues } from '@/lib/adminSchemas';
+import { PageHeader } from '@/components/admin/ui';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
-} from '@/components/ui/dialog';
+  ConfirmDeleteDialog, FormDialog, NumberField, SwitchField, TextField,
+} from '@/components/admin/form-fields';
+import { DataTable } from '@/components/ui/data-table';
+import { ColumnDef } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 
-export interface CouponCardData {
-  id: string;
-  code: string;
-  title: string;
-  discountText: string;
-  discountType: 'percent' | 'flat' | 'free';
-  description: string;
-  status: 'active' | 'scheduled' | 'expired';
-  validity?: string;
-  usage?: { current: number; max: number };
-  noExpiry?: boolean;
-  unlimited?: boolean;
-  startsIn?: string;
-  endedOn?: string;
-}
+const BLANK_FORM: CouponFormValues = {
+  code: '',
+  discount: 10,
+  maxDiscount: 100,
+  minOrder: 299,
+  description: '',
+  isActive: true,
+};
 
-const INITIAL_COUPONS: CouponCardData[] = [
-  {
-    id: 'c1',
-    code: 'FESTIVE20',
-    title: 'Festive Season',
-    discountText: '20% OFF ENTIRE ORDER',
-    discountType: 'percent',
-    description: 'Holiday season special campaign across all locations.',
-    status: 'active',
-    validity: 'Dec 20 - Jan 05',
-    usage: { current: 450, max: 1000 },
-  },
-  {
-    id: 'c2',
-    code: 'LUNCH10',
-    title: 'Lunch Special',
-    discountText: '₹100.00 FLAT DISCOUNT',
-    discountType: 'flat',
-    description: 'Valid only Mon-Fri, 11am-2pm.',
-    status: 'active',
-    noExpiry: true,
-    unlimited: true,
-  },
-  {
-    id: 'c3',
-    code: 'FREESIDES',
-    title: 'Free Appetizer',
-    discountText: 'FREE APPETIZER',
-    discountType: 'free',
-    description: 'Min order ₹499. Dine-in only.',
-    status: 'scheduled',
-    startsIn: '3 Days (Nov 15)',
-  },
-  {
-    id: 'c4',
-    code: 'SPOOKY31',
-    title: 'Halloween Special',
-    discountText: '31% OFF',
-    discountType: 'percent',
-    description: 'Past limited-time festival coupon.',
-    status: 'expired',
-    endedOn: 'Oct 31, 2025',
-  },
-];
+export default function CouponsPage() {
+  const { data: coupons = [] } = useCoupons();
+  const addCoupon = useAddCoupon();
+  const updateCoupon = useUpdateCoupon();
+  const deleteCoupon = useDeleteCoupon();
 
-export default function CouponManagementPage() {
-  const [coupons, setCoupons] = useState<CouponCardData[]>(INITIAL_COUPONS);
-  const [search, setSearch] = useState('');
-  const [newModalOpen, setNewModalOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Coupon | null>(null);
+  const [deleting, setDeleting] = useState<Coupon | null>(null);
 
-  /* Form */
-  const [code, setCode] = useState('');
-  const [discountText, setDiscountText] = useState('15% OFF ENTIRE ORDER');
-  const [description, setDescription] = useState('');
+  const form = useForm<CouponFormValues>({
+    resolver: zodResolver(couponSchema),
+    defaultValues: BLANK_FORM,
+    mode: 'onTouched',
+  });
 
-  const filteredCoupons = coupons.filter(
-    (c) =>
-      !search.trim() ||
-      c.code.toLowerCase().includes(search.toLowerCase()) ||
-      c.description.toLowerCase().includes(search.toLowerCase())
-  );
+  const activeCount = useMemo(() => coupons.filter((c) => c.isActive).length, [coupons]);
 
-  const handleCreateCoupon = () => {
-    if (!code.trim()) {
-      toast.error('Coupon code is required');
-      return;
-    }
-
-    const newCoupon: CouponCardData = {
-      id: `c_${Date.now()}`,
-      code: code.trim().toUpperCase(),
-      title: 'Custom Promotion',
-      discountText: discountText.trim(),
-      discountType: 'percent',
-      description: description.trim() || 'Active promotional discount.',
-      status: 'active',
-      noExpiry: true,
-      unlimited: true,
-    };
-
-    setCoupons([newCoupon, ...coupons]);
-    toast.success(`Coupon ${newCoupon.code} created! 🎉`);
-    setCode('');
-    setDescription('');
-    setNewModalOpen(false);
+  const openAdd = () => {
+    setEditing(null);
+    form.reset(BLANK_FORM);
+    setDialogOpen(true);
   };
 
-  return (
-    <AdminLayout title="Coupon Management">
-      <div className="space-y-6 max-w-full font-sans">
+  const openEdit = useCallback((c: Coupon) => {
+    setEditing(c);
+    form.reset({
+      code: c.code,
+      discount: c.discount,
+      maxDiscount: c.maxDiscount,
+      minOrder: c.minOrder,
+      description: c.description,
+      isActive: c.isActive,
+    });
+    setDialogOpen(true);
+  }, [form]);
 
-        {/* ── Page Header with Search and Create CTA (Exact match to Image 5) ── */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pb-1">
+  const handleSubmit = async (values: CouponFormOutput) => {
+    const payload: Coupon = {
+      code: editing ? editing.code : values.code,
+      discount: values.discount,
+      maxDiscount: values.maxDiscount,
+      minOrder: values.minOrder,
+      description: values.description,
+      isActive: values.isActive,
+    };
+
+    try {
+      if (editing) {
+        await updateCoupon.mutateAsync(payload);
+        toast.success(`Coupon ${payload.code} updated`);
+      } else {
+        await addCoupon.mutateAsync(payload);
+        toast.success(`Coupon ${payload.code} created`);
+      }
+      setDialogOpen(false);
+    } catch (err) {
+      const message = (err as Error).message || 'Could not save this coupon';
+      if (/already exists/i.test(message)) {
+        form.setError('code', { message });
+        return;
+      }
+      toast.error(message);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleting) return;
+    try {
+      await deleteCoupon.mutateAsync(deleting.code);
+      toast.success(`Coupon ${deleting.code} deleted`);
+      setDeleting(null);
+    } catch (err) {
+      toast.error((err as Error).message || 'Could not delete this coupon');
+    }
+  };
+
+  const toggleActive = useCallback(
+    (c: Coupon, next: boolean) => {
+      updateCoupon.mutate(
+        { ...c, isActive: next },
+        {
+          onError: (err) =>
+            toast.error((err as Error).message || `Could not update ${c.code}`),
+        }
+      );
+    },
+    [updateCoupon]
+  );
+
+  const columns = useMemo<ColumnDef<any, Coupon>[]>(() => [
+    {
+      accessorKey: 'code',
+      header: 'Code',
+      cell: ({ row }) => (
+        <span className="font-mono text-sm font-semibold text-stone-900">{row.original.code}</span>
+      ),
+    },
+    {
+      accessorKey: 'description',
+      header: 'Description',
+      cell: ({ row }) => (
+        <span className="text-sm text-stone-600">{row.original.description || '—'}</span>
+      ),
+    },
+    {
+      accessorKey: 'discount',
+      header: 'Discount',
+      cell: ({ row }) => (
+        <span className="text-sm font-medium text-stone-900 tabular-nums">
+          {row.original.discount}% OFF
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'maxDiscount',
+      header: 'Max Discount',
+      cell: ({ row }) => (
+        <span className="text-xs text-stone-500 tabular-nums">
+          Up to ₹{row.original.maxDiscount}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'minOrder',
+      header: 'Min Order',
+      cell: ({ row }) => (
+        <span className="text-xs text-stone-500 tabular-nums">
+          ₹{row.original.minOrder}
+        </span>
+      ),
+    },
+    {
+      accessorKey: 'isActive',
+      header: 'Status',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={row.original.isActive}
+            onCheckedChange={(v) => toggleActive(row.original, v)}
+            aria-label={`${row.original.code} active`}
+          />
+          <span className={`text-xs ${row.original.isActive ? 'text-emerald-700' : 'text-stone-400'}`}>
+            {row.original.isActive ? 'Active' : 'Disabled'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'actions',
+      header: '',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(row.original)}>
+            <Edit2 className="size-4 text-stone-500" />
+          </Button>
+          <Button variant="ghost" size="icon" className="size-8 text-rose-600" onClick={() => setDeleting(row.original)}>
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
+      ),
+    },
+  ], [toggleActive, openEdit]);
+
+  const renderMobileCard = useCallback((c: Coupon) => (
+    <div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <span className="font-mono text-sm font-semibold text-stone-900">{c.code}</span>
+          <div className="mt-1 text-sm font-medium text-stone-900">
+            {c.discount}% OFF
+            <span className="ml-1.5 text-xs text-stone-400">up to ₹{c.maxDiscount}</span>
+          </div>
+          {c.description && <p className="mt-1 text-xs text-stone-400 leading-normal">{c.description}</p>}
+        </div>
+        <Switch checked={c.isActive} onCheckedChange={(v) => toggleActive(c, v)} aria-label={`${c.code} active`} />
+      </div>
+      <div className="mt-3 flex items-center justify-between border-t border-stone-100 pt-2">
+        <span className="text-xs text-stone-400">Min order ₹{c.minOrder}</span>
+        <div className="flex items-center gap-1">
+          <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs" onClick={() => openEdit(c)}>Edit</Button>
+          <Button variant="ghost" size="icon" className="size-7 text-rose-600" onClick={() => setDeleting(c)}><Trash2 className="size-3.5" /></Button>
+        </div>
+      </div>
+    </div>
+  ), [toggleActive, openEdit]);
+
+  return (
+    <AdminLayout title="Coupons">
+      <div className="w-full max-w-full space-y-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              Coupon Management
-            </h1>
-            <p className="text-xs sm:text-sm font-medium text-slate-500 mt-1">
-              Monitor and manage active promotional campaigns.
+            <h1 className="text-xl font-semibold text-stone-900">Coupons & Offers</h1>
+            <p className="text-sm text-stone-500 mt-0.5">
+              {coupons.length} total · {activeCount} active currently
             </p>
           </div>
-
-          <div className="flex items-center gap-3">
-            {/* Search codes input */}
-            <div className="relative w-full sm:w-60">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search codes..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-10 pl-9.5 pr-8 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="size-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* New Coupon Button */}
-            <button
-              type="button"
-              onClick={() => setNewModalOpen(true)}
-              className="h-10 px-4.5 rounded-xl bg-[#065F46] hover:bg-[#047857] active:scale-[0.98] text-white font-bold text-xs flex items-center gap-2 shadow-xs transition-all shrink-0"
-            >
-              <Plus className="size-4 stroke-[2.5]" />
-              <span>New Coupon</span>
-            </button>
-          </div>
+          <Button onClick={openAdd} className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4">
+            <Plus className="size-4 mr-1.5" /> Create Code
+          </Button>
         </div>
 
-        {/* ── Coupon Cards Grid (Exact match to Image 5) ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredCoupons.map((coupon) => {
-            const isActive = coupon.status === 'active';
-            const isScheduled = coupon.status === 'scheduled';
-            const isExpired = coupon.status === 'expired';
-
-            return (
-              <div
-                key={coupon.id}
-                className={cn(
-                  'rounded-3xl p-6 shadow-2xs flex flex-col justify-between transition-all select-none border',
-                  coupon.id === 'c1'
-                    ? 'bg-gradient-to-br from-[#ECFDF5] via-white to-[#F0FDF4] border-emerald-300 ring-2 ring-emerald-500/10'
-                    : isExpired
-                    ? 'bg-white/80 border-slate-200 opacity-60'
-                    : 'bg-white border-slate-200/90 hover:border-slate-300'
-                )}
-              >
-                <div>
-                  {/* Top Status Badge & Action Menu */}
-                  <div className="flex items-center justify-between">
-                    <span
-                      className={cn(
-                        'px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 shadow-2xs',
-                        isActive
-                          ? 'bg-[#059669] text-white'
-                          : isScheduled
-                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                          : 'bg-slate-100 text-slate-600 border border-slate-200'
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'size-1.5 rounded-full',
-                          isActive ? 'bg-white' : isScheduled ? 'bg-amber-600' : 'bg-slate-400'
-                        )}
-                      />
-                      <span>
-                        {isActive ? 'Active' : isScheduled ? 'Scheduled' : 'Expired'}
-                      </span>
-                    </span>
-
-                    <button
-                      type="button"
-                      className="text-slate-400 hover:text-slate-600 p-1"
-                    >
-                      <MoreHorizontal className="size-4" />
-                    </button>
-                  </div>
-
-                  {/* Coupon Code & Discount Text */}
-                  <div className="mt-4">
-                    <h2
-                      className={cn(
-                        'text-2xl font-black tracking-tight font-mono',
-                        coupon.id === 'c1'
-                          ? 'text-[#059669]'
-                          : isExpired
-                          ? 'text-slate-400 line-through'
-                          : 'text-slate-950'
-                      )}
-                    >
-                      {coupon.code}
-                    </h2>
-
-                    <p
-                      className={cn(
-                        'text-lg font-black mt-1 font-mono tracking-tight',
-                        coupon.discountType === 'flat'
-                          ? 'text-blue-700'
-                          : coupon.discountType === 'free'
-                          ? 'text-amber-700'
-                          : 'text-slate-900'
-                      )}
-                    >
-                      {coupon.discountText}
-                    </p>
-
-                    <p className="text-xs text-slate-500 font-medium mt-1 leading-relaxed">
-                      {coupon.description}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Footer Metadata */}
-                <div className="pt-4 mt-6 border-t border-slate-100/90 text-xs text-slate-600">
-                  {coupon.usage && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between font-semibold">
-                        <span className="text-slate-500">Validity</span>
-                        <span className="font-mono text-slate-900">
-                          {coupon.validity}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-[11px] font-bold">
-                        <span className="text-slate-400 font-medium">Usage Limit</span>
-                        <span className="font-mono text-slate-900">
-                          {coupon.usage.current} / {coupon.usage.max}
-                        </span>
-                      </div>
-
-                      {/* Usage Progress Bar */}
-                      <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                        <div
-                          className="h-full bg-[#059669] rounded-full"
-                          style={{
-                            width: `${(coupon.usage.current / coupon.usage.max) * 100}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {coupon.noExpiry && (
-                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="size-3.5 text-slate-400" />
-                        <span>No Expiry</span>
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <Users className="size-3.5 text-slate-400" />
-                        <span>Unlimited Usage</span>
-                      </span>
-                    </div>
-                  )}
-
-                  {coupon.startsIn && (
-                    <div className="flex items-center justify-between text-[11px] font-semibold text-amber-900">
-                      <span>Starts In</span>
-                      <span className="font-mono font-bold">{coupon.startsIn}</span>
-                    </div>
-                  )}
-
-                  {coupon.endedOn && (
-                    <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400">
-                      <span>Ended On</span>
-                      <span className="font-mono">{coupon.endedOn}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+        {/* Table */}
+        <div className="bg-white rounded-xl border border-stone-200">
+          <DataTable
+            columns={columns}
+            data={coupons}
+            searchKey="code"
+            searchPlaceholder="Search coupon code…"
+            height="500px"
+            rowHeight={56}
+            emptyMessage="No coupons yet. Create one to start offering discounts."
+            renderMobileCard={renderMobileCard}
+            getRowId={(c) => c.code}
+          />
         </div>
-
       </div>
 
-      {/* ── New Coupon Modal ── */}
-      <Dialog open={newModalOpen} onOpenChange={setNewModalOpen}>
-        <DialogContent className="sm:max-w-md bg-white rounded-3xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black text-slate-900">
-              Create New Coupon
-            </DialogTitle>
-          </DialogHeader>
+      <FormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        form={form}
+        onSubmit={handleSubmit}
+        title={editing ? `Edit ${editing.code}` : 'Create New Coupon'}
+        description={editing ? 'The code itself cannot change. Create a new coupon for a different code.' : 'Customers enter this code at checkout.'}
+        submitLabel={editing ? 'Update Coupon' : 'Create Coupon'}
+      >
+        <TextField control={form.control} name="code" label="Coupon Code" placeholder="e.g. PALAPITTA10" autoFocus={!editing} disabled={!!editing} hint={editing ? 'Codes are permanent once created' : 'Letters and numbers, 3–20 characters'} />
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+          <NumberField control={form.control} name="discount" label="Discount" suffix="%" placeholder="10" />
+          <NumberField control={form.control} name="maxDiscount" label="Max Discount" prefix="₹" placeholder="100" hint="Caps the amount" />
+          <NumberField control={form.control} name="minOrder" label="Min Order" prefix="₹" placeholder="299" />
+        </div>
+        <TextField control={form.control} name="description" label="Description" placeholder="e.g. 10% off on orders above ₹299" />
+        <SwitchField control={form.control} name="isActive" label="Active" hint="Inactive codes are rejected at checkout" />
+      </FormDialog>
 
-          <div className="space-y-4 py-2 text-xs">
-            <div>
-              <label className="font-bold text-slate-600 block mb-1">Coupon Code</label>
-              <Input
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="e.g. BHARAT50"
-                className="rounded-xl font-mono font-bold uppercase tracking-wider"
-              />
-            </div>
-
-            <div>
-              <label className="font-bold text-slate-600 block mb-1">Discount Headline</label>
-              <Input
-                value={discountText}
-                onChange={(e) => setDiscountText(e.target.value)}
-                placeholder="e.g. 20% OFF ENTIRE ORDER"
-                className="rounded-xl font-medium"
-              />
-            </div>
-
-            <div>
-              <label className="font-bold text-slate-600 block mb-1">Description</label>
-              <Input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="e.g. Special weekend offer for online orders"
-                className="rounded-xl text-xs"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="sm:justify-between gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setNewModalOpen(false)}
-              className="rounded-xl border-slate-200"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleCreateCoupon}
-              className="rounded-xl bg-[#065F46] hover:bg-[#047857] text-white font-bold px-5"
-            >
-              Create Campaign
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ConfirmDeleteDialog
+        open={!!deleting}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        onConfirm={handleDelete}
+        busy={deleteCoupon.isPending}
+        title={`Delete ${deleting?.code}?`}
+        description="Customers who have this code saved will no longer be able to redeem it."
+      />
     </AdminLayout>
   );
 }

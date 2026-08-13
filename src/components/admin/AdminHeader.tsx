@@ -142,10 +142,10 @@ export default function AdminHeader({ title }: Props) {
           {/* Left Side: Brand Logo & Navigation Breadcrumbs */}
           <div className="flex items-center gap-2.5 min-w-0">
             <Link href="/admin" className="flex items-center gap-2 group flex-shrink-0">
-              <div className="bg-[#059669] text-white rounded-xl w-8 h-8 flex items-center justify-center font-black text-sm shadow-xs">
+              <div className="bg-amber-600 text-white rounded-lg w-8 h-8 flex items-center justify-center font-bold text-sm shadow-xs">
                 P
               </div>
-              <span className="font-bold text-sm text-slate-900 tracking-tight hidden md:block">
+              <span className="font-semibold text-sm text-stone-800 hidden md:block">
                 Pala Pitta Ruchulu
               </span>
             </Link>
@@ -206,7 +206,7 @@ export default function AdminHeader({ title }: Props) {
               /* POS Quick Button for non-POS pages */
               <Link
                 href="/admin/pos"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#059669] hover:bg-[#047857] text-white shadow-xs transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-colors"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Cashier POS</span>

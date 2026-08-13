@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { TrendingUp, ShoppingBag, Users, DollarSign, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
-const COLORS = ['#059669', '#10B981', '#2563EB', '#D97706', '#7C3AED', '#EA580C', '#0891B2'];
+const COLORS = ['#D97706', '#DC2626', '#059669', '#2563EB', '#7C3AED', '#EA580C', '#0891B2'];
 
 export default function ReportsPage() {
   const { orders } = useAdmin();
@@ -85,34 +85,31 @@ export default function ReportsPage() {
 
   return (
     <AdminLayout title="Analytics & Reports">
-      <div className="space-y-6 w-full max-w-full font-sans">
+      <div className="space-y-4 w-full max-w-full">
         {/* Header */}
         <PageHeader
           title="Sales Analytics"
-          subtitle="Overview of store metrics, performance, and daily sales"
+          subtitle="Overview of store metrics, performance and sales"
           action={
-            <Button
-              onClick={handleExportCSV}
-              className="h-9.5 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold px-4 rounded-xl shadow-xs transition-all active:scale-[0.98]"
-            >
+            <Button onClick={handleExportCSV} className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4">
               <Download className="w-4 h-4 mr-1.5" /> Export CSV
             </Button>
           }
         />
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard
             icon={<DollarSign className="w-4 h-4" />}
             label="Total Gross Sales"
             value={`₹${totalRevenue.toLocaleString('en-IN')}`}
-            accent="#059669"
+            accent="#D97706"
           />
           <StatCard
             icon={<TrendingUp className="w-4 h-4" />}
             label="Avg Daily Sales"
             value={`₹${avgDailyRevenue.toLocaleString('en-IN')}`}
-            accent="#10B981"
+            accent="#059669"
           />
           <StatCard
             icon={<ShoppingBag className="w-4 h-4" />}
@@ -130,15 +127,15 @@ export default function ReportsPage() {
 
         {/* Chart Box */}
         <SectionCard>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-3 border-b border-slate-100">
-            <h3 className="text-sm font-bold text-slate-900">Revenue & Sales Breakdown</h3>
-            <div className="flex gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-3 border-b border-stone-100">
+            <h3 className="text-sm font-semibold text-stone-900">Revenue & Sales Breakdown</h3>
+            <div className="flex gap-1 bg-stone-100 p-1 rounded-lg">
               {(['daily', 'weekly', 'monthly', 'categories'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold capitalize transition-all ${
-                    tab === t ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors ${
+                    tab === t ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'
                   }`}
                 >
                   {t}
@@ -148,8 +145,8 @@ export default function ReportsPage() {
           </div>
 
           {orders.length === 0 ? (
-            <div className="py-14 text-center text-xs font-semibold text-slate-400">
-              No sales data recorded yet
+            <div className="py-14 text-center text-sm text-stone-400">
+              No sales data yet
             </div>
           ) : (
             <div className="w-full h-72">
@@ -175,25 +172,25 @@ export default function ReportsPage() {
                   </PieChart>
                 ) : tab === 'weekly' ? (
                   <BarChart data={dailySales}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" opacity={0.7} />
-                    <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} />
-                    <YAxis stroke="#94A3B8" fontSize={11} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E5E4" opacity={0.5} />
+                    <XAxis dataKey="date" stroke="#A8A29E" fontSize={11} />
+                    <YAxis stroke="#A8A29E" fontSize={11} />
                     <Tooltip formatter={(val: any) => [`₹${Number(val || 0).toLocaleString('en-IN')}`, 'Revenue']} />
-                    <Bar dataKey="revenue" fill="#059669" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="revenue" fill="#D97706" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 ) : (
                   <AreaChart data={dailySales}>
                     <defs>
                       <linearGradient id="areaColor" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#059669" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#059669" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#D97706" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#D97706" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" opacity={0.7} />
-                    <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} />
-                    <YAxis stroke="#94A3B8" fontSize={11} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E5E4" opacity={0.5} />
+                    <XAxis dataKey="date" stroke="#A8A29E" fontSize={11} />
+                    <YAxis stroke="#A8A29E" fontSize={11} />
                     <Tooltip formatter={(val: any) => [`₹${Number(val || 0).toLocaleString('en-IN')}`, 'Revenue']} />
-                    <Area type="monotone" dataKey="revenue" stroke="#059669" strokeWidth={2.5} fill="url(#areaColor)" />
+                    <Area type="monotone" dataKey="revenue" stroke="#D97706" strokeWidth={2} fill="url(#areaColor)" />
                   </AreaChart>
                 )}
               </ResponsiveContainer>
@@ -204,18 +201,18 @@ export default function ReportsPage() {
         {/* Side breakdowns */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <SectionCard>
-            <h3 className="text-sm font-bold text-slate-900 mb-3">Top Performing Categories</h3>
+            <h3 className="text-sm font-semibold text-stone-900 mb-3">Top Performing Categories</h3>
             <div className="space-y-2">
               {categoryRevenue.length === 0 ? (
-                <p className="text-xs text-slate-400 py-3 text-center">No category data yet.</p>
+                <p className="text-xs text-stone-400 py-3 text-center">No category data yet.</p>
               ) : (
                 categoryRevenue.map((cat, idx) => (
-                  <div key={cat.name} className="flex justify-between items-center text-xs p-3 rounded-xl bg-slate-50 border border-slate-100">
-                    <div className="flex items-center gap-2 font-bold text-slate-800">
-                      <span className="size-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                  <div key={cat.name} className="flex justify-between items-center text-xs p-2.5 rounded-lg bg-stone-50 border border-stone-100">
+                    <div className="flex items-center gap-2 font-medium text-stone-700">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
                       {cat.name}
                     </div>
-                    <div className="font-bold text-slate-900 font-mono">₹{cat.value.toLocaleString('en-IN')}</div>
+                    <div className="font-semibold text-stone-900">₹{cat.value.toLocaleString('en-IN')}</div>
                   </div>
                 ))
               )}
@@ -223,18 +220,18 @@ export default function ReportsPage() {
           </SectionCard>
 
           <SectionCard>
-            <h3 className="text-sm font-bold text-slate-900 mb-3">Recent Daily Summaries</h3>
+            <h3 className="text-sm font-semibold text-stone-900 mb-3">Recent Daily Summaries</h3>
             <div className="space-y-2">
               {dailySales.length === 0 ? (
-                <p className="text-xs text-slate-400 py-3 text-center">No daily sales recorded.</p>
+                <p className="text-xs text-stone-400 py-3 text-center">No daily sales recorded.</p>
               ) : (
                 dailySales.slice(0, 5).map((d) => (
-                  <div key={d.date} className="flex justify-between items-center text-xs p-3 rounded-xl bg-slate-50 border border-slate-100">
+                  <div key={d.date} className="flex justify-between items-center text-xs p-2.5 rounded-lg bg-stone-50 border border-stone-100">
                     <div>
-                      <div className="font-bold text-slate-900">{d.date}</div>
-                      <div className="text-[11px] text-slate-400 font-medium">{d.orders} orders processed</div>
+                      <div className="font-medium text-stone-900">{d.date}</div>
+                      <div className="text-xs text-stone-400">{d.orders} orders processed</div>
                     </div>
-                    <div className="font-bold text-emerald-700 font-mono">₹{d.revenue.toLocaleString('en-IN')}</div>
+                    <div className="font-semibold text-emerald-700">₹{d.revenue.toLocaleString('en-IN')}</div>
                   </div>
                 ))
               )}

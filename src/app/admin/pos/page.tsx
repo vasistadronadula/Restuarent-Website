@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Image from 'next/image';
+import AdminLayout from '@/components/admin/AdminLayout';
 import DishCard from '@/components/pos/DishCard';
 import DishListRow from '@/components/pos/DishListRow';
 import BillPanel, { type PosOrderType, type PosPaymentMode } from '@/components/pos/BillPanel';
@@ -21,43 +21,37 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Badge } from '@/components/ui/badge';
 import {
   Search, X, ShoppingBag, LayoutGrid, List,
   Utensils, Coffee, Flame, Cake, Soup, Sparkles,
   Maximize2, Minimize2, ChevronRight, Clock, UserCheck,
-  Zap, Bell, Settings, HelpCircle, User, LogOut, SlidersHorizontal,
-  Table as TableIcon, GlassWater, Star, Check
+  Zap, Radio
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 /* ------------------------------------------------------------------ */
-/*  Category Icon Map (Clean Outline Icons)                           */
+/*  Category Icons & Emoji Map                                         */
 /* ------------------------------------------------------------------ */
 
-const CATEGORY_META: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string }> = {
-  all: { icon: LayoutGrid, label: 'All Items' },
-  starters: { icon: Utensils, label: 'Appetizers' },
-  biryani: { icon: Flame, label: 'Main Course' },
-  'south-indian': { icon: Utensils, label: 'South Indian' },
-  'north-indian': { icon: Utensils, label: 'North Indian' },
-  chinese: { icon: Soup, label: 'Chinese' },
-  combos: { icon: Sparkles, label: 'Combos' },
-  desserts: { icon: Cake, label: 'Desserts' },
-  beverages: { icon: GlassWater, label: 'Drinks' },
+const CATEGORY_ICONS: Record<string, { icon: React.ComponentType<{ className?: string }>; emoji: string }> = {
+  all: { icon: LayoutGrid, emoji: '✨' },
+  starters: { icon: Utensils, emoji: '🍗' },
+  biryani: { icon: Flame, emoji: '🍚' },
+  'south-indian': { icon: Utensils, emoji: '🍛' },
+  'north-indian': { icon: Utensils, emoji: '🥘' },
+  chinese: { icon: Soup, emoji: '🍜' },
+  combos: { icon: Sparkles, emoji: '🍱' },
+  desserts: { icon: Cake, emoji: '🍰' },
+  beverages: { icon: Coffee, emoji: '🥤' },
 };
 
 /* ------------------------------------------------------------------ */
-/*  Main Cashier POS Page (RestoFlow Clean Architecture)              */
+/*  Main Cashier POS Page (2026 Enterprise Edition)                   */
 /* ------------------------------------------------------------------ */
 
 export default function PosPage() {
-  const { user, signOutUser } = useAuth();
+  const { user } = useAuth();
   const { addOrderLocallyAndDB: createOrderContext, categories: dbCategories, orders } = useAdmin();
   const { data: queryCategories = [] } = useCategories();
   const { data: menuItems = [] } = useMenuItems();
@@ -70,14 +64,31 @@ export default function PosPage() {
   const [discount, setDiscount] = useState<DiscountOption>(0);
   const [packagingCharge, setPackagingCharge] = useState<number>(0);
 
+  /* Live Clock State */
+  const [timeStr, setTimeStr] = useState('');
+  useEffect(() => {
+    const updateTime = () => {
+      setTimeStr(
+        new Date().toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+      );
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   /* Cashier Display Name */
-  const serverName = useMemo(() => {
-    const full =
+  const cashierName = useMemo(() => {
+    return (
       user?.user_metadata?.name ||
       user?.user_metadata?.full_name ||
       user?.email?.split('@')[0] ||
-      'Alex M.';
-    return full.split(' ')[0] + ' ' + (full.split(' ')[1]?.[0] ? full.split(' ')[1][0] + '.' : 'M.');
+      'Cashier'
+    );
   }, [user]);
 
   /* Categories */
@@ -86,15 +97,15 @@ export default function PosPage() {
   }, [dbCategories, queryCategories]);
 
   const categoriesList = useMemo(() => {
-    const list: { name: string; slug: string; icon: React.ComponentType<{ className?: string }> }[] = [
-      { name: 'All Items', slug: 'all', icon: LayoutGrid },
+    const list: { name: string; slug: string; emoji: string; icon: React.ComponentType<{ className?: string }> }[] = [
+      { name: 'All Items', slug: 'all', emoji: '✨', icon: LayoutGrid },
     ];
     activeCategories
       .filter((c) => c.isActive)
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .forEach((c) => {
-        const meta = CATEGORY_META[c.slug] || { icon: Utensils, label: c.name };
-        list.push({ name: meta.label || c.name, slug: c.slug, icon: meta.icon });
+        const meta = CATEGORY_ICONS[c.slug] || { icon: Utensils, emoji: '🍽️' };
+        list.push({ name: c.name, slug: c.slug, emoji: meta.emoji, icon: meta.icon });
       });
     return list;
   }, [activeCategories]);
@@ -108,7 +119,7 @@ export default function PosPage() {
 
   /* Order Configuration */
   const [orderType, setOrderType] = useState<PosOrderType>('dine-in');
-  const [tableNumber, setTableNumber] = useState<number | ''>(12);
+  const [tableNumber, setTableNumber] = useState<number | ''>('');
   const [paymentMode, setPaymentMode] = useState<PosPaymentMode>('cash');
 
   /* Handle Order Type Change */
@@ -123,7 +134,6 @@ export default function PosPage() {
 
   /* Modals & Dialogs */
   const [tableMapOpen, setTableMapOpen] = useState(false);
-  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   /* Cart Hook */
@@ -160,6 +170,28 @@ export default function PosPage() {
     [subtotal, discount, packagingCharge]
   );
 
+  /* Active Occupied Tables */
+  const occupiedTableNumbers = useMemo(() => {
+    const set = new Set<number>();
+    orders.forEach((o) => {
+      if (
+        (o.status === 'pending' || o.status === 'preparing' || o.status === 'ready') &&
+        typeof o.tableNumber === 'number'
+      ) {
+        set.add(o.tableNumber);
+      }
+    });
+    return set;
+  }, [orders]);
+
+  /* Quick Rush-Hour Best Sellers */
+  const quickBestSellers = useMemo(() => {
+    const popular = menuItems.filter(
+      (m) => (m.isPopular || m.isSpecial || m.rating >= 4.5) && m.isAvailable !== false
+    );
+    return popular.length >= 4 ? popular.slice(0, 6) : menuItems.slice(0, 6);
+  }, [menuItems]);
+
   /* Filtered Dishes */
   const filteredDishes = useMemo(() => {
     const selectedCatObj = activeCategories.find((c) => c.slug === selectedCategory);
@@ -193,7 +225,7 @@ export default function PosPage() {
   /* Complete Checkout & Place Order */
   const handlePlaceOrder = async () => {
     if (lines.length === 0) {
-      toast.error('Cart is empty! Select items to add.');
+      toast.error('Cart is empty! Add items before checkout.');
       return;
     }
     if (orderType === 'dine-in' && tableNumber === '') {
@@ -251,8 +283,9 @@ export default function PosPage() {
       setCustomerPhone('');
       setDiscount(0);
       setPackagingCharge(0);
+      setTableNumber('');
       setMobileBillOpen(false);
-      toast.success('Order placed successfully! ⚡');
+      toast.success('Order settled & printed in sub-10s! ⚡');
     } catch {
       toast.error('Failed to complete order');
     } finally {
@@ -324,306 +357,349 @@ export default function PosPage() {
     isPlacing: placing,
   };
 
+  const VEG_FILTERS: { value: typeof vegFilter; label: string; dot?: string }[] = [
+    { value: 'all', label: 'All Items' },
+    { value: 'veg', label: 'Veg', dot: 'bg-emerald-600' },
+    { value: 'non-veg', label: 'Non-Veg', dot: 'bg-rose-600' },
+    { value: 'egg', label: 'Egg', dot: 'bg-amber-500' },
+  ];
+
   return (
-    <div className="flex flex-col w-screen h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased overflow-hidden select-none">
+    <AdminLayout title="Cashier POS System (2026)">
+      <div className="flex flex-col w-full h-full bg-[#F8FAFC] text-slate-900 font-sans antialiased overflow-hidden select-none">
 
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/*  TOP NAVIGATION BAR (Exact match to reference design)       */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-      <header className="h-14 bg-white border-b border-slate-200 px-5 flex items-center justify-between shrink-0 z-30">
-        {/* Left: Brand + Table Selector + Server Badge */}
-        <div className="flex items-center gap-6">
-          {/* Logo Brand */}
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-black tracking-tight text-[#059669]">
-              PalaPitta POS
-            </span>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-4 text-xs font-semibold text-slate-700">
-            {/* Table Badge / Picker */}
-            <button
-              type="button"
-              onClick={() => setTableMapOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 transition-colors"
-            >
-              <TableIcon className="size-3.5 text-slate-500" />
-              <span>{tableNumber ? `Table ${tableNumber}` : 'Select Table'}</span>
-            </button>
-
-            {/* Server Badge */}
-            <div className="flex items-center gap-1.5 text-slate-600">
-              <User className="size-3.5 text-slate-400" />
-              <span>Server: {serverName}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Notifications, Settings, Help, Avatar */}
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            className="size-8.5 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors"
-            title="Notifications"
-          >
-            <Bell className="size-4" />
-          </button>
-
-          <button
-            type="button"
-            className="size-8.5 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors"
-            title="Settings"
-          >
-            <Settings className="size-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="size-8.5 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-600 transition-colors"
-            title="Fullscreen / Help"
-          >
-            <HelpCircle className="size-4" />
-          </button>
-
-          {/* User Profile Avatar */}
-          <div className="size-8 rounded-full bg-emerald-700 text-white font-bold text-xs flex items-center justify-center shadow-xs">
-            {serverName.charAt(0)}
-          </div>
-        </div>
-      </header>
-
-      {/* ═══════════════════════════════════════════════════════════ */}
-      {/*  MAIN 3-COLUMN LAYOUT                                       */}
-      {/*  [1. Left Nav (190px)] | [2. Catalog (Flex)] | [3. Order (360px)] */}
-      {/* ═══════════════════════════════════════════════════════════ */}
-      <div className="flex-1 min-h-0 flex w-full overflow-hidden">
-
-        {/* ── 1. LEFT SIDEBAR (Category Navigation & Actions) ── */}
-        <aside className="w-48 lg:w-52 shrink-0 bg-white border-r border-slate-200 flex flex-col justify-between p-3.5 overflow-y-auto">
-          {/* Top Categories Group */}
-          <div className="space-y-3">
-            {/* Quick Actions Button */}
-            <button
-              type="button"
-              onClick={() => setTableMapOpen(true)}
-              className="w-full h-9.5 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100/70 text-blue-900 font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
-            >
-              <Zap className="size-3.5 text-blue-600" />
-              <span>Quick Actions</span>
-            </button>
-
-            {/* Vertical Category Items */}
-            <nav className="space-y-1 pt-1">
-              {categoriesList.map((cat) => {
-                const Icon = cat.icon;
-                const isSelected = selectedCategory === cat.slug;
-
-                return (
-                  <button
-                    key={cat.slug}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat.slug)}
-                    className={cn(
-                      'w-full h-10 px-3 rounded-xl font-semibold text-xs flex items-center gap-2.5 transition-all text-left',
-                      isSelected
-                        ? 'bg-[#059669] text-white shadow-sm font-bold'
-                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-                    )}
-                  >
-                    <Icon className={cn('size-4 shrink-0', isSelected ? 'text-white' : 'text-slate-500')} />
-                    <span className="truncate">{cat.name}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-
-          {/* Bottom Actions (Shift End / Logout) */}
-          <div className="pt-3 border-t border-slate-200 space-y-1">
-            <button
-              type="button"
-              onClick={() => setTableMapOpen(true)}
-              className="w-full h-9 px-3 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 flex items-center gap-2.5 transition-colors"
-            >
-              <Clock className="size-3.5 text-slate-500" />
-              <span>Shift End</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={signOutUser}
-              className="w-full h-9 px-3 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 transition-colors"
-            >
-              <LogOut className="size-3.5 text-rose-500" />
-              <span>Logout</span>
-            </button>
-          </div>
-        </aside>
-
-        {/* ── 2. MIDDLE SECTION (Search, Status, & Product Catalog Grid) ── */}
-        <main className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#F8FAFC]">
-
-          {/* Top Search & Filter Bar */}
-          <div className="p-4 bg-transparent flex items-center gap-3 shrink-0">
-            {/* Search Input */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Search menu items..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full h-10 pl-9.5 pr-8 bg-white border border-slate-200 rounded-full text-xs font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-2xs"
-              />
-              {search && (
-                <button
-                  type="button"
-                  onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="size-3.5" />
-                </button>
-              )}
-            </div>
-
-            {/* Occupied / Table Status Pill */}
-            <div className="px-3.5 h-10 rounded-full bg-[#059669] text-white font-bold text-xs flex items-center justify-center shadow-2xs shrink-0">
-              Occupied
-            </div>
-
-            {/* Filter Button */}
-            <DropdownMenu open={filterMenuOpen} onOpenChange={setFilterMenuOpen}>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="px-3.5 h-10 rounded-xl bg-blue-50/80 hover:bg-blue-100/80 border border-blue-200 text-blue-900 font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-colors shrink-0"
-                >
-                  <SlidersHorizontal className="size-3.5 text-blue-700" />
-                  <span>Filter</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-44 bg-white rounded-xl p-1.5 shadow-md">
-                <DropdownMenuItem
-                  onClick={() => setVegFilter('all')}
-                  className="text-xs font-semibold cursor-pointer rounded-lg"
-                >
-                  All Items
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setVegFilter('veg')}
-                  className="text-xs font-semibold text-emerald-700 cursor-pointer rounded-lg"
-                >
-                  🌱 Veg Only
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setVegFilter('non-veg')}
-                  className="text-xs font-semibold text-rose-700 cursor-pointer rounded-lg"
-                >
-                  🍗 Non-Veg Only
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setVegFilter('egg')}
-                  className="text-xs font-semibold text-amber-700 cursor-pointer rounded-lg"
-                >
-                  🥚 Egg Only
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* Product Cards Grid */}
-          <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-6 scrollbar-none">
-            {filteredDishes.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                <Utensils className="size-10 mx-auto mb-2 opacity-30" />
-                <p className="text-sm font-bold text-slate-600">No dishes match your filter</p>
-                <p className="text-xs text-slate-400 mt-0.5">Try searching another keyword or clearing filters</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5">
-                {filteredDishes.map((item) => (
-                  <DishCard
-                    key={item.id}
-                    item={item}
-                    inBill={quantityInBill(item.id)}
-                    quantityByPortion={quantityByPortion}
-                    onAdd={handleAddDish}
-                    onDecrement={handleDecrementDish}
-                  />
-                ))}
-              </div>
+        {/* ── 1. CASHIER FAST CONTROL BAR (52px) ── */}
+        <div className="h-[52px] bg-white border-b border-slate-200 px-3 sm:px-4 flex items-center justify-between gap-2.5 shrink-0 shadow-2xs z-20">
+          {/* Left: Quick Search */}
+          <div className="relative w-44 sm:w-60 md:w-72 shrink-0">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
+            <Input
+              ref={searchInputRef}
+              placeholder="Search dishes… (/)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 pl-7.5 pr-7 text-xs font-bold bg-slate-50 border-slate-200 rounded-xl focus-visible:ring-blue-500/20 focus-visible:border-blue-500"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+              >
+                <X className="size-3" />
+              </button>
             )}
           </div>
-        </main>
 
-        {/* ── 3. RIGHT SIDEBAR ("Current Order" Checkout Panel) ── */}
-        <section className="hidden md:flex w-[340px] lg:w-[370px] xl:w-[390px] shrink-0 flex-col h-full bg-white border-l border-slate-200">
-          <BillPanel {...billPanelProps} />
-        </section>
-      </div>
+          {/* Center: Veg Filter Badges */}
+          <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-1">
+            {VEG_FILTERS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => setVegFilter(f.value)}
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-xs font-bold shrink-0 transition-all border',
+                  vegFilter === f.value
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                )}
+              >
+                {f.dot && <span className={cn('size-1.5 rounded-full', f.dot)} />}
+                <span>{f.label}</span>
+              </button>
+            ))}
+          </div>
 
-      {/* ── Mobile: View Cart Bottom Float Button ── */}
-      {lines.length > 0 && (
-        <div className="md:hidden fixed left-4 right-4 bottom-4 z-30">
-          <button
-            type="button"
-            onClick={() => setMobileBillOpen(true)}
-            className="w-full h-12 rounded-xl bg-[#047857] text-white font-bold text-sm flex items-center justify-between px-5 shadow-lg active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-2">
-              <span className="size-6 rounded-md bg-white/20 flex items-center justify-center font-mono text-xs">
-                {totalUnits}
-              </span>
-              <span>View Order</span>
+          {/* Right: Cashier Info & Action Shortcuts */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Live Clock & Cashier Badge */}
+            <div className="hidden xl:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] font-bold text-slate-600">
+              <div className="flex items-center gap-1">
+                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-emerald-700">Live</span>
+              </div>
+              <span className="text-slate-300">|</span>
+              <span className="text-slate-900 font-mono">{timeStr}</span>
+              <span className="text-slate-300">|</span>
+              <span className="text-slate-700 truncate max-w-[100px]">👤 {cashierName}</span>
             </div>
-            <span className="font-mono text-base font-black">
-              ₹{totals.grandTotal.toFixed(2)}
-            </span>
-          </button>
+
+            {/* Table Floor Map Trigger */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setTableMapOpen(true)}
+              className={cn(
+                'h-8 px-2.5 rounded-xl border-slate-200 text-xs font-bold gap-1 shadow-2xs',
+                tableNumber !== '' ? 'bg-blue-50 text-blue-700 border-blue-300' : 'bg-white text-slate-700 hover:bg-slate-50'
+              )}
+              title="Restaurant Floor & Tables"
+            >
+              <LayoutGrid className="size-3.5 text-blue-600" />
+              <span className="hidden sm:inline">
+                {tableNumber !== '' ? `Table #${tableNumber}` : 'Tables'}
+              </span>
+            </Button>
+
+            {/* Grid / List Layout Switcher */}
+            <div className="hidden sm:flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setLayoutMode('cards')}
+                className={cn(
+                  'size-6.5 rounded-md flex items-center justify-center transition-all',
+                  layoutMode === 'cards' ? 'bg-white shadow-2xs text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600'
+                )}
+                title="Grid view"
+              >
+                <LayoutGrid className="size-3" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setLayoutMode('rows')}
+                className={cn(
+                  'size-6.5 rounded-md flex items-center justify-center transition-all',
+                  layoutMode === 'rows' ? 'bg-white shadow-2xs text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600'
+                )}
+                title="List view"
+              >
+                <List className="size-3" />
+              </button>
+            </div>
+
+            {/* Fullscreen Toggle */}
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={toggleFullscreen}
+              className="size-8 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+              title="Fullscreen POS"
+            >
+              {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+            </Button>
+          </div>
         </div>
-      )}
 
-      {/* ── Mobile: Full Checkout Bottom Sheet ── */}
-      <Sheet open={mobileBillOpen} onOpenChange={setMobileBillOpen}>
-        <SheetContent
-          side="bottom"
-          showCloseButton={false}
-          className="p-0 h-[min(94dvh,780px)] rounded-t-3xl border-none bg-white overflow-hidden"
-        >
-          <BillPanel
-            {...billPanelProps}
-            compact={true}
-            onClose={() => setMobileBillOpen(false)}
-          />
-        </SheetContent>
-      </Sheet>
+        {/* ── 2. MAIN SPLIT BODY (65% Product Ordering | 35% Checkout) ── */}
+        <div className="flex-1 min-h-0 flex w-full overflow-hidden">
 
-      {/* ========================================================== */}
-      {/*  MODALS & DIALOGS                                          */}
-      {/* ========================================================== */}
-      <OrderPlacedDialog
-        order={placedOrder}
-        invoiceNo={placedInvoiceNo}
-        open={confirmOpen}
-        onNewOrder={() => {
-          setConfirmOpen(false);
-          setPlacedOrder(null);
-        }}
-      />
+          {/* ═══════════════════════════════════════════════════════════ */}
+          {/*  LEFT SECTION (65%): Product Ordering Catalog               */}
+          {/* ═══════════════════════════════════════════════════════════ */}
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#F8FAFC]">
 
-      <TableFloorMapModal
-        open={tableMapOpen}
-        onClose={() => setTableMapOpen(false)}
-        tables={tables}
-        activeOrders={orders}
-        selectedTable={tableNumber}
-        onSelectTable={(tNum) => {
-          setTableNumber(tNum);
-          setOrderType('dine-in');
-        }}
-      />
-    </div>
+            {/* Sticky Category Tabs Bar */}
+            <div className="bg-white border-b border-slate-200 px-3 sm:px-4 py-2 shrink-0 shadow-2xs">
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+                {categoriesList.map((cat) => {
+                  const isSelected = selectedCategory === cat.slug;
+                  return (
+                    <button
+                      key={cat.slug}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat.slug)}
+                      className={cn(
+                        'flex items-center gap-1.5 px-3 h-8 rounded-xl text-xs font-bold shrink-0 transition-all whitespace-nowrap border select-none',
+                        isSelected
+                          ? 'bg-blue-600 border-blue-600 text-white shadow-xs scale-[1.02]'
+                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                      )}
+                    >
+                      <span className="text-xs">{cat.emoji}</span>
+                      <span>{cat.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* ⚡ Rush-Hour Best Sellers Strip (1-Tap Quick Add) */}
+            {quickBestSellers.length > 0 && selectedCategory === 'all' && !search && (
+              <div className="bg-amber-50/70 border-b border-amber-200/70 px-3 sm:px-4 py-1.5 flex items-center gap-2 shrink-0 overflow-x-auto scrollbar-none">
+                <div className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-amber-900 shrink-0">
+                  <Zap className="size-3.5 text-amber-600 fill-amber-500" />
+                  <span>Rush Top Hits:</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {quickBestSellers.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleAddDish(item)}
+                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100/70 border border-amber-200 text-xs font-bold text-slate-800 flex items-center gap-1.5 shrink-0 transition-all shadow-2xs hover:scale-105 active:scale-95"
+                    >
+                      <span
+                        className={cn(
+                          'size-1.5 rounded-full',
+                          item.vegStatus === 'veg'
+                            ? 'bg-emerald-600'
+                            : item.vegStatus === 'egg'
+                            ? 'bg-amber-500'
+                            : 'bg-rose-600'
+                        )}
+                      />
+                      <span className="truncate max-w-[130px]">{item.name}</span>
+                      <span className="font-mono text-[10.5px] font-bold text-amber-800 bg-amber-50 px-1 py-0.2 rounded">
+                        ₹{item.price}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Table Allocation Fast Strip (Visible when Dine-In is active) */}
+            {orderType === 'dine-in' && (
+              <div className="bg-blue-50/90 border-b border-blue-200/70 px-3 sm:px-4 py-1.5 flex items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+                  <span className="text-[11px] font-black uppercase tracking-wider text-blue-900 shrink-0">
+                    Tables:
+                  </span>
+                  {tables.map((t) => {
+                    const isSelected = tableNumber === t.tableNumber;
+                    const isOccupied = occupiedTableNumbers.has(t.tableNumber);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setTableNumber(t.tableNumber)}
+                        className={cn(
+                          'px-2.5 py-0.5 rounded-lg text-xs font-black font-mono shrink-0 transition-all border flex items-center gap-1',
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                            : isOccupied
+                            ? 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-100/60'
+                        )}
+                      >
+                        {isOccupied && <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />}
+                        <span>T#{t.tableNumber}</span>
+                        {isOccupied && <span className="text-[9px] opacity-75">(Dining)</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setTableMapOpen(true)}
+                  className="text-xs font-bold text-blue-700 hover:text-blue-900 flex items-center gap-0.5 shrink-0 px-2 py-0.5 rounded-lg hover:bg-blue-100"
+                >
+                  Floor Map <ChevronRight className="size-3" />
+                </button>
+              </div>
+            )}
+
+            {/* Product Catalog Cards / Rows Display */}
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 scrollbar-none">
+              {filteredDishes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-24 text-slate-400">
+                  <Utensils className="size-12 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm font-bold text-slate-600">No dishes match your filter</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Try clearing search keyword or switching category</p>
+                </div>
+              ) : layoutMode === 'rows' ? (
+                <div className="rounded-2xl border border-slate-200 bg-white shadow-xs divide-y divide-slate-100 overflow-hidden">
+                  {filteredDishes.map((item) => (
+                    <DishListRow
+                      key={item.id}
+                      item={item}
+                      inBill={quantityInBill(item.id)}
+                      quantityByPortion={quantityByPortion}
+                      onAdd={handleAddDish}
+                      onDecrement={handleDecrementDish}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 pb-6">
+                  {filteredDishes.map((item) => (
+                    <DishCard
+                      key={item.id}
+                      item={item}
+                      inBill={quantityInBill(item.id)}
+                      quantityByPortion={quantityByPortion}
+                      onAdd={handleAddDish}
+                      onDecrement={handleDecrementDish}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════ */}
+          {/*  RIGHT SECTION (35%): Sticky Cart & Checkout Panel          */}
+          {/* ═══════════════════════════════════════════════════════════ */}
+          <div className="hidden md:flex w-[350px] lg:w-[390px] xl:w-[420px] shrink-0 flex-col h-full bg-white border-l border-slate-200">
+            <BillPanel {...billPanelProps} />
+          </div>
+        </div>
+
+        {/* ── Mobile: View Cart Bottom Float Button ── */}
+        {lines.length > 0 && (
+          <div className="md:hidden fixed left-4 right-4 bottom-4 z-30">
+            <button
+              type="button"
+              onClick={() => setMobileBillOpen(true)}
+              className="w-full h-13 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-sm flex items-center justify-between px-5 shadow-2xl active:scale-[0.98] transition-all"
+            >
+              <div className="flex items-center gap-2">
+                <span className="size-6.5 rounded-lg bg-white/20 flex items-center justify-center font-mono text-xs">
+                  {totalUnits}
+                </span>
+                <span>View Cart</span>
+              </div>
+              <span className="font-mono text-base font-black">
+                ₹{totals.grandTotal.toFixed(2)}
+              </span>
+            </button>
+          </div>
+        )}
+
+        {/* ── Mobile: Full Checkout Bottom Sheet ── */}
+        <Sheet open={mobileBillOpen} onOpenChange={setMobileBillOpen}>
+          <SheetContent
+            side="bottom"
+            showCloseButton={false}
+            className="p-0 h-[min(94dvh,780px)] rounded-t-3xl border-none bg-white overflow-hidden"
+          >
+            <BillPanel
+              {...billPanelProps}
+              compact={true}
+              onClose={() => setMobileBillOpen(false)}
+            />
+          </SheetContent>
+        </Sheet>
+
+        {/* ========================================================== */}
+        {/*  MODALS & DIALOGS                                          */}
+        {/* ========================================================== */}
+        <OrderPlacedDialog
+          order={placedOrder}
+          invoiceNo={placedInvoiceNo}
+          open={confirmOpen}
+          onNewOrder={() => {
+            setConfirmOpen(false);
+            setPlacedOrder(null);
+          }}
+        />
+
+        <TableFloorMapModal
+          open={tableMapOpen}
+          onClose={() => setTableMapOpen(false)}
+          tables={tables}
+          activeOrders={orders}
+          selectedTable={tableNumber}
+          onSelectTable={(tNum) => {
+            setTableNumber(tNum);
+            setOrderType('dine-in');
+          }}
+        />
+      </div>
+    </AdminLayout>
   );
 }

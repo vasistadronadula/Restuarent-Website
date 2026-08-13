@@ -127,34 +127,34 @@ export default function PerformancePage() {
         />
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard
             icon={<TrendingUp className="w-4 h-4" />}
             label="Today's Revenue"
             value={money(stats.todayRevenue)}
             sub={`${stats.todayOrders} orders today`}
-            accent="#059669"
+            accent="#c62828"
           />
           <StatCard
             icon={<ShoppingBag className="w-4 h-4" />}
             label="Active Orders"
             value={stats.pendingOrders}
             sub="In kitchen or preparing"
-            accent="#10B981"
+            accent="#d97706"
           />
           <StatCard
             icon={<Calendar className="w-4 h-4" />}
             label="Today's Bookings"
             value={stats.todayBookings}
             sub="Confirmed bookings"
-            accent="#2563EB"
+            accent="#10b981"
           />
           <StatCard
             icon={<Package className="w-4 h-4" />}
             label="Low Stock Items"
             value={stats.lowStock}
             sub="Below threshold"
-            accent="#D97706"
+            accent="#f59e0b"
           />
         </div>
 
@@ -163,26 +163,24 @@ export default function PerformancePage() {
           {/* Chart */}
           <div className="lg:col-span-2">
             <SectionCard className="h-full">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 pb-2 border-b border-slate-100">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 pb-2 border-b border-stone-100">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Sales Trend</h3>
-                  <p className="text-xs text-slate-400 mt-0.5 font-medium">Last 7 days performance metrics</p>
+                  <h3 className="text-sm font-semibold text-stone-900">Sales Trend</h3>
+                  <p className="text-xs text-stone-400 mt-0.5">Last 7 days performance metrics</p>
                 </div>
-                <div className="flex gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <div className="flex gap-1 bg-stone-100 p-1 rounded-lg">
                   <button
-                    type="button"
                     onClick={() => setChartMetric('revenue')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                      chartMetric === 'revenue' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      chartMetric === 'revenue' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'
                     }`}
                   >
                     Revenue
                   </button>
                   <button
-                    type="button"
                     onClick={() => setChartMetric('orders')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                      chartMetric === 'orders' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      chartMetric === 'orders' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'
                     }`}
                   >
                     Orders
@@ -195,21 +193,20 @@ export default function PerformancePage() {
                   <AreaChart data={chartData} margin={{ left: -10, right: 10, top: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#059669" stopOpacity={0.25} />
-                        <stop offset="95%" stopColor="#059669" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#D97706" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#D97706" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" opacity={0.7} />
-                    <XAxis dataKey="label" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                    <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E5E4" opacity={0.5} />
+                    <XAxis dataKey="label" stroke="#A8A29E" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#A8A29E" fontSize={11} tickLine={false} />
                     <RechartsTooltip
                       contentStyle={{
-                        backgroundColor: '#0F172A',
+                        backgroundColor: '#1c1917',
                         border: 'none',
-                        borderRadius: '12px',
+                        borderRadius: '8px',
                         color: '#fff',
                         fontSize: '12px',
-                        fontWeight: '600',
                       }}
                       formatter={(val: any) => [
                         chartMetric === 'revenue' ? money(Number(val || 0)) : `${val} orders`,
@@ -219,8 +216,8 @@ export default function PerformancePage() {
                     <Area
                       type="monotone"
                       dataKey={chartMetric}
-                      stroke="#059669"
-                      strokeWidth={2.5}
+                      stroke="#D97706"
+                      strokeWidth={2}
                       fillOpacity={1}
                       fill="url(#chartGradient)"
                     />
