@@ -8,12 +8,21 @@ import {
 } from 'recharts';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
-import { PageHeader, StatCard, SectionCard } from '@/components/admin/ui';
-import { Button } from '@/components/ui/button';
-import { TrendingUp, ShoppingBag, Users, DollarSign, Download } from 'lucide-react';
+import { PageHeader, HairlineGrid, StatCell, SectionCard } from '@/components/admin/ui';
+import { Download } from 'lucide-react';
 import { toast } from 'sonner';
 
-const COLORS = ['#D97706', '#DC2626', '#059669', '#2563EB', '#7C3AED', '#EA580C', '#0891B2'];
+/**
+ * Chart series, in the console's own palette: the accent first, then ink, then
+ * alternating tints that separate by lightness as well as hue. Seven unrelated
+ * brand colours read as seven unrelated apps on a page whose entire design is
+ * one accent over neutrals.
+ */
+const COLORS = ['#ec3013', '#201e1d', '#ff9783', '#605d5d', '#ae1800', '#bab6b6', '#7c1405'];
+
+/* Chart chrome — axes and gridlines sit under the data, never beside it. */
+const AXIS = '#9b9797';
+const GRID = '#d7d3d3';
 
 export default function ReportsPage() {
   const { orders } = useAdmin();
@@ -91,53 +100,27 @@ export default function ReportsPage() {
           title="Sales Analytics"
           subtitle="Overview of store metrics, performance and sales"
           action={
-            <Button onClick={handleExportCSV} className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4">
-              <Download className="w-4 h-4 mr-1.5" /> Export CSV
-            </Button>
+            <button type="button" onClick={handleExportCSV} className="ad-btn ad-btn-primary">
+              <Download className="w-4 h-4" /> Export CSV
+            </button>
           }
         />
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard
-            icon={<DollarSign className="w-4 h-4" />}
-            label="Total Gross Sales"
-            value={`₹${totalRevenue.toLocaleString('en-IN')}`}
-            accent="#D97706"
-          />
-          <StatCard
-            icon={<TrendingUp className="w-4 h-4" />}
-            label="Avg Daily Sales"
-            value={`₹${avgDailyRevenue.toLocaleString('en-IN')}`}
-            accent="#059669"
-          />
-          <StatCard
-            icon={<ShoppingBag className="w-4 h-4" />}
-            label="Total Orders"
-            value={totalOrderCount}
-            accent="#2563EB"
-          />
-          <StatCard
-            icon={<Users className="w-4 h-4" />}
-            label="Avg Order Value"
-            value={`₹${avgOrderValue.toLocaleString('en-IN')}`}
-            accent="#7C3AED"
-          />
-        </div>
+        {/* Stats */}
+        <HairlineGrid cols="grid-cols-2 lg:grid-cols-4">
+          <StatCell label="Gross sales" value={`₹${totalRevenue.toLocaleString('en-IN')}`} />
+          <StatCell label="Avg daily sales" value={`₹${avgDailyRevenue.toLocaleString('en-IN')}`} />
+          <StatCell label="Total orders" value={totalOrderCount} />
+          <StatCell label="Avg order value" value={`₹${avgOrderValue.toLocaleString('en-IN')}`} />
+        </HairlineGrid>
 
         {/* Chart Box */}
         <SectionCard>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 pb-3 border-b border-stone-100">
-            <h3 className="text-sm font-semibold text-stone-900">Revenue & Sales Breakdown</h3>
-            <div className="flex gap-1 bg-stone-100 p-1 rounded-lg">
+          <div className="ad-section-head">
+            <h3 className="ad-h text-[17px]">Revenue and sales</h3>
+            <div className="flex gap-2 flex-wrap">
               {(['daily', 'weekly', 'monthly', 'categories'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTab(t)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium capitalize transition-colors ${
-                    tab === t ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'
-                  }`}
-                >
+                <button key={t} onClick={() => setTab(t)} className="ad-tab" data-active={tab === t}>
                   {t}
                 </button>
               ))}
@@ -145,9 +128,7 @@ export default function ReportsPage() {
           </div>
 
           {orders.length === 0 ? (
-            <div className="py-14 text-center text-sm text-stone-400">
-              No sales data yet
-            </div>
+            <div className="py-14 text-center text-[13px] ad-muted">No sales data yet</div>
           ) : (
             <div className="w-full h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -172,25 +153,25 @@ export default function ReportsPage() {
                   </PieChart>
                 ) : tab === 'weekly' ? (
                   <BarChart data={dailySales}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E5E4" opacity={0.5} />
-                    <XAxis dataKey="date" stroke="#A8A29E" fontSize={11} />
-                    <YAxis stroke="#A8A29E" fontSize={11} />
+                    <CartesianGrid vertical={false} stroke={GRID} />
+                    <XAxis dataKey="date" stroke={AXIS} fontSize={11} tickLine={false} />
+                    <YAxis stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
                     <Tooltip formatter={(val: any) => [`₹${Number(val || 0).toLocaleString('en-IN')}`, 'Revenue']} />
-                    <Bar dataKey="revenue" fill="#D97706" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="revenue" fill={COLORS[0]} />
                   </BarChart>
                 ) : (
                   <AreaChart data={dailySales}>
                     <defs>
                       <linearGradient id="areaColor" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#D97706" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#D97706" stopOpacity={0} />
+                        <stop offset="5%" stopColor={COLORS[0]} stopOpacity={0.22} />
+                        <stop offset="95%" stopColor={COLORS[0]} stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E5E4" opacity={0.5} />
-                    <XAxis dataKey="date" stroke="#A8A29E" fontSize={11} />
-                    <YAxis stroke="#A8A29E" fontSize={11} />
+                    <CartesianGrid vertical={false} stroke={GRID} />
+                    <XAxis dataKey="date" stroke={AXIS} fontSize={11} tickLine={false} />
+                    <YAxis stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
                     <Tooltip formatter={(val: any) => [`₹${Number(val || 0).toLocaleString('en-IN')}`, 'Revenue']} />
-                    <Area type="monotone" dataKey="revenue" stroke="#D97706" strokeWidth={2} fill="url(#areaColor)" />
+                    <Area type="monotone" dataKey="revenue" stroke={COLORS[0]} strokeWidth={2} fill="url(#areaColor)" />
                   </AreaChart>
                 )}
               </ResponsiveContainer>
@@ -201,41 +182,49 @@ export default function ReportsPage() {
         {/* Side breakdowns */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <SectionCard>
-            <h3 className="text-sm font-semibold text-stone-900 mb-3">Top Performing Categories</h3>
-            <div className="space-y-2">
-              {categoryRevenue.length === 0 ? (
-                <p className="text-xs text-stone-400 py-3 text-center">No category data yet.</p>
-              ) : (
-                categoryRevenue.map((cat, idx) => (
-                  <div key={cat.name} className="flex justify-between items-center text-xs p-2.5 rounded-lg bg-stone-50 border border-stone-100">
-                    <div className="flex items-center gap-2 font-medium text-stone-700">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                      {cat.name}
-                    </div>
-                    <div className="font-semibold text-stone-900">₹{cat.value.toLocaleString('en-IN')}</div>
-                  </div>
-                ))
-              )}
+            <div className="ad-section-head">
+              <h3 className="ad-h text-[17px]">Top categories</h3>
             </div>
+            {categoryRevenue.length === 0 ? (
+              <p className="text-[13px] ad-muted py-3 text-center m-0">No category data yet.</p>
+            ) : (
+              <table className="ad-table">
+                <tbody>
+                  {categoryRevenue.map((cat, idx) => (
+                    <tr key={cat.name}>
+                      <td className="w-4">
+                        <span className="block w-2.5 h-2.5" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                      </td>
+                      <td>{cat.name}</td>
+                      <td className="text-right ad-num text-[14px]">₹{cat.value.toLocaleString('en-IN')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </SectionCard>
 
           <SectionCard>
-            <h3 className="text-sm font-semibold text-stone-900 mb-3">Recent Daily Summaries</h3>
-            <div className="space-y-2">
-              {dailySales.length === 0 ? (
-                <p className="text-xs text-stone-400 py-3 text-center">No daily sales recorded.</p>
-              ) : (
-                dailySales.slice(0, 5).map((d) => (
-                  <div key={d.date} className="flex justify-between items-center text-xs p-2.5 rounded-lg bg-stone-50 border border-stone-100">
-                    <div>
-                      <div className="font-medium text-stone-900">{d.date}</div>
-                      <div className="text-xs text-stone-400">{d.orders} orders processed</div>
-                    </div>
-                    <div className="font-semibold text-emerald-700">₹{d.revenue.toLocaleString('en-IN')}</div>
-                  </div>
-                ))
-              )}
+            <div className="ad-section-head">
+              <h3 className="ad-h text-[17px]">Recent days</h3>
             </div>
+            {dailySales.length === 0 ? (
+              <p className="text-[13px] ad-muted py-3 text-center m-0">No daily sales recorded.</p>
+            ) : (
+              <table className="ad-table">
+                <tbody>
+                  {dailySales.slice(0, 5).map((d) => (
+                    <tr key={d.date}>
+                      <td>
+                        <div className="font-semibold">{d.date}</div>
+                        <div className="ad-kicker">{d.orders} orders</div>
+                      </td>
+                      <td className="text-right ad-num text-[15px]">₹{d.revenue.toLocaleString('en-IN')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </SectionCard>
         </div>
       </div>

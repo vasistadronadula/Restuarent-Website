@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Fraunces } from "next/font/google";
+import { Inter, Fraunces, Archivo } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -20,6 +20,18 @@ const fraunces = Fraunces({
   subsets: ["latin"],
   axes: ["SOFT", "WONK", "opsz"],
   display: "swap",
+});
+
+// Admin console only — the Modernist design system leans on Archivo's 800 for
+// every heading, stat and uppercase label. `preload: false` keeps diners off
+// the hook for it: the @font-face ships in the shared stylesheet, but the file
+// is only fetched on the routes that actually render in it (/admin, /cashier).
+const archivo = Archivo({
+  variable: "--font-archivo",
+  subsets: ["latin"],
+  weight: ["400", "600", "800"],
+  display: "swap",
+  preload: false,
 });
 
 import { Providers } from "./providers";
@@ -63,7 +75,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${fraunces.variable}`}
+      className={`${inter.variable} ${fraunces.variable} ${archivo.variable}`}
     >
       <body>
         {/* No global reCAPTCHA script: the only thing on this site that needs

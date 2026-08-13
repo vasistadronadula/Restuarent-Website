@@ -1,10 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { LayoutGrid, Users, Utensils, CheckCircle2, Clock, DollarSign, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Users, Clock } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Order } from '@/types';
 
@@ -84,53 +82,32 @@ export default function TableFloorMapModal({
 
   return (
     <Dialog open={open} onOpenChange={(val) => { if (!val) onClose(); }}>
-      <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-2xl">
-        {/* Header */}
-        <div className="p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="size-10 rounded-2xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
-              <LayoutGrid className="size-5" />
-            </div>
-            <div>
-              <DialogTitle className="text-lg font-black text-white leading-tight flex items-center gap-2">
-                Restaurant Floor Table Map
-                <Badge variant="outline" className="bg-blue-500/20 text-blue-300 border-blue-400/30 text-[10px] font-bold">
-                  {stats.total} Total Tables
-                </Badge>
-              </DialogTitle>
-              <p className="text-xs text-slate-400 mt-0.5 font-medium">
-                Tap any table to assign to current ticket or inspect running bill
-              </p>
-            </div>
+      <DialogContent className="max-w-4xl p-0 overflow-hidden">
+        {/* Header — ink, matching the console rail */}
+        <div className="p-5 bg-ad-ink text-ad-bg flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <DialogTitle className="ad-num text-[20px] leading-tight">Floor plan</DialogTitle>
+            <DialogDescription className="text-[12px] mt-1 opacity-70">
+              Tap a table to put it on this ticket.
+            </DialogDescription>
           </div>
 
-          {/* Quick Legend Pills */}
-          <div className="hidden sm:flex items-center gap-2 text-xs font-bold">
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-              <span className="size-2 rounded-full bg-emerald-400" />
-              {stats.available} Available
-            </span>
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30">
-              <span className="size-2 rounded-full bg-amber-400" />
-              {stats.occupied} In Kitchen
-            </span>
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/30">
-              <span className="size-2 rounded-full bg-rose-400" />
-              {stats.waitingPayment} Due Bill
-            </span>
+          <div className="hidden sm:flex items-center gap-4 ad-kicker text-ad-bg opacity-80">
+            <span>{stats.available} free</span>
+            <span>{stats.occupied} cooking</span>
+            <span>{stats.waitingPayment} bill due</span>
           </div>
         </div>
 
         {/* Floor Map Visual Grid */}
-        <div className="p-6 bg-slate-50/50 max-h-[68vh] overflow-y-auto">
+        <div className="p-5 max-h-[68vh] overflow-y-auto">
           {tables.length === 0 ? (
-            <div className="py-20 text-center text-slate-400">
-              <Utensils className="size-12 mx-auto mb-2 opacity-30" />
-              <p className="text-sm font-bold text-slate-600">No tables configured in system</p>
-              <p className="text-xs text-slate-400 mt-1">Configure dining tables in Menu Management</p>
+            <div className="py-20 text-center">
+              <p className="ad-h text-[16px]">No tables configured</p>
+              <p className="text-[13px] ad-muted mt-1.5">Add dining tables to use the floor plan.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            <div className="ad-grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
               {tables.map((table) => {
                 const info = tableStatusMap.get(table.tableNumber);
                 const status = info?.status || 'available';
@@ -148,57 +125,47 @@ export default function TableFloorMapModal({
                       onSelectTable(table.tableNumber);
                       onClose();
                     }}
-                    className={`p-4 rounded-2xl text-left transition-all border-2 flex flex-col justify-between select-none group relative ${
+                    className="p-4 text-left flex flex-col justify-between select-none relative ad-hover min-h-32"
+                    style={
                       isSelected
-                        ? 'border-blue-600 ring-4 ring-blue-500/20 bg-blue-50/80 shadow-md scale-[1.02]'
-                        : isAvailable
-                        ? 'bg-white border-emerald-200 hover:border-emerald-400 hover:shadow-md'
-                        : isOrdered
-                        ? 'bg-white border-amber-300 hover:border-amber-400 hover:shadow-md'
-                        : 'bg-white border-rose-300 hover:border-rose-400 hover:shadow-md'
-                    }`}
+                        ? { background: 'var(--ad-ink)', color: 'var(--ad-bg)' }
+                        : isWaitingPayment
+                        ? { boxShadow: 'inset 4px 0 0 var(--ad-accent)' }
+                        : undefined
+                    }
                   >
                     {/* Top row: Table # and Status Pill */}
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <span className="font-mono text-xl font-black text-slate-900 block leading-tight">
-                          Table #{table.tableNumber}
-                        </span>
-                        <span className="text-[11px] font-bold text-slate-500 flex items-center gap-1 mt-0.5">
-                          <Users className="size-3 text-slate-400" /> {table.capacity} Seats
+                      <div className="min-w-0">
+                        <span className="ad-num text-[22px] block leading-tight">T{table.tableNumber}</span>
+                        <span className="ad-kicker flex items-center gap-1 mt-0.5" style={isSelected ? { color: 'inherit', opacity: 0.7 } : undefined}>
+                          <Users className="size-3" /> {table.capacity} seats
                         </span>
                       </div>
 
                       <span
-                        className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                          isAvailable
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : isOrdered
-                            ? 'bg-amber-50 text-amber-800 border-amber-200'
-                            : 'bg-rose-50 text-rose-700 border-rose-200'
-                        }`}
+                        className={`ad-tag ${isSelected ? '' : isAvailable ? 'ad-tag-outline' : isOrdered ? 'ad-tag-solid' : 'ad-tag-accent'}`}
+                        style={isSelected ? { background: 'var(--ad-bg)', color: 'var(--ad-ink)' } : undefined}
                       >
-                        {isAvailable ? 'Free' : isOrdered ? 'Cooking' : 'Bill Due'}
+                        {isAvailable ? 'Free' : isOrdered ? 'Cooking' : 'Bill due'}
                       </span>
                     </div>
 
                     {/* Middle: Active ticket summary */}
-                    <div className="mt-4 pt-3 border-t border-slate-100 min-h-[42px] flex flex-col justify-end">
+                    <div className="mt-3 pt-2.5 border-t border-ad-hairline min-h-10 flex flex-col justify-end">
                       {info?.activeOrder ? (
                         <div>
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                          <div className="flex items-center justify-between gap-2 text-[13px]">
                             <span className="truncate">#{info.activeOrder.id.slice(-4)}</span>
-                            <span className="font-mono text-slate-950 font-black">
-                              {formatCurrency(info.runningBill || 0)}
-                            </span>
+                            <span className="ad-num text-[14px]">{formatCurrency(info.runningBill || 0)}</span>
                           </div>
-                          <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                            <Clock className="size-2.5 text-slate-400" /> {info.elapsedMinutes}m active
+                          <span className="ad-kicker flex items-center gap-1 mt-0.5" style={isSelected ? { color: 'inherit', opacity: 0.7 } : undefined}>
+                            <Clock className="size-2.5" /> {info.elapsedMinutes}m
                           </span>
                         </div>
                       ) : (
-                        <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                          <CheckCircle2 className="size-3.5" /> Ready for Guests
+                        <span className="ad-kicker" style={isSelected ? { color: 'inherit', opacity: 0.7 } : undefined}>
+                          Ready to seat
                         </span>
                       )}
                     </div>
@@ -210,17 +177,13 @@ export default function TableFloorMapModal({
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-slate-100/80 border-t border-slate-200 flex items-center justify-between">
-          <span className="text-xs font-bold text-slate-500">
-            {selectedTable !== '' ? `Current selection: Table #${selectedTable}` : 'No table currently selected'}
+        <div className="p-4 bg-ad-surface border-t-2 border-ad-line flex items-center justify-between gap-3">
+          <span className="ad-kicker">
+            {selectedTable !== '' ? `Selected: table ${selectedTable}` : 'No table selected'}
           </span>
-          <Button
-            variant="outline"
-            onClick={onClose}
-            className="rounded-xl border-slate-300 font-bold text-xs h-9"
-          >
-            Close Map
-          </Button>
+          <button type="button" onClick={onClose} className="ad-btn ad-btn-secondary">
+            Close
+          </button>
         </div>
       </DialogContent>
     </Dialog>

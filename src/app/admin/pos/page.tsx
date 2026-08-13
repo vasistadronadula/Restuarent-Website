@@ -16,17 +16,13 @@ import { computeBillTotals, type DiscountOption } from '@/lib/billing';
 import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
 import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
 import { markPosOrderPrinted } from '@/lib/posOrderTracker';
-import type { Category, MenuItem, Order } from '@/types';
+import type { MenuItem, Order } from '@/types';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { Badge } from '@/components/ui/badge';
 import {
-  Search, X, ShoppingBag, LayoutGrid, List,
+  Search, X, LayoutGrid, List,
   Utensils, Coffee, Flame, Cake, Soup, Sparkles,
-  Maximize2, Minimize2, ChevronRight, Clock, UserCheck,
-  Zap, Radio
+  Maximize2, Minimize2, ChevronRight, Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -359,32 +355,32 @@ export default function PosPage() {
 
   const VEG_FILTERS: { value: typeof vegFilter; label: string; dot?: string }[] = [
     { value: 'all', label: 'All Items' },
-    { value: 'veg', label: 'Veg', dot: 'bg-emerald-600' },
-    { value: 'non-veg', label: 'Non-Veg', dot: 'bg-rose-600' },
-    { value: 'egg', label: 'Egg', dot: 'bg-amber-500' },
+    { value: 'veg', label: 'Veg', dot: 'bg-ad-ok' },
+    { value: 'non-veg', label: 'Non-veg', dot: 'bg-ad-accent' },
+    { value: 'egg', label: 'Egg', dot: 'bg-ad-warn' },
   ];
 
   return (
     <AdminLayout title="Cashier POS System (2026)">
-      <div className="flex flex-col w-full h-full bg-[#F8FAFC] text-slate-900 font-sans antialiased overflow-hidden select-none">
+      <div className="flex flex-col w-full h-full bg-ad-bg text-ad-ink overflow-hidden select-none">
 
-        {/* ── 1. CASHIER FAST CONTROL BAR (52px) ── */}
-        <div className="h-[52px] bg-white border-b border-slate-200 px-3 sm:px-4 flex items-center justify-between gap-2.5 shrink-0 shadow-2xs z-20">
+        {/* ── 1. CASHIER FAST CONTROL BAR ── */}
+        <div className="h-[56px] bg-ad-bg border-b-2 border-ad-line px-3 sm:px-4 flex items-center justify-between gap-2.5 shrink-0 z-20">
           {/* Left: Quick Search */}
           <div className="relative w-44 sm:w-60 md:w-72 shrink-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
-            <Input
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-ad-muted" />
+            <input
               ref={searchInputRef}
+              className="ad-input h-9 pl-7.5 pr-7"
               placeholder="Search dishes… (/)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 pl-7.5 pr-7 text-xs font-bold bg-slate-50 border-slate-200 rounded-xl focus-visible:ring-blue-500/20 focus-visible:border-blue-500"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-ad-muted hover:text-ad-ink"
               >
                 <X className="size-3" />
               </button>
@@ -398,12 +394,8 @@ export default function PosPage() {
                 key={f.value}
                 type="button"
                 onClick={() => setVegFilter(f.value)}
-                className={cn(
-                  'flex items-center gap-1.5 px-2.5 h-7 rounded-lg text-xs font-bold shrink-0 transition-all border',
-                  vegFilter === f.value
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                )}
+                className="ad-tab flex items-center gap-1.5 shrink-0"
+                data-active={vegFilter === f.value}
               >
                 {f.dot && <span className={cn('size-1.5 rounded-full', f.dot)} />}
                 <span>{f.label}</span>
@@ -414,72 +406,57 @@ export default function PosPage() {
           {/* Right: Cashier Info & Action Shortcuts */}
           <div className="flex items-center gap-2 shrink-0">
             {/* Live Clock & Cashier Badge */}
-            <div className="hidden xl:flex items-center gap-2 px-2.5 py-1 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] font-bold text-slate-600">
-              <div className="flex items-center gap-1">
-                <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-emerald-700">Live</span>
-              </div>
-              <span className="text-slate-300">|</span>
-              <span className="text-slate-900 font-mono">{timeStr}</span>
-              <span className="text-slate-300">|</span>
-              <span className="text-slate-700 truncate max-w-[100px]">👤 {cashierName}</span>
+            <div className="hidden xl:flex items-center gap-2 ad-kicker">
+              <span className="size-1.5 bg-ad-accent animate-pulse" />
+              <span className="ad-num text-[12px]">{timeStr}</span>
+              <span className="truncate max-w-25">{cashierName}</span>
             </div>
 
             {/* Table Floor Map Trigger */}
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="sm"
               onClick={() => setTableMapOpen(true)}
-              className={cn(
-                'h-8 px-2.5 rounded-xl border-slate-200 text-xs font-bold gap-1 shadow-2xs',
-                tableNumber !== '' ? 'bg-blue-50 text-blue-700 border-blue-300' : 'bg-white text-slate-700 hover:bg-slate-50'
-              )}
-              title="Restaurant Floor & Tables"
+              className="ad-tab flex items-center gap-1.5"
+              data-active={tableNumber !== ''}
+              title="Floor plan and tables"
             >
-              <LayoutGrid className="size-3.5 text-blue-600" />
+              <LayoutGrid className="size-3.5" />
               <span className="hidden sm:inline">
-                {tableNumber !== '' ? `Table #${tableNumber}` : 'Tables'}
+                {tableNumber !== '' ? `Table ${tableNumber}` : 'Tables'}
               </span>
-            </Button>
+            </button>
 
             {/* Grid / List Layout Switcher */}
-            <div className="hidden sm:flex bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+            <div className="hidden sm:flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => setLayoutMode('cards')}
-                className={cn(
-                  'size-6.5 rounded-md flex items-center justify-center transition-all',
-                  layoutMode === 'cards' ? 'bg-white shadow-2xs text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600'
-                )}
+                className="ad-tab px-2.5"
+                data-active={layoutMode === 'cards'}
                 title="Grid view"
               >
-                <LayoutGrid className="size-3" />
+                <LayoutGrid className="size-3.5" />
               </button>
               <button
                 type="button"
                 onClick={() => setLayoutMode('rows')}
-                className={cn(
-                  'size-6.5 rounded-md flex items-center justify-center transition-all',
-                  layoutMode === 'rows' ? 'bg-white shadow-2xs text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600'
-                )}
+                className="ad-tab px-2.5"
+                data-active={layoutMode === 'rows'}
                 title="List view"
               >
-                <List className="size-3" />
+                <List className="size-3.5" />
               </button>
             </div>
 
             {/* Fullscreen Toggle */}
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="icon"
               onClick={toggleFullscreen}
-              className="size-8 rounded-xl border-slate-200 bg-white hover:bg-slate-50 text-slate-600"
+              className="ad-btn ad-btn-secondary ad-btn-icon"
               title="Fullscreen POS"
             >
               {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
-            </Button>
+            </button>
           </div>
         </div>
 
@@ -489,62 +466,50 @@ export default function PosPage() {
           {/* ═══════════════════════════════════════════════════════════ */}
           {/*  LEFT SECTION (65%): Product Ordering Catalog               */}
           {/* ═══════════════════════════════════════════════════════════ */}
-          <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#F8FAFC]">
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden bg-ad-bg">
 
             {/* Sticky Category Tabs Bar */}
-            <div className="bg-white border-b border-slate-200 px-3 sm:px-4 py-2 shrink-0 shadow-2xs">
-              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-                {categoriesList.map((cat) => {
-                  const isSelected = selectedCategory === cat.slug;
-                  return (
-                    <button
-                      key={cat.slug}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat.slug)}
-                      className={cn(
-                        'flex items-center gap-1.5 px-3 h-8 rounded-xl text-xs font-bold shrink-0 transition-all whitespace-nowrap border select-none',
-                        isSelected
-                          ? 'bg-blue-600 border-blue-600 text-white shadow-xs scale-[1.02]'
-                          : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50'
-                      )}
-                    >
-                      <span className="text-xs">{cat.emoji}</span>
-                      <span>{cat.name}</span>
-                    </button>
-                  );
-                })}
+            <div className="border-b-2 border-ad-line px-3 sm:px-4 py-2.5 shrink-0">
+              <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+                {categoriesList.map((cat) => (
+                  <button
+                    key={cat.slug}
+                    type="button"
+                    onClick={() => setSelectedCategory(cat.slug)}
+                    className="ad-tab shrink-0"
+                    data-active={selectedCategory === cat.slug}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
               </div>
             </div>
 
             {/* ⚡ Rush-Hour Best Sellers Strip (1-Tap Quick Add) */}
             {quickBestSellers.length > 0 && selectedCategory === 'all' && !search && (
-              <div className="bg-amber-50/70 border-b border-amber-200/70 px-3 sm:px-4 py-1.5 flex items-center gap-2 shrink-0 overflow-x-auto scrollbar-none">
-                <div className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-amber-900 shrink-0">
-                  <Zap className="size-3.5 text-amber-600 fill-amber-500" />
-                  <span>Rush Top Hits:</span>
-                </div>
-                <div className="flex items-center gap-1.5">
+              <div className="bg-ad-surface border-b border-ad-hairline px-3 sm:px-4 py-2 flex items-center gap-3 shrink-0 overflow-x-auto scrollbar-none">
+                <span className="ad-kicker flex items-center gap-1 shrink-0">
+                  <Zap className="size-3.5" /> Rush hits
+                </span>
+                <div className="flex items-center gap-2">
                   {quickBestSellers.map((item) => (
                     <button
                       key={item.id}
                       type="button"
                       onClick={() => handleAddDish(item)}
-                      className="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100/70 border border-amber-200 text-xs font-bold text-slate-800 flex items-center gap-1.5 shrink-0 transition-all shadow-2xs hover:scale-105 active:scale-95"
+                      className="px-2.5 py-1 bg-ad-bg border border-ad-hairline hover:border-ad-accent text-[13px] font-semibold flex items-center gap-1.5 shrink-0 transition-colors"
                     >
                       <span
-                        className={cn(
-                          'size-1.5 rounded-full',
-                          item.vegStatus === 'veg'
-                            ? 'bg-emerald-600'
-                            : item.vegStatus === 'egg'
-                            ? 'bg-amber-500'
-                            : 'bg-rose-600'
-                        )}
+                        className="size-1.5 rounded-full"
+                        style={{
+                          background:
+                            item.vegStatus === 'veg' ? 'var(--ad-ok)'
+                            : item.vegStatus === 'egg' ? 'var(--ad-warn)'
+                            : 'var(--ad-accent)',
+                        }}
                       />
-                      <span className="truncate max-w-[130px]">{item.name}</span>
-                      <span className="font-mono text-[10.5px] font-bold text-amber-800 bg-amber-50 px-1 py-0.2 rounded">
-                        ₹{item.price}
-                      </span>
+                      <span className="truncate max-w-32">{item.name}</span>
+                      <span className="ad-num text-[12px]">₹{item.price}</span>
                     </button>
                   ))}
                 </div>
@@ -553,31 +518,23 @@ export default function PosPage() {
 
             {/* Table Allocation Fast Strip (Visible when Dine-In is active) */}
             {orderType === 'dine-in' && (
-              <div className="bg-blue-50/90 border-b border-blue-200/70 px-3 sm:px-4 py-1.5 flex items-center justify-between gap-2 shrink-0">
-                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
-                  <span className="text-[11px] font-black uppercase tracking-wider text-blue-900 shrink-0">
-                    Tables:
-                  </span>
+              <div className="bg-ad-surface border-b border-ad-hairline px-3 sm:px-4 py-2 flex items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
+                  <span className="ad-kicker shrink-0">Tables</span>
                   {tables.map((t) => {
-                    const isSelected = tableNumber === t.tableNumber;
                     const isOccupied = occupiedTableNumbers.has(t.tableNumber);
                     return (
                       <button
                         key={t.id}
                         type="button"
                         onClick={() => setTableNumber(t.tableNumber)}
-                        className={cn(
-                          'px-2.5 py-0.5 rounded-lg text-xs font-black font-mono shrink-0 transition-all border flex items-center gap-1',
-                          isSelected
-                            ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                            : isOccupied
-                            ? 'bg-rose-50 text-rose-700 border-rose-300 hover:bg-rose-100'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-blue-100/60'
-                        )}
+                        className="ad-tab shrink-0 flex items-center gap-1.5 px-2.5 py-1"
+                        data-active={tableNumber === t.tableNumber}
+                        title={isOccupied ? `Table ${t.tableNumber} — dining` : `Table ${t.tableNumber} — free`}
                       >
-                        {isOccupied && <span className="size-1.5 rounded-full bg-rose-500 animate-pulse" />}
-                        <span>T#{t.tableNumber}</span>
-                        {isOccupied && <span className="text-[9px] opacity-75">(Dining)</span>}
+                        {/* Occupied tables carry the accent dot; free ones nothing. */}
+                        {isOccupied && <span className="size-1.5 bg-ad-accent" />}
+                        <span>T{t.tableNumber}</span>
                       </button>
                     );
                   })}
@@ -586,9 +543,9 @@ export default function PosPage() {
                 <button
                   type="button"
                   onClick={() => setTableMapOpen(true)}
-                  className="text-xs font-bold text-blue-700 hover:text-blue-900 flex items-center gap-0.5 shrink-0 px-2 py-0.5 rounded-lg hover:bg-blue-100"
+                  className="ad-btn ad-btn-ghost ad-btn-sm shrink-0"
                 >
-                  Floor Map <ChevronRight className="size-3" />
+                  Floor map <ChevronRight className="size-3" />
                 </button>
               </div>
             )}
@@ -596,13 +553,12 @@ export default function PosPage() {
             {/* Product Catalog Cards / Rows Display */}
             <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 scrollbar-none">
               {filteredDishes.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-                  <Utensils className="size-12 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm font-bold text-slate-600">No dishes match your filter</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Try clearing search keyword or switching category</p>
+                <div className="py-24 text-center">
+                  <p className="ad-h text-[16px]">No dishes match</p>
+                  <p className="text-[13px] ad-muted mt-1.5">Clear the search or switch category.</p>
                 </div>
               ) : layoutMode === 'rows' ? (
-                <div className="rounded-2xl border border-slate-200 bg-white shadow-xs divide-y divide-slate-100 overflow-hidden">
+                <div className="border-2 border-ad-line divide-y divide-ad-hairline">
                   {filteredDishes.map((item) => (
                     <DishListRow
                       key={item.id}
@@ -615,7 +571,7 @@ export default function PosPage() {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 pb-6">
+                <div className="ad-grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 mb-6">
                   {filteredDishes.map((item) => (
                     <DishCard
                       key={item.id}
@@ -634,7 +590,7 @@ export default function PosPage() {
           {/* ═══════════════════════════════════════════════════════════ */}
           {/*  RIGHT SECTION (35%): Sticky Cart & Checkout Panel          */}
           {/* ═══════════════════════════════════════════════════════════ */}
-          <div className="hidden md:flex w-[350px] lg:w-[390px] xl:w-[420px] shrink-0 flex-col h-full bg-white border-l border-slate-200">
+          <div className="hidden md:flex w-[350px] lg:w-[390px] xl:w-[420px] shrink-0 flex-col h-full bg-ad-surface border-l-2 border-ad-line">
             <BillPanel {...billPanelProps} />
           </div>
         </div>
@@ -645,17 +601,15 @@ export default function PosPage() {
             <button
               type="button"
               onClick={() => setMobileBillOpen(true)}
-              className="w-full h-13 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-sm flex items-center justify-between px-5 shadow-2xl active:scale-[0.98] transition-all"
+              className="ad-btn ad-btn-primary w-full h-13 justify-between px-5 text-[14px]"
             >
-              <div className="flex items-center gap-2">
-                <span className="size-6.5 rounded-lg bg-white/20 flex items-center justify-center font-mono text-xs">
+              <span className="flex items-center gap-2">
+                <span className="size-6.5 grid place-items-center bg-ad-bg text-ad-accent ad-num text-[12px]">
                   {totalUnits}
                 </span>
-                <span>View Cart</span>
-              </div>
-              <span className="font-mono text-base font-black">
-                ₹{totals.grandTotal.toFixed(2)}
+                <span>View cart</span>
               </span>
+              <span className="ad-num text-[17px]">₹{totals.grandTotal.toFixed(2)}</span>
             </button>
           </div>
         )}
@@ -665,7 +619,7 @@ export default function PosPage() {
           <SheetContent
             side="bottom"
             showCloseButton={false}
-            className="p-0 h-[min(94dvh,780px)] rounded-t-3xl border-none bg-white overflow-hidden"
+            className="p-0 h-[min(94dvh,780px)] bg-ad-surface overflow-hidden"
           >
             <BillPanel
               {...billPanelProps}

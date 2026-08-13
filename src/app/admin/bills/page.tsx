@@ -5,21 +5,17 @@ import React, { useState, useMemo } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { Order } from '@/types';
-import { PageHeader, StatusChip } from '@/components/admin/ui';
 import { DataTable } from '@/components/ui/data-table';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Printer, Eye } from 'lucide-react';
 import ThermalBill from '@/components/bill/ThermalBill';
 import PrintBillPortal, { type BillFormat } from '@/components/bill/PrintBillPortal';
 import { generateInvoiceNo } from '@/lib/idGenerator';
 import { rupees } from '@/lib/billing';
 import { flushSync } from 'react-dom';
-import { cn } from '@/lib/utils';
 
 export default function GeneratedBillsPage() {
   const { orders } = useAdmin();
@@ -52,9 +48,9 @@ export default function GeneratedBillsPage() {
       header: 'Bill No / Date',
       cell: ({ row }) => (
         <div>
-          <div className="font-mono text-sm text-stone-900">{row.original.id}</div>
-          <div className="text-xs text-stone-400 mt-0.5">
-            {new Date(row.original.createdAt || row.original.orderDate || Date.now()).toLocaleString()}
+          <div className="ad-num text-[13px]">{row.original.id}</div>
+          <div className="text-xs ad-muted mt-0.5">
+            {new Date(row.original.createdAt || row.original.orderDate || Date.now()).toLocaleString('en-IN')}
           </div>
         </div>
       ),
@@ -63,9 +59,9 @@ export default function GeneratedBillsPage() {
       accessorKey: 'customerName',
       header: 'Customer',
       cell: ({ row }) => (
-        <div>
-          <div className="font-medium text-sm text-stone-900">{row.original.customerName || 'Walk-in'}</div>
-          <div className="text-xs text-stone-400">{row.original.customerPhone || ''}</div>
+        <div className="min-w-0">
+          <div className="font-semibold truncate">{row.original.customerName || 'Walk-in'}</div>
+          <div className="text-xs ad-muted">{row.original.customerPhone || ''}</div>
         </div>
       ),
     },
@@ -73,18 +69,14 @@ export default function GeneratedBillsPage() {
       accessorKey: 'paymentMode',
       header: 'Payment',
       cell: ({ row }) => (
-        <Badge variant="outline" className="text-xs font-medium uppercase bg-stone-50 border-stone-200 text-stone-600">
-          {row.original.paymentMode || 'Cash'}
-        </Badge>
+        <span className="ad-tag ad-tag-outline">{row.original.paymentMode || 'Cash'}</span>
       ),
     },
     {
       accessorKey: 'grandTotal',
       header: 'Amount',
       cell: ({ row }) => (
-        <span className="font-semibold text-stone-900 tabular-nums">
-          {rupees(row.original.grandTotal)}
-        </span>
+        <span className="ad-num text-[14px]">{rupees(row.original.grandTotal)}</span>
       ),
     },
     {
@@ -93,13 +85,13 @@ export default function GeneratedBillsPage() {
       cell: ({ row }) => {
         const order = row.original;
         return (
-          <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" onClick={() => setSelectedBillOrder(order)} className="h-8 px-2.5 text-xs">
-              <Eye className="size-3.5 mr-1" /> View
-            </Button>
-            <Button size="sm" onClick={() => handlePrint(order)} className="h-8 bg-amber-600 hover:bg-amber-700 text-white px-2.5 text-xs">
-              <Printer className="size-3.5 mr-1" /> Print
-            </Button>
+          <div className="flex items-center gap-2">
+            <button type="button" className="ad-btn ad-btn-secondary ad-btn-sm" onClick={() => setSelectedBillOrder(order)}>
+              <Eye className="size-3.5" /> View
+            </button>
+            <button type="button" className="ad-btn ad-btn-primary ad-btn-sm" onClick={() => handlePrint(order)}>
+              <Printer className="size-3.5" /> Print
+            </button>
           </div>
         );
       },
@@ -118,14 +110,11 @@ export default function GeneratedBillsPage() {
           />
         )}
 
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-stone-900">Transaction Ledger</h1>
-            <p className="text-sm text-stone-500 mt-0.5">
-              {orders.length} bills · Total value {rupees(totalBilledRevenue)}
-            </p>
-          </div>
+        <div className="ad-section-head">
+          <h3 className="ad-h text-[17px]">Transaction ledger</h3>
+          <span className="text-[12px] ad-muted">
+            {orders.length} bills · {rupees(totalBilledRevenue)} billed
+          </span>
         </div>
 
         {/* Filters */}
@@ -134,12 +123,8 @@ export default function GeneratedBillsPage() {
             <button
               key={mode}
               onClick={() => setPaymentFilter(mode)}
-              className={cn(
-                'shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap uppercase',
-                paymentFilter === mode
-                  ? 'border-amber-600 bg-amber-600 text-white'
-                  : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
-              )}
+              className="ad-tab shrink-0"
+              data-active={paymentFilter === mode}
             >
               {mode} ({orders.filter((o) => mode === 'all' || o.paymentMode === mode).length})
             </button>
@@ -147,7 +132,7 @@ export default function GeneratedBillsPage() {
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-xl border border-stone-200">
+        <div>
           <DataTable
             columns={columns}
             data={filteredBills}
@@ -159,27 +144,25 @@ export default function GeneratedBillsPage() {
             getRowId={(o) => o.id}
             renderMobileCard={(o) => (
               <div className="space-y-2.5">
-                <div className="flex items-center justify-between gap-3">
+                <div className="flex items-baseline justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="font-mono text-sm text-stone-900">{o.id}</div>
-                    <div className="text-xs text-stone-400 mt-0.5">
-                      {new Date(o.createdAt || o.orderDate || Date.now()).toLocaleString()}
+                    <div className="ad-num text-[15px]">{o.id}</div>
+                    <div className="ad-kicker mt-0.5">
+                      {new Date(o.createdAt || o.orderDate || Date.now()).toLocaleString('en-IN')}
                     </div>
                   </div>
-                  <span className="font-semibold text-stone-900 tabular-nums">
-                    {rupees(o.grandTotal)}
-                  </span>
+                  <span className="ad-num text-[20px]">{rupees(o.grandTotal)}</span>
                 </div>
-                <div className="text-xs text-stone-500">
+                <div className="text-[13px] ad-muted">
                   {o.customerName || 'Walk-in'} · <span className="uppercase">{o.paymentMode || 'Cash'}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setSelectedBillOrder(o)} className="h-8 text-xs">
-                    View Preview
-                  </Button>
-                  <Button size="sm" onClick={() => handlePrint(o)} className="h-8 bg-amber-600 hover:bg-amber-700 text-white text-xs">
+                  <button type="button" className="ad-btn ad-btn-secondary ad-btn-sm" onClick={() => setSelectedBillOrder(o)}>
+                    Preview
+                  </button>
+                  <button type="button" className="ad-btn ad-btn-primary ad-btn-sm" onClick={() => handlePrint(o)}>
                     Print 80mm
-                  </Button>
+                  </button>
                 </div>
               </div>
             )}
@@ -190,26 +173,24 @@ export default function GeneratedBillsPage() {
       {/* Preview modal */}
       <Dialog open={!!selectedBillOrder} onOpenChange={(val) => { if (!val) setSelectedBillOrder(null); }}>
         {selectedBillOrder && (
-          <DialogContent className="max-w-sm rounded-xl p-0 overflow-hidden bg-white border border-stone-200">
-            <DialogHeader className="border-b border-stone-100 px-5 py-4">
-              <DialogTitle className="text-sm font-semibold text-stone-900">
-                Receipt {selectedBillOrder.id}
-              </DialogTitle>
-              <DialogDescription className="text-xs text-stone-400 mt-0.5">
-                Counter receipt preview · {rupees(selectedBillOrder.grandTotal)}
+          <DialogContent className="max-w-sm p-0 overflow-hidden">
+            <DialogHeader className="border-b-2 border-ad-line px-5 py-4">
+              <DialogTitle className="ad-h text-[17px]">Receipt {selectedBillOrder.id}</DialogTitle>
+              <DialogDescription className="ad-kicker mt-1">
+                Counter preview · {rupees(selectedBillOrder.grandTotal)}
               </DialogDescription>
             </DialogHeader>
 
-            <div className="max-h-[50vh] overflow-y-auto bg-stone-50 p-4">
-              <div className="rounded-lg border border-dashed border-stone-200 bg-white py-2">
+            <div className="max-h-[50vh] overflow-y-auto bg-ad-surface p-4">
+              <div className="border border-dashed border-ad-line bg-white py-2">
                 <ThermalBill order={selectedBillOrder} />
               </div>
             </div>
 
-            <div className="p-4 border-t border-stone-100 bg-stone-50">
-              <Button onClick={() => handlePrint(selectedBillOrder)} className="w-full bg-amber-600 hover:bg-amber-700 text-white text-xs h-9">
-                <Printer className="size-4 mr-1.5" /> Print Receipt
-              </Button>
+            <div className="p-4 border-t-2 border-ad-line bg-ad-surface">
+              <button type="button" className="ad-btn ad-btn-primary w-full" onClick={() => handlePrint(selectedBillOrder)}>
+                <Printer className="size-4" /> Print receipt
+              </button>
             </div>
           </DialogContent>
         )}

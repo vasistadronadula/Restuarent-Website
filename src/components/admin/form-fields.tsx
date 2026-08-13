@@ -31,7 +31,6 @@ import {
 import {
   Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage,
 } from '@/components/ui/form';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
@@ -39,7 +38,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 
-const labelClass = 'text-[11px] font-bold uppercase tracking-wide text-stone-500 dark:text-stone-400';
+/* One label voice for every field: the system's 11px wide-tracked upper. */
+const labelClass = 'ad-kicker';
+
+/* Controls are the system's square, surface-filled box. `ad-input` carries the
+   whole look, so each control only adds what is specific to it. */
+const controlClass = 'ad-input';
 
 interface BaseFieldProps<T extends FieldValues> {
   control: Control<T>;
@@ -78,7 +82,7 @@ export function TextField<T extends FieldValues>({
               // Autofill on a staff password field offers the manager's own
               // saved credentials, which is never what a new-hire form wants.
               autoComplete={type === 'password' ? 'new-password' : undefined}
-              className="rounded-xl bg-stone-50/60 dark:bg-stone-900/50"
+              className={controlClass}
             />
           </FormControl>
           {hint && !fieldState.error && <FormDescription>{hint}</FormDescription>}
@@ -120,7 +124,7 @@ export function NumberField<T extends FieldValues>({
           <FormLabel className={labelClass}>{label}</FormLabel>
           <div className="relative">
             {prefix && (
-              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-bold text-stone-400">
+              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-semibold text-ad-muted">
                 {prefix}
               </span>
             )}
@@ -135,15 +139,11 @@ export function NumberField<T extends FieldValues>({
                 step={step}
                 placeholder={placeholder}
                 disabled={disabled}
-                className={cn(
-                  'rounded-xl bg-stone-50/60 tabular-nums dark:bg-stone-900/50',
-                  prefix && 'pl-7',
-                  suffix && 'pr-10'
-                )}
+                className={cn(controlClass, 'tabular-nums', prefix && 'pl-7', suffix && 'pr-10')}
               />
             </FormControl>
             {suffix && (
-              <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-bold text-stone-400">
+              <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-ad-muted">
                 {suffix}
               </span>
             )}
@@ -174,7 +174,7 @@ export function SelectField<T extends FieldValues>({
           <FormLabel className={labelClass}>{label}</FormLabel>
           <Select value={field.value ?? ''} onValueChange={field.onChange} disabled={disabled}>
             <FormControl>
-              <SelectTrigger className="w-full rounded-xl bg-stone-50/60 dark:bg-stone-900/50">
+              <SelectTrigger className={cn(controlClass, 'w-full')}>
                 <SelectValue placeholder={placeholder} />
               </SelectTrigger>
             </FormControl>
@@ -212,7 +212,7 @@ export function TextAreaField<T extends FieldValues>({
               value={field.value ?? ''}
               rows={rows}
               placeholder={placeholder}
-              className="resize-none rounded-xl bg-stone-50/60 dark:bg-stone-900/50"
+              className={cn(controlClass, 'resize-none')}
             />
           </FormControl>
           {hint && !fieldState.error && <FormDescription>{hint}</FormDescription>}
@@ -235,14 +235,12 @@ export function SwitchField<T extends FieldValues>({
       render={({ field }) => (
         <FormItem
           className={cn(
-            'flex flex-row items-center justify-between gap-4 rounded-xl border border-stone-200/60 bg-stone-50/60 p-3 dark:border-[#2C2C2E]/50 dark:bg-stone-900/40',
+            'flex flex-row items-center justify-between gap-4 border border-ad-hairline bg-ad-surface p-3',
             className
           )}
         >
           <div className="min-w-0 space-y-0.5">
-            <FormLabel className="text-xs font-bold text-stone-800 dark:text-stone-200">
-              {label}
-            </FormLabel>
+            <FormLabel className="text-[14px] font-semibold text-ad-ink">{label}</FormLabel>
             {hint && <FormDescription className="text-[10.5px]">{hint}</FormDescription>}
           </div>
           <FormControl>
@@ -300,10 +298,10 @@ export function FormDialog<T extends FieldValues>({
         )}
         showCloseButton={!busy}
       >
-        <DialogHeader className="border-b border-stone-100 px-5 py-4 text-left dark:border-[#2C2C2E]/60">
-          <DialogTitle className="text-base font-black">{title}</DialogTitle>
+        <DialogHeader className="border-b-2 border-ad-line px-5 py-4 text-left">
+          <DialogTitle className="ad-h text-[18px]">{title}</DialogTitle>
           {description ? (
-            <DialogDescription className="text-xs">{description}</DialogDescription>
+            <DialogDescription className="text-[12px] ad-muted">{description}</DialogDescription>
           ) : (
             // Radix warns when a dialog has no description; the sr-only node
             // satisfies it without printing anything.
@@ -319,24 +317,19 @@ export function FormDialog<T extends FieldValues>({
               {children}
             </div>
 
-            <DialogFooter className="flex-row gap-2 border-t border-stone-100 bg-stone-50/40 px-5 py-3.5 dark:border-[#2C2C2E]/60 dark:bg-stone-950/30">
-              <Button
+            <DialogFooter className="flex-row gap-2 border-t-2 border-ad-line bg-ad-surface px-5 py-3.5">
+              <button
                 type="button"
-                variant="outline"
+                className="ad-btn ad-btn-secondary flex-1 sm:flex-none"
                 disabled={busy}
                 onClick={() => onOpenChange(false)}
-                className="flex-1 rounded-xl font-bold sm:flex-none"
               >
                 Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={busy}
-                className="flex-1 rounded-xl bg-amber-600 font-extrabold text-white hover:bg-amber-700 sm:flex-none sm:min-w-36"
-              >
+              </button>
+              <button type="submit" className="ad-btn ad-btn-primary flex-1 sm:flex-none sm:min-w-36" disabled={busy}>
                 {busy && <Loader2 className="size-4 animate-spin" />}
                 {busy ? 'Saving…' : submitLabel}
-              </Button>
+              </button>
             </DialogFooter>
           </form>
         </Form>
@@ -393,33 +386,26 @@ export function ImageUploadField<T extends FieldValues>({
                   }}
                 />
                 {imageVal ? (
-                  <div className="flex items-center gap-3.5 p-3 rounded-2xl border border-stone-200/80 dark:border-[#2C2C2E]/60 bg-stone-50/50 dark:bg-stone-900/40">
-                    <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-stone-200 dark:border-stone-800 bg-stone-100 dark:bg-stone-800">
-                      <img src={imageVal} alt="Dish Preview" className="w-full h-full object-cover" />
+                  <div className="flex items-center gap-3.5 p-3 border border-ad-hairline bg-ad-surface">
+                    <div className="relative w-16 h-16 overflow-hidden shrink-0 bg-ad-n200">
+                      <img src={imageVal} alt="Dish preview" className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-stone-900 dark:text-stone-100 truncate">Image Uploaded</p>
-                      <p className="text-[10px] text-stone-400 font-semibold mt-0.5">High-resolution dish photo from device</p>
+                      <p className="text-[13px] font-semibold truncate m-0">Image uploaded</p>
+                      <p className="ad-kicker mt-0.5">From this device</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button
+                      <button type="button" className="ad-btn ad-btn-secondary ad-btn-sm" onClick={() => fileInputRef.current?.click()}>
+                        Replace
+                      </button>
+                      <button
                         type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="h-8 rounded-xl text-xs font-bold"
-                      >
-                        Change Image
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
+                        className="ad-btn ad-btn-sm"
+                        style={{ color: 'var(--ad-a700)' }}
                         onClick={() => field.onChange('')}
-                        className="h-8 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
                       >
                         Remove
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -431,17 +417,11 @@ export function ImageUploadField<T extends FieldValues>({
                       const file = e.dataTransfer.files?.[0];
                       if (file) handleFile(file);
                     }}
-                    className="border-2 border-dashed border-stone-300 dark:border-stone-700 hover:border-amber-500 dark:hover:border-amber-500/80 rounded-2xl p-4 text-center cursor-pointer transition-all bg-stone-50/40 dark:bg-stone-900/20 hover:bg-amber-50/20 dark:hover:bg-amber-950/10 group"
+                    className="border-2 border-dashed border-ad-line hover:border-ad-accent p-5 text-center cursor-pointer transition-colors bg-ad-surface"
                   >
-                    <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 mx-auto flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                      <UploadCloud className="w-5 h-5" />
-                    </div>
-                    <p className="text-xs font-bold text-stone-850 dark:text-stone-100">
-                      Upload Dish Photo From System
-                    </p>
-                    <p className="text-[10px] text-stone-400 font-medium mt-0.5">
-                      PNG, JPG, WEBP up to 5MB · Click to browse from computer
-                    </p>
+                    <UploadCloud className="w-5 h-5 mx-auto mb-2 text-ad-accent" />
+                    <p className="text-[13px] font-semibold m-0">Upload a dish photo</p>
+                    <p className="ad-kicker mt-1">PNG, JPG, WEBP · up to 5MB</p>
                   </div>
                 )}
               </div>
@@ -480,27 +460,17 @@ export function ConfirmDeleteDialog({
     <Dialog open={open} onOpenChange={(next) => !busy && onOpenChange(next)}>
       <DialogContent className="max-w-sm" showCloseButton={!busy}>
         <DialogHeader>
-          <DialogTitle className="text-base font-black">{title}</DialogTitle>
-          <DialogDescription className="text-xs">{description}</DialogDescription>
+          <DialogTitle className="ad-h text-[18px]">{title}</DialogTitle>
+          <DialogDescription className="text-[13px] ad-muted">{description}</DialogDescription>
         </DialogHeader>
-        <DialogFooter className="flex-row gap-2">
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={() => onOpenChange(false)}
-            className="flex-1 rounded-xl font-bold"
-          >
+        <DialogFooter className="flex-row gap-2 pt-2">
+          <button type="button" className="ad-btn ad-btn-secondary flex-1" disabled={busy} onClick={() => onOpenChange(false)}>
             Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={busy}
-            onClick={() => onConfirm()}
-            className="flex-1 rounded-xl font-extrabold"
-          >
+          </button>
+          <button type="button" className="ad-btn ad-btn-primary flex-1" disabled={busy} onClick={() => onConfirm()}>
             {busy && <Loader2 className="size-4 animate-spin" />}
             {confirmLabel}
-          </Button>
+          </button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

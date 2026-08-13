@@ -133,6 +133,24 @@ body[data-scroll-locked] {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
 
+  /* Admin console (Modernist) — the values live in app/admin/admin-theme.css,
+     which only the /admin and /cashier routes load. Bridged here so the console
+     can be written in named utilities (`border-ad-line`) instead of arbitrary
+     `border-[var(--ad-divider)]`. Unused, and inert, on the customer site. */
+  --color-ad-bg: var(--ad-bg);
+  --color-ad-surface: var(--ad-surface);
+  --color-ad-ink: var(--ad-ink);
+  --color-ad-accent: var(--ad-accent);
+  --color-ad-accent-soft: var(--ad-a100);
+  --color-ad-accent-deep: var(--ad-a800);
+  --color-ad-line: var(--ad-divider);
+  --color-ad-hairline: var(--ad-hairline);
+  --color-ad-muted: var(--ad-n600);
+  --color-ad-n200: var(--ad-n200);
+  --color-ad-n300: var(--ad-n300);
+  --color-ad-ok: var(--ad-ok);
+  --color-ad-warn: var(--ad-warn);
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

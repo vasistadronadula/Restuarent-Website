@@ -4,12 +4,9 @@ import React, { useEffect, useState } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { PageHeader, SectionCard, RoleBadge } from '@/components/admin/ui';
+import { PageHeader, RoleBadge } from '@/components/admin/ui';
+import { ROLE_ACCESS_SUMMARY } from '@/lib/roleAccess';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user, userRole } = useAuth();
@@ -49,109 +46,138 @@ export default function ProfilePage() {
       if (supabase) {
         await supabase
           .from('profiles')
-          .update({
-            full_name: fullName,
-            phone: phone,
-            avatar_url: avatarUrl,
-          })
+          .update({ full_name: fullName, phone, avatar_url: avatarUrl })
           .eq('id', user.id);
       }
-      toast.success('Profile updated successfully!');
+      toast.success('Profile updated.');
     } catch {
-      toast.error('Failed to update profile');
+      toast.error('Could not save your profile.');
     } finally {
       setSaving(false);
     }
   };
 
+  const initials = (fullName || 'Pala Pitta')
+    .split(' ')
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  const joined = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+    : '—';
+
   return (
-    <AdminLayout title="Staff Profile Settings">
-      <div className="space-y-4 max-w-4xl mx-auto w-full">
-        <PageHeader
-          title="Profile Settings"
-          subtitle="Manage your personal credentials and contact details"
-        />
+    <AdminLayout title="Your profile">
+      <PageHeader
+        title="Your profile"
+        subtitle="Your name, contact number and photo, as other staff see them."
+      />
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-          <div className="md:col-span-4">
-            <SectionCard className="text-center space-y-3">
-              <Avatar className="w-16 h-16 mx-auto border border-stone-200">
-                <AvatarImage src={avatarUrl} alt={fullName} />
-                <AvatarFallback className="bg-stone-100 text-stone-850 font-semibold text-lg">
-                  {fullName ? fullName.slice(0, 2).toUpperCase() : 'PP'}
-                </AvatarFallback>
-              </Avatar>
+      <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6 items-start">
 
-              <div>
-                <h3 className="font-semibold text-stone-900 text-sm">
-                  {fullName || 'Staff User'}
-                </h3>
-                <p className="text-xs text-stone-400 mt-0.5">{user?.email}</p>
-              </div>
-
-              <div className="pt-1">
-                <RoleBadge role={userRole} />
-              </div>
-            </SectionCard>
+        <section className="border-2 border-ad-line p-5">
+          <div
+            className="w-22 h-22 grid place-items-center bg-ad-accent text-ad-bg ad-num text-[30px] overflow-hidden"
+            style={avatarUrl ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}
+          >
+            {avatarUrl ? '' : initials}
           </div>
 
-          <div className="md:col-span-8">
-            <SectionCard className="space-y-4">
-              <h3 className="font-semibold text-sm text-stone-900 flex items-center gap-2 border-b border-stone-100 pb-2.5">
-                <User className="w-4 h-4 text-amber-600" /> Personal Details
-              </h3>
+          <div className="ad-num text-[22px] mt-4 wrap-break-word">{fullName || 'Staff user'}</div>
+          <div className="mt-2"><RoleBadge role={userRole} /></div>
 
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs text-stone-500 block mb-1">Full Name</label>
-                  <Input
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="focus-visible:ring-amber-500"
-                  />
-                </div>
+          <hr className="ad-rule my-4" />
 
-                <div>
-                  <label className="text-xs text-stone-500 block mb-1">Phone Number</label>
-                  <Input
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="focus-visible:ring-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-stone-500 block mb-1">Email Address</label>
-                  <Input
-                    disabled
-                    value={user?.email || ''}
-                    className="bg-stone-50 cursor-not-allowed text-stone-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-stone-500 block mb-1">Avatar Image URL</label>
-                  <Input
-                    placeholder="https://..."
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    className="focus-visible:ring-amber-500"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-stone-100 flex justify-end">
-                <Button
-                  disabled={saving}
-                  onClick={handleSave}
-                  className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-9 px-4"
-                >
-                  Save Profile Changes
-                </Button>
-              </div>
-            </SectionCard>
+          <div className="flex flex-col gap-3 text-[13px]">
+            <div>
+              <span className="ad-muted">Email</span>
+              <br />
+              <span className="wrap-break-word">{user?.email || '—'}</span>
+            </div>
+            <div>
+              <span className="ad-muted">Member since</span>
+              <br />
+              {joined}
+            </div>
+            <div>
+              <span className="ad-muted">Access</span>
+              <br />
+              {userRole ? ROLE_ACCESS_SUMMARY[userRole] : '—'}
+            </div>
           </div>
-        </div>
+        </section>
+
+        <section>
+          <div className="ad-section-head">
+            <h3 className="ad-h text-[17px]">Account details</h3>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="ad-field">
+              <label htmlFor="pf-name">Full name</label>
+              <input
+                id="pf-name"
+                className="ad-input"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
+            </div>
+
+            <div className="ad-field">
+              <label htmlFor="pf-phone">Phone</label>
+              <input
+                id="pf-phone"
+                className="ad-input"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                inputMode="tel"
+              />
+            </div>
+
+            <div className="ad-field sm:col-span-2">
+              <label htmlFor="pf-email">Email</label>
+              <input
+                id="pf-email"
+                className="ad-input"
+                value={user?.email || ''}
+                disabled
+                style={{ color: 'var(--ad-n600)', cursor: 'not-allowed' }}
+              />
+            </div>
+
+            <div className="ad-field sm:col-span-2">
+              <label htmlFor="pf-avatar">Photo URL</label>
+              <input
+                id="pf-avatar"
+                className="ad-input"
+                placeholder="https://…"
+                value={avatarUrl}
+                onChange={(e) => setAvatarUrl(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 mt-6">
+            <button
+              type="button"
+              className="ad-btn ad-btn-primary"
+              disabled={saving}
+              onClick={handleSave}
+            >
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+            <button
+              type="button"
+              className="ad-btn ad-btn-secondary"
+              onClick={() => window.location.reload()}
+              disabled={saving}
+            >
+              Discard
+            </button>
+          </div>
+        </section>
       </div>
     </AdminLayout>
   );

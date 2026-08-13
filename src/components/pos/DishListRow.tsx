@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, Minus, Check, Star } from 'lucide-react';
+import { Plus, Minus } from 'lucide-react';
 import type { MenuItem } from '@/types';
 import { PORTION_LABEL, sellablePortions, type Portion } from '@/hooks/usePosCart';
 
@@ -22,42 +22,27 @@ function DishListRow({ item, inBill, quantityByPortion, onAdd, onDecrement }: Pr
   const hasPortionChoice = portions.length > 1;
   const unitPrice = portions.length === 1 ? portions[0].price : item.price;
 
-  const vegDotColor = isVeg
-    ? 'border-emerald-600'
-    : isEgg
-    ? 'border-amber-500'
-    : 'border-rose-600';
-
-  const vegDotFill = isVeg
-    ? 'bg-emerald-600'
-    : isEgg
-    ? 'bg-amber-500'
-    : 'bg-rose-600';
+  // Regulated veg mark — the console's one sanctioned second colour.
+  const vegColor = isVeg ? 'var(--ad-ok)' : isEgg ? 'var(--ad-warn)' : 'var(--ad-accent)';
 
   return (
     <div
-      className={`flex items-center gap-3.5 px-4 py-3 min-h-[64px] transition-all border-l-4 ${
-        active
-          ? 'bg-blue-50/70 border-l-blue-600'
-          : 'bg-white border-l-transparent hover:bg-slate-50'
-      }`}
+      className={`flex items-center gap-3.5 px-4 py-3 min-h-16 transition-colors ${active ? 'bg-ad-surface' : 'bg-ad-bg ad-hover'}`}
+      style={{ borderLeft: `4px solid ${active ? 'var(--ad-accent)' : 'transparent'}` }}
     >
-      {/* Veg Indicator Dot */}
-      <span className={`shrink-0 size-4.5 rounded-[4px] border-2 bg-white flex items-center justify-center ${vegDotColor}`}>
-        <span className={`size-2 rounded-full ${vegDotFill}`} />
+      {/* Veg mark */}
+      <span
+        className="shrink-0 size-4.5 border-2 bg-ad-bg grid place-items-center"
+        style={{ borderColor: vegColor }}
+      >
+        <span className="size-2 rounded-full" style={{ background: vegColor }} />
       </span>
 
       {/* Name + Price */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h4 className="text-sm font-bold text-slate-900 leading-tight truncate">
-            {item.name}
-          </h4>
-          {item.isPopular && (
-            <span className="shrink-0 text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-amber-100 text-amber-900">
-              Top
-            </span>
-          )}
+          <h4 className="ad-num text-[15px] leading-tight truncate m-0">{item.name}</h4>
+          {item.isPopular && <span className="ad-tag ad-tag-solid text-[9px] px-1.5">Top</span>}
         </div>
 
         {hasPortionChoice ? (
@@ -70,64 +55,49 @@ function DishListRow({ item, inBill, quantityByPortion, onAdd, onDecrement }: Pr
                   key={portion}
                   type="button"
                   onClick={() => onAdd(item, portion)}
-                  className={`h-7 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 border ${
-                    selected
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-blue-50'
-                  }`}
+                  className="ad-tab h-7 px-2.5 flex items-center gap-1"
+                  data-active={selected}
                 >
                   {PORTION_LABEL[portion]} ₹{price}
-                  {qty > 0 && (
-                    <span className="ml-0.5 bg-white/30 text-white text-[10px] font-black px-1 rounded-full">
-                      {qty}
-                    </span>
-                  )}
+                  {qty > 0 && <span className="tabular-nums">{qty}</span>}
                 </button>
               );
             })}
           </div>
         ) : (
-          <span className="text-sm font-black text-slate-950 font-mono mt-0.5 block">
-            ₹{unitPrice}
-          </span>
+          <span className="ad-num text-[15px] mt-0.5 block">₹{unitPrice}</span>
         )}
       </div>
 
       {/* Qty Stepper or Fast Add Button */}
       {hasPortionChoice ? (
         active && (
-          <span className="shrink-0 min-w-[32px] h-8 px-2.5 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs font-black shadow-xs font-mono">
+          <span className="shrink-0 min-w-8 h-8 px-2.5 bg-ad-accent text-ad-bg grid place-items-center ad-num text-[13px]">
             {inBill}
           </span>
         )
       ) : active ? (
-        <div className="flex items-center gap-0 bg-white border-2 border-blue-400 rounded-xl overflow-hidden shrink-0 shadow-xs">
+        <div className="flex items-center border border-ad-line overflow-hidden shrink-0">
           <button
             type="button"
             onClick={() => onDecrement?.(item)}
             aria-label={`Less ${item.name}`}
-            className="w-9 h-9 flex items-center justify-center text-blue-700 hover:bg-blue-50 transition-colors"
+            className="ad-btn w-9 h-9 p-0 ad-hover-strong"
           >
             <Minus className="size-4" />
           </button>
-          <span className="min-w-[28px] text-center text-sm font-black text-blue-950 font-mono px-1 tabular-nums">
-            {inBill}
-          </span>
+          <span className="min-w-7 text-center ad-num text-[15px] px-1">{inBill}</span>
           <button
             type="button"
             onClick={() => onAdd(item)}
             aria-label={`More ${item.name}`}
-            className="w-9 h-9 flex items-center justify-center bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+            className="ad-btn ad-btn-primary w-9 h-9 p-0"
           >
             <Plus className="size-4" />
           </button>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={() => onAdd(item)}
-          className="shrink-0 h-9 px-4 rounded-xl bg-slate-900 hover:bg-blue-600 active:scale-95 text-white text-xs font-black flex items-center justify-center gap-1 transition-all shadow-xs"
-        >
+        <button type="button" onClick={() => onAdd(item)} className="ad-btn ad-btn-dark shrink-0 h-9 px-4">
           <Plus className="size-3.5" />
           Add
         </button>

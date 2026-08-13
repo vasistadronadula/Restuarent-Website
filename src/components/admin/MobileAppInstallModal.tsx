@@ -36,10 +36,10 @@ function Step({
   index: number; title: string; done: boolean; children: React.ReactNode;
 }) {
   return (
-    <div className={`p-4 rounded-2xl border transition-all ${done ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800' : 'bg-white dark:bg-stone-900 border-stone-200/80 dark:border-stone-800'}`}>
+    <div className={`p-4 rounded-2xl border transition-all ${done ? 'bg-ad-surface  border-ad-hairline ' : 'bg-white dark:bg-stone-900 border-stone-200/80 dark:border-stone-800'}`}>
       <div className="flex items-center gap-2 mb-2">
         {done ? (
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+          <CheckCircle2 className="w-5 h-5 text-ad-ok  flex-shrink-0" />
         ) : (
           <div className="w-5 h-5 rounded-full bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 text-xs font-black flex items-center justify-center flex-shrink-0">
             {index}
@@ -120,7 +120,7 @@ function SetupSteps({
 
   return (
     <div className="space-y-3">
-      <div className="p-3 bg-amber-500/10 dark:bg-amber-950/20 rounded-xl border border-amber-500/20 space-y-1">
+      <div className="p-3 bg-ad-accent-soft  rounded-xl border border-ad-hairline space-y-1">
         {app.highlights.map((line) => (
           <p key={line} className="text-xs text-stone-700 dark:text-stone-300 leading-relaxed">
             • {line}
@@ -136,14 +136,14 @@ function SetupSteps({
         ) : deferredPrompt ? (
           <Button
             onClick={onInstall}
-            className="w-full h-10 font-extrabold rounded-xl bg-amber-600 hover:bg-amber-700 text-white shadow-md"
+            className="w-full h-10 font-extrabold rounded-xl ad-btn ad-btn-primary shadow-md"
           >
             <Download className="w-4 h-4 mr-2" />
             Install {app.shortName}
           </Button>
         ) : isIOS ? (
           <div className="space-y-1 text-xs text-stone-600 dark:text-stone-400">
-            <div className="font-bold text-amber-700 dark:text-amber-500 flex items-center gap-1">
+            <div className="font-bold text-ad-accent-deep  flex items-center gap-1">
               <Smartphone className="w-4 h-4" /> On iPhone (Safari)
             </div>
             <p>
@@ -152,7 +152,7 @@ function SetupSteps({
           </div>
         ) : (
           <div className="space-y-1 text-xs text-stone-600 dark:text-stone-400">
-            <div className="font-bold text-emerald-700 dark:text-emerald-500 flex items-center gap-1">
+            <div className="font-bold text-ad-ok  flex items-center gap-1">
               <Smartphone className="w-4 h-4" /> On Android (Chrome)
             </div>
             <p>
@@ -165,12 +165,12 @@ function SetupSteps({
       {wantsAlerts && (
         <Step index={alertsStepIndex} title="Turn on instant alerts" done={pushState === 'granted'}>
           {pushState === 'granted' ? (
-            <p className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 font-medium">
+            <p className="text-xs text-ad-ok  flex items-center gap-1.5 font-medium">
               <Bell className="w-4 h-4" />
               Alerted the moment {userRole === 'waiter' ? 'a table is booked' : 'an order comes in'}.
             </p>
           ) : pushState === 'denied' ? (
-            <p className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1">
+            <p className="text-xs text-ad-accent-deep  flex items-start gap-1">
               <BellOff className="w-4 h-4 mt-0.5 flex-shrink-0" />
               Notifications are blocked for this site. Turn them back on in your browser&apos;s site settings.
             </p>
@@ -183,7 +183,7 @@ function SetupSteps({
               <Button
                 onClick={handleEnableAlerts}
                 disabled={enablingPush || !userId}
-                className="w-full h-10 font-extrabold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="w-full h-10 font-extrabold rounded-xl ad-btn ad-btn-primary"
               >
                 {enablingPush ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Bell className="w-4 h-4 mr-2" />}
                 Allow notifications
@@ -205,7 +205,7 @@ function SetupSteps({
             </p>
           ) : printerName ? (
             <div className="space-y-2 text-xs">
-              <p className="text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
+              <p className="text-ad-ok  font-bold flex items-center gap-1">
                 <Bluetooth className="w-4 h-4" />
                 {printerName}
                 {isBluetoothPrinterConnected() ? ' — orders print automatically' : ' — paired'}
@@ -235,7 +235,7 @@ function SetupSteps({
               <Button
                 onClick={handleConnectPrinter}
                 disabled={connectingPrinter}
-                className="w-full h-10 font-extrabold rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full h-10 font-extrabold rounded-xl ad-btn ad-btn-dark"
               >
                 {connectingPrinter ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Bluetooth className="w-4 h-4 mr-2" />}
                 Connect printer
@@ -299,9 +299,9 @@ export default function MobileAppInstallModal({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(val) => { if (!val) onClose(); }}>
       <DialogContent className="max-w-sm p-0 overflow-hidden rounded-3xl bg-white dark:bg-stone-900 border-none shadow-2xl">
         <DialogHeader className="p-6 pb-2 text-center flex flex-col items-center">
-          <Avatar className="w-16 h-16 mb-2 border-2 border-amber-500 shadow-lg">
+          <Avatar className="w-16 h-16 mb-2 border-2 border-ad-accent shadow-lg">
             <AvatarImage src="/logo.png" alt={app.name} />
-            <AvatarFallback className="bg-amber-600 text-white font-black text-xl">PP</AvatarFallback>
+            <AvatarFallback className="bg-ad-accent text-white font-black text-xl">PP</AvatarFallback>
           </Avatar>
           <DialogTitle className="text-xl font-black text-stone-900 dark:text-stone-100">
             {app.name}
@@ -324,7 +324,7 @@ export default function MobileAppInstallModal({ open, onClose }: Props) {
         </div>
 
         <DialogFooter className="p-4 bg-stone-50 dark:bg-stone-800/40 border-t border-stone-200/80 dark:border-stone-800 flex flex-row items-center justify-between">
-          <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold border-amber-500/20">
+          <Badge variant="outline" className="bg-ad-accent-soft text-ad-accent-deep  font-bold border-ad-hairline">
             {app.shortName}
           </Badge>
           <Button variant="ghost" onClick={onClose} className="font-bold text-xs">

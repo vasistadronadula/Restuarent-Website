@@ -9,12 +9,13 @@ import {
 } from 'recharts';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
-import { PageHeader, StatCard, SectionCard, EmptyState } from '@/components/admin/ui';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import {
-  ShoppingBag, Calendar, Package, TrendingUp, ArrowLeft
-} from 'lucide-react';
+import { PageHeader, HairlineGrid, StatCell, SectionCard, EmptyState } from '@/components/admin/ui';
+import { ArrowLeft } from 'lucide-react';
+
+/* Chart chrome, matching the console: one accent line over neutral rules. */
+const ACCENT = '#ec3013';
+const AXIS = '#9b9797';
+const GRID = '#d7d3d3';
 
 const dayKey = (d: Date) => {
   const y = d.getFullYear();
@@ -118,70 +119,54 @@ export default function PerformancePage() {
           title="Performance Analytics"
           subtitle="Real-time sales tracking, active orders monitor, and performance stats"
           action={
-            <Button asChild variant="outline" size="sm" className="h-8 text-xs">
-              <Link href="/admin">
-                <ArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Back to Dashboard
-              </Link>
-            </Button>
+            <Link href="/admin" className="ad-btn ad-btn-secondary">
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to dashboard
+            </Link>
           }
         />
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard
-            icon={<TrendingUp className="w-4 h-4" />}
-            label="Today's Revenue"
+        {/* Stats */}
+        <HairlineGrid cols="grid-cols-2 lg:grid-cols-4">
+          <StatCell
+            label="Revenue today"
             value={money(stats.todayRevenue)}
-            sub={`${stats.todayOrders} orders today`}
-            accent="#c62828"
+            delta={`${stats.todayOrders} orders today`}
           />
-          <StatCard
-            icon={<ShoppingBag className="w-4 h-4" />}
-            label="Active Orders"
+          <StatCell
+            label="Active orders"
             value={stats.pendingOrders}
-            sub="In kitchen or preparing"
-            accent="#d97706"
+            delta="in kitchen or preparing"
+            alert={stats.pendingOrders > 0}
           />
-          <StatCard
-            icon={<Calendar className="w-4 h-4" />}
-            label="Today's Bookings"
-            value={stats.todayBookings}
-            sub="Confirmed bookings"
-            accent="#10b981"
-          />
-          <StatCard
-            icon={<Package className="w-4 h-4" />}
-            label="Low Stock Items"
+          <StatCell label="Bookings today" value={stats.todayBookings} delta="confirmed" />
+          <StatCell
+            label="Low stock"
             value={stats.lowStock}
-            sub="Below threshold"
-            accent="#f59e0b"
+            delta="below threshold"
+            alert={stats.lowStock > 0}
           />
-        </div>
+        </HairlineGrid>
 
         {/* Breakdown split */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Chart */}
           <div className="lg:col-span-2">
             <SectionCard className="h-full">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 pb-2 border-b border-stone-100">
-                <div>
-                  <h3 className="text-sm font-semibold text-stone-900">Sales Trend</h3>
-                  <p className="text-xs text-stone-400 mt-0.5">Last 7 days performance metrics</p>
-                </div>
-                <div className="flex gap-1 bg-stone-100 p-1 rounded-lg">
+              <div className="ad-section-head">
+                <h3 className="ad-h text-[17px]">Sales trend</h3>
+                <span className="text-[12px] ad-muted">Last 7 days</span>
+                <div className="flex gap-2 ml-auto">
                   <button
                     onClick={() => setChartMetric('revenue')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      chartMetric === 'revenue' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'
-                    }`}
+                    className="ad-tab"
+                    data-active={chartMetric === 'revenue'}
                   >
                     Revenue
                   </button>
                   <button
                     onClick={() => setChartMetric('orders')}
-                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                      chartMetric === 'orders' ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500 hover:text-stone-700'
-                    }`}
+                    className="ad-tab"
+                    data-active={chartMetric === 'orders'}
                   >
                     Orders
                   </button>
@@ -193,19 +178,19 @@ export default function PerformancePage() {
                   <AreaChart data={chartData} margin={{ left: -10, right: 10, top: 10, bottom: 0 }}>
                     <defs>
                       <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#D97706" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#D97706" stopOpacity={0} />
+                        <stop offset="5%" stopColor={ACCENT} stopOpacity={0.22} />
+                        <stop offset="95%" stopColor={ACCENT} stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E7E5E4" opacity={0.5} />
-                    <XAxis dataKey="label" stroke="#A8A29E" fontSize={11} tickLine={false} />
-                    <YAxis stroke="#A8A29E" fontSize={11} tickLine={false} />
+                    <CartesianGrid vertical={false} stroke={GRID} />
+                    <XAxis dataKey="label" stroke={AXIS} fontSize={11} tickLine={false} />
+                    <YAxis stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
                     <RechartsTooltip
                       contentStyle={{
-                        backgroundColor: '#1c1917',
+                        backgroundColor: '#201e1d',
                         border: 'none',
-                        borderRadius: '8px',
-                        color: '#fff',
+                        borderRadius: 0,
+                        color: '#f3f2f2',
                         fontSize: '12px',
                       }}
                       formatter={(val: any) => [
@@ -216,7 +201,7 @@ export default function PerformancePage() {
                     <Area
                       type="monotone"
                       dataKey={chartMetric}
-                      stroke="#D97706"
+                      stroke={ACCENT}
                       strokeWidth={2}
                       fillOpacity={1}
                       fill="url(#chartGradient)"
@@ -230,42 +215,35 @@ export default function PerformancePage() {
           {/* Recent Activity */}
           <div>
             <SectionCard className="h-full flex flex-col">
-              <div className="flex items-center justify-between mb-4 pb-2 border-b border-stone-100">
-                <div>
-                  <h3 className="text-sm font-semibold text-stone-900">Recent Orders</h3>
-                  <p className="text-xs text-stone-400 mt-0.5">Real-time incoming monitor</p>
-                </div>
-                <Button asChild variant="outline" size="sm" className="h-7 text-xs px-2.5">
-                  <Link href="/admin/orders">View All</Link>
-                </Button>
+              <div className="ad-section-head">
+                <h3 className="ad-h text-[17px]">Recent orders</h3>
+                <Link href="/admin/orders" className="ml-auto text-[12px] text-ad-accent font-semibold no-underline">
+                  View all
+                </Link>
               </div>
 
               <div className="flex-1 overflow-y-auto space-y-3">
                 {recentOrders.length === 0 ? (
-                  <EmptyState emoji="📦" title="No orders received yet today" />
+                  <EmptyState title="No orders yet" subtitle="Nothing has come in today." />
                 ) : (
                   recentOrders.map((o) => (
-                    <Link 
-                      key={o.id} 
-                      href="/admin/orders" 
-                      className="flex items-center justify-between p-2.5 rounded-lg border border-stone-100 hover:bg-stone-50 transition-colors"
+                    <Link
+                      key={o.id}
+                      href="/admin/orders"
+                      className="flex items-center justify-between gap-3 px-3 py-2.5 bg-ad-surface ad-hover no-underline text-ad-ink"
                     >
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-stone-800 truncate">
+                        <div className="text-[14px] font-semibold truncate">
                           {o.customerName || 'Walk-in'}
                         </div>
-                        <div className="text-xs text-stone-400 mt-0.5 flex items-center gap-1">
-                          <span className="uppercase">{o.orderType}</span>
-                          <span>·</span>
-                          <span>{o.items?.length || 0} items</span>
+                        <div className="ad-kicker mt-0.5">
+                          {o.orderType} · {o.items?.length || 0} items
                         </div>
                       </div>
-                      <div className="text-right flex-shrink-0 ml-3">
-                        <div className="text-xs font-semibold text-stone-900">
-                          {money(o.grandTotal)}
-                        </div>
-                        <div className="text-xs text-stone-400 mt-0.5">
-                          {o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-'}
+                      <div className="text-right shrink-0">
+                        <div className="ad-num text-[15px]">{money(o.grandTotal)}</div>
+                        <div className="ad-kicker mt-0.5">
+                          {o.createdAt ? new Date(o.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}
                         </div>
                       </div>
                     </Link>

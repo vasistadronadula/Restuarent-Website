@@ -12,15 +12,13 @@ import {
   useCoupons, useAddCoupon, useUpdateCoupon, useDeleteCoupon, type Coupon,
 } from '@/lib/queries';
 import { couponSchema, type CouponFormOutput, type CouponFormValues } from '@/lib/adminSchemas';
-import { PageHeader } from '@/components/admin/ui';
+import { Pill } from '@/components/admin/ui';
 import {
   ConfirmDeleteDialog, FormDialog, NumberField, SwitchField, TextField,
 } from '@/components/admin/form-fields';
 import { DataTable } from '@/components/ui/data-table';
 import { ColumnDef } from '@tanstack/react-table';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
+
 
 const BLANK_FORM: CouponFormValues = {
   code: '',
@@ -126,57 +124,47 @@ export default function CouponsPage() {
       accessorKey: 'code',
       header: 'Code',
       cell: ({ row }) => (
-        <span className="font-mono text-sm font-semibold text-stone-900">{row.original.code}</span>
+        <span className="ad-num text-[14px] tracking-[0.04em]">{row.original.code}</span>
       ),
     },
     {
       accessorKey: 'description',
       header: 'Description',
       cell: ({ row }) => (
-        <span className="text-sm text-stone-600">{row.original.description || '—'}</span>
+        <span className="ad-muted">{row.original.description || '—'}</span>
       ),
     },
     {
       accessorKey: 'discount',
       header: 'Discount',
       cell: ({ row }) => (
-        <span className="text-sm font-medium text-stone-900 tabular-nums">
-          {row.original.discount}% OFF
-        </span>
+        <span className="ad-num text-[14px]">{row.original.discount}%</span>
       ),
     },
     {
       accessorKey: 'maxDiscount',
       header: 'Max Discount',
       cell: ({ row }) => (
-        <span className="text-xs text-stone-500 tabular-nums">
-          Up to ₹{row.original.maxDiscount}
-        </span>
+        <span className="ad-muted tabular-nums">₹{row.original.maxDiscount}</span>
       ),
     },
     {
       accessorKey: 'minOrder',
       header: 'Min Order',
       cell: ({ row }) => (
-        <span className="text-xs text-stone-500 tabular-nums">
-          ₹{row.original.minOrder}
-        </span>
+        <span className="ad-muted tabular-nums">₹{row.original.minOrder}</span>
       ),
     },
     {
       accessorKey: 'isActive',
       header: 'Status',
       cell: ({ row }) => (
-        <div className="flex items-center gap-2">
-          <Switch
-            checked={row.original.isActive}
-            onCheckedChange={(v) => toggleActive(row.original, v)}
-            aria-label={`${row.original.code} active`}
-          />
-          <span className={`text-xs ${row.original.isActive ? 'text-emerald-700' : 'text-stone-400'}`}>
-            {row.original.isActive ? 'Active' : 'Disabled'}
-          </span>
-        </div>
+        <Pill
+          on={row.original.isActive}
+          onLabel="Live"
+          offLabel="Paused"
+          onClick={() => toggleActive(row.original, !row.original.isActive)}
+        />
       ),
     },
     {
@@ -185,12 +173,12 @@ export default function CouponsPage() {
       enableSorting: false,
       cell: ({ row }) => (
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(row.original)}>
-            <Edit2 className="size-4 text-stone-500" />
-          </Button>
-          <Button variant="ghost" size="icon" className="size-8 text-rose-600" onClick={() => setDeleting(row.original)}>
+          <button type="button" className="ad-btn ad-btn-secondary ad-btn-icon" onClick={() => openEdit(row.original)} aria-label={`Edit ${row.original.code}`}>
+            <Edit2 className="size-4" />
+          </button>
+          <button type="button" className="ad-btn ad-btn-secondary ad-btn-icon" onClick={() => setDeleting(row.original)} aria-label={`Delete ${row.original.code}`} style={{ color: 'var(--ad-a700)' }}>
             <Trash2 className="size-4" />
-          </Button>
+          </button>
         </div>
       ),
     },
@@ -200,20 +188,22 @@ export default function CouponsPage() {
     <div>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <span className="font-mono text-sm font-semibold text-stone-900">{c.code}</span>
-          <div className="mt-1 text-sm font-medium text-stone-900">
-            {c.discount}% OFF
-            <span className="ml-1.5 text-xs text-stone-400">up to ₹{c.maxDiscount}</span>
+          <span className="ad-num text-[15px] tracking-[0.04em]">{c.code}</span>
+          <div className="ad-num text-[20px] mt-1">
+            {c.discount}%
+            <span className="ad-muted text-[12px] font-normal ml-1.5">up to ₹{c.maxDiscount}</span>
           </div>
-          {c.description && <p className="mt-1 text-xs text-stone-400 leading-normal">{c.description}</p>}
+          {c.description && <p className="mt-1 text-[12px] ad-muted leading-normal m-0">{c.description}</p>}
         </div>
-        <Switch checked={c.isActive} onCheckedChange={(v) => toggleActive(c, v)} aria-label={`${c.code} active`} />
+        <Pill on={c.isActive} onLabel="Live" offLabel="Paused" onClick={() => toggleActive(c, !c.isActive)} />
       </div>
-      <div className="mt-3 flex items-center justify-between border-t border-stone-100 pt-2">
-        <span className="text-xs text-stone-400">Min order ₹{c.minOrder}</span>
-        <div className="flex items-center gap-1">
-          <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs" onClick={() => openEdit(c)}>Edit</Button>
-          <Button variant="ghost" size="icon" className="size-7 text-rose-600" onClick={() => setDeleting(c)}><Trash2 className="size-3.5" /></Button>
+      <div className="mt-3 flex items-center justify-between border-t border-ad-hairline pt-2.5">
+        <span className="ad-kicker">Min order ₹{c.minOrder}</span>
+        <div className="flex items-center gap-1.5">
+          <button type="button" className="ad-btn ad-btn-secondary ad-btn-sm" onClick={() => openEdit(c)}>Edit</button>
+          <button type="button" className="ad-btn ad-btn-secondary ad-btn-sm" onClick={() => setDeleting(c)} style={{ color: 'var(--ad-a700)' }} aria-label={`Delete ${c.code}`}>
+            <Trash2 className="size-3.5" />
+          </button>
         </div>
       </div>
     </div>
@@ -222,21 +212,15 @@ export default function CouponsPage() {
   return (
     <AdminLayout title="Coupons">
       <div className="w-full max-w-full space-y-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-stone-900">Coupons & Offers</h1>
-            <p className="text-sm text-stone-500 mt-0.5">
-              {coupons.length} total · {activeCount} active currently
-            </p>
-          </div>
-          <Button onClick={openAdd} className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4">
-            <Plus className="size-4 mr-1.5" /> Create Code
-          </Button>
+        <div className="ad-section-head">
+          <h3 className="ad-h text-[17px]">Active campaigns</h3>
+          <span className="text-[12px] ad-muted">{coupons.length} total · {activeCount} live</span>
+          <button type="button" onClick={openAdd} className="ad-btn ad-btn-primary ml-auto">
+            <Plus className="size-4" /> Create coupon
+          </button>
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-xl border border-stone-200">
+        <div>
           <DataTable
             columns={columns}
             data={coupons}

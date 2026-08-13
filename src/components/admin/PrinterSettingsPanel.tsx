@@ -126,7 +126,7 @@ export default function PrinterSettingsPanel({ open, onClose }: Props) {
       <DialogContent className="max-w-md rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-black text-stone-900 dark:text-stone-100">
-            <Printer className="w-5 h-5 text-amber-600" />
+            <Printer className="w-5 h-5 text-ad-accent" />
             Printer Settings
           </DialogTitle>
         </DialogHeader>
@@ -152,7 +152,7 @@ export default function PrinterSettingsPanel({ open, onClose }: Props) {
                   size="sm"
                   variant={paperWidth === w ? 'default' : 'outline'}
                   onClick={() => handlePaperWidthChange(w)}
-                  className={`flex-1 font-bold rounded-xl ${paperWidth === w ? 'bg-amber-600 hover:bg-amber-700 text-white' : ''}`}
+                  className={`flex-1 font-bold rounded-xl ${paperWidth === w ? 'ad-btn ad-btn-primary' : ''}`}
                 >
                   {w}mm
                 </Button>
@@ -163,13 +163,13 @@ export default function PrinterSettingsPanel({ open, onClose }: Props) {
           {/* Bluetooth */}
           <div className="p-3.5 rounded-2xl border border-stone-200 dark:border-stone-800 space-y-2.5">
             <div className="flex items-center gap-2 text-sm font-bold text-stone-800 dark:text-stone-200">
-              <Bluetooth className="w-4 h-4 text-blue-600" /> Bluetooth
+              <Bluetooth className="w-4 h-4 text-ad-ink" /> Bluetooth
             </div>
             {!isPrinterSupported() ? (
               <p className="text-xs text-stone-500">Not supported in this browser.</p>
             ) : btName ? (
               <div className="space-y-2">
-                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{btName} — paired</p>
+                <p className="text-xs font-bold text-ad-ok ">{btName} — paired</p>
                 <Button variant="ghost" size="sm" onClick={handleDisconnectBluetooth} className="text-stone-500 text-xs font-bold h-8 px-2">
                   Disconnect
                 </Button>
@@ -179,7 +179,7 @@ export default function PrinterSettingsPanel({ open, onClose }: Props) {
                 size="sm"
                 onClick={handleConnectBluetooth}
                 disabled={connectingBt}
-                className="w-full h-9 font-bold rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                className="w-full h-9 font-bold rounded-xl ad-btn ad-btn-dark"
               >
                 {connectingBt ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <Bluetooth className="w-3.5 h-3.5 mr-2" />}
                 Pair Bluetooth printer
@@ -196,7 +196,7 @@ export default function PrinterSettingsPanel({ open, onClose }: Props) {
               <p className="text-xs text-stone-500">Not supported in this browser — use Chrome or Edge on a desktop.</p>
             ) : wiredName ? (
               <div className="space-y-2">
-                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{wiredName} — paired</p>
+                <p className="text-xs font-bold text-ad-ok ">{wiredName} — paired</p>
                 <Button variant="ghost" size="sm" onClick={handleDisconnectWired} className="text-stone-500 text-xs font-bold h-8 px-2">
                   Disconnect
                 </Button>

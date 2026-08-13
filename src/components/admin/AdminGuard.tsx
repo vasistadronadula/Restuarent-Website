@@ -51,12 +51,12 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
 }
 
 function LoadingScreen({ message }: { message: string }) {
+  // Styled in the console's system rather than the customer site's: this is the
+  // first frame of /admin, and it should not flash a different application.
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 dark:bg-stone-950 text-stone-900 dark:text-stone-100 gap-3">
-      <Loader2 className="w-10 h-10 animate-spin text-amber-600" />
-      <p className="text-sm font-semibold text-stone-500 tracking-wide">
-        {message}
-      </p>
+    <div className="ad-shell min-h-screen flex flex-col items-center justify-center gap-4">
+      <Loader2 className="w-8 h-8 animate-spin text-ad-accent" />
+      <p className="ad-kicker">{message}</p>
     </div>
   );
 }

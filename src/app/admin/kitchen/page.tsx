@@ -6,18 +6,14 @@ import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { Order, OrderStatus } from '@/types';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { HairlineGrid, StatCell } from '@/components/admin/ui';
 import {
   Volume2, VolumeX, Flame, CheckCircle2, Clock,
-  Check, History, Undo2, Timer, Utensils,
+  Check, History, Undo2, Utensils,
   Maximize2, Minimize2, Search, X,
   AlertTriangle, RotateCcw, ChefHat, ListFilter,
-  CheckSquare, Square, Hourglass, Phone, Calendar,
-  TrendingUp, Sparkles, Filter, ArrowRight, Zap,
-  Layers, Coffee, ShieldAlert, Settings, HelpCircle,
-  BarChart3, RefreshCw, ChevronRight, Eye, ChevronDown
+  CheckSquare, Square, Hourglass, Phone,
+  Sparkles, Layers, Coffee, Settings, HelpCircle,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 import {
@@ -133,12 +129,24 @@ function getTargetPrepMinutes(order: Order, prepTimeMap: Map<string, number>): n
   return basePrep + (order.delayMinutes || 0);
 }
 
-function getOrderTypeBadge(orderType?: string) {
-  const type = (orderType || 'takeaway').toLowerCase();
-  if (type.includes('dine')) return 'bg-emerald-50 text-emerald-800 border-emerald-300 font-black';
-  if (type.includes('take') || type.includes('pick') || type.includes('counter')) return 'bg-purple-50 text-purple-800 border-purple-300 font-black';
-  return 'bg-blue-50 text-blue-800 border-blue-300 font-black';
+/**
+ * Order type is context, not urgency, so it renders as a plain outline tag.
+ * The only colour on a ticket is the accent, and the accent means "late".
+ */
+function getOrderTypeBadge() {
+  return 'ad-tag ad-tag-outline';
 }
+
+/* Keyboard commands, printed by the cheat-sheet dialog and bound in an effect. */
+const SHORTCUTS: readonly [string, string][] = [
+  ['Switch to new orders', '1'],
+  ['Switch to in preparation', '2'],
+  ['Switch to ready to pass', '3'],
+  ['Focus search', '/'],
+  ['Toggle fullscreen', 'F'],
+  ['Toggle sound alerts', 'M'],
+  ['Toggle batch prep', 'B'],
+];
 
 /* Kitchen Stations definition */
 const STATIONS = [
@@ -153,57 +161,48 @@ const STATIONS = [
 /*  Lane Configurations — Crisp High-Contrast Light Theme             */
 /* ================================================================== */
 
+/**
+ * The three lanes.
+ *
+ * Lanes are told apart by position and by their count chip, not by a colour
+ * each — the accent is reserved for the pass (where a plate is going cold) and
+ * for late tickets. `isPass` drives both.
+ */
 const LANES: {
   status: OrderStatus;
   label: string;
   tabLabel: string;
   icon: React.ReactNode;
-  headerBg: string;
-  headerText: string;
-  badgeBg: string;
   ctaText: string;
-  ctaBg: string;
   next: OrderStatus;
-  accentBorder: string;
+  isPass: boolean;
 }[] = [
   {
     status: 'pending',
-    label: 'New Orders',
-    tabLabel: 'New Tickets',
-    icon: <Clock className="size-4.5" />,
-    headerBg: 'bg-blue-600 text-white',
-    headerText: 'text-blue-950',
-    badgeBg: 'bg-blue-100 text-blue-800 border-blue-200',
-    ctaText: 'Start Cooking',
-    ctaBg: 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white shadow-md shadow-blue-500/20',
+    label: 'New orders',
+    tabLabel: 'New tickets',
+    icon: <Clock className="size-4" />,
+    ctaText: 'Start cooking',
     next: 'preparing',
-    accentBorder: 'border-blue-200',
+    isPass: false,
   },
   {
     status: 'preparing',
-    label: 'In Preparation',
-    tabLabel: 'Cooking on Stove',
-    icon: <Flame className="size-4.5" />,
-    headerBg: 'bg-amber-500 text-slate-950',
-    headerText: 'text-amber-950',
-    badgeBg: 'bg-amber-100 text-amber-900 border-amber-200',
-    ctaText: 'Mark Ready for Pass',
-    ctaBg: 'bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-slate-950 shadow-md shadow-amber-500/20 font-black',
+    label: 'In preparation',
+    tabLabel: 'On the stove',
+    icon: <Flame className="size-4" />,
+    ctaText: 'Mark ready',
     next: 'ready',
-    accentBorder: 'border-amber-200',
+    isPass: false,
   },
   {
     status: 'ready',
-    label: 'Ready for Pass',
-    tabLabel: 'Ready for Pickup',
-    icon: <CheckCircle2 className="size-4.5" />,
-    headerBg: 'bg-emerald-600 text-white',
-    headerText: 'text-emerald-950',
-    badgeBg: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    ctaText: 'Serve / Handover',
-    ctaBg: 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-md shadow-emerald-600/20',
+    label: 'Ready to pass',
+    tabLabel: 'Ready for pickup',
+    icon: <CheckCircle2 className="size-4" />,
+    ctaText: 'Serve / hand over',
     next: 'delivered',
-    accentBorder: 'border-emerald-200',
+    isPass: true,
   },
 ];
 
@@ -241,17 +240,10 @@ function KitchenTimer({
   const isOverdue = mins >= targetMinutes;
   const isUrgent = !isOverdue && mins >= targetMinutes - 3;
 
-  const ringColor = isOverdue
-    ? 'stroke-rose-600'
-    : isUrgent
-    ? 'stroke-amber-500'
-    : 'stroke-emerald-600';
-
-  const bgRingColor = isOverdue
-    ? 'stroke-rose-100'
-    : isUrgent
-    ? 'stroke-amber-100'
-    : 'stroke-emerald-100';
+  // On target the dial is ink; from three minutes out it goes accent. Two
+  // states, both readable across a hot kitchen at arm's length.
+  const ringColor = isOverdue || isUrgent ? 'var(--ad-accent)' : 'var(--ad-ink)';
+  const bgRingColor = isOverdue || isUrgent ? 'var(--ad-a200)' : 'var(--ad-n200)';
 
   const r = 19;
   const circ = 2 * Math.PI * r;
@@ -266,7 +258,7 @@ function KitchenTimer({
     >
       <div className="relative size-13.5">
         <svg className="size-13.5 -rotate-90" viewBox="0 0 48 48">
-          <circle cx="24" cy="24" r={r} fill="none" strokeWidth="4.5" className={bgRingColor} />
+          <circle cx="24" cy="24" r={r} fill="none" strokeWidth="4.5" stroke={bgRingColor} />
           <circle
             cx="24"
             cy="24"
@@ -275,31 +267,25 @@ function KitchenTimer({
             strokeWidth="4.5"
             strokeDasharray={circ}
             strokeDashoffset={offset}
-            strokeLinecap="round"
-            className={cn('transition-all duration-1000', ringColor, isOverdue && 'animate-pulse')}
+            stroke={ringColor}
+            className={cn('transition-all duration-1000', isOverdue && 'animate-pulse')}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={cn(
-            'font-mono text-xs font-black tabular-nums leading-none tracking-tight',
-            isOverdue ? 'text-rose-700' : isUrgent ? 'text-amber-800' : 'text-slate-900'
-          )}>
+          <span
+            className="ad-num text-[13px] leading-none"
+            style={{ color: isOverdue || isUrgent ? 'var(--ad-a700)' : 'var(--ad-ink)' }}
+          >
             {timeStr}
           </span>
-          <span className="text-[9px] font-bold text-slate-500 leading-none mt-0.5">
-            /{targetMinutes}m
-          </span>
+          <span className="text-[9px] ad-muted leading-none mt-0.5">/{targetMinutes}m</span>
         </div>
       </div>
       {isOverdue && (
-        <span className="text-[9px] font-black text-rose-700 bg-rose-50 px-2 rounded-full border border-rose-200 leading-4 animate-pulse">
-          LATE
-        </span>
+        <span className="ad-tag ad-tag-accent text-[9px] px-2 animate-pulse">Late</span>
       )}
       {isUrgent && !isOverdue && (
-        <span className="text-[9px] font-black text-amber-800 bg-amber-50 px-2 rounded-full border border-amber-200 leading-4">
-          EXPEDITING
-        </span>
+        <span className="ad-tag ad-tag-accent text-[9px] px-2">Expediting</span>
       )}
     </button>
   );
@@ -623,35 +609,29 @@ export default function KitchenDisplayPage() {
 
   return (
     <AdminLayout title="Kitchen Display System (KDS)">
-      <div className="flex flex-col w-full min-h-[calc(100vh-64px)] bg-[#F8FAFC] text-slate-900 font-sans antialiased select-none pb-8">
+      <div className="flex flex-col w-full min-h-[calc(100vh-var(--ad-header-h))] bg-ad-bg text-ad-ink select-none pb-8">
 
         {/* ========================================================== */}
         {/*  TOP FIXED COMMAND & CONTROL HEADER                        */}
         {/* ========================================================== */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-4 sm:px-6 py-3 shadow-xs">
+        <header className="sticky top-0 z-20 bg-ad-bg border-b-2 border-ad-line px-4 sm:px-6 py-3">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3.5 max-w-[1720px] mx-auto">
 
             {/* Left: Branding + Live Clock + Status Badges */}
             <div className="flex items-center gap-4 flex-wrap">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
-                  <ChefHat className="size-5.5" />
+                <div className="w-10 h-10 grid place-items-center bg-ad-ink text-ad-bg shrink-0">
+                  <ChefHat className="size-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h1 className="text-lg font-black tracking-tight text-slate-950">
-                      Kitchen Display
-                    </h1>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 animate-pulse">
-                      <span className="size-1.5 rounded-full bg-emerald-500" />
-                      LIVE
+                    <h1 className="ad-h text-[18px]">The pass</h1>
+                    <span className="ad-tag ad-tag-accent">
+                      <span className="size-1.5 bg-ad-accent animate-pulse" /> Live
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-slate-500 font-medium mt-0.5">
-                    <Calendar className="size-3.5 text-slate-400" />
-                    <span>{currentDate}</span>
-                    <span>•</span>
-                    <span className="font-mono font-black text-blue-600 text-sm">{currentTime || '00:00:00'}</span>
+                  <div className="ad-kicker mt-1">
+                    {currentDate} · {currentTime || '00:00:00'}
                   </div>
                 </div>
               </div>
@@ -661,32 +641,23 @@ export default function KitchenDisplayPage() {
                 <button
                   type="button"
                   onClick={() => { setSelectedStation('all'); setTypeFilter('all'); }}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200/80 border border-slate-200 text-slate-800 text-xs font-bold transition-all"
+                  className="ad-tag ad-tag-solid"
                 >
-                  <span>Active:</span>
-                  <span className="font-mono text-sm font-black text-slate-950">{stats.totalActive}</span>
+                  Active <span className="ad-num text-[12px]">{stats.totalActive}</span>
                 </button>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-bold">
-                  <Clock className="size-3.5 text-blue-600" />
-                  <span>New:</span>
-                  <span className="font-mono text-sm font-black text-blue-900">{stats.pendingCount}</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold">
-                  <Flame className="size-3.5 text-amber-600" />
-                  <span>Cooking:</span>
-                  <span className="font-mono text-sm font-black text-amber-950">{stats.preparingCount}</span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold">
-                  <CheckCircle2 className="size-3.5 text-emerald-600" />
-                  <span>Ready:</span>
-                  <span className="font-mono text-sm font-black text-emerald-950">{stats.readyCount}</span>
-                </div>
+                <span className="ad-tag ad-tag-outline">
+                  New <span className="ad-num text-[12px]">{stats.pendingCount}</span>
+                </span>
+                <span className="ad-tag ad-tag-outline">
+                  Cooking <span className="ad-num text-[12px]">{stats.preparingCount}</span>
+                </span>
+                <span className="ad-tag ad-tag-outline">
+                  Ready <span className="ad-num text-[12px]">{stats.readyCount}</span>
+                </span>
                 {stats.delayedCount > 0 && (
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold animate-pulse">
-                    <AlertTriangle className="size-3.5 text-rose-600" />
-                    <span>Delayed:</span>
-                    <span className="font-mono text-sm font-black text-rose-950">{stats.delayedCount}</span>
-                  </div>
+                  <span className="ad-tag ad-tag-accent animate-pulse">
+                    Delayed <span className="ad-num text-[12px]">{stats.delayedCount}</span>
+                  </span>
                 )}
               </div>
             </div>
@@ -695,19 +666,19 @@ export default function KitchenDisplayPage() {
             <div className="flex items-center gap-2 flex-wrap justify-end">
               {/* Search input */}
               <div className="relative w-44 sm:w-56">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-slate-400" />
-                <Input
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-ad-muted" />
+                <input
                   id="kds-search-input"
+                  className="ad-input pl-8.5 pr-7"
                   placeholder="Search ticket or dish… (/)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9.5 pl-8.5 pr-7 text-xs bg-slate-50 border-slate-200 text-slate-900 rounded-xl focus-visible:ring-blue-500/20 focus-visible:border-blue-500 font-medium"
                 />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ad-muted hover:text-ad-ink"
                   >
                     <X className="size-3.5" />
                   </button>
@@ -715,21 +686,16 @@ export default function KitchenDisplayPage() {
               </div>
 
               {/* Station Filter Dropdown */}
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {STATIONS.map((station) => {
                   const Icon = station.icon;
-                  const isSelected = selectedStation === station.id;
                   return (
                     <button
                       key={station.id}
                       type="button"
                       onClick={() => setSelectedStation(station.id)}
-                      className={cn(
-                        'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all',
-                        isSelected
-                          ? 'bg-white text-blue-600 shadow-xs border border-slate-200'
-                          : 'text-slate-600 hover:text-slate-950 hover:bg-slate-200/60'
-                      )}
+                      className="ad-tab flex items-center gap-1.5"
+                      data-active={selectedStation === station.id}
                       title={station.label}
                     >
                       <Icon className="size-3.5 shrink-0" />
@@ -743,37 +709,25 @@ export default function KitchenDisplayPage() {
               <button
                 type="button"
                 onClick={() => setShowBatch(!showBatch)}
-                className={cn(
-                  'h-9.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all',
-                  showBatch
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                )}
-                title="View consolidated batch ingredient list"
+                className="ad-tab flex items-center gap-1.5"
+                data-active={showBatch}
+                title="View consolidated batch prep list"
               >
                 <ListFilter className="size-4" />
-                <span className="hidden sm:inline">Batch Prep</span>
-                {prepMatrix.length > 0 && (
-                  <span className={cn('px-1.5 py-0.2 rounded-full text-[10px] font-black', showBatch ? 'bg-white text-blue-600' : 'bg-slate-100 text-slate-700')}>
-                    {prepMatrix.length}
-                  </span>
-                )}
+                <span className="hidden sm:inline">Batch prep</span>
+                {prepMatrix.length > 0 && <span className="tabular-nums opacity-70">{prepMatrix.length}</span>}
               </button>
 
               {/* History / Completed Drawer */}
               <button
                 type="button"
                 onClick={() => setShowHistory(!showHistory)}
-                className={cn(
-                  'h-9.5 px-3 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all',
-                  showHistory
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                )}
+                className="ad-tab flex items-center gap-1.5"
+                data-active={showHistory}
               >
                 <History className="size-4" />
                 <span className="hidden sm:inline">History</span>
-                <span className="text-[10px] opacity-70">({historyOrders.length})</span>
+                <span className="tabular-nums opacity-70">{historyOrders.length}</span>
               </button>
 
               {/* Audio Chime Toggle */}
@@ -784,23 +738,19 @@ export default function KitchenDisplayPage() {
                   setSoundEnabled(next);
                   if (next) playKitchenChime('new_order');
                 }}
-                className={cn(
-                  'size-9.5 rounded-xl border flex items-center justify-center transition-all',
-                  soundEnabled
-                    ? 'border-emerald-300 bg-emerald-50 text-emerald-700'
-                    : 'border-slate-200 bg-white text-slate-400 hover:text-slate-700'
-                )}
-                title={soundEnabled ? 'Kitchen chime ON (tap to mute)' : 'Muted (tap to enable)'}
+                className="ad-btn ad-btn-secondary ad-btn-icon"
+                data-active={soundEnabled}
+                title={soundEnabled ? 'Kitchen chime on (tap to mute)' : 'Muted (tap to enable)'}
               >
-                {soundEnabled ? <Volume2 className="size-4.5" /> : <VolumeX className="size-4.5" />}
+                {soundEnabled ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
               </button>
 
               {/* Fullscreen Button */}
               <button
                 type="button"
                 onClick={toggleFullscreen}
-                className="size-9.5 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 flex items-center justify-center transition-all"
-                title="Toggle Fullscreen Display"
+                className="ad-btn ad-btn-secondary ad-btn-icon"
+                title="Toggle fullscreen"
               >
                 {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
               </button>
@@ -812,67 +762,13 @@ export default function KitchenDisplayPage() {
         {/*  TOP ANALYTICS / KPI DASHBOARD WIDGETS                     */}
         {/* ========================================================== */}
         <section className="max-w-[1720px] w-full mx-auto px-4 sm:px-6 pt-4 pb-2">
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {/* Widget 1: Today's Orders */}
-            <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">Tickets Today</p>
-                <p className="text-2xl font-black text-slate-900 tabular-nums mt-0.5">{stats.totalToday}</p>
-              </div>
-              <div className="size-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                <Utensils className="size-5" />
-              </div>
-            </div>
-
-            {/* Widget 2: Avg Preparation Time */}
-            <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">Avg Prep Target</p>
-                <p className="text-2xl font-black text-blue-600 tabular-nums mt-0.5">{stats.avgPrep} <span className="text-xs font-bold text-slate-600">mins</span></p>
-              </div>
-              <div className="size-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                <Timer className="size-5" />
-              </div>
-            </div>
-
-            {/* Widget 3: Efficiency Rate */}
-            <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">Kitchen On-Time %</p>
-                <p className="text-2xl font-black text-emerald-600 tabular-nums mt-0.5">{stats.onTimeRate}%</p>
-              </div>
-              <div className="size-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                <Zap className="size-5" />
-              </div>
-            </div>
-
-            {/* Widget 4: Delayed / Overdue */}
-            <div className={cn(
-              'p-3.5 rounded-2xl border shadow-xs flex items-center justify-between transition-colors',
-              stats.delayedCount > 0 ? 'bg-rose-50 border-rose-200' : 'bg-white border-slate-200'
-            )}>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">Overdue / Rush</p>
-                <p className={cn('text-2xl font-black tabular-nums mt-0.5', stats.delayedCount > 0 ? 'text-rose-600' : 'text-slate-900')}>
-                  {stats.delayedCount}
-                </p>
-              </div>
-              <div className={cn('size-10 rounded-xl flex items-center justify-center', stats.delayedCount > 0 ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-500')}>
-                <AlertTriangle className="size-5" />
-              </div>
-            </div>
-
-            {/* Widget 5: Active Queue Value */}
-            <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-between col-span-2 sm:col-span-1">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">In-Flight Total</p>
-                <p className="text-2xl font-black text-slate-900 tabular-nums mt-0.5">{formatCurrency(stats.activeRevenue)}</p>
-              </div>
-              <div className="size-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                <TrendingUp className="size-5" />
-              </div>
-            </div>
-          </div>
+          <HairlineGrid cols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
+            <StatCell label="Tickets today" value={stats.totalToday} />
+            <StatCell label="Avg prep target" value={`${stats.avgPrep} min`} />
+            <StatCell label="On time" value={`${stats.onTimeRate}%`} />
+            <StatCell label="Overdue" value={stats.delayedCount} alert={stats.delayedCount > 0} />
+            <StatCell label="In flight" value={formatCurrency(stats.activeRevenue)} />
+          </HairlineGrid>
         </section>
 
         {/* ========================================================== */}
@@ -880,28 +776,18 @@ export default function KitchenDisplayPage() {
         {/* ========================================================== */}
         {showBatch && prepMatrix.length > 0 && !showHistory && (
           <section className="max-w-[1720px] w-full mx-auto px-4 sm:px-6 py-2">
-            <div className="p-4 rounded-2xl bg-blue-50/70 border-2 border-blue-200/90 shadow-xs">
-              <div className="flex items-center justify-between mb-2.5">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="size-4 text-blue-700" />
-                  <span className="text-xs font-black text-blue-950 uppercase tracking-wide">
-                    Consolidated Kitchen Batch Aggregator — Combined Active Prep Quantities
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-blue-800 bg-white px-2.5 py-0.5 rounded-full border border-blue-200">
-                  {prepMatrix.length} unique items in prep
+            <div className="p-4 border-2 border-ad-line bg-ad-surface">
+              <div className="ad-section-head">
+                <span className="ad-num text-[13px] tracking-widest uppercase">Batch prep</span>
+                <span className="text-[12px] ad-muted">
+                  {prepMatrix.length} unique items across all live tickets
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {prepMatrix.map((item) => (
-                  <div
-                    key={item.name}
-                    className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white border border-blue-200 shadow-2xs"
-                  >
-                    <span className="text-xs font-bold text-slate-900">{item.name}</span>
-                    <span className="px-2 py-0.5 rounded-lg bg-blue-600 text-white text-xs font-black font-mono tabular-nums">
-                      ×{item.quantity}
-                    </span>
+                  <div key={item.name} className="flex items-center gap-2.5 px-3 py-1.5 bg-ad-bg border border-ad-hairline">
+                    <span className="text-[13px] font-semibold">{item.name}</span>
+                    <span className="ad-num text-[13px] px-2 bg-ad-ink text-ad-bg">×{item.quantity}</span>
                   </div>
                 ))}
               </div>
@@ -913,45 +799,39 @@ export default function KitchenDisplayPage() {
         {/*  FILTER CONTROLS & SORT BAR                                */}
         {/* ========================================================== */}
         <section className="max-w-[1720px] w-full mx-auto px-4 sm:px-6 py-2">
-          <div className="flex items-center justify-between gap-3 flex-wrap bg-white p-2.5 rounded-2xl border border-slate-200/80 shadow-xs">
-            {/* Left: Order Type Filters */}
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-slate-600 uppercase tracking-wider px-2">Type:</span>
+          <div className="flex items-center justify-between gap-3 flex-wrap border-y-2 border-ad-line py-2.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="ad-kicker">Type</span>
               {(['all', 'dine-in', 'takeaway'] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setTypeFilter(t)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-all border',
-                    typeFilter === t
-                      ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  )}
+                  className="ad-tab"
+                  data-active={typeFilter === t}
                 >
-                  {t === 'all' ? 'All Orders' : t === 'dine-in' ? '🍽️ Dine-In' : '🛍️ Takeaway / Counter'}
+                  {t === 'all' ? 'All orders' : t === 'dine-in' ? 'Dine-in' : 'Takeaway'}
                 </button>
               ))}
             </div>
 
-            {/* Right: Sort Order & Shortcuts */}
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-slate-600 uppercase tracking-wider hidden sm:inline">Sort:</span>
+              <span className="ad-kicker hidden sm:inline">Sort</span>
               <select
                 value={sortMode}
                 onChange={(e) => setSortMode(e.target.value as any)}
-                className="h-8.5 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                className="ad-input w-auto"
               >
-                <option value="fifo">Oldest First (FIFO)</option>
-                <option value="waiting">Longest Waiting Time</option>
-                <option value="table">Table Number</option>
+                <option value="fifo">Oldest first</option>
+                <option value="waiting">Longest waiting</option>
+                <option value="table">Table number</option>
               </select>
 
               <button
                 type="button"
                 onClick={() => setShowShortcuts(true)}
-                className="size-8.5 rounded-xl border border-slate-200 bg-white text-slate-500 hover:text-slate-900 flex items-center justify-center"
-                title="Keyboard Shortcuts"
+                className="ad-btn ad-btn-secondary ad-btn-icon"
+                title="Keyboard shortcuts"
               >
                 <HelpCircle className="size-4" />
               </button>
@@ -968,31 +848,27 @@ export default function KitchenDisplayPage() {
             /* ====================================================== */
             /*  HISTORY / COMPLETED TICKETS DRAWER                    */
             /* ====================================================== */
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex-1 flex flex-col">
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+            <div className="border-2 border-ad-line overflow-hidden flex-1 flex flex-col">
+              <div className="px-5 py-3.5 border-b-2 border-ad-line flex items-center justify-between gap-3 bg-ad-surface">
                 <div className="flex items-center gap-2.5">
-                  <History className="size-5 text-slate-600" />
-                  <h2 className="text-base font-black text-slate-900">
-                    Recently Completed Tickets
-                  </h2>
-                  <Badge variant="outline" className="bg-white text-slate-700 font-bold border-slate-200">
-                    {historyOrders.length} orders
-                  </Badge>
+                  <History className="size-4" />
+                  <h2 className="ad-h text-[17px]">Recently completed</h2>
+                  <span className="ad-tag ad-tag-outline">{historyOrders.length} orders</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowHistory(false)}
-                  className="text-xs font-bold text-slate-500 hover:text-slate-900 px-3 py-1.5 rounded-xl hover:bg-slate-200 transition-colors"
+                  className="ad-btn ad-btn-secondary ad-btn-sm"
                 >
-                  ✕ Close History
+                  Close
                 </button>
               </div>
 
-              <div className="divide-y divide-slate-100 overflow-y-auto max-h-[700px]">
+              <div className="overflow-y-auto max-h-175">
                 {historyOrders.length === 0 ? (
-                  <div className="py-20 text-center text-slate-400">
-                    <Utensils className="size-12 mx-auto mb-2 opacity-30" />
-                    <p className="text-sm font-bold text-slate-600">No recently completed tickets</p>
+                  <div className="py-20 text-center">
+                    <p className="ad-h text-[16px]">No completed tickets</p>
+                    <p className="text-[13px] ad-muted mt-1.5">Bumped tickets land here.</p>
                   </div>
                 ) : (
                   historyOrders.map((o) => {
@@ -1000,45 +876,31 @@ export default function KitchenDisplayPage() {
                     return (
                       <div
                         key={o.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 hover:bg-slate-50 transition-colors"
+                        className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4 border-b border-ad-hairline last:border-0 ad-hover"
                       >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2.5 flex-wrap">
-                            <span className="font-mono text-base font-black text-slate-900 bg-slate-100 border border-slate-200 px-3 py-1 rounded-xl">
-                              #{o.id.slice(-4)}
-                            </span>
-                            <Badge variant="outline" className={cn('uppercase text-[11px] font-black border', getOrderTypeBadge(o.orderType))}>
-                              {o.orderType || 'takeaway'}
-                            </Badge>
+                            <span className="ad-num text-[17px]">#{o.id.slice(-4)}</span>
+                            <span className={getOrderTypeBadge()}>{o.orderType || 'takeaway'}</span>
                             {o.tableNumber && (
-                              <span className="text-xs font-black text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">
-                                Table #{o.tableNumber}
-                              </span>
+                              <span className="ad-tag ad-tag-outline">Table {o.tableNumber}</span>
                             )}
-                            <span className={cn(
-                              'text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border',
-                              s === 'delivered' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-rose-50 text-rose-700 border-rose-200'
-                            )}>
+                            <span className={cn('ad-tag', s === 'delivered' ? 'ad-tag-ok' : 'ad-tag-accent')}>
                               {s}
                             </span>
-                            <span className="text-xs text-slate-400 font-mono">{o.orderDate} · {o.orderTime}</span>
+                            <span className="ad-kicker">{o.orderDate} · {o.orderTime}</span>
                           </div>
-                          <p className="text-xs text-slate-600 mt-2">
-                            <strong className="text-slate-900">{o.customerName || 'Walk-in Customer'}</strong>
+                          <p className="text-[13px] ad-muted mt-2 m-0">
+                            <strong className="text-ad-ink">{o.customerName || 'Walk-in'}</strong>
                             {o.customerPhone ? ` · ${o.customerPhone}` : ''} —{' '}
                             {o.items?.map((i) => `${i.name} ×${i.quantity || 1}`).join(', ')}
                           </p>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
-                          <span className="font-black text-slate-900 text-sm font-mono">{formatCurrency(o.grandTotal)}</span>
-                          <Button
-                            size="sm"
-                            onClick={() => handleRegress(o.id, s)}
-                            variant="outline"
-                            className="h-9 rounded-xl text-xs font-bold border-amber-300 text-amber-800 hover:bg-amber-50"
-                          >
-                            <Undo2 className="size-3.5 mr-1.5" /> Recall to Ready
-                          </Button>
+                          <span className="ad-num text-[15px]">{formatCurrency(o.grandTotal)}</span>
+                          <button type="button" className="ad-btn ad-btn-secondary ad-btn-sm" onClick={() => handleRegress(o.id, s)}>
+                            <Undo2 className="size-3.5" /> Recall to ready
+                          </button>
                         </div>
                       </div>
                     );
@@ -1052,35 +914,30 @@ export default function KitchenDisplayPage() {
             /* ====================================================== */
             <>
               {/* Desktop: 3 Side-by-Side Responsive Columns */}
-              <div className="hidden lg:grid lg:grid-cols-3 gap-5 flex-1">
+              <div className="hidden lg:grid lg:grid-cols-3 ad-grid flex-1">
                 {LANES.map((lane) => {
                   const laneList = laneOrders[lane.status] || [];
                   return (
-                    <div
-                      key={lane.status}
-                      className="flex flex-col min-w-0 bg-slate-100/60 rounded-3xl p-3 border border-slate-200/80 shadow-2xs"
-                    >
-                      {/* Lane Header Bar */}
-                      <div className={cn(
-                        'flex items-center justify-between px-4 py-3 rounded-2xl mb-3 shadow-xs',
-                        lane.headerBg
-                      )}>
-                        <div className="flex items-center gap-2.5 font-black text-sm tracking-tight">
+                    <div key={lane.status} className="flex flex-col min-w-0 p-3.5 gap-3">
+                      {/* Lane header */}
+                      <div className="flex items-center justify-between gap-2 border-b-2 border-ad-line pb-2.5">
+                        <div className="flex items-center gap-2 ad-num text-[14px] tracking-widest uppercase">
                           {lane.icon}
                           <span>{lane.label}</span>
                         </div>
-                        <span className="font-mono text-xs font-black px-2.5 py-0.5 rounded-full bg-white/20 text-inherit backdrop-blur-xs">
-                          {laneList.length} tickets
+                        <span
+                          className="ad-num text-[12px] px-2 py-0.5 text-ad-bg"
+                          style={{ background: lane.isPass ? 'var(--ad-accent)' : 'var(--ad-ink)' }}
+                        >
+                          {laneList.length}
                         </span>
                       </div>
 
-                      {/* Cards Container */}
-                      <div className="space-y-4 flex-1 overflow-y-auto max-h-[calc(100vh-270px)] pr-1 scrollbar-none">
+                      {/* Cards */}
+                      <div className="space-y-3 flex-1 overflow-y-auto max-h-[calc(100vh-300px)] pr-1 scrollbar-none">
                         {laneList.length === 0 ? (
-                          <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white/70 px-4 py-20 text-center">
-                            <div className="text-3xl mb-2">🍽️</div>
-                            <p className="text-xs font-bold text-slate-400">No tickets in this stage</p>
-                            <p className="text-[11px] text-slate-400 mt-0.5">Orders automatically queue up here</p>
+                          <div className="px-4 py-16 text-center">
+                            <p className="text-[13px] ad-muted m-0">No tickets in this stage</p>
                           </div>
                         ) : (
                           laneList.map((order) => (
@@ -1110,29 +967,16 @@ export default function KitchenDisplayPage() {
                 <div className="grid grid-cols-3 gap-2 mb-3">
                   {LANES.map((lane, idx) => {
                     const count = (laneOrders[lane.status] || []).length;
-                    const isActive = mobileLaneIdx === idx;
                     return (
                       <button
                         key={lane.status}
                         type="button"
                         onClick={() => setMobileLaneIdx(idx)}
-                        className={cn(
-                          'flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center gap-1',
-                          isActive
-                            ? `${lane.headerBg} border-transparent shadow-md scale-[1.02]`
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                        )}
+                        className="ad-tab flex flex-col items-center justify-center gap-1 py-3"
+                        data-active={mobileLaneIdx === idx}
                       >
-                        <div className="flex items-center gap-1.5 text-xs font-black">
-                          {lane.icon}
-                          <span className="truncate">{lane.label}</span>
-                        </div>
-                        <span className={cn(
-                          'text-xs font-black font-mono px-2 py-0.5 rounded-full',
-                          isActive ? 'bg-white/20 text-inherit' : 'bg-slate-100 text-slate-900'
-                        )}>
-                          {count}
-                        </span>
+                        <span className="truncate">{lane.label}</span>
+                        <span className="ad-num text-[14px]">{count}</span>
                       </button>
                     );
                   })}
@@ -1141,9 +985,8 @@ export default function KitchenDisplayPage() {
                 {/* Active Lane Ticket Cards */}
                 <div className="space-y-4 flex-1 overflow-y-auto">
                   {mobileLaneList.length === 0 ? (
-                    <div className="rounded-3xl border-2 border-dashed border-slate-200 bg-white p-16 text-center">
-                      <div className="text-4xl mb-2">🍽️</div>
-                      <p className="text-sm font-bold text-slate-600">No orders in {mobileLane.label}</p>
+                    <div className="border-2 border-ad-line p-16 text-center">
+                      <p className="ad-h text-[16px]">Nothing in {mobileLane.label}</p>
                     </div>
                   ) : (
                     mobileLaneList.map((order) => (
@@ -1171,32 +1014,28 @@ export default function KitchenDisplayPage() {
         {/*  DELAY / PREPARATION TIME EXTENSION MODAL                  */}
         {/* ========================================================== */}
         <Dialog open={delayDialogOpen} onOpenChange={setDelayDialogOpen}>
-          <DialogContent className="sm:max-w-md rounded-3xl bg-white border border-slate-200 shadow-2xl p-6">
+          <DialogContent className="sm:max-w-md p-6">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-slate-950 font-black text-lg">
-                <Hourglass className="size-5.5 text-amber-600" />
-                Extend Prep / Cooking Time
+              <DialogTitle className="ad-h text-[18px] flex items-center gap-2">
+                <Hourglass className="size-5 text-ad-accent" />
+                Extend prep time
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500">
-                Ticket #{selectedOrderForDelay?.id.slice(-4)}. Adjusting prep time updates live customer tracking instantly.
+              <DialogDescription className="text-[12px] ad-muted">
+                Ticket #{selectedOrderForDelay?.id.slice(-4)}. Live customer tracking updates straight away.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-3">
               <div>
-                <label className="text-xs font-black text-slate-700 block mb-2">Quick Time Extend</label>
+                <label className="ad-kicker block mb-2">Quick extend</label>
                 <div className="grid grid-cols-4 gap-2">
                   {[5, 10, 15, 25].map((mins) => (
                     <button
                       key={mins}
                       type="button"
                       onClick={() => setCustomDelayMins(mins)}
-                      className={cn(
-                        'py-3 rounded-xl text-xs font-black border transition-all',
-                        customDelayMins === mins
-                          ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-sm'
-                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                      )}
+                      className="ad-tab py-3"
+                      data-active={customDelayMins === mins}
                     >
                       +{mins}m
                     </button>
@@ -1204,46 +1043,38 @@ export default function KitchenDisplayPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-black text-slate-700 block mb-1.5">Custom Extra Minutes</label>
-                <Input
+              <div className="ad-field">
+                <label htmlFor="kds-delay-mins">Custom extra minutes</label>
+                <input
+                  id="kds-delay-mins"
+                  className="ad-input tabular-nums"
                   type="number"
                   min={0}
                   max={120}
                   value={customDelayMins}
                   onChange={(e) => setCustomDelayMins(parseInt(e.target.value, 10) || 0)}
-                  className="h-10 text-sm font-bold bg-slate-50 border-slate-200 rounded-xl"
                 />
               </div>
 
-              <div>
-                <label className="text-xs font-black text-slate-700 block mb-1.5">Customer Message / Reason</label>
-                <Input
-                  placeholder="e.g. Rush hour simmering / Slow dum cooking for quality"
+              <div className="ad-field">
+                <label htmlFor="kds-delay-reason">Message to the diner</label>
+                <input
+                  id="kds-delay-reason"
+                  className="ad-input"
+                  placeholder="e.g. Slow dum cooking for quality"
                   value={delayReason}
                   onChange={(e) => setDelayReason(e.target.value)}
-                  className="h-10 text-xs bg-slate-50 border-slate-200 rounded-xl"
                 />
               </div>
             </div>
 
             <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDelayDialogOpen(false)}
-                className="rounded-xl border-slate-200"
-              >
+              <button type="button" className="ad-btn ad-btn-secondary" onClick={() => setDelayDialogOpen(false)}>
                 Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSaveDelay}
-                disabled={isSavingDelay}
-                className="rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black shadow-sm"
-              >
-                {isSavingDelay ? 'Saving…' : 'Save & Update Customer'}
-              </Button>
+              </button>
+              <button type="button" className="ad-btn ad-btn-primary" onClick={handleSaveDelay} disabled={isSavingDelay}>
+                {isSavingDelay ? 'Saving…' : 'Save and notify'}
+              </button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1252,14 +1083,14 @@ export default function KitchenDisplayPage() {
         {/*  CHEF INTERNAL NOTES MODAL                                 */}
         {/* ========================================================== */}
         <Dialog open={chefNoteDialogOpen} onOpenChange={setChefNoteDialogOpen}>
-          <DialogContent className="sm:max-w-md rounded-3xl bg-white border border-slate-200 shadow-2xl p-6">
+          <DialogContent className="sm:max-w-md p-6">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-slate-950 font-black text-lg">
-                <ChefHat className="size-5.5 text-blue-600" />
-                Kitchen Notes for Ticket #{selectedOrderForNote?.id.slice(-4)}
+              <DialogTitle className="ad-h text-[18px] flex items-center gap-2">
+                <ChefHat className="size-5" />
+                Kitchen note · #{selectedOrderForNote?.id.slice(-4)}
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500">
-                Special prep remarks, portion alerts, or server coordination notes.
+              <DialogDescription className="text-[12px] ad-muted">
+                Prep remarks, portion alerts, or a note for the server.
               </DialogDescription>
             </DialogHeader>
 
@@ -1268,27 +1099,18 @@ export default function KitchenDisplayPage() {
                 rows={4}
                 value={chefNoteText}
                 onChange={(e) => setChefNoteText(e.target.value)}
-                placeholder="e.g. Customer requested extra spicy & packaging without peanuts."
-                className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                placeholder="e.g. Extra spicy, pack without peanuts."
+                className="ad-input"
               />
             </div>
 
             <DialogFooter className="gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setChefNoteDialogOpen(false)}
-                className="rounded-xl border-slate-200"
-              >
+              <button type="button" className="ad-btn ad-btn-secondary" onClick={() => setChefNoteDialogOpen(false)}>
                 Cancel
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleSaveChefNote}
-                className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold"
-              >
-                Save Kitchen Note
-              </Button>
+              </button>
+              <button type="button" className="ad-btn ad-btn-primary" onClick={handleSaveChefNote}>
+                Save note
+              </button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1297,56 +1119,34 @@ export default function KitchenDisplayPage() {
         {/*  KEYBOARD SHORTCUTS CHEAT SHEET MODAL                      */}
         {/* ========================================================== */}
         <Dialog open={showShortcuts} onOpenChange={setShowShortcuts}>
-          <DialogContent className="sm:max-w-md rounded-3xl bg-white border border-slate-200 shadow-2xl p-6">
+          <DialogContent className="sm:max-w-md p-6">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2 text-slate-950 font-black text-lg">
-                <Settings className="size-5 text-blue-600" />
-                KDS Keyboard Shortcuts
+              <DialogTitle className="ad-h text-[18px] flex items-center gap-2">
+                <Settings className="size-5" />
+                Keyboard shortcuts
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500">
-                High-speed kitchen commands for touchscreens and physical keyboards.
+              <DialogDescription className="text-[12px] ad-muted">
+                For touchscreens with a keyboard on the pass.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-2.5 py-3 text-xs">
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="font-bold text-slate-700">Switch to New Orders</span>
-                <kbd className="px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-black text-slate-900">1</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="font-bold text-slate-700">Switch to In Preparation</span>
-                <kbd className="px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-black text-slate-900">2</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="font-bold text-slate-700">Switch to Ready for Pass</span>
-                <kbd className="px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-black text-slate-900">3</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="font-bold text-slate-700">Focus Search Bar</span>
-                <kbd className="px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-black text-slate-900">/</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="font-bold text-slate-700">Toggle Fullscreen Display</span>
-                <kbd className="px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-black text-slate-900">F</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="font-bold text-slate-700">Toggle Sound Alerts</span>
-                <kbd className="px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-black text-slate-900">M</kbd>
-              </div>
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                <span className="font-bold text-slate-700">Toggle Batch Prep Aggregator</span>
-                <kbd className="px-2 py-1 bg-white border border-slate-300 rounded-lg font-mono font-black text-slate-900">B</kbd>
-              </div>
-            </div>
+            <table className="ad-table my-3">
+              <tbody>
+                {SHORTCUTS.map(([action, key]) => (
+                  <tr key={key}>
+                    <td>{action}</td>
+                    <td className="text-right">
+                      <kbd className="ad-num text-[13px] px-2 py-0.5 border border-ad-line bg-ad-surface">{key}</kbd>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
             <DialogFooter>
-              <Button
-                size="sm"
-                onClick={() => setShowShortcuts(false)}
-                className="w-full rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold"
-              >
-                Got It
-              </Button>
+              <button type="button" className="ad-btn ad-btn-primary w-full" onClick={() => setShowShortcuts(false)}>
+                Got it
+              </button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -1394,99 +1194,79 @@ function OrderTicketCard({
   const isLate = elapsedMinutes >= targetMinutes;
 
   return (
-    <div className={cn(
-      'rounded-3xl bg-white flex flex-col justify-between border-2 transition-all hover:shadow-lg duration-200 overflow-hidden',
-      isLate ? 'border-rose-400 ring-2 ring-rose-300/30' : lane.accentBorder
-    )}>
+    <div
+      className="bg-ad-surface flex flex-col justify-between transition-colors"
+      style={{ borderLeft: `4px solid ${isLate ? 'var(--ad-accent)' : 'var(--ad-ink)'}` }}
+    >
       {/* ── CARD HEADER ── */}
-      <div className={cn(
-        'p-4 border-b transition-colors',
-        status === 'pending' ? 'bg-blue-50/50 border-blue-100'
-          : status === 'preparing' ? 'bg-amber-50/50 border-amber-100'
-          : 'bg-emerald-50/50 border-emerald-100'
-      )}>
+      <div className="p-4 border-b border-ad-hairline">
         <div className="flex items-start justify-between gap-3">
-          {/* Token & Tags */}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={cn(
-                'font-mono text-2xl font-black px-3 py-1 rounded-2xl border-2 tracking-tight shadow-2xs',
-                status === 'pending' ? 'text-blue-800 bg-white border-blue-300'
-                  : status === 'preparing' ? 'text-amber-900 bg-white border-amber-300'
-                  : 'text-emerald-800 bg-white border-emerald-300'
-              )}>
-                #{tokenNumber}
-              </span>
-
-              <Badge variant="outline" className={cn('uppercase text-[11px] font-black px-2.5 py-1 rounded-xl border', getOrderTypeBadge(order.orderType))}>
-                {order.orderType || 'takeaway'}
-              </Badge>
-
+              <span className="ad-num text-[24px] leading-none">#{tokenNumber}</span>
+              <span className={getOrderTypeBadge()}>{order.orderType || 'takeaway'}</span>
               {order.tableNumber && (
-                <span className="text-emerald-950 font-black bg-emerald-100/90 px-3 py-1 rounded-xl border border-emerald-300 text-xs shadow-2xs">
-                  Table #{order.tableNumber}
-                </span>
+                <span className="ad-tag ad-tag-solid">Table {order.tableNumber}</span>
               )}
             </div>
 
-            {/* Customer Name & Phone */}
-            <div className="mt-2.5 flex items-center gap-2 text-xs text-slate-600 flex-wrap">
-              <span className="font-black text-slate-900 text-sm">{order.customerName || 'Walk-in Diner'}</span>
+            <div className="mt-2 flex items-center gap-2 flex-wrap">
+              <span className="text-[14px] font-semibold">{order.customerName || 'Walk-in'}</span>
               {order.customerPhone && (
-                <span className="text-slate-500 flex items-center gap-1 font-mono text-[11px]">
-                  <Phone className="size-3 text-slate-400" /> {order.customerPhone}
+                <span className="ad-kicker flex items-center gap-1">
+                  <Phone className="size-3" /> {order.customerPhone}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Dial Timer */}
           <KitchenTimer order={order} targetMinutes={targetMinutes} onAdjust={onOpenDelay} />
         </div>
 
-        {/* Item Checklist Completion Progress Bar */}
+        {/* Prep checklist progress */}
         {items.length > 0 && (
           <div className="mt-3">
-            <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-1">
-              <span>{checkedCount} of {items.length} items prepped</span>
-              {allChecked && <span className="text-emerald-600 font-black">✓ All Items Done</span>}
+            <div className="flex items-center justify-between ad-kicker mb-1.5">
+              <span>{checkedCount} of {items.length} prepped</span>
+              {allChecked && <span style={{ color: 'var(--ad-ok)' }}>All done</span>}
             </div>
-            <div className="h-2 rounded-full bg-slate-100 overflow-hidden border border-slate-200">
+            <div className="h-2 bg-ad-n200">
               <div
-                className={cn(
-                  'h-full rounded-full transition-all duration-500',
-                  allChecked ? 'bg-emerald-500' : 'bg-blue-500'
-                )}
-                style={{ width: `${(checkedCount / items.length) * 100}%` }}
+                className="h-full transition-all duration-500"
+                style={{
+                  width: `${(checkedCount / items.length) * 100}%`,
+                  background: allChecked ? 'var(--ad-ok)' : 'var(--ad-ink)',
+                }}
               />
             </div>
           </div>
         )}
       </div>
 
-      {/* ── CARD BODY (DISHES & NOTES) ── */}
-      <div className="p-4 space-y-2.5 flex-1 bg-white">
-        {/* Delay Banner */}
+      {/* ── CARD BODY ── */}
+      <div className="p-4 space-y-2.5 flex-1">
         {hasDelay && (
-          <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold">
-            <Hourglass className="size-4 text-amber-600 shrink-0" />
-            <span>Prep Extended: +{order.delayMinutes} mins</span>
+          <div className="flex items-center gap-2 p-2.5 bg-ad-accent-soft text-ad-accent-deep text-[13px] font-semibold">
+            <Hourglass className="size-4 shrink-0" />
+            <span>Prep extended by {order.delayMinutes} min</span>
           </div>
         )}
 
-        {/* Special Instructions / Notes */}
         {order.notes && (
-          <div className="flex items-start gap-2 p-3 rounded-2xl bg-amber-50/80 border border-amber-200 text-amber-950 text-xs font-medium">
-            <AlertTriangle className="size-4 text-amber-600 shrink-0 mt-0.5" />
+          <div
+            className="flex items-start gap-2 p-3 bg-ad-bg text-[13px]"
+            style={{ borderLeft: '4px solid var(--ad-accent)' }}
+          >
+            <AlertTriangle className="size-4 shrink-0 mt-0.5 text-ad-accent" />
             <div>
-              <span className="font-black text-amber-900 uppercase text-[10px] block mb-0.5">Special Instructions:</span>
+              <span className="ad-kicker block mb-0.5">Special instructions</span>
               <span>{order.notes}</span>
             </div>
           </div>
         )}
 
-        {/* Dish List with High Contrast Checkboxes */}
-        <div className="space-y-2 pt-1">
+        {/* Dish checklist */}
+        <div className="flex flex-col">
           {items.map((item, idx) => {
             const isChecked = checkedItems.has(idx);
             const qty = item.quantity || 1;
@@ -1498,45 +1278,45 @@ function OrderTicketCard({
                 type="button"
                 onClick={() => onToggleItemCheck(idx)}
                 className={cn(
-                  'w-full flex items-center justify-between gap-3 p-3 rounded-2xl text-left transition-all border-2 select-none group',
-                  isChecked
-                    ? 'bg-slate-50 border-slate-200 opacity-55 line-through'
-                    : 'bg-white border-slate-200/90 hover:border-blue-300 hover:bg-blue-50/30'
+                  'w-full flex items-center justify-between gap-3 py-2.5 text-left border-b border-ad-hairline last:border-0 select-none',
+                  isChecked ? 'opacity-45 line-through' : 'ad-hover'
                 )}
               >
-                {/* Checkbox & Name */}
                 <div className="flex items-center gap-3 min-w-0 flex-1">
                   {isChecked ? (
-                    <CheckSquare className="size-5.5 text-emerald-600 shrink-0" />
+                    <CheckSquare className="size-5 shrink-0" style={{ color: 'var(--ad-ok)' }} />
                   ) : (
-                    <Square className="size-5.5 text-slate-300 group-hover:text-blue-500 shrink-0" />
+                    <Square className="size-5 shrink-0 text-ad-muted" />
                   )}
 
-                  {/* Veg / Non-Veg Indicator */}
-                  <span className={cn(
-                    'size-3.5 rounded-[3px] border-2 flex items-center justify-center shrink-0',
-                    isVeg ? 'border-emerald-600' : 'border-rose-600'
-                  )}>
-                    <span className={cn('size-1.5 rounded-full', isVeg ? 'bg-emerald-600' : 'bg-rose-600')} />
+                  {/* Veg mark — the one place a second colour is not optional. */}
+                  <span
+                    className="size-3.5 border-2 grid place-items-center shrink-0"
+                    style={{ borderColor: isVeg ? 'var(--ad-ok)' : 'var(--ad-accent)' }}
+                  >
+                    <span
+                      className="size-1.5 rounded-full"
+                      style={{ background: isVeg ? 'var(--ad-ok)' : 'var(--ad-accent)' }}
+                    />
                   </span>
 
                   <div className="min-w-0">
-                    <span className="text-[15px] font-black text-slate-900 block truncate leading-tight">
+                    <span className="text-[15px] font-semibold block truncate leading-tight">
                       {item.name}
                     </span>
                     {item.selectedPortion && (
-                      <span className="mt-0.5 inline-block text-[10px] uppercase bg-slate-100 text-slate-700 border border-slate-200 rounded-md px-1.5 font-bold">
-                        Portion: {item.selectedPortion}
-                      </span>
+                      <span className="ad-kicker">{item.selectedPortion}</span>
                     )}
                   </div>
                 </div>
 
-                {/* Big Quantity Pill */}
-                <span className={cn(
-                  'shrink-0 text-sm font-black tabular-nums px-3 py-1.5 rounded-xl font-mono shadow-2xs',
-                  isChecked ? 'bg-slate-200 text-slate-600' : 'bg-blue-600 text-white'
-                )}>
+                <span
+                  className="shrink-0 ad-num text-[15px] px-2.5 py-1"
+                  style={{
+                    background: isChecked ? 'var(--ad-n300)' : 'var(--ad-ink)',
+                    color: isChecked ? 'var(--ad-n700)' : 'var(--ad-bg)',
+                  }}
+                >
                   ×{qty}
                 </span>
               </button>
@@ -1545,47 +1325,41 @@ function OrderTicketCard({
         </div>
       </div>
 
-      {/* ── CARD FOOTER (48px+ TOUCH BUTTONS) ── */}
-      <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-3">
-        <div className="flex items-center justify-between text-xs font-bold text-slate-500">
-          <span className="flex items-center gap-1.5">
+      {/* ── CARD FOOTER — 48px touch targets ── */}
+      <div className="p-4 border-t border-ad-hairline space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="ad-kicker flex items-center gap-1.5">
             <Utensils className="size-3.5" />
-            {items.length} items ({totalUnits} total)
+            {items.length} items · {totalUnits} units
           </span>
-          <span className="font-mono text-sm font-black text-slate-900">{formatCurrency(order.grandTotal)}</span>
+          <span className="ad-num text-[15px]">{formatCurrency(order.grandTotal)}</span>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Regress / Step Back Button */}
           {status !== 'pending' && (
             <button
               type="button"
               onClick={onRegress}
-              title="Recall step back"
-              className="h-12 w-12 flex items-center justify-center rounded-2xl border-2 border-slate-200 bg-white text-slate-600 hover:bg-slate-100 active:scale-95 transition-all shrink-0"
+              title="Step this ticket back"
+              className="ad-btn ad-btn-secondary h-12 w-12 p-0 shrink-0"
             >
               <RotateCcw className="size-4.5" />
             </button>
           )}
 
-          {/* Add Chef Note Button */}
           <button
             type="button"
             onClick={onOpenChefNote}
-            title="Add Kitchen Note"
-            className="h-12 w-12 flex items-center justify-center rounded-2xl border-2 border-slate-200 bg-white text-slate-600 hover:bg-slate-100 active:scale-95 transition-all shrink-0"
+            title="Add a kitchen note"
+            className="ad-btn ad-btn-secondary h-12 w-12 p-0 shrink-0"
           >
             <ChefHat className="size-4.5" />
           </button>
 
-          {/* Primary Advance CTA Button (48px+ touch target) */}
           <button
             type="button"
             onClick={onAdvance}
-            className={cn(
-              'flex-1 h-12 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 active:scale-[0.98]',
-              lane.ctaBg
-            )}
+            className={cn('ad-btn flex-1 h-12 text-[14px]', lane.isPass ? 'ad-btn-primary' : 'ad-btn-dark')}
           >
             <Check className="size-4.5" />
             <span>{lane.ctaText}</span>

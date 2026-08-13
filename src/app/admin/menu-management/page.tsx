@@ -28,8 +28,7 @@ import {
 } from '@/components/admin/form-fields';
 import { DataTable } from '@/components/ui/data-table';
 import { ColumnDef } from '@tanstack/react-table';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
+import { Pill } from '@/components/admin/ui';
 import { cn } from '@/lib/utils';
 
 /* ================================================================== */
@@ -240,7 +239,7 @@ export default function MenuManagementPage() {
       header: '',
       enableSorting: false,
       cell: ({ row }) => (
-        <div className="relative size-10 overflow-hidden rounded-lg bg-stone-100 flex-shrink-0">
+        <div className="relative size-10 overflow-hidden bg-ad-n200 shrink-0">
           <Image
             src={row.original.image || FALLBACK_DISH_IMAGE}
             alt=""
@@ -256,12 +255,12 @@ export default function MenuManagementPage() {
       header: 'Dish',
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5 font-medium text-sm text-stone-900">
+          <div className="flex items-center gap-1.5 font-semibold">
             <span className="truncate">{row.original.name}</span>
-            {row.original.isSpecial && <Sparkles className="size-3.5 shrink-0 text-amber-500" />}
-            {row.original.isPopular && <Flame className="size-3.5 shrink-0 text-rose-500" />}
+            {row.original.isSpecial && <Sparkles className="size-3.5 shrink-0 text-ad-accent" />}
+            {row.original.isPopular && <Flame className="size-3.5 shrink-0 text-ad-accent" />}
           </div>
-          <div className="text-xs text-stone-400 truncate mt-0.5">
+          <div className="ad-kicker truncate mt-0.5">
             {categoryLabelMap[row.original.category] || row.original.category}
           </div>
         </div>
@@ -272,9 +271,9 @@ export default function MenuManagementPage() {
       header: 'Price',
       cell: ({ row }) => (
         <div>
-          <span className="text-sm font-semibold text-stone-900 tabular-nums">₹{row.original.price}</span>
+          <span className="ad-num text-[15px]">₹{row.original.price}</span>
           {priceLabel(row.original) && (
-            <div className="text-xs text-stone-400 tabular-nums mt-0.5">{priceLabel(row.original)}</div>
+            <div className="ad-kicker tabular-nums mt-0.5">{priceLabel(row.original)}</div>
           )}
         </div>
       ),
@@ -285,8 +284,12 @@ export default function MenuManagementPage() {
       cell: ({ row }) => {
         const v = row.original.vegStatus;
         return (
-          <span className={cn('text-xs font-medium', v === 'veg' ? 'text-emerald-700' : v === 'egg' ? 'text-yellow-700' : 'text-rose-700')}>
-            {v === 'veg' ? '🟢 Veg' : v === 'egg' ? '🟡 Egg' : '🔴 Non-veg'}
+          <span className="ad-tag ad-tag-outline">
+            <span
+              className="w-2 h-2"
+              style={{ background: v === 'veg' ? 'var(--ad-ok)' : v === 'egg' ? 'var(--ad-warn)' : 'var(--ad-accent)' }}
+            />
+            {v === 'veg' ? 'Veg' : v === 'egg' ? 'Egg' : 'Non-veg'}
           </span>
         );
       },
@@ -295,8 +298,8 @@ export default function MenuManagementPage() {
       accessorKey: 'prepTime',
       header: 'Cook Time',
       cell: ({ row }) => (
-        <div className="flex items-center gap-1 text-xs font-semibold text-stone-700 tabular-nums">
-          <Clock className="size-3.5 text-amber-600 shrink-0" />
+        <div className="flex items-center gap-1.5 tabular-nums ad-muted">
+          <Clock className="size-3.5 shrink-0" />
           <span>{row.original.prepTime || 20} min</span>
         </div>
       ),
@@ -305,10 +308,11 @@ export default function MenuManagementPage() {
       accessorKey: 'isAvailable',
       header: 'Available',
       cell: ({ row }) => (
-        <Switch
-          checked={row.original.isAvailable}
-          onCheckedChange={() => toggleMenuItemAvailability(row.original.id)}
-          aria-label={`${row.original.name} availability`}
+        <Pill
+          on={row.original.isAvailable}
+          onLabel="On menu"
+          offLabel="86'd"
+          onClick={() => toggleMenuItemAvailability(row.original.id)}
         />
       ),
     },
@@ -317,13 +321,13 @@ export default function MenuManagementPage() {
       header: '',
       enableSorting: false,
       cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="size-8" onClick={() => openEditItem(row.original)}>
-            <Edit2 className="size-4 text-stone-500" />
-          </Button>
-          <Button variant="ghost" size="icon" className="size-8 text-rose-600" onClick={() => setDeletingItem(row.original)}>
+        <div className="flex items-center gap-1.5">
+          <button type="button" className="ad-btn ad-btn-secondary ad-btn-icon" onClick={() => openEditItem(row.original)} aria-label={`Edit ${row.original.name}`}>
+            <Edit2 className="size-4" />
+          </button>
+          <button type="button" className="ad-btn ad-btn-secondary ad-btn-icon" style={{ color: 'var(--ad-a700)' }} onClick={() => setDeletingItem(row.original)} aria-label={`Delete ${row.original.name}`}>
             <Trash2 className="size-4" />
-          </Button>
+          </button>
         </div>
       ),
     },
@@ -331,32 +335,35 @@ export default function MenuManagementPage() {
 
   const renderItemMobileCard = useCallback((item: MenuItemType) => (
     <div className="flex gap-3">
-      <div className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-stone-100">
+      <div className="relative size-14 shrink-0 overflow-hidden bg-ad-n200">
         <Image src={item.image || FALLBACK_DISH_IMAGE} alt="" fill sizes="56px" className="object-cover" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="truncate text-sm font-medium text-stone-900">{item.name}</span>
-              {item.isSpecial && <Sparkles className="size-3 shrink-0 text-amber-500" />}
-              {item.isPopular && <Flame className="size-3 shrink-0 text-rose-500" />}
+              <span className="truncate text-[14px] font-semibold">{item.name}</span>
+              {item.isSpecial && <Sparkles className="size-3 shrink-0 text-ad-accent" />}
+              {item.isPopular && <Flame className="size-3 shrink-0 text-ad-accent" />}
             </div>
-            <div className="text-xs text-stone-400 flex items-center gap-2 mt-0.5">
-              <span>{categoryLabelMap[item.category] || item.category}</span>
-              <span>·</span>
-              <span className="flex items-center gap-0.5 font-semibold text-amber-700">
-                <Clock className="size-3" /> {item.prepTime || 20}m
-              </span>
+            <div className="ad-kicker mt-0.5">
+              {categoryLabelMap[item.category] || item.category} · {item.prepTime || 20}m
             </div>
           </div>
-          <span className="text-sm font-semibold text-stone-900 tabular-nums shrink-0">₹{item.price}</span>
+          <span className="ad-num text-[16px] shrink-0">₹{item.price}</span>
         </div>
-        <div className="mt-2 flex items-center justify-between border-t border-stone-100 pt-2">
-          <Switch checked={item.isAvailable} onCheckedChange={() => toggleMenuItemAvailability(item.id)} aria-label={`${item.name} availability`} />
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs font-bold" onClick={() => openEditItem(item)}>Edit</Button>
-            <Button variant="ghost" size="icon" className="size-7 text-rose-600" onClick={() => setDeletingItem(item)}><Trash2 className="size-3.5" /></Button>
+        <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-ad-hairline pt-2.5">
+          <Pill
+            on={item.isAvailable}
+            onLabel="On menu"
+            offLabel="86'd"
+            onClick={() => toggleMenuItemAvailability(item.id)}
+          />
+          <div className="flex items-center gap-1.5">
+            <button type="button" className="ad-btn ad-btn-secondary ad-btn-sm" onClick={() => openEditItem(item)}>Edit</button>
+            <button type="button" className="ad-btn ad-btn-secondary ad-btn-sm" style={{ color: 'var(--ad-a700)' }} onClick={() => setDeletingItem(item)} aria-label={`Delete ${item.name}`}>
+              <Trash2 className="size-3.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -462,9 +469,9 @@ export default function MenuManagementPage() {
       accessorKey: 'sortOrder',
       header: '#',
       cell: ({ row }) => (
-        <div className="flex items-center gap-1 text-xs text-stone-400 tabular-nums">
-          <GripVertical className="size-3.5 text-stone-300" />
-          <span className="font-bold">{row.original.sortOrder}</span>
+        <div className="flex items-center gap-1 ad-muted tabular-nums">
+          <GripVertical className="size-3.5" />
+          <span className="font-semibold">{row.original.sortOrder}</span>
         </div>
       ),
     },
@@ -473,17 +480,11 @@ export default function MenuManagementPage() {
       header: '',
       enableSorting: false,
       cell: ({ row }) => (
-        <div className="relative size-10 overflow-hidden rounded-full bg-stone-100 flex-shrink-0 border-2 border-stone-200">
+        <div className="relative size-10 overflow-hidden bg-ad-n200 shrink-0">
           {row.original.image ? (
-            <Image
-              src={row.original.image}
-              alt=""
-              fill
-              sizes="40px"
-              className="object-cover"
-            />
+            <Image src={row.original.image} alt="" fill sizes="40px" className="object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center font-bold text-amber-700 bg-amber-50 text-sm">
+            <div className="w-full h-full grid place-items-center bg-ad-ink text-ad-bg ad-num text-[13px]">
               {(row.original.name || 'C')[0].toUpperCase()}
             </div>
           )}
@@ -495,12 +496,8 @@ export default function MenuManagementPage() {
       header: 'Category',
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="font-medium text-sm text-stone-900 truncate">
-            {row.original.name}
-          </div>
-          <div className="text-xs text-stone-400 font-mono truncate mt-0.5">
-            {row.original.slug}
-          </div>
+          <div className="font-semibold truncate">{row.original.name}</div>
+          <div className="ad-kicker truncate mt-0.5">{row.original.slug}</div>
         </div>
       ),
     },
@@ -510,12 +507,7 @@ export default function MenuManagementPage() {
       cell: ({ row }) => {
         const count = itemCountByCategory[row.original.slug] || 0;
         return (
-          <span className={cn(
-            'text-xs font-bold tabular-nums px-2 py-0.5 rounded-md',
-            count > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-stone-100 text-stone-400'
-          )}>
-            {count}
-          </span>
+          <span className={cn('ad-tag', count > 0 ? 'ad-tag-solid' : '')}>{count}</span>
         );
       },
     },
@@ -523,16 +515,17 @@ export default function MenuManagementPage() {
       accessorKey: 'isActive',
       header: 'Active',
       cell: ({ row }) => (
-        <Switch
-          checked={row.original.isActive}
-          onCheckedChange={async () => {
+        <Pill
+          on={row.original.isActive}
+          onLabel="Live"
+          offLabel="Hidden"
+          onClick={async () => {
             try {
               await updateCategory({ ...row.original, isActive: !row.original.isActive });
             } catch (err) {
               toast.error((err as Error).message);
             }
           }}
-          aria-label={`${row.original.name} active`}
         />
       ),
     },
@@ -543,20 +536,20 @@ export default function MenuManagementPage() {
       cell: ({ row }) => {
         const count = itemCountByCategory[row.original.slug] || 0;
         return (
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="icon" className="size-8" onClick={() => openEditCat(row.original)}>
-              <Edit2 className="size-4 text-stone-500" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn('size-8', count > 0 ? 'text-stone-300 cursor-not-allowed' : 'text-rose-600')}
+          <div className="flex items-center gap-1.5">
+            <button type="button" className="ad-btn ad-btn-secondary ad-btn-icon" onClick={() => openEditCat(row.original)} aria-label={`Edit ${row.original.name}`}>
+              <Edit2 className="size-4" />
+            </button>
+            <button
+              type="button"
+              className="ad-btn ad-btn-secondary ad-btn-icon"
+              style={{ color: count > 0 ? 'var(--ad-n400)' : 'var(--ad-a700)' }}
               disabled={count > 0}
               title={count > 0 ? `${count} dishes assigned — cannot delete` : 'Delete category'}
               onClick={() => setDeletingCat(row.original)}
             >
               <Trash2 className="size-4" />
-            </Button>
+            </button>
           </div>
         );
       },
@@ -567,11 +560,11 @@ export default function MenuManagementPage() {
     const count = itemCountByCategory[cat.slug] || 0;
     return (
       <div className="flex gap-3">
-        <div className="relative size-12 shrink-0 overflow-hidden rounded-full bg-stone-100 border-2 border-stone-200">
+        <div className="relative size-12 shrink-0 overflow-hidden bg-ad-n200">
           {cat.image ? (
             <Image src={cat.image} alt="" fill sizes="48px" className="object-cover" />
           ) : (
-            <div className="w-full h-full flex items-center justify-center font-bold text-amber-700 bg-amber-50 text-sm">
+            <div className="w-full h-full grid place-items-center bg-ad-ink text-ad-bg ad-num text-[14px]">
               {(cat.name || 'C')[0].toUpperCase()}
             </div>
           )}
@@ -579,40 +572,38 @@ export default function MenuManagementPage() {
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <span className="truncate text-sm font-medium text-stone-900 block">{cat.name}</span>
-              <div className="text-xs text-stone-400 flex items-center gap-2 mt-0.5">
-                <span className="font-mono">{cat.slug}</span>
-                <span>·</span>
-                <span className={cn('font-bold', count > 0 ? 'text-emerald-600' : 'text-stone-400')}>
-                  {count} dish{count !== 1 ? 'es' : ''}
-                </span>
+              <span className="truncate text-[14px] font-semibold block">{cat.name}</span>
+              <div className="ad-kicker mt-0.5">
+                {cat.slug} · {count} dish{count !== 1 ? 'es' : ''}
               </div>
             </div>
-            <span className="text-xs text-stone-400 tabular-nums font-bold shrink-0">#{cat.sortOrder}</span>
+            <span className="ad-num text-[13px] shrink-0 ad-muted">#{cat.sortOrder}</span>
           </div>
-          <div className="mt-2 flex items-center justify-between border-t border-stone-100 pt-2">
-            <Switch
-              checked={cat.isActive}
-              onCheckedChange={async () => {
+          <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-ad-hairline pt-2.5">
+            <Pill
+              on={cat.isActive}
+              onLabel="Live"
+              offLabel="Hidden"
+              onClick={async () => {
                 try {
                   await updateCategory({ ...cat, isActive: !cat.isActive });
                 } catch (err) {
                   toast.error((err as Error).message);
                 }
               }}
-              aria-label={`${cat.name} active`}
             />
-            <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs font-bold" onClick={() => openEditCat(cat)}>Edit</Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn('size-7', count > 0 ? 'text-stone-300' : 'text-rose-600')}
+            <div className="flex items-center gap-1.5">
+              <button type="button" className="ad-btn ad-btn-secondary ad-btn-sm" onClick={() => openEditCat(cat)}>Edit</button>
+              <button
+                type="button"
+                className="ad-btn ad-btn-secondary ad-btn-sm"
+                style={{ color: count > 0 ? 'var(--ad-n400)' : 'var(--ad-a700)' }}
                 disabled={count > 0}
                 onClick={() => setDeletingCat(cat)}
+                aria-label={`Delete ${cat.name}`}
               >
                 <Trash2 className="size-3.5" />
-              </Button>
+              </button>
             </div>
           </div>
         </div>
@@ -635,66 +626,43 @@ export default function MenuManagementPage() {
   return (
     <AdminLayout title="Menu Management">
       <div className="w-full max-w-full space-y-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div>
-            <h1 className="text-xl font-semibold text-stone-900">Menu Management</h1>
-            <p className="text-sm text-stone-500 mt-0.5">
-              {menuItems.length} dishes · {categories.length} categories · {menuItems.filter(i => i.isAvailable).length} available
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {activeTab === 'items' ? (
-              <Button onClick={openAddItem} className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4">
-                <Plus className="size-4 mr-1.5" /> Add Dish
-              </Button>
-            ) : (
-              <Button onClick={openAddCat} className="h-9 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium px-4">
-                <Plus className="size-4 mr-1.5" /> Add Category
-              </Button>
-            )}
-          </div>
+        <div className="ad-section-head">
+          <h3 className="ad-h text-[17px]">The menu</h3>
+          <span className="text-[12px] ad-muted">
+            {menuItems.length} dishes · {categories.length} categories · {menuItems.filter(i => i.isAvailable).length} available
+          </span>
+          {activeTab === 'items' ? (
+            <button type="button" onClick={openAddItem} className="ad-btn ad-btn-primary ml-auto">
+              <Plus className="size-4" /> Add dish
+            </button>
+          ) : (
+            <button type="button" onClick={openAddCat} className="ad-btn ad-btn-primary ml-auto">
+              <Plus className="size-4" /> Add category
+            </button>
+          )}
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 bg-stone-100 p-1 rounded-xl border border-stone-200 w-fit">
+        <div className="flex items-center gap-2 w-fit">
           <button
             type="button"
             onClick={() => setActiveTab('items')}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all',
-              activeTab === 'items'
-                ? 'bg-white text-stone-900 shadow-sm'
-                : 'text-stone-500 hover:text-stone-700'
-            )}
+            className="ad-tab flex items-center gap-2"
+            data-active={activeTab === 'items'}
           >
             <UtensilsCrossed className="size-4" />
             Dishes
-            <span className={cn(
-              'text-[10px] font-black px-1.5 py-0.5 rounded-md tabular-nums',
-              activeTab === 'items' ? 'bg-amber-100 text-amber-700' : 'bg-stone-200 text-stone-500'
-            )}>
-              {menuItems.length}
-            </span>
+            <span className="tabular-nums opacity-70">{menuItems.length}</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('categories')}
-            className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all',
-              activeTab === 'categories'
-                ? 'bg-white text-stone-900 shadow-sm'
-                : 'text-stone-500 hover:text-stone-700'
-            )}
+            className="ad-tab flex items-center gap-2"
+            data-active={activeTab === 'categories'}
           >
             <FolderOpen className="size-4" />
             Categories
-            <span className={cn(
-              'text-[10px] font-black px-1.5 py-0.5 rounded-md tabular-nums',
-              activeTab === 'categories' ? 'bg-amber-100 text-amber-700' : 'bg-stone-200 text-stone-500'
-            )}>
-              {categories.length}
-            </span>
+            <span className="tabular-nums opacity-70">{categories.length}</span>
           </button>
         </div>
 
@@ -705,7 +673,8 @@ export default function MenuManagementPage() {
             <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
               <button
                 onClick={() => setCategoryFilter('all')}
-                className={cn('shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap', categoryFilter === 'all' ? 'border-amber-600 bg-amber-600 text-white' : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50')}
+                className="ad-tab shrink-0"
+                data-active={categoryFilter === 'all'}
               >
                 All ({menuItems.length})
               </button>
@@ -713,7 +682,8 @@ export default function MenuManagementPage() {
                 <button
                   key={value}
                   onClick={() => setCategoryFilter(value)}
-                  className={cn('shrink-0 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap', categoryFilter === value ? 'border-amber-600 bg-amber-600 text-white' : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50')}
+                  className="ad-tab shrink-0"
+                  data-active={categoryFilter === value}
                 >
                   {label} ({menuItems.filter(i => i.category === value).length})
                 </button>
@@ -721,7 +691,7 @@ export default function MenuManagementPage() {
             </div>
 
             {/* Items table */}
-            <div className="bg-white rounded-xl border border-stone-200">
+            <div>
               <DataTable
                 columns={itemColumns}
                 data={filteredItems}
@@ -739,7 +709,7 @@ export default function MenuManagementPage() {
 
         {/* ── Categories Tab ── */}
         {activeTab === 'categories' && (
-          <div className="bg-white rounded-xl border border-stone-200">
+          <div>
             <DataTable
               columns={catColumns}
               data={sortedCategories}
@@ -775,9 +745,9 @@ export default function MenuManagementPage() {
           <NumberField control={itemForm.control} name="price" label="Base Price" prefix="₹" placeholder="0" hint="Charged when no portion is chosen" />
           <NumberField control={itemForm.control} name="prepTime" label="Prep Time" suffix="min" placeholder="20" />
         </div>
-        <div className="rounded-lg border border-stone-200 bg-stone-50 p-3">
-          <p className="text-xs font-medium text-stone-600 mb-1">Portion Pricing</p>
-          <p className="text-xs text-stone-400 mb-3">Leave blank for single-size dishes.</p>
+        <div className="border border-ad-hairline bg-ad-surface p-3">
+          <p className="ad-kicker m-0">Portion pricing</p>
+          <p className="text-[12px] ad-muted mt-1 mb-3">Leave blank for single-size dishes.</p>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <NumberField control={itemForm.control} name="portionSingle" label="Single" prefix="₹" placeholder="—" />
             <NumberField control={itemForm.control} name="portionFull" label="Full" prefix="₹" placeholder="—" />

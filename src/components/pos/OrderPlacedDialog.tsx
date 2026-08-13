@@ -8,7 +8,6 @@ import { isPrinterConnected, printOrder, savedPrinterName } from '@/lib/thermalP
 import { rupees } from '@/lib/billing';
 import type { Order } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
 
 type PrintState = 'idle' | 'printing' | 'printed' | 'failed';
 
@@ -67,24 +66,24 @@ function PlacedDialog({
   const status = (() => {
     switch (printState) {
       case 'printing':
-        return { icon: <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />, text: 'Sending to printer…', color: 'text-stone-500' };
+        return { icon: <Loader2 className="w-4 h-4 animate-spin" />, text: 'Sending to printer…', color: 'ad-muted' };
       case 'printed':
         return {
-          icon: <Bluetooth className="w-4 h-4 text-emerald-600" />,
+          icon: <Bluetooth className="w-4 h-4" />,
           text: `Printed on ${savedPrinterName() || 'counter printer'}`,
-          color: 'text-emerald-600 dark:text-emerald-400',
+          color: 'ad-muted',
         };
       case 'failed':
         return {
-          icon: <AlertCircle className="w-4 h-4 text-rose-600" />,
+          icon: <AlertCircle className="w-4 h-4 text-ad-accent" />,
           text: 'Printer did not respond — print again',
-          color: 'text-rose-600',
+          color: 'text-ad-accent-deep',
         };
       default:
         return {
-          icon: <Receipt className="w-4 h-4 text-stone-400" />,
+          icon: <Receipt className="w-4 h-4" />,
           text: 'No printer paired — use Print bill',
-          color: 'text-stone-500',
+          color: 'ad-muted',
         };
     }
   })();
@@ -94,48 +93,53 @@ function PlacedDialog({
       {open && <PrintBillPortal order={order} invoiceNo={invoiceNo} />}
 
       <Dialog open={open} onOpenChange={(val) => { if (!val) onNewOrder(); }}>
-        <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl bg-white dark:bg-stone-900 border-none shadow-2xl">
-          <DialogHeader className="bg-emerald-600 text-white p-5 text-left">
+        <DialogContent className="max-w-md p-0 overflow-hidden">
+          {/* Settled money keeps the till's green — see BillPanel. */}
+          <DialogHeader
+            className="p-5 text-left"
+            style={{ background: 'var(--ad-ok)', color: 'var(--ad-bg)' }}
+          >
             <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-8 h-8 flex-shrink-0" />
-              <div>
-                <DialogTitle className="text-white font-black text-lg leading-tight">
-                  Order placed · {rupees(order.grandTotal)}
+              <CheckCircle2 className="w-7 h-7 shrink-0" />
+              <div className="min-w-0">
+                <DialogTitle className="ad-num text-[20px] leading-tight">
+                  Paid · {rupees(order.grandTotal)}
                 </DialogTitle>
-                <p className="text-xs text-emerald-100 mt-0.5 font-medium">
+                <p className="text-[12px] mt-1 opacity-85 m-0">
                   {order.id}{invoiceNo ? ` · Bill ${invoiceNo}` : ''}
                 </p>
               </div>
             </div>
           </DialogHeader>
 
-          <div className="px-5 py-2.5 bg-stone-50 dark:bg-stone-800/50 border-b border-stone-200/80 dark:border-stone-800 flex items-center gap-2 text-xs font-semibold">
+          <div className="px-5 py-2.5 bg-ad-surface border-b-2 border-ad-line flex items-center gap-2 text-[13px]">
             {status.icon}
             <span className={status.color}>{status.text}</span>
           </div>
 
-          <div className="p-4 bg-stone-100/50 dark:bg-stone-950/40 max-h-[60vh] overflow-y-auto">
-            <div className="bg-white dark:bg-stone-900 border border-dashed border-stone-300 dark:border-stone-700 rounded-xl p-2">
+          <div className="p-4 bg-ad-surface max-h-[60vh] overflow-y-auto">
+            <div className="bg-white border border-dashed border-ad-line p-2">
               <ThermalBill order={order} invoiceNo={invoiceNo} />
             </div>
           </div>
 
-          <DialogFooter className="p-4 bg-stone-50 dark:bg-stone-800/40 border-t border-stone-200/80 dark:border-stone-800 flex flex-row gap-3">
-            <Button
-              variant="outline"
+          <DialogFooter className="p-4 border-t-2 border-ad-line flex flex-row gap-2">
+            <button
+              type="button"
               onClick={printAgain}
               disabled={printState === 'printing' || browserPrinting}
-              className="flex-1 font-bold rounded-xl h-11 border-stone-300 dark:border-stone-700"
+              className="ad-btn ad-btn-secondary flex-1 h-11"
             >
-              <Printer className="w-4 h-4 mr-2" />
+              <Printer className="w-4 h-4" />
               {printState === 'printed' ? 'Print again' : 'Print bill'}
-            </Button>
-            <Button
+            </button>
+            <button
+              type="button"
               onClick={onNewOrder}
-              className="flex-1 font-black rounded-xl h-11 bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/20"
+              className="ad-btn ad-btn-primary flex-1 h-11"
             >
               New order
-            </Button>
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

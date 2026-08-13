@@ -1,0 +1,461 @@
+/* ============================================================================
+   Modernist — the admin console's design system.
+
+   Ported from the Claude Design project "Restaurant Admin"
+   (99f63aa6-f8be-4221-8c1d-e8e47a1ddbe9, `_ds/modernist-…/styles.css`).
+
+   The system in one line: flat, square, high-contrast. No radius, no shadow,
+   no gradient — structure is carried by 2px rules and 2px hairline grid gaps
+   over a divider-coloured backplate, and emphasis by one hot accent red.
+
+   Two scopes live in this file:
+
+   1. `.ad-*` component classes and `--ad-*` tokens. Unscoped on purpose so
+      they work inside Radix portals (dialogs, dropdowns) too, which render
+      outside the shell's DOM subtree.
+   2. A normalization block under `.ad-shell` / `[data-ad-theme]` that squares
+      corners, flattens shadows, and pulls stray stone/slate utilities onto the
+      console's neutrals. Every page is written in the system now; this is the
+      safety net for the shared shadcn primitives underneath them.
+
+   Loaded by `src/app/admin/layout.tsx`; the customer site never sees it.
+   ========================================================================= */
+
+:root {
+  --ad-bg: #f3f2f2;
+  --ad-surface: #eae9e9;
+  --ad-ink: #201e1d;
+  --ad-accent: #ec3013;
+
+  /* 40% ink. Strong on purpose — at 2px this is the system's main structural
+     line, not a whisper-thin hairline. */
+  --ad-divider: color-mix(in srgb, #201e1d 40%, transparent);
+  --ad-hairline: color-mix(in srgb, #201e1d 20%, transparent);
+
+  --ad-n100: #f8f4f4;
+  --ad-n200: #eae7e7;
+  --ad-n300: #d7d3d3;
+  --ad-n400: #bab6b6;
+  --ad-n500: #9b9797;
+  --ad-n600: #7d7979;
+  --ad-n700: #605d5d;
+  --ad-n800: #444141;
+  --ad-n900: #2d2b2b;
+
+  --ad-a100: #fff2ef;
+  --ad-a200: #ffe0d9;
+  --ad-a300: #ffc4b8;
+  --ad-a400: #ff9783;
+  --ad-a500: #ff563c;
+  --ad-a600: #dd2b0f;
+  --ad-a700: #ae1800;
+  --ad-a800: #7c1405;
+  --ad-a900: #4d170e;
+
+  /* Semantic hues, pulled to the same flat register as the accent so a green
+     "paid" chip doesn't look like it came from a different application. */
+  --ad-ok: #15803d;
+  --ad-ok-bg: #e8f3ec;
+  --ad-warn: #a1620a;
+  --ad-warn-bg: #f6eddd;
+  --ad-info: #1d4ed8;
+  --ad-info-bg: #e6ebf8;
+
+  --ad-font: var(--font-archivo), "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --ad-sidebar-w: 236px;
+  --ad-header-h: 68px;
+}
+
+/* ── Shell ──────────────────────────────────────────────────────────────── */
+
+.ad-shell {
+  background: var(--ad-bg);
+  color: var(--ad-ink);
+  font-family: var(--ad-font);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ad-shell h1,
+.ad-shell h2,
+.ad-shell h3,
+.ad-shell h4,
+.ad-shell h5,
+.ad-shell h6 {
+  font-family: var(--ad-font);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+}
+
+.ad-shell ::-webkit-scrollbar { width: 9px; height: 9px; }
+.ad-shell ::-webkit-scrollbar-track { background: transparent; }
+.ad-shell ::-webkit-scrollbar-thumb { background: var(--ad-n400); }
+.ad-shell ::-webkit-scrollbar-thumb:hover { background: var(--ad-n500); }
+
+.ad-shell :focus-visible {
+  outline: 2px solid var(--ad-accent);
+  outline-offset: 2px;
+}
+.ad-shell ::selection { background: color-mix(in srgb, var(--ad-accent) 30%, transparent); }
+
+/* ── Type helpers ───────────────────────────────────────────────────────── */
+
+/* The system's signature label: 10–11px, wide-tracked, upper. Used for every
+   kicker, column head, stat label and status word. */
+.ad-kicker {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ad-n600);
+  line-height: 1.4;
+}
+
+.ad-title {
+  font-family: var(--ad-font);
+  font-weight: 800;
+  font-size: 22px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.ad-h {
+  font-family: var(--ad-font);
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+
+.ad-num {
+  font-family: var(--ad-font);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.ad-muted { color: var(--ad-n600); }
+
+/* The system's only hover wash: a few percent of ink. Used by rows, tiles and
+   quiet buttons so "interactive" reads the same everywhere. */
+.ad-hover { transition: background-color 0.12s ease, color 0.12s ease; }
+.ad-hover:hover { background-color: color-mix(in srgb, var(--ad-ink) 5%, transparent); }
+.ad-hover-strong:hover { background-color: color-mix(in srgb, var(--ad-ink) 9%, transparent); }
+
+/* ── Rules and plates ───────────────────────────────────────────────────── */
+
+.ad-rule { height: 2px; border: 0; background: var(--ad-divider); }
+
+.ad-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-bottom: 2px solid var(--ad-divider);
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+}
+
+.ad-panel {
+  border: 2px solid var(--ad-divider);
+  background: var(--ad-bg);
+}
+
+.ad-panel-surface {
+  border: 2px solid var(--ad-divider);
+  background: var(--ad-surface);
+}
+
+/* Hairline grid: children sit on a divider-coloured backplate and the 2px gap
+   between them *is* the rule. Cheaper and crisper than per-cell borders,
+   which double up and drift by a pixel at the seams. */
+.ad-grid {
+  display: grid;
+  gap: 2px;
+  background: var(--ad-divider);
+  border: 2px solid var(--ad-divider);
+}
+.ad-grid > * { background: var(--ad-bg); }
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+
+.ad-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  font-family: var(--ad-font);
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.2;
+  color: var(--ad-ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 0;
+  padding: 9px 14px;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.ad-btn:disabled,
+.ad-btn[aria-disabled='true'] { opacity: 0.45; cursor: not-allowed; }
+.ad-btn svg { display: block; flex: none; }
+
+.ad-btn-primary { background: var(--ad-accent); color: var(--ad-bg); }
+.ad-btn-primary:hover:not(:disabled) { background: var(--ad-a600); color: var(--ad-bg); }
+.ad-btn-primary:active:not(:disabled) { background: var(--ad-a700); }
+
+.ad-btn-secondary { border-color: var(--ad-divider); }
+.ad-btn-secondary:hover:not(:disabled) { background: color-mix(in srgb, var(--ad-ink) 7%, transparent); }
+.ad-btn-secondary:active:not(:disabled) { background: color-mix(in srgb, var(--ad-ink) 14%, transparent); }
+
+.ad-btn-dark { background: var(--ad-ink); color: var(--ad-bg); }
+.ad-btn-dark:hover:not(:disabled) { background: var(--ad-n800); color: var(--ad-bg); }
+
+.ad-btn-ghost { color: var(--ad-accent); padding-inline: 6px; }
+.ad-btn-ghost:hover:not(:disabled) { background: color-mix(in srgb, var(--ad-accent) 10%, transparent); }
+
+.ad-btn-sm { padding: 6px 10px; font-size: 12px; }
+.ad-btn-icon { width: 36px; height: 36px; padding: 0; }
+.ad-btn-block { width: 100%; }
+
+/* ── Forms ──────────────────────────────────────────────────────────────── */
+
+.ad-field > label,
+.ad-label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 5px;
+  color: color-mix(in srgb, var(--ad-ink) 70%, transparent);
+}
+
+.ad-input {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ad-ink);
+  caret-color: var(--ad-accent);
+  background: var(--ad-surface);
+  border: 1px solid var(--ad-divider);
+  border-radius: 0;
+}
+.ad-input::placeholder { color: var(--ad-n500); }
+.ad-input:hover { border-color: color-mix(in srgb, var(--ad-ink) 45%, transparent); }
+.ad-input:focus-visible { border-color: var(--ad-accent); outline-offset: 0; }
+textarea.ad-input { min-height: 90px; resize: vertical; }
+
+/* ── Tabs ───────────────────────────────────────────────────────────────── */
+
+.ad-tab {
+  padding: 7px 14px;
+  border: 1px solid var(--ad-divider);
+  border-radius: 0;
+  cursor: pointer;
+  background: transparent;
+  color: var(--ad-ink);
+  font-family: var(--ad-font);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.ad-tab:hover { background: color-mix(in srgb, var(--ad-ink) 7%, transparent); }
+.ad-tab[data-active='true'] {
+  background: var(--ad-ink);
+  color: var(--ad-bg);
+  border-color: var(--ad-ink);
+}
+
+/* ── Tags, pills, toggles ───────────────────────────────────────────────── */
+
+.ad-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 0;
+  white-space: nowrap;
+  background: var(--ad-n200);
+  color: var(--ad-n800);
+}
+.ad-tag-accent { background: var(--ad-a100); color: var(--ad-a800); }
+.ad-tag-outline { background: transparent; box-shadow: inset 0 0 0 1px var(--ad-divider); color: var(--ad-n800); }
+.ad-tag-solid { background: var(--ad-ink); color: var(--ad-bg); }
+.ad-tag-ok { background: var(--ad-ok-bg); color: var(--ad-ok); }
+.ad-tag-warn { background: var(--ad-warn-bg); color: var(--ad-warn); }
+.ad-tag-info { background: var(--ad-info-bg); color: var(--ad-info); }
+
+.ad-pill {
+  padding: 4px 12px;
+  border: 1px solid var(--ad-divider);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ad-n700);
+  font-family: var(--ad-font);
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ad-pill[data-on='true'] {
+  border-color: var(--ad-accent);
+  background: var(--ad-a100);
+  color: var(--ad-a800);
+}
+
+.ad-switch {
+  width: 46px;
+  height: 24px;
+  flex: none;
+  padding: 3px;
+  border: 1px solid var(--ad-divider);
+  border-radius: 0;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
+.ad-switch[data-on='true'] { background: var(--ad-accent); border-color: var(--ad-accent); justify-content: flex-end; }
+.ad-switch > span { width: 16px; height: 16px; display: block; background: var(--ad-n500); }
+.ad-switch[data-on='true'] > span { background: var(--ad-bg); }
+
+/* ── Tables ─────────────────────────────────────────────────────────────── */
+
+.ad-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.ad-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ad-ink) 60%, transparent);
+  padding: 8px;
+  border-bottom: 2px solid var(--ad-divider);
+  white-space: nowrap;
+}
+.ad-table td { padding: 10px 8px; border-bottom: 1px solid var(--ad-hairline); vertical-align: middle; }
+.ad-table tbody tr:hover { background: color-mix(in srgb, var(--ad-ink) 4%, transparent); }
+.ad-table-wrap { overflow-x: auto; }
+
+/* ── Sidebar ────────────────────────────────────────────────────────────── */
+
+.ad-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  text-align: left;
+  text-decoration: none;
+  font-family: var(--ad-font);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  background: transparent;
+  color: rgba(243, 242, 242, 0.72);
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.ad-nav-item:hover { background: rgba(243, 242, 242, 0.09); color: var(--ad-bg); }
+.ad-nav-item[data-active='true'] { background: var(--ad-accent); color: var(--ad-bg); }
+.ad-nav-item[data-active='true']:hover { background: var(--ad-a600); }
+
+.ad-nav-badge {
+  font-family: var(--ad-font);
+  font-weight: 800;
+  font-size: 10px;
+  padding: 1px 7px;
+  background: var(--ad-accent);
+  color: var(--ad-bg);
+}
+.ad-nav-item[data-active='true'] .ad-nav-badge { background: var(--ad-bg); color: var(--ad-accent); }
+
+.ad-nav-group {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(243, 242, 242, 0.38);
+  padding: 14px 14px 6px;
+}
+
+/* ============================================================================
+   Normalization — retunes the Tailwind utilities the un-rewritten admin pages
+   are built from so they land in this system instead of the old rounded,
+   shadowed, amber one. Scoped so it can never touch the customer site.
+   ========================================================================= */
+
+.ad-shell,
+[data-ad-theme='modernist'] [data-slot$='-content'],
+[data-ad-theme='modernist'] [data-sonner-toaster] {
+  font-family: var(--ad-font);
+}
+
+/* Square everything except pills/avatars, which stay round by intent. */
+.ad-shell [class*='rounded']:not([class*='rounded-full']),
+[data-ad-theme='modernist'] [data-slot$='-content'],
+[data-ad-theme='modernist'] [data-slot$='-content'] [class*='rounded']:not([class*='rounded-full']) {
+  border-radius: 0;
+}
+
+/* Elevation is not part of this system: structure comes from rules. */
+.ad-shell [class*='shadow-']:not([class*='shadow-none']),
+[data-ad-theme='modernist'] [data-slot$='-content'] {
+  box-shadow: none;
+}
+[data-ad-theme='modernist'] [data-slot$='-content'] { border: 2px solid var(--ad-divider); }
+
+/* Neutral bridging. Every console page is now written in `ad-*` classes and
+   `ad-…` tokens; what remains on the old stone/slate ramps is incidental —
+   shared shadcn primitives and the odd utility left inside a converted page.
+   These few lines keep those from reading a shade cooler than the ground. */
+.ad-shell .bg-white { background-color: var(--ad-bg); }
+.ad-shell .bg-stone-50,
+.ad-shell .bg-slate-50 { background-color: var(--ad-surface); }
+.ad-shell .bg-stone-100,
+.ad-shell .bg-slate-100 { background-color: var(--ad-n200); }
+.ad-shell .text-stone-400,
+.ad-shell .text-stone-500,
+.ad-shell .text-slate-400,
+.ad-shell .text-slate-500 { color: var(--ad-n600); }
+.ad-shell .text-stone-600,
+.ad-shell .text-stone-700,
+.ad-shell .text-stone-800,
+.ad-shell .text-stone-900,
+.ad-shell .text-slate-900 { color: var(--ad-ink); }
+.ad-shell [class*='border-stone-'],
+.ad-shell [class*='border-slate-'] { border-color: var(--ad-hairline); }
+.ad-shell [class*='divide-stone-'] > :not([hidden]) ~ :not([hidden]),
+.ad-shell [class*='divide-slate-'] > :not([hidden]) ~ :not([hidden]) { border-color: var(--ad-hairline); }
+
+/* Inside the console, `font-sans` means the console's face. */
+.ad-shell .font-sans { font-family: var(--ad-font); }
+
+/* Portalled overlays share the console's ground, not the customer site's cream
+   `--background` — otherwise every dialog opens a shade warmer than the page
+   behind it. */
+[data-ad-theme='modernist'] [data-slot$='-content'] {
+  background: var(--ad-bg);
+  color: var(--ad-ink);
+}
+
+/* Numbers in an ops console are read in columns — they must not jitter. */
+.ad-shell .tabular-nums,
+.ad-shell table td,
+.ad-shell .ad-num { font-variant-numeric: tabular-nums; }

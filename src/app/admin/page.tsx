@@ -5,14 +5,9 @@ import Link from 'next/link';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
-import { canAccess } from '@/lib/roleAccess';
-import { PageHeader, SectionHeading } from '@/components/admin/ui';
-import {
-  Users, Package, TrendingUp, ShieldCheck,
-  ClipboardList, CalendarDays, ChefHat, BookOpen, Calculator,
-  BarChart3, Receipt, Ticket, Briefcase, UserCircle,
-  AlertTriangle,
-} from 'lucide-react';
+import { useAdminBadges } from '@/components/admin/useAdminBadges';
+import { HairlineGrid, StatCell, StatusChip, Bar, EmptyState } from '@/components/admin/ui';
+import type { Order, OrderItem } from '@/types';
 
 const dayKey = (d: Date) => {
   const y = d.getFullYear();
@@ -23,91 +18,37 @@ const dayKey = (d: Date) => {
 
 const money = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
-const greetingFor = (hour: number) => {
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
-};
+/** "+12% vs yesterday", or "first today" when there's nothing to compare to. */
+function delta(today: number, yesterday: number): string {
+  if (!yesterday) return today ? 'no figure for yesterday' : '—';
+  const pct = Math.round(((today - yesterday) / yesterday) * 100);
+  const sign = pct > 0 ? '+' : pct < 0 ? '−' : '±';
+  return `${sign}${Math.abs(pct)}% vs yesterday`;
+}
 
-/** Group tiles so staff can scan by area of responsibility */
-const LAUNCHPAD_GROUPS = [
-  {
-    label: 'Operations',
-    pages: [
-      {
-        label: 'Cashier POS',
-        href: '/admin/pos',
-        icon: Calculator,
-        description: 'Ring up sales, print receipts, take counter payments',
-      },
-      {
-        label: 'Live Orders',
-        href: '/admin/orders',
-        icon: ClipboardList,
-        description: 'Real-time order tracking and kitchen updates',
-        badgeKey: 'pendingOrders',
-        urgent: true,
-      },
-      {
-        label: 'Kitchen KDS',
-        href: '/admin/kitchen',
-        icon: ChefHat,
-        description: 'Kitchen display, cooking queues, lane progress',
-      },
-    ],
-  },
-  {
-    label: 'Management',
-    pages: [
-      {
-        label: 'Menu Management',
-        href: '/admin/menu-management',
-        icon: BookOpen,
-        description: 'Edit dishes, prices, portions, categories',
-      },
-      {
-        label: 'Coupons & Offers',
-        href: '/admin/coupons',
-        icon: Ticket,
-        description: 'Promo codes, campaigns, flat discounts',
-      },
-    ],
-  },
-  {
-    label: 'Reports & Admin',
-    pages: [
-      {
-        label: 'Bills Ledger',
-        href: '/admin/bills',
-        icon: Receipt,
-        description: 'Historical bill records and invoices',
-      },
-      {
-        label: 'Reports & Stats',
-        href: '/admin/reports',
-        icon: BarChart3,
-        description: 'Revenue, metrics, and top sellers',
-      },
-      {
-        label: 'Live Performance',
-        href: '/admin/performance',
-        icon: TrendingUp,
-        description: 'Real-time sales graphs and daily targets',
-      },
-      {
-        label: 'My Profile',
-        href: '/admin/profile',
-        icon: UserCircle,
-        description: 'Account details, avatar, notifications',
-      },
-    ],
-  },
-] as const;
+const orderWhere = (o: Order) =>
+  o.tableNumber ? `T${String(o.tableNumber).padStart(2, '0')}`
+  : o.orderType === 'counter' ? 'Counter'
+  : o.orderType === 'takeaway' ? 'Takeaway'
+  : 'Online';
+
+const orderItemsLabel = (o: Order) => {
+  const items = (o.items || []) as OrderItem[];
+  if (!items.length) return '—';
+  const head = items
+    .slice(0, 2)
+    .map((i) => (i.quantity > 1 ? `${i.name} ×${i.quantity}` : i.name))
+    .join(', ');
+  return items.length > 2 ? `${head} +${items.length - 2}` : head;
+};
 
 export default function AdminDashboard() {
   const { orders, menuItems } = useAdmin();
   const { user } = useAuth();
+  const badges = useAdminBadges();
 
+  // Dates are resolved after mount so the server pass and the first client
+  // render agree — "today" on the server is not always today for the browser.
   const [nowTs, setNowTs] = useState(0);
   useEffect(() => {
     const tick = () => setNowTs(Date.now());
@@ -116,167 +57,223 @@ export default function AdminDashboard() {
     return () => clearInterval(t);
   }, []);
 
-  const todayStr = useMemo(() => {
-    if (!nowTs) return '';
-    return dayKey(new Date(nowTs));
-  }, [nowTs]);
-
-  const greeting = useMemo(() => {
-    if (!nowTs) return 'Welcome back';
-    return greetingFor(new Date(nowTs).getHours());
-  }, [nowTs]);
-
   const stats = useMemo(() => {
-    if (!todayStr) {
-      return {
-        todayRevenue: 0, todayOrders: 0, pendingOrders: 0, activeDishes: 0,
-      };
-    }
+    const empty = {
+      todayRevenue: 0, todayOrders: 0, avgTicket: 0, activeDishes: 0,
+      revenueDelta: '—', ordersDelta: '—', ticketDelta: '—',
+    };
+    if (!nowTs) return empty;
 
-    let todayRevenue = 0;
-    let todayOrders = 0;
-    let pendingOrders = 0;
+    const today = dayKey(new Date(nowTs));
+    const yesterday = dayKey(new Date(nowTs - 86_400_000));
 
-    for (let i = 0; i < orders.length; i++) {
-      const o = orders[i];
-      const isToday = o.createdAt && dayKey(new Date(o.createdAt)) === todayStr;
-      if (isToday) {
+    let todayRevenue = 0, todayOrders = 0, yRevenue = 0, yOrders = 0;
+
+    for (const o of orders) {
+      if (!o.createdAt) continue;
+      const key = dayKey(new Date(o.createdAt));
+      const live = o.status !== 'cancelled';
+      if (key === today) {
         todayOrders++;
-        if (o.status !== 'cancelled') todayRevenue += o.grandTotal || 0;
-      }
-      if (o.status === 'pending' || o.status === 'preparing') {
-        pendingOrders++;
+        if (live) todayRevenue += o.grandTotal || 0;
+      } else if (key === yesterday) {
+        yOrders++;
+        if (live) yRevenue += o.grandTotal || 0;
       }
     }
 
-    const activeDishes = menuItems.filter((i) => i.isAvailable).length;
+    const avgTicket = todayOrders ? todayRevenue / todayOrders : 0;
+    const yAvgTicket = yOrders ? yRevenue / yOrders : 0;
 
     return {
-      todayRevenue, todayOrders, pendingOrders, activeDishes,
+      todayRevenue,
+      todayOrders,
+      avgTicket,
+      activeDishes: menuItems.filter((i) => i.isAvailable).length,
+      revenueDelta: delta(todayRevenue, yRevenue),
+      ordersDelta: delta(todayOrders, yOrders),
+      ticketDelta: delta(Math.round(avgTicket), Math.round(yAvgTicket)),
     };
-  }, [orders, menuItems, todayStr]);
+  }, [orders, menuItems, nowTs]);
 
-  const firstName = user?.user_metadata?.full_name?.split(' ')[0]
-    || user?.user_metadata?.name?.split(' ')[0]
-    || 'Admin';
+  /** Everything still on the floor — newest first, capped at what fits. */
+  const liveOrders = useMemo(
+    () =>
+      orders
+        .filter((o) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready')
+        .slice(0, 8),
+    [orders],
+  );
+
+  const topSellers = useMemo(() => {
+    if (!nowTs) return [] as { name: string; count: number }[];
+    const today = dayKey(new Date(nowTs));
+    const tally = new Map<string, number>();
+
+    for (const o of orders) {
+      if (o.status === 'cancelled') continue;
+      if (!o.createdAt || dayKey(new Date(o.createdAt)) !== today) continue;
+      for (const item of (o.items || []) as OrderItem[]) {
+        if (!item?.name) continue;
+        tally.set(item.name, (tally.get(item.name) || 0) + (item.quantity || 1));
+      }
+    }
+
+    return [...tally.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }, [orders, nowTs]);
+
+  const topMax = topSellers[0]?.count || 1;
+
+  /** Things a manager should act on right now, in severity order. */
+  const alerts = useMemo(() => {
+    const out: { text: string; href: string }[] = [];
+    if (badges.pendingOrders > 0) {
+      out.push({
+        text: `${badges.pendingOrders} order${badges.pendingOrders > 1 ? 's' : ''} not accepted yet`,
+        href: '/admin/orders',
+      });
+    }
+    if (badges.kitchenTickets > 0) {
+      out.push({
+        text: `${badges.kitchenTickets} ticket${badges.kitchenTickets > 1 ? 's' : ''} live on the pass`,
+        href: '/admin/kitchen',
+      });
+    }
+    const off = menuItems.filter((i) => !i.isAvailable).length;
+    if (off > 0) {
+      out.push({ text: `${off} dish${off > 1 ? 'es' : ''} marked unavailable`, href: '/admin/menu-management' });
+    }
+    return out;
+  }, [badges, menuItems]);
+
+  const firstName =
+    user?.user_metadata?.full_name?.split(' ')[0] ||
+    user?.user_metadata?.name?.split(' ')[0] ||
+    'there';
 
   return (
     <AdminLayout title="Dashboard">
-      <div className="space-y-6 w-full max-w-full">
+      <div className="space-y-6">
 
-        {/* Greeting */}
-        <PageHeader
-          title={`${greeting}, ${firstName}`}
-          subtitle="Here's what's happening at the restaurant today."
-          action={
-            <Link
-              href="/admin/pos"
-              className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
-            >
-              <Calculator className="w-4 h-4" />
-              <span>Open Cashier POS</span>
-            </Link>
-          }
-        />
-
-        {/* ── Today's Status — 4 KPI cards ─────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            { label: "Today's Revenue", value: money(stats.todayRevenue), sub: 'excluding cancelled' },
-            { label: "Today's Orders", value: stats.todayOrders.toString(), sub: 'all statuses' },
-            {
-              label: 'Pending Orders',
-              value: stats.pendingOrders.toString(),
-              sub: 'need attention',
-              urgent: stats.pendingOrders > 0,
-            },
-            {
-              label: 'Active Menu Items',
-              value: stats.activeDishes.toString(),
-              sub: 'available to order',
-            },
-          ].map((kpi) => (
-            <div
-              key={kpi.label}
-              className={`bg-white border rounded-xl p-4 ${
-                kpi.urgent && Number(kpi.value) > 0
-                  ? 'border-amber-300 bg-amber-50'
-                  : 'border-stone-200'
-              }`}
-            >
-              <div className="flex items-start justify-between">
-                <p className="text-xs font-medium text-stone-500">{kpi.label}</p>
-                {kpi.urgent && Number(kpi.value) > 0 && (
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                )}
-              </div>
-              <p className={`text-2xl font-bold mt-1 tabular-nums ${
-                kpi.urgent && Number(kpi.value) > 0 ? 'text-amber-700' : 'text-stone-900'
-              }`}>
-                {kpi.value}
-              </p>
-              <p className="text-xs text-stone-400 mt-0.5">{kpi.sub}</p>
-            </div>
-          ))}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b-2 border-ad-line pb-3">
+          <p className="text-[13px] ad-muted m-0">
+            Welcome back, {firstName}. Here is the floor right now.
+          </p>
+          <Link href="/admin/pos" className="ad-btn ad-btn-primary self-start sm:self-auto">
+            Open cashier POS
+          </Link>
         </div>
 
-        {/* ── App Launcher ─────────────────────────────────── */}
-        <div className="space-y-6">
-          {LAUNCHPAD_GROUPS.map((group) => (
-            <div key={group.label}>
-              <SectionHeading
-                title={group.label}
-                subtitle={`${group.pages.length} modules`}
+        {/* ── Tonight's numbers ────────────────────────────────────── */}
+        <HairlineGrid cols="grid-cols-2 lg:grid-cols-4">
+          <StatCell label="Sales today" value={money(stats.todayRevenue)} delta={stats.revenueDelta} />
+          <StatCell label="Orders today" value={String(stats.todayOrders)} delta={stats.ordersDelta} />
+          <StatCell
+            label="Awaiting action"
+            value={String(badges.pendingOrders)}
+            delta={badges.pendingOrders ? 'accept or reject now' : 'nothing waiting'}
+            alert={badges.pendingOrders > 0}
+          />
+          <StatCell label="Avg ticket" value={money(stats.avgTicket)} delta={stats.ticketDelta} />
+        </HairlineGrid>
+
+        {/* ── Live orders + today's movers ─────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-6">
+          <section className="min-w-0">
+            <div className="ad-section-head">
+              <h3 className="ad-h text-[17px]">Live orders</h3>
+              <span className="text-[12px] ad-muted">{liveOrders.length} on the floor</span>
+              <Link href="/admin/orders" className="ml-auto text-[12px] text-ad-accent font-semibold no-underline">
+                All orders
+              </Link>
+            </div>
+
+            {liveOrders.length === 0 ? (
+              <EmptyState
+                title="Nothing open"
+                subtitle="Every order has been served or settled."
+                action={<Link href="/admin/pos" className="ad-btn ad-btn-secondary">Start an order</Link>}
               />
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3 mt-3">
-                {group.pages.map((page) => {
-                  const IconComponent = page.icon;
-                  const badgeVal = 'badgeKey' in page && page.badgeKey
-                    ? stats[page.badgeKey as keyof typeof stats]
-                    : 0;
-                  const isUrgent = 'urgent' in page && page.urgent && badgeVal > 0;
+            ) : (
+              <div className="ad-table-wrap">
+                <table className="ad-table">
+                  <thead>
+                    <tr>
+                      <th>Order</th>
+                      <th>Where</th>
+                      <th>Items</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {liveOrders.map((o) => (
+                      <tr key={o.id}>
+                        <td className="font-semibold whitespace-nowrap">
+                          #{String(o.orderId || o.id).slice(-4)}
+                        </td>
+                        <td className="whitespace-nowrap">{orderWhere(o)}</td>
+                        <td className="ad-muted max-w-65 truncate">{orderItemsLabel(o)}</td>
+                        <td className="font-semibold whitespace-nowrap">{money(o.grandTotal || 0)}</td>
+                        <td><StatusChip status={o.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
 
-                  return (
+          <section className="min-w-0">
+            <div className="ad-section-head">
+              <h3 className="ad-h text-[17px]">Top sellers today</h3>
+            </div>
+
+            {topSellers.length === 0 ? (
+              <p className="text-[13px] ad-muted">No dishes sold yet today.</p>
+            ) : (
+              <div className="flex flex-col gap-3.5">
+                {topSellers.map((t) => (
+                  <div key={t.name}>
+                    <div className="flex justify-between gap-3 text-[14px] mb-1.5">
+                      <span className="font-semibold truncate">{t.name}</span>
+                      <span className="ad-muted flex-none">{t.count} sold</span>
+                    </div>
+                    <Bar pct={(t.count / topMax) * 100} />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-7 pt-3.5 border-t-2 border-ad-line">
+              <div className="ad-kicker mb-2.5">Alerts</div>
+              {alerts.length === 0 ? (
+                <div className="text-[13px] ad-muted">Nothing needs attention.</div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {alerts.map((a) => (
                     <Link
-                      key={page.label}
-                      href={page.href}
-                      className={`group relative flex flex-col gap-3 p-4 bg-white border rounded-xl hover:shadow-sm transition-all duration-150 ${
-                        isUrgent
-                          ? 'border-amber-300 hover:border-amber-400'
-                          : 'border-stone-200 hover:border-stone-300'
-                      }`}
+                      key={a.text}
+                      href={a.href}
+                      className="text-[13px] no-underline text-ad-ink hover:text-ad-accent"
                     >
-                      {/* Icon */}
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        isUrgent
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-stone-100 text-stone-600 group-hover:bg-stone-200'
-                      } transition-colors`}>
-                        <IconComponent className="w-4.5 h-4.5" />
-                      </div>
-
-                      {/* Label + description */}
-                      <div>
-                        <h3 className="font-semibold text-sm text-stone-900 group-hover:text-amber-700 transition-colors leading-tight">
-                          {page.label}
-                        </h3>
-                        <p className="text-xs text-stone-400 mt-0.5 leading-relaxed line-clamp-2">
-                          {page.description}
-                        </p>
-                      </div>
-
-                      {/* Badge */}
-                      {badgeVal > 0 && (
-                        <span className="absolute top-3 right-3 bg-amber-600 text-white rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center text-[10px] font-semibold">
-                          {badgeVal}
-                        </span>
-                      )}
+                      {a.text}
                     </Link>
-                  );
-                })}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-7 pt-3.5 border-t-2 border-ad-line">
+              <div className="ad-kicker mb-2.5">Menu</div>
+              <div className="text-[13px]">
+                {stats.activeDishes} of {menuItems.length} dishes available to order
               </div>
             </div>
-          ))}
+          </section>
         </div>
 
       </div>

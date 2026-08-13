@@ -31,7 +31,7 @@ export default function ThermalReceiptModal({ order, open, onClose, isAutoPrinte
         <DialogContent className="max-w-sm sm:max-w-md p-0 overflow-hidden rounded-3xl bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-2xl">
           <DialogHeader className="bg-gradient-to-r from-stone-900 via-stone-850 to-amber-950 text-white p-5 sm:p-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+              <div className="w-10 h-10 bg-ad-accent-soft text-ad-accent grid place-items-center">
                 <Printer className="w-5 h-5" />
               </div>
               <div>
@@ -45,7 +45,7 @@ export default function ThermalReceiptModal({ order, open, onClose, isAutoPrinte
 
           <div className="p-5 sm:p-6 bg-stone-50 dark:bg-stone-950/40">
             {isAutoPrinted && (
-              <div className="mb-4 p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center gap-2.5 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+              <div className="mb-4 p-3 bg-ad-surface border border-ad-hairline flex items-center gap-2.5 text-[13px] font-semibold" style={{ color: 'var(--ad-ok)' }}>
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
                 <span>New order received — thermal receipt printed automatically</span>
               </div>
@@ -60,7 +60,7 @@ export default function ThermalReceiptModal({ order, open, onClose, isAutoPrinte
             <Button variant="outline" onClick={onClose} className="flex-1 font-bold text-xs h-11 rounded-2xl">
               Close
             </Button>
-            <Button onClick={handlePrint} className="flex-1 font-black text-xs h-11 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white shadow-md">
+            <Button onClick={handlePrint} className="ad-btn ad-btn-primary flex-1 h-11">
               <Printer className="w-4 h-4 mr-2" />
               Print Bill
             </Button>
