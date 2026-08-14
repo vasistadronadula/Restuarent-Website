@@ -182,7 +182,7 @@ export default function GeneratedBillsPage() {
             </DialogHeader>
 
             <div className="max-h-[50vh] overflow-y-auto bg-ad-surface p-4">
-              <div className="border border-dashed border-ad-line bg-white py-2">
+              <div className="border border-dashed border-ad-line bg-ad-bg py-2">
                 <ThermalBill order={selectedBillOrder} />
               </div>
             </div>

@@ -188,19 +188,21 @@ export default function ReportsPage() {
             {categoryRevenue.length === 0 ? (
               <p className="text-[13px] ad-muted py-3 text-center m-0">No category data yet.</p>
             ) : (
-              <table className="ad-table">
-                <tbody>
-                  {categoryRevenue.map((cat, idx) => (
-                    <tr key={cat.name}>
-                      <td className="w-4">
-                        <span className="block w-2.5 h-2.5" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                      </td>
-                      <td>{cat.name}</td>
-                      <td className="text-right ad-num text-[14px]">₹{cat.value.toLocaleString('en-IN')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="ad-table-wrap">
+                <table className="ad-table">
+                  <tbody>
+                    {categoryRevenue.map((cat, idx) => (
+                      <tr key={cat.name}>
+                        <td className="w-4">
+                          <span className="block w-2.5 h-2.5" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                        </td>
+                        <td className="min-w-0 max-w-40 truncate">{cat.name}</td>
+                        <td className="text-right ad-num text-[14px] whitespace-nowrap">₹{cat.value.toLocaleString('en-IN')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </SectionCard>
 
@@ -211,19 +213,21 @@ export default function ReportsPage() {
             {dailySales.length === 0 ? (
               <p className="text-[13px] ad-muted py-3 text-center m-0">No daily sales recorded.</p>
             ) : (
-              <table className="ad-table">
-                <tbody>
-                  {dailySales.slice(0, 5).map((d) => (
-                    <tr key={d.date}>
-                      <td>
-                        <div className="font-semibold">{d.date}</div>
-                        <div className="ad-kicker">{d.orders} orders</div>
-                      </td>
-                      <td className="text-right ad-num text-[15px]">₹{d.revenue.toLocaleString('en-IN')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="ad-table-wrap">
+                <table className="ad-table">
+                  <tbody>
+                    {dailySales.slice(0, 5).map((d) => (
+                      <tr key={d.date}>
+                        <td className="min-w-0">
+                          <div className="font-semibold truncate">{d.date}</div>
+                          <div className="ad-kicker">{d.orders} orders</div>
+                        </td>
+                        <td className="text-right ad-num text-[15px] whitespace-nowrap">₹{d.revenue.toLocaleString('en-IN')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </SectionCard>
         </div>

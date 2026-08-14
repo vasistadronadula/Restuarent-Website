@@ -271,11 +271,11 @@ export default function EmployeesPage() {
         <TextField control={addForm.control} name="name" label="Full name" placeholder="e.g. Ravi Kumar" autoFocus />
         <TextField control={addForm.control} name="email" label="Email" type="email" placeholder="ravi@example.com" />
         <TextField control={addForm.control} name="password" label="Password" type="password" placeholder="At least 8 characters" />
-        <div className="grid grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <SelectField control={addForm.control} name="role" label="Role" options={ROLE_OPTIONS} />
           <SelectField control={addForm.control} name="shift" label="Shift" options={SHIFT_OPTIONS} />
         </div>
-        <div className="grid grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <TextField control={addForm.control} name="phone" label="Phone" placeholder="10-digit mobile" />
           <NumberField control={addForm.control} name="salary" label="Salary" prefix="₹" placeholder="0" />
         </div>
@@ -292,11 +292,11 @@ export default function EmployeesPage() {
       >
         <TextField control={editForm.control} name="name" label="Full name" placeholder="e.g. Ravi Kumar" autoFocus />
         <TextField control={editForm.control} name="password" label="New password" type="password" placeholder="Leave blank to keep current" />
-        <div className="grid grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <SelectField control={editForm.control} name="role" label="Role" options={ROLE_OPTIONS} />
           <SelectField control={editForm.control} name="shift" label="Shift" options={SHIFT_OPTIONS} />
         </div>
-        <div className="grid grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <TextField control={editForm.control} name="phone" label="Phone" placeholder="10-digit mobile" />
           <NumberField control={editForm.control} name="salary" label="Salary" prefix="₹" placeholder="0" />
         </div>

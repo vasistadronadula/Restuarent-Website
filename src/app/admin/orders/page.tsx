@@ -342,17 +342,19 @@ export default function OrdersPage() {
 
               <div>
                 <div className="ad-kicker mb-2">Order items</div>
-                <table className="ad-table">
-                  <tbody>
-                    {selectedOrder.items?.map((item, idx) => (
-                      <tr key={idx}>
-                        <td className="font-semibold w-10 tabular-nums">{item.quantity}</td>
-                        <td>{item.name}</td>
-                        <td className="text-right ad-num text-[14px]">₹{item.price * item.quantity}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="ad-table-wrap">
+                  <table className="ad-table">
+                    <tbody>
+                      {selectedOrder.items?.map((item, idx) => (
+                        <tr key={idx}>
+                          <td className="font-semibold w-10 tabular-nums">{item.quantity}</td>
+                          <td className="min-w-0 truncate">{item.name}</td>
+                          <td className="text-right ad-num text-[14px] whitespace-nowrap">₹{item.price * item.quantity}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               <div className="flex justify-between items-baseline pt-2 border-t-2 border-ad-line">
