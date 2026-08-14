@@ -191,7 +191,7 @@ export default function TablesPage() {
                   className="p-4 flex flex-col justify-between min-h-40"
                   style={{
                     opacity: table.isActive ? 1 : 0.5,
-                    boxShadow: isWaitingPayment ? 'inset 4px 0 0 var(--ad-accent)' : undefined,
+                    boxShadow: isWaitingPayment ? 'inset 4px 0 0 var(--ad-warn)' : undefined,
                   }}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -201,7 +201,7 @@ export default function TablesPage() {
                         <Users className="size-3" /> {table.capacity} seats
                       </span>
                     </div>
-                    <span className={`ad-tag ${isAvailable ? 'ad-tag-outline' : isOrdered ? 'ad-tag-solid' : 'ad-tag-accent'}`}>
+                    <span className={`ad-tag ${isAvailable ? 'ad-tag-outline' : isOrdered ? 'ad-tag-info' : 'ad-tag-warn'}`}>
                       {!table.isActive ? 'Disabled' : isAvailable ? 'Free' : isOrdered ? 'Cooking' : 'Bill due'}
                     </span>
                   </div>

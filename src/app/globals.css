@@ -150,6 +150,7 @@ body[data-scroll-locked] {
   --color-ad-n300: var(--ad-n300);
   --color-ad-ok: var(--ad-ok);
   --color-ad-warn: var(--ad-warn);
+  --color-ad-critical: var(--ad-critical);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

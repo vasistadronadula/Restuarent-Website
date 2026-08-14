@@ -228,10 +228,13 @@ function KitchenTimer({
   const isOverdue = mins >= targetMinutes;
   const isUrgent = !isOverdue && mins >= targetMinutes - 3;
 
-  // On target the dial is ink; from three minutes out it goes accent. Two
-  // states, both readable across a hot kitchen at arm's length.
-  const ringColor = isOverdue || isUrgent ? 'var(--ad-accent)' : 'var(--ad-ink)';
-  const bgRingColor = isOverdue || isUrgent ? 'var(--ad-a200)' : 'var(--ad-n200)';
+  // Three states, each with its own colour so a glance across the kitchen
+  // reads queue health without walking up to a ticket: on target is ink,
+  // inside the last three minutes is warn (amber), overdue is critical (red).
+  // The accent stays reserved for the pass/primary actions — it never means
+  // "late" here, so it can't be read as "tap this".
+  const ringColor = isOverdue ? 'var(--ad-critical)' : isUrgent ? 'var(--ad-warn)' : 'var(--ad-ink)';
+  const bgRingColor = isOverdue ? 'var(--ad-critical-bg)' : isUrgent ? 'var(--ad-warn-bg)' : 'var(--ad-n200)';
 
   const r = 19;
   const circ = 2 * Math.PI * r;
@@ -262,7 +265,7 @@ function KitchenTimer({
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span
             className="ad-num text-[13px] leading-none"
-            style={{ color: isOverdue || isUrgent ? 'var(--ad-a700)' : 'var(--ad-ink)' }}
+            style={{ color: isOverdue ? 'var(--ad-critical)' : isUrgent ? 'var(--ad-warn)' : 'var(--ad-ink)' }}
           >
             {timeStr}
           </span>
@@ -270,10 +273,10 @@ function KitchenTimer({
         </div>
       </div>
       {isOverdue && (
-        <span className="ad-tag ad-tag-accent text-[9px] px-2 animate-pulse">Late</span>
+        <span className="ad-tag ad-tag-critical text-[9px] px-2 animate-pulse">Late</span>
       )}
       {isUrgent && !isOverdue && (
-        <span className="ad-tag ad-tag-accent text-[9px] px-2">Expediting</span>
+        <span className="ad-tag ad-tag-warn text-[9px] px-2">Expediting</span>
       )}
     </button>
   );
@@ -570,7 +573,7 @@ export default function KitchenDisplayPage() {
               <span className="ad-kicker">Tickets <b className="ad-num text-[13px] text-ad-ink">{stats.totalToday}</b></span>
               <span className="ad-kicker hidden sm:inline">Avg prep <b className="ad-num text-[13px] text-ad-ink">{stats.avgPrep}m</b></span>
               <span className="ad-kicker">On time <b className="ad-num text-[13px] text-ad-ink">{stats.onTimeRate}%</b></span>
-              <span className="ad-kicker" style={stats.delayedCount > 0 ? { color: 'var(--ad-accent)' } : undefined}>
+              <span className="ad-kicker" style={stats.delayedCount > 0 ? { color: 'var(--ad-critical)' } : undefined}>
                 Overdue <b className="ad-num text-[13px]">{stats.delayedCount}</b>
               </span>
               <span className="ad-kicker hidden sm:inline">In flight <b className="ad-num text-[13px] text-ad-ink">{formatCurrency(stats.activeRevenue)}</b></span>
@@ -719,7 +722,7 @@ export default function KitchenDisplayPage() {
                             {o.tableNumber && (
                               <span className="ad-tag ad-tag-outline">Table {o.tableNumber}</span>
                             )}
-                            <span className={cn('ad-tag', s === 'delivered' ? 'ad-tag-ok' : 'ad-tag-accent')}>
+                            <span className={cn('ad-tag', s === 'delivered' ? 'ad-tag-ok' : 'ad-tag-critical')}>
                               {s}
                             </span>
                             <span className="ad-kicker">{o.orderDate} · {o.orderTime}</span>
@@ -1022,15 +1025,18 @@ function OrderTicketCard({
   const hasDelay = (order.delayMinutes || 0) > 0;
   const tokenNumber = order.id.slice(-4);
 
-  // Time elapsed
+  // Time elapsed — same three-tier read as the timer dial, so the card's
+  // spine and its own clock never disagree about how urgent it is.
   const orderTimestamp = parseOrderTimestamp(order);
   const elapsedMinutes = Math.floor((Date.now() - orderTimestamp) / 60000);
   const isLate = elapsedMinutes >= targetMinutes;
+  const isCardUrgent = !isLate && elapsedMinutes >= targetMinutes - 3;
+  const spineColor = isLate ? 'var(--ad-critical)' : isCardUrgent ? 'var(--ad-warn)' : 'var(--ad-ink)';
 
   return (
     <div
       className="bg-ad-surface flex flex-col justify-between transition-colors"
-      style={{ borderLeft: `4px solid ${isLate ? 'var(--ad-accent)' : 'var(--ad-ink)'}` }}
+      style={{ borderLeft: `4px solid ${spineColor}` }}
     >
       {/* ── CARD HEADER ── */}
       <div className="p-4 border-b border-ad-hairline">
