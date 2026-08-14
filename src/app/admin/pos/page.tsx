@@ -607,7 +607,7 @@ export default function PosPage() {
           <SheetContent
             side="bottom"
             showCloseButton={false}
-            className="p-0 h-[min(94dvh,780px)] md:max-w-2xl md:mx-auto bg-ad-surface overflow-hidden"
+            className="p-0 h-[min(95dvh,800px)] md:max-w-4xl lg:max-w-5xl md:mx-auto bg-ad-surface overflow-hidden rounded-t-xl"
           >
             <BillPanel
               {...billPanelProps}
