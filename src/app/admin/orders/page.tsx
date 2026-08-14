@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useMemo } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { Order, OrderStatus } from '@/types';
@@ -10,6 +11,8 @@ import { ColumnDef } from '@tanstack/react-table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Eye, Clock, Truck, LayoutGrid, Table2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useNow } from '@/hooks/useNow';
+import { formatOrderTimestamp } from '@/lib/utils';
 
 const nextStatus: Record<OrderStatus, OrderStatus | null> = {
   pending: 'preparing',
@@ -73,13 +76,7 @@ export default function OrdersPage() {
   const [filterStatus, setFilterStatus] = useState<OrderStatus | 'all'>('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  const [now, setNow] = useState(0);
-  useEffect(() => {
-    const tick = () => setNow(Date.now());
-    tick();
-    const t = setInterval(tick, 30_000);
-    return () => clearInterval(t);
-  }, []);
+  const now = useNow(30_000);
 
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { all: orders.length };
@@ -326,7 +323,7 @@ export default function OrdersPage() {
             <DialogHeader className="pb-3 border-b-2 border-ad-line">
               <DialogTitle className="ad-h text-[18px]">Order {selectedOrder.id}</DialogTitle>
               <p className="ad-kicker mt-1">
-                {new Date(selectedOrder.createdAt || selectedOrder.orderDate || Date.now()).toLocaleString('en-IN')}
+                {formatOrderTimestamp(selectedOrder.createdAt || selectedOrder.orderDate)}
               </p>
             </DialogHeader>
 

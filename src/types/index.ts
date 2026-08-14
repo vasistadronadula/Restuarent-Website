@@ -102,6 +102,12 @@ export interface Order {
   customerName: string;
   customerPhone?: string;
   customerAddress?: string;
+  // Not just `OrderItem[]`: the POS constructs items missing menuItemId and
+  // vegStatus at order-creation time, and Reports reads a `category` field
+  // this shape doesn't declare. Tightening this to plain OrderItem[] surfaces
+  // both — real shape mismatches, not just a lint nit — so narrowing it
+  // belongs to a follow-up that reconciles those call sites, not this pass.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   items: OrderItem[] | any[];
   subtotal: number;
   cgst: number;

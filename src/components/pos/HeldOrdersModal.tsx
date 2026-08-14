@@ -65,7 +65,7 @@ export default function HeldOrdersModal({
             <div className="py-16 text-center text-slate-400">
               <ShoppingBag className="size-12 mx-auto mb-2 opacity-30" />
               <p className="text-sm font-bold text-slate-600">No parked orders</p>
-              <p className="text-xs text-slate-400 mt-0.5">Use "Hold Order" in the checkout panel to park an in-progress cart</p>
+              <p className="text-xs text-slate-400 mt-0.5">Use &ldquo;Hold Order&rdquo; in the checkout panel to park an in-progress cart</p>
             </div>
           ) : (
             heldOrders.map((ho) => (

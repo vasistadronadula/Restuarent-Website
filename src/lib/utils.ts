@@ -25,3 +25,15 @@ export function formatCurrency(value: number, decimals = 0): string {
 /** A dish image that failed to load falls back to a generic plate, not a broken icon. */
 export const FALLBACK_DISH_IMAGE =
   'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=400&q=70';
+
+/**
+ * A missing timestamp reads as "unknown", not silently as "now" — falling
+ * back to the current time would show a fabricated moment as if it were the
+ * record's real date, and doing that inline at every call site is also what
+ * kept tripping the render-purity rule (`Date.now()` called during render).
+ */
+export function formatOrderTimestamp(iso?: string): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d.getTime()) ? '—' : d.toLocaleString('en-IN');
+}

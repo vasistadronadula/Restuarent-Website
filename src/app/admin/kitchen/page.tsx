@@ -11,9 +11,10 @@ import {
   Check, History, Undo2, Utensils,
   AlertTriangle, RotateCcw, ChefHat,
   CheckSquare, Square, Hourglass, Phone,
-  Settings, HelpCircle,
+  Settings, HelpCircle, Layers,
 } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
+import { useNow } from '@/hooks/useNow';
 import {
   Dialog,
   DialogContent,
@@ -135,6 +136,10 @@ function getOrderTypeBadge() {
   return 'ad-tag ad-tag-outline';
 }
 
+/** Same dish, two different orders, this close together — worth firing both
+ *  pans at once instead of cooking them one after the other. */
+const DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
+
 /* Keyboard commands, printed by the cheat-sheet dialog and bound in an effect. */
 const SHORTCUTS: readonly [string, string][] = [
   ['Switch to new orders', '1'],
@@ -236,7 +241,10 @@ function KitchenTimer({
   const ringColor = isOverdue ? 'var(--ad-critical)' : isUrgent ? 'var(--ad-warn)' : 'var(--ad-ink)';
   const bgRingColor = isOverdue ? 'var(--ad-critical-bg)' : isUrgent ? 'var(--ad-warn-bg)' : 'var(--ad-n200)';
 
-  const r = 19;
+  // Sized so "88:88" never crowds the ring — a 5-character clock at 13px
+  // needs more than the old 54px dial gave it, which is what was clipping
+  // and colliding with the Late pill underneath.
+  const r = 27;
   const circ = 2 * Math.PI * r;
   const offset = circ - (pct / 100) * circ;
 
@@ -245,17 +253,18 @@ function KitchenTimer({
       type="button"
       onClick={onAdjust}
       title="Tap to extend or adjust prep time"
-      className="flex flex-col items-center gap-0.5 shrink-0 select-none transition-transform active:scale-95 group"
+      className="flex flex-col items-center gap-1.5 shrink-0 select-none transition-transform active:scale-95 group"
     >
-      <div className="relative size-13.5">
-        <svg className="size-13.5 -rotate-90" viewBox="0 0 48 48">
-          <circle cx="24" cy="24" r={r} fill="none" strokeWidth="4.5" stroke={bgRingColor} />
+      <div className="relative size-18">
+        <svg className="size-18 -rotate-90" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r={r} fill="none" strokeWidth="5" stroke={bgRingColor} />
           <circle
-            cx="24"
-            cy="24"
+            cx="32"
+            cy="32"
             r={r}
             fill="none"
-            strokeWidth="4.5"
+            strokeWidth="5"
+            strokeLinecap="round"
             strokeDasharray={circ}
             strokeDashoffset={offset}
             stroke={ringColor}
@@ -264,19 +273,19 @@ function KitchenTimer({
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span
-            className="ad-num text-[13px] leading-none"
+            className="ad-num text-[15px] leading-none tabular-nums"
             style={{ color: isOverdue ? 'var(--ad-critical)' : isUrgent ? 'var(--ad-warn)' : 'var(--ad-ink)' }}
           >
             {timeStr}
           </span>
-          <span className="text-[9px] ad-muted leading-none mt-0.5">/{targetMinutes}m</span>
+          <span className="text-[10px] ad-muted leading-none mt-1">of {targetMinutes}m</span>
         </div>
       </div>
       {isOverdue && (
-        <span className="ad-tag ad-tag-critical text-[9px] px-2 animate-pulse">Late</span>
+        <span className="ad-tag ad-tag-critical text-[10px] px-2.5 py-0.5 animate-pulse">Late</span>
       )}
       {isUrgent && !isOverdue && (
-        <span className="ad-tag ad-tag-warn text-[9px] px-2">Expediting</span>
+        <span className="ad-tag ad-tag-warn text-[10px] px-2.5 py-0.5">Expediting</span>
       )}
     </button>
   );
@@ -290,6 +299,12 @@ export default function KitchenDisplayPage() {
   const { orders, menuItems, updateOrderStatus, updateOrderPrepTime, isLoadingDB } = useAdmin();
   const { userRole } = useAuth();
   const isChef = userRole === 'chef';
+
+  // The board's single clock — the "overdue" stat and every ticket's lane
+  // read off this instead of calling Date.now() during render, which is
+  // both impure and, before this, meant a ticket's lateness only updated
+  // when something unrelated forced a re-render.
+  const now = useNow(15_000);
 
   /* UI State */
   const [soundEnabled, setSoundEnabled] = useState(true);
@@ -335,6 +350,14 @@ export default function KitchenDisplayPage() {
     });
   }, [orders, isLoadingDB, soundEnabled]);
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+    }
+  };
+
   /* Keyboard Shortcuts */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -354,14 +377,6 @@ export default function KitchenDisplayPage() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
-    }
-  };
 
   const toggleItemCheck = (orderId: string, itemIdx: number) => {
     setCheckedItems((prev) => {
@@ -430,6 +445,75 @@ export default function KitchenDisplayPage() {
     return Object.values(counts).sort((a, b) => b.quantity - a.quantity);
   }, [activeOrders]);
 
+  /**
+   * Duplicate-order clustering — the same dish landing from two different
+   * customers close together is a fire-both-pans-at-once opportunity, not
+   * just a line in the end-of-shift batch matrix. Distinct from prepMatrix
+   * above: this only fires for the same dish across *different* orders
+   * whose timestamps land within a two-minute window of each other, so the
+   * chef sees it the moment it's still useful to act on.
+   */
+  const duplicateAlerts = useMemo(() => {
+    type Entry = { orderId: string; tokenNumber: string; timestamp: number; qty: number };
+    const byDish = new Map<string, Map<string, Entry>>();
+
+    for (const o of activeOrders) {
+      if (getOrderStatus(o) === 'ready') continue;
+      const timestamp = parseOrderTimestamp(o);
+      for (const item of o.items || []) {
+        const dish = `${item.name}${item.selectedPortion ? ` (${item.selectedPortion})` : ''}`;
+        const byOrder = byDish.get(dish) || new Map<string, Entry>();
+        const existing = byOrder.get(o.id);
+        if (existing) existing.qty += item.quantity || 1;
+        else byOrder.set(o.id, { orderId: o.id, tokenNumber: o.id.slice(-4), timestamp, qty: item.quantity || 1 });
+        byDish.set(dish, byOrder);
+      }
+    }
+
+    const alerts: { dish: string; totalQty: number; orders: Entry[] }[] = [];
+
+    byDish.forEach((byOrder, dish) => {
+      const sorted = Array.from(byOrder.values()).sort((a, b) => a.timestamp - b.timestamp);
+      if (sorted.length < 2) return;
+
+      let cluster: Entry[] = [sorted[0]];
+      const flush = () => {
+        if (cluster.length >= 2) {
+          alerts.push({ dish, totalQty: cluster.reduce((s, c) => s + c.qty, 0), orders: cluster });
+        }
+      };
+      for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i].timestamp - cluster[cluster.length - 1].timestamp <= DUPLICATE_WINDOW_MS) {
+          cluster.push(sorted[i]);
+        } else {
+          flush();
+          cluster = [sorted[i]];
+        }
+      }
+      flush();
+    });
+
+    return alerts;
+  }, [activeOrders]);
+
+  // Fans each alert back out to the orders it involves, so a ticket card can
+  // show "batch this with #1234" without the card needing to know anything
+  // about the other tickets on the board.
+  const batchByOrder = useMemo(() => {
+    const map = new Map<string, { dish: string; partners: string[] }[]>();
+    duplicateAlerts.forEach((alert) => {
+      alert.orders.forEach((entry) => {
+        const partners = alert.orders
+          .filter((o) => o.orderId !== entry.orderId)
+          .map((o) => `#${o.tokenNumber}`);
+        const list = map.get(entry.orderId) || [];
+        list.push({ dish: alert.dish, partners });
+        map.set(entry.orderId, list);
+      });
+    });
+    return map;
+  }, [duplicateAlerts]);
+
   /* Completed History Orders */
   const historyOrders = useMemo(() => {
     return orders
@@ -451,7 +535,7 @@ export default function KitchenDisplayPage() {
     // Delayed tickets calculation
     const delayedCount = activeOrders.filter((o) => {
       const targetMins = getTargetPrepMinutes(o, prepTimeMap);
-      const elapsedMins = Math.floor((Date.now() - parseOrderTimestamp(o)) / 60000);
+      const elapsedMins = Math.floor((now - parseOrderTimestamp(o)) / 60000);
       return elapsedMins >= targetMins;
     }).length;
 
@@ -481,7 +565,7 @@ export default function KitchenDisplayPage() {
       avgPrep: avgPrep || 14,
       onTimeRate,
     };
-  }, [activeOrders, laneOrders, historyOrders, prepTimeMap]);
+  }, [activeOrders, laneOrders, historyOrders, prepTimeMap, now]);
 
   /* Status Advance & Regress Handlers */
   const handleAdvance = async (orderId: string, currentStatus: OrderStatus) => {
@@ -609,6 +693,42 @@ export default function KitchenDisplayPage() {
         </header>
 
         {/* ========================================================== */}
+        {/*  DUPLICATE-ORDER ALERT — same dish, different customers,   */}
+        {/*  ordered within 2 minutes of each other. Always visible    */}
+        {/*  (no toggle) since it's time-sensitive: useful now, not    */}
+        {/*  useful once the window has passed.                       */}
+        {/* ========================================================== */}
+        {duplicateAlerts.length > 0 && !showHistory && (
+          <section className="max-w-[1720px] w-full mx-auto px-4 sm:px-6 py-2">
+            <div className="p-4 border-2 border-ad-info bg-ad-info-bg">
+              <div className="flex items-center gap-2 mb-3" style={{ color: 'var(--ad-info)' }}>
+                <Layers className="size-4 shrink-0" />
+                <span className="ad-num text-[13px] tracking-widest uppercase">Cook these together</span>
+                <span className="text-[12px] font-medium opacity-80">
+                  Same dish, ordered within 2 minutes by different customers
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {duplicateAlerts.map((alert) => (
+                  <div
+                    key={alert.dish}
+                    className="flex items-center gap-2.5 px-3 py-1.5 bg-ad-bg border border-ad-hairline"
+                  >
+                    <span className="text-[13px] font-semibold">{alert.dish}</span>
+                    <span className="ad-num text-[13px] px-2 text-white" style={{ background: 'var(--ad-info)' }}>
+                      ×{alert.totalQty}
+                    </span>
+                    <span className="ad-kicker">
+                      {alert.orders.map((o) => `#${o.tokenNumber}`).join(' + ')}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ========================================================== */}
         {/*  BATCH PREPARATION CONSOLIDATED RIBBON                     */}
         {/* ========================================================== */}
         {showBatch && prepMatrix.length > 0 && !showHistory && (
@@ -656,7 +776,7 @@ export default function KitchenDisplayPage() {
               <span className="ad-kicker hidden sm:inline">Sort</span>
               <select
                 value={sortMode}
-                onChange={(e) => setSortMode(e.target.value as any)}
+                onChange={(e) => setSortMode(e.target.value as 'fifo' | 'waiting' | 'table')}
                 className="ad-input w-auto"
               >
                 <option value="fifo">Oldest first</option>
@@ -789,6 +909,7 @@ export default function KitchenDisplayPage() {
                               onRegress={() => handleRegress(order.id, getOrderStatus(order))}
                               onOpenDelay={() => openDelayModal(order)}
                               onOpenChefNote={() => openChefNoteModal(order)}
+                              batchInfo={batchByOrder.get(order.id)}
                             />
                           ))
                         )}
@@ -838,6 +959,7 @@ export default function KitchenDisplayPage() {
                         onRegress={() => handleRegress(order.id, getOrderStatus(order))}
                         onOpenDelay={() => openDelayModal(order)}
                         onOpenChefNote={() => openChefNoteModal(order)}
+                        batchInfo={batchByOrder.get(order.id)}
                       />
                     ))
                   )}
@@ -1006,6 +1128,7 @@ function OrderTicketCard({
   onRegress,
   onOpenDelay,
   onOpenChefNote,
+  batchInfo,
 }: {
   order: Order;
   lane: typeof LANES[number];
@@ -1016,6 +1139,7 @@ function OrderTicketCard({
   onRegress: () => void;
   onOpenDelay: () => void;
   onOpenChefNote: () => void;
+  batchInfo?: { dish: string; partners: string[] }[];
 }) {
   const items = order.items || [];
   const totalUnits = items.reduce((s, it) => s + (it.quantity || 1), 0);
@@ -1027,8 +1151,9 @@ function OrderTicketCard({
 
   // Time elapsed — same three-tier read as the timer dial, so the card's
   // spine and its own clock never disagree about how urgent it is.
+  const now = useNow(15_000);
   const orderTimestamp = parseOrderTimestamp(order);
-  const elapsedMinutes = Math.floor((Date.now() - orderTimestamp) / 60000);
+  const elapsedMinutes = Math.floor((now - orderTimestamp) / 60000);
   const isLate = elapsedMinutes >= targetMinutes;
   const isCardUrgent = !isLate && elapsedMinutes >= targetMinutes - 3;
   const spineColor = isLate ? 'var(--ad-critical)' : isCardUrgent ? 'var(--ad-warn)' : 'var(--ad-ink)';
@@ -1085,6 +1210,20 @@ function OrderTicketCard({
 
       {/* ── CARD BODY ── */}
       <div className="p-4 space-y-2.5 flex-1">
+        {batchInfo && batchInfo.length > 0 && (
+          <div
+            className="flex items-start gap-2 p-2.5 bg-ad-info-bg text-[13px] font-semibold"
+            style={{ color: 'var(--ad-info)' }}
+          >
+            <Layers className="size-4 shrink-0 mt-0.5" />
+            <div className="flex flex-col gap-0.5">
+              {batchInfo.map((b, i) => (
+                <span key={i}>Cook with {b.partners.join(', ')} — same {b.dish}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {hasDelay && (
           <div className="flex items-center gap-2 p-2.5 bg-ad-accent-soft text-ad-accent-deep text-[13px] font-semibold">
             <Hourglass className="size-4 shrink-0" />

@@ -14,6 +14,7 @@ import {
 import { diningTableSchema, type DiningTableFormOutput, type DiningTableFormValues } from '@/lib/adminSchemas';
 import { generateTableId } from '@/lib/idGenerator';
 import { formatCurrency } from '@/lib/utils';
+import { useNow } from '@/hooks/useNow';
 import { Pill } from '@/components/admin/ui';
 import { ConfirmDeleteDialog, FormDialog, NumberField, SwitchField, TextField } from '@/components/admin/form-fields';
 import type { Order } from '@/types';
@@ -42,6 +43,7 @@ export default function TablesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<RestaurantTable | null>(null);
   const [deleting, setDeleting] = useState<RestaurantTable | null>(null);
+  const now = useNow(30_000);
 
   const form = useForm<DiningTableFormValues>({
     resolver: zodResolver(diningTableSchema),
@@ -53,7 +55,6 @@ export default function TablesPage() {
   // keeps current everywhere else — a table flips the moment POS/KDS
   // changes the order sitting on it, no separate polling.
   const occupancyMap = useMemo(() => {
-    const now = Date.now();
     const map = new Map<number, Occupancy>();
     tables.forEach((t) => map.set(t.tableNumber, { status: 'available' }));
 
@@ -75,7 +76,7 @@ export default function TablesPage() {
     });
 
     return map;
-  }, [tables, orders]);
+  }, [tables, orders, now]);
 
   const stats = useMemo(() => {
     let available = 0, occupied = 0, waitingPayment = 0;

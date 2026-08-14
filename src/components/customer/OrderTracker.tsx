@@ -79,9 +79,15 @@ function EtaRing({ minutes }: { minutes: number }) {
   const [secs, setSecs] = useState(minutes * 60);
 
   useEffect(() => {
-    setSecs(minutes * 60);
+    // Deferred a tick, not called directly in the effect body, so resetting
+    // the ring when `minutes` changes doesn't fire setState synchronously
+    // within the effect.
+    const reset = setTimeout(() => setSecs(minutes * 60), 0);
     const id = setInterval(() => setSecs((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(reset);
+      clearInterval(id);
+    };
   }, [minutes]);
 
   const m = Math.floor(secs / 60);

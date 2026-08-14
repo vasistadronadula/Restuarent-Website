@@ -8,8 +8,11 @@ export default function Template({ children }: { children: React.ReactNode }) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // Trigger smooth top accent progress bar animation on route change
-    setProgress(35);
+    // Trigger smooth top accent progress bar animation on route change.
+    // The first step is deferred a tick too (not called directly in the
+    // effect body) so it doesn't fire synchronously within the effect —
+    // same as the rest of the sequence below.
+    const t0 = setTimeout(() => setProgress(35), 0);
     const t1 = setTimeout(() => setProgress(75), 90);
     const t2 = setTimeout(() => setProgress(100), 220);
     const t3 = setTimeout(() => setProgress(0), 400);
@@ -18,6 +21,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
     window.scrollTo({ top: 0, behavior: 'instant' });
 
     return () => {
+      clearTimeout(t0);
       clearTimeout(t1);
       clearTimeout(t2);
       clearTimeout(t3);

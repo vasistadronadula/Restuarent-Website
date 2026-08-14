@@ -15,6 +15,7 @@ import ThermalBill from '@/components/bill/ThermalBill';
 import PrintBillPortal, { type BillFormat } from '@/components/bill/PrintBillPortal';
 import { generateInvoiceNo } from '@/lib/idGenerator';
 import { rupees } from '@/lib/billing';
+import { formatOrderTimestamp } from '@/lib/utils';
 import { flushSync } from 'react-dom';
 
 export default function GeneratedBillsPage() {
@@ -50,7 +51,7 @@ export default function GeneratedBillsPage() {
         <div>
           <div className="ad-num text-[13px]">{row.original.id}</div>
           <div className="text-xs ad-muted mt-0.5">
-            {new Date(row.original.createdAt || row.original.orderDate || Date.now()).toLocaleString('en-IN')}
+            {formatOrderTimestamp(row.original.createdAt || row.original.orderDate)}
           </div>
         </div>
       ),
@@ -148,7 +149,7 @@ export default function GeneratedBillsPage() {
                   <div className="min-w-0">
                     <div className="ad-num text-[15px]">{o.id}</div>
                     <div className="ad-kicker mt-0.5">
-                      {new Date(o.createdAt || o.orderDate || Date.now()).toLocaleString('en-IN')}
+                      {formatOrderTimestamp(o.createdAt || o.orderDate)}
                     </div>
                   </div>
                   <span className="ad-num text-[20px]">{rupees(o.grandTotal)}</span>
@@ -161,7 +162,7 @@ export default function GeneratedBillsPage() {
                     Preview
                   </button>
                   <button type="button" className="ad-btn ad-btn-primary ad-btn-sm" onClick={() => handlePrint(o)}>
-                    Print 80mm
+                    Print receipt
                   </button>
                 </div>
               </div>

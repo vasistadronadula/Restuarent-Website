@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 import { Users, Clock } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Order } from '@/types';
+import { useNow } from '@/hooks/useNow';
 
 export interface TableItem {
   id: string;
@@ -30,6 +31,8 @@ export default function TableFloorMapModal({
   selectedTable,
   onSelectTable,
 }: Props) {
+  const now = useNow(30_000);
+
   // Compute occupancy status for each table from active orders
   const tableStatusMap = React.useMemo(() => {
     const map = new Map<number, {
@@ -48,8 +51,8 @@ export default function TableFloorMapModal({
     // Match with active orders
     activeOrders.forEach((o) => {
       if (o.tableNumber && o.status !== 'delivered' && o.status !== 'cancelled') {
-        const orderTime = o.createdAt ? new Date(o.createdAt).getTime() : Date.now();
-        const elapsedMins = Math.floor((Date.now() - orderTime) / 60000);
+        const orderTime = o.createdAt ? new Date(o.createdAt).getTime() : now;
+        const elapsedMins = Math.floor((now - orderTime) / 60000);
         const isPaid = o.paymentStatus === 'paid';
 
         map.set(o.tableNumber, {
@@ -63,7 +66,7 @@ export default function TableFloorMapModal({
     });
 
     return map;
-  }, [tables, activeOrders]);
+  }, [tables, activeOrders, now]);
 
   const stats = React.useMemo(() => {
     let available = 0;

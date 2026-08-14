@@ -288,11 +288,12 @@ async function syncProfile(
   requestedName: string,
 ): Promise<SyncProfileResult> {
   // 1. Try to find profile by ID or Phone
-  let { data: existing, error: readError } = await admin
+  const { data: byId, error: readError } = await admin
     .from('profiles')
     .select('id, full_name, email, phone')
     .eq('id', userId)
     .maybeSingle();
+  let existing = byId;
 
   if (!existing && !readError) {
     const { data: phoneMatch } = await admin

@@ -67,9 +67,15 @@ function EtaCountdown({ minutes }: { minutes: number }) {
   const [remaining, setRemaining] = useState(minutes * 60);
 
   useEffect(() => {
-    setRemaining(minutes * 60);
+    // Deferred a tick, not called directly in the effect body, so resetting
+    // the countdown when `minutes` changes doesn't fire setState
+    // synchronously within the effect.
+    const reset = setTimeout(() => setRemaining(minutes * 60), 0);
     const id = setInterval(() => setRemaining((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(reset);
+      clearInterval(id);
+    };
   }, [minutes]);
 
   const m = Math.floor(remaining / 60);
@@ -105,16 +111,22 @@ export default function OrderHistoryPage() {
   const previousDelayMapRef  = useRef<Map<string, number>>(new Map());
 
   useEffect(() => {
-    if (!user) {
-      try {
-        const ids = JSON.parse(localStorage.getItem('ppr:guestOrderIds') || '[]');
-        setGuestOrderIds(ids);
-      } catch {
+    // Reading localStorage is the external-system sync an effect is for;
+    // the setState that reports the result back is deferred a tick so it
+    // isn't called directly (synchronously) within the effect body.
+    const id = setTimeout(() => {
+      if (!user) {
+        try {
+          const ids = JSON.parse(localStorage.getItem('ppr:guestOrderIds') || '[]');
+          setGuestOrderIds(ids);
+        } catch {
+          setGuestOrderIds([]);
+        }
+      } else {
         setGuestOrderIds([]);
       }
-    } else {
-      setGuestOrderIds([]);
-    }
+    }, 0);
+    return () => clearTimeout(id);
   }, [user]);
 
   const { data: guestOrders = [], isLoading: guestLoading } = useGuestOrders(guestOrderIds);

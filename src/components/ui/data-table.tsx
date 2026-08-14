@@ -1,5 +1,9 @@
 'use client';
 
+/* eslint-disable @typescript-eslint/no-explicit-any -- this table version's
+   ColumnDef/table types are parameterised over an internal `TableFeatures`
+   type that isn't nameable from caller code (see the `columns` prop below),
+   so the generic surface here is deliberately loose rather than fought. */
 import React, { useRef, useState } from 'react';
 import {
   getCoreRowModel,

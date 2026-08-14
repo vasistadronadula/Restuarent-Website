@@ -38,7 +38,7 @@ export default function ThermalReceiptModal({ order, open, onClose, isAutoPrinte
                 <DialogTitle className="text-white font-black text-base sm:text-lg">
                   {isAutoPrinted ? 'New Order Receipt' : 'Bill Preview'}
                 </DialogTitle>
-                <p className="text-xs text-stone-300 font-medium">80mm Thermal POS Print Format</p>
+                <p className="text-xs text-stone-300 font-medium">Thermal receipt preview</p>
               </div>
             </div>
           </DialogHeader>
