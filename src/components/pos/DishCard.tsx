@@ -38,8 +38,8 @@ function DishCard({ item, inBill, quantityByPortion, onAdd, onDecrement }: Props
   return (
     <div
       onClick={handleCardClick}
-      className="flex flex-col overflow-hidden text-left select-none cursor-pointer group bg-ad-bg transition-colors"
-      style={active ? { outline: '2px solid var(--ad-accent)', outlineOffset: '-2px' } : undefined}
+      className="flex flex-col overflow-hidden text-left select-none cursor-pointer group bg-ad-bg border border-ad-line hover:border-ad-ink transition-colors"
+      style={active ? { outline: '2px solid var(--ad-accent)', outlineOffset: '-2px', borderColor: 'var(--ad-accent)' } : undefined}
     >
       {/* Food Photo Container */}
       <div className="relative w-full aspect-square bg-ad-n200 overflow-hidden shrink-0">

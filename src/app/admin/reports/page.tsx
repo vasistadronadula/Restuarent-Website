@@ -18,11 +18,11 @@ import { toast } from 'sonner';
  * brand colours read as seven unrelated apps on a page whose entire design is
  * one accent over neutrals.
  */
-const COLORS = ['#ec3013', '#201e1d', '#ff9783', '#605d5d', '#ae1800', '#bab6b6', '#7c1405'];
+const COLORS = ['#e6543e', '#221c1a', '#ff9683', '#5e5654', '#bd3f2c', '#ddd6d4', '#8a2d1f'];
 
 /* Chart chrome — axes and gridlines sit under the data, never beside it. */
-const AXIS = '#9b9797';
-const GRID = '#d7d3d3';
+const AXIS = '#9c928f';
+const GRID = '#ddd6d4';
 
 export default function ReportsPage() {
   const { orders } = useAdmin();

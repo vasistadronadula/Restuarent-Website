@@ -372,28 +372,28 @@ textarea.ad-input { min-height: 90px; resize: vertical; }
   letter-spacing: 0.1em;
   text-transform: uppercase;
   background: transparent;
-  color: rgba(243, 242, 242, 0.72);
+  color: rgba(255, 255, 255, 0.78);
   transition: background-color 0.12s ease, color 0.12s ease;
 }
-.ad-nav-item:hover { background: rgba(243, 242, 242, 0.09); color: var(--ad-bg); }
-.ad-nav-item[data-active='true'] { background: var(--ad-accent); color: var(--ad-bg); }
-.ad-nav-item[data-active='true']:hover { background: var(--ad-a600); }
+.ad-nav-item:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.ad-nav-item[data-active='true'] { background: #fff; color: var(--ad-accent); }
+.ad-nav-item[data-active='true']:hover { background: #fff; }
 
 .ad-nav-badge {
   font-family: var(--ad-font);
   font-weight: 800;
   font-size: 10px;
   padding: 1px 7px;
-  background: var(--ad-accent);
-  color: var(--ad-bg);
+  background: #fff;
+  color: var(--ad-accent);
 }
-.ad-nav-item[data-active='true'] .ad-nav-badge { background: var(--ad-bg); color: var(--ad-accent); }
+.ad-nav-item[data-active='true'] .ad-nav-badge { background: var(--ad-accent); color: #fff; }
 
 .ad-nav-group {
   font-size: 9px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(243, 242, 242, 0.38);
+  color: rgba(255, 255, 255, 0.55);
   padding: 14px 14px 6px;
 }
 

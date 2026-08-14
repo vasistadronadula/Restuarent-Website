@@ -397,6 +397,14 @@ export default function PosPage() {
 
           {/* Right: Cashier Info & Action Shortcuts */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* Live clock + cashier name — sits inline in the control bar so
+                it never overlaps the catalog below it. */}
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 h-9 border border-ad-line bg-ad-surface shrink-0">
+              <span className="size-1.5 bg-ad-accent animate-pulse shrink-0" />
+              <span className="ad-num text-[12px]">{timeStr}</span>
+              <span className="ad-muted text-[11px] truncate max-w-25">· {cashierName}</span>
+            </div>
+
             {/* Table Floor Map Trigger */}
             <button
               type="button"
@@ -479,15 +487,6 @@ export default function PosPage() {
 
           <div className="relative flex-1 min-w-0 flex flex-col overflow-hidden bg-ad-bg">
 
-            {/* Live Clock overlay — floats over the catalog instead of eating
-                a slot in the control bar, which the veg filters and search
-                need more on a small till screen. */}
-            <div className="pointer-events-none absolute top-2 right-2 z-10 flex items-center gap-1.5 bg-ad-ink/85 backdrop-blur text-ad-bg px-2.5 py-1">
-              <span className="size-1.5 bg-ad-accent animate-pulse shrink-0" />
-              <span className="ad-num text-[12px]">{timeStr}</span>
-              <span className="hidden sm:inline text-[11px] opacity-70 truncate max-w-25">{cashierName}</span>
-            </div>
-
             {/* Mobile category strip — replaces the desktop rail below `md`. */}
             <div className="md:hidden border-b-2 border-ad-line px-3 py-2 shrink-0 overflow-x-auto scrollbar-none">
               <div className="flex items-center gap-1.5 w-max">
@@ -564,7 +563,7 @@ export default function PosPage() {
                   ))}
                 </div>
               ) : (
-                <div className="ad-grid md:grid-cols-4 lg:grid-cols-5 mb-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 mb-6">
                   {filteredDishes.map((item) => (
                     <DishCard
                       key={item.id}

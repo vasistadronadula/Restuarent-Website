@@ -13,9 +13,9 @@ import { PageHeader, HairlineGrid, StatCell, SectionCard, EmptyState } from '@/c
 import { ArrowLeft } from 'lucide-react';
 
 /* Chart chrome, matching the console: one accent line over neutral rules. */
-const ACCENT = '#ec3013';
-const AXIS = '#9b9797';
-const GRID = '#d7d3d3';
+const ACCENT = '#e6543e';
+const AXIS = '#9c928f';
+const GRID = '#ddd6d4';
 
 const dayKey = (d: Date) => {
   const y = d.getFullYear();
@@ -187,10 +187,10 @@ export default function PerformancePage() {
                     <YAxis stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
                     <RechartsTooltip
                       contentStyle={{
-                        backgroundColor: '#201e1d',
+                        backgroundColor: '#221c1a',
                         border: 'none',
                         borderRadius: 0,
-                        color: '#f3f2f2',
+                        color: '#ffffff',
                         fontSize: '12px',
                       }}
                       formatter={(val: any) => [

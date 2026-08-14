@@ -32,17 +32,17 @@ export default function AdminSidebar({ open, onClose, wide = false }: Props) {
 
   const rail = (
     <>
-      <div className="px-5 pt-5 pb-4 border-b-2 border-[rgba(243,242,242,0.28)] flex items-start gap-2">
+      <div className="px-5 pt-5 pb-4 border-b-2 border-[rgba(255,255,255,0.3)] flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <div className="ad-num text-[20px] leading-none truncate">PALA PITTA</div>
-          <div className="text-[10px] tracking-[0.18em] uppercase opacity-60 mt-1.5">
+          <div className="text-[10px] tracking-[0.18em] uppercase opacity-70 mt-1.5">
             Restaurant
           </div>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className={`${wide ? 'xl:hidden' : 'lg:hidden'} -mr-1 -mt-1 p-1.5 text-[rgba(243,242,242,0.7)] hover:text-white`}
+          className={`${wide ? 'xl:hidden' : 'lg:hidden'} -mr-1 -mt-1 p-1.5 text-[rgba(255,255,255,0.75)] hover:text-white`}
           aria-label="Close navigation"
         >
           <X className="w-4 h-4" />
@@ -85,7 +85,7 @@ export default function AdminSidebar({ open, onClose, wide = false }: Props) {
     <>
       {/* Pinned rail */}
       <aside
-        className={`hidden ${wide ? 'xl:flex' : 'lg:flex'} flex-col flex-none sticky top-0 h-screen w-[var(--ad-sidebar-w)] bg-ad-ink text-ad-bg`}
+        className={`hidden ${wide ? 'xl:flex' : 'lg:flex'} flex-col flex-none sticky top-0 h-screen w-[var(--ad-sidebar-w)] bg-ad-accent text-white`}
         style={{ fontFamily: 'var(--ad-font)' }}
       >
         {rail}
@@ -100,7 +100,7 @@ export default function AdminSidebar({ open, onClose, wide = false }: Props) {
             aria-hidden
           />
           <aside
-            className="relative flex flex-col w-[var(--ad-sidebar-w)] max-w-[80vw] h-full bg-ad-ink text-ad-bg"
+            className="relative flex flex-col w-[var(--ad-sidebar-w)] max-w-[80vw] h-full bg-ad-accent text-white"
             style={{ fontFamily: 'var(--ad-font)' }}
           >
             {rail}
