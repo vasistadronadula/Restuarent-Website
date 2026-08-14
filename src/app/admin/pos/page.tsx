@@ -456,17 +456,17 @@ export default function PosPage() {
 
         {/* ── 2. MAIN BODY: Category Rail | Product Catalog ──
             The admin nav rail doesn't render on this page at all (see
-            AdminLayout). The right edge is padded clear of the cart panel
-            below — but only from `md` up, where the cart is actually docked
-            there; on phones/small tablets the cart lives in a bottom sheet
-            instead, so nothing needs to make room for it. */}
-        <div className="flex-1 min-h-0 flex w-full overflow-hidden md:pr-[300px] lg:pr-[380px] xl:pr-[420px]">
+            AdminLayout). The cart no longer docks a column here on any size
+            — it floats as a bottom bar + sheet everywhere — so the catalog
+            runs full width with no reserved edge padding. */}
+        <div className="flex-1 min-h-0 flex w-full overflow-hidden">
 
           {/* Category rail — desktop/tablet only (`md` up). Below that the
               same list runs as a horizontal strip above the dish list
               instead, since a vertical rail on a phone-width screen either
-              crowds out the dishes or shrinks to unreadable icons. */}
-          <div className="hidden md:block w-44 lg:w-52 shrink-0 h-full overflow-y-auto scrollbar-none border-r-2 border-ad-line bg-ad-ink">
+              crowds out the dishes or shrinks to unreadable icons. Coral
+              ground, matching the sidebar in the rest of the console. */}
+          <div className="hidden md:block w-44 lg:w-52 shrink-0 h-full overflow-y-auto scrollbar-none border-r-2 border-ad-line bg-ad-accent">
             {categoriesList.map((cat) => {
               const Icon = cat.icon;
               return (
@@ -476,7 +476,7 @@ export default function PosPage() {
                   onClick={() => setSelectedCategory(cat.slug)}
                   data-active={selectedCategory === cat.slug}
                   title={cat.name}
-                  className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-semibold leading-tight text-[rgba(243,242,242,0.55)] border-l-4 border-transparent data-[active=true]:text-white data-[active=true]:bg-[rgba(243,242,242,0.08)] data-[active=true]:border-l-ad-accent transition-colors"
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-semibold leading-tight text-white/75 data-[active=true]:text-ad-accent data-[active=true]:bg-white transition-colors"
                 >
                   <Icon className="size-4.5 shrink-0" />
                   <span className="truncate">{cat.name}</span>
@@ -581,17 +581,12 @@ export default function PosPage() {
 
         </div>
 
-        {/* ── Cart: fixed to the right edge from `md` up, where a 300px+
-            column still leaves the dish grid usable — permanently docked
-            there like a till's ticket rail, no toggle needed. Below `md`
-            (phones, small tablets) that column would eat the whole screen,
-            so it collapses to a bottom-right open button + a bottom sheet. */}
-        <div className="hidden md:flex flex-col fixed right-0 top-[var(--ad-header-h)] bottom-0 w-[300px] lg:w-[380px] xl:w-[420px] z-20 bg-ad-surface border-l-2 border-ad-line">
-          <BillPanel {...billPanelProps} />
-        </div>
-
+        {/* ── Cart: a floating bar pinned to the bottom of the page on
+            every size, not a docked side rail — tapping it opens the ticket
+            as a bottom sheet. Keeps the dish grid at full width on tablet
+            and desktop instead of losing a permanent column to the cart. */}
         {lines.length > 0 && (
-          <div className="md:hidden fixed left-4 right-4 bottom-4 z-30">
+          <div className="fixed left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-xl bottom-4 z-30">
             <button
               type="button"
               onClick={() => setCartOpen(true)}
@@ -612,7 +607,7 @@ export default function PosPage() {
           <SheetContent
             side="bottom"
             showCloseButton={false}
-            className="md:hidden p-0 h-[min(94dvh,780px)] bg-ad-surface overflow-hidden"
+            className="p-0 h-[min(94dvh,780px)] md:max-w-2xl md:mx-auto bg-ad-surface overflow-hidden"
           >
             <BillPanel
               {...billPanelProps}
