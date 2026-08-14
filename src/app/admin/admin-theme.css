@@ -4,9 +4,12 @@
    Ported from the Claude Design project "Restaurant Admin"
    (99f63aa6-f8be-4221-8c1d-e8e47a1ddbe9, `_ds/modernist-…/styles.css`).
 
-   The system in one line: flat, square, high-contrast. No radius, no shadow,
+   The system in one line: flat, high-contrast, barely rounded. No shadow,
    no gradient — structure is carried by 2px rules and 2px hairline grid gaps
    over a divider-coloured backplate, and emphasis by one hot accent red.
+   Corners take a small fixed radius (`--ad-radius`) rather than staying
+   sharp, but nothing here is soft or bubbly — it reads as one flat surface
+   with the edges just barely eased.
 
    Two scopes live in this file:
 
@@ -71,6 +74,12 @@
   --ad-font: var(--font-archivo), "Archivo", ui-sans-serif, system-ui, sans-serif;
   --ad-sidebar-w: 236px;
   --ad-header-h: 68px;
+
+  /* A little rounding, not a soft one — enough to take the edge off a
+     surface that's otherwise all right angles, not enough to read as a
+     different (bubblier) system. Every corner in the console traces back
+     to this one value. */
+  --ad-radius: 6px;
 }
 
 /* ── Shell ──────────────────────────────────────────────────────────────── */
@@ -167,22 +176,28 @@
 
 .ad-panel {
   border: 2px solid var(--ad-divider);
+  border-radius: var(--ad-radius);
   background: var(--ad-bg);
 }
 
 .ad-panel-surface {
   border: 2px solid var(--ad-divider);
+  border-radius: var(--ad-radius);
   background: var(--ad-surface);
 }
 
 /* Hairline grid: children sit on a divider-coloured backplate and the 2px gap
    between them *is* the rule. Cheaper and crisper than per-cell borders,
-   which double up and drift by a pixel at the seams. */
+   which double up and drift by a pixel at the seams. Radius stays on the
+   outer edge only — rounding each cell too, at a 2px gap, would turn every
+   interior seam into a little punched-out hole instead of a clean line. */
 .ad-grid {
   display: grid;
   gap: 2px;
   background: var(--ad-divider);
   border: 2px solid var(--ad-divider);
+  border-radius: var(--ad-radius);
+  overflow: hidden;
 }
 .ad-grid > * { background: var(--ad-bg); }
 
@@ -203,7 +218,7 @@
   color: var(--ad-ink);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 0;
+  border-radius: var(--ad-radius);
   padding: 9px 14px;
   transition: background-color 0.12s ease, color 0.12s ease;
 }
@@ -249,7 +264,7 @@
   caret-color: var(--ad-accent);
   background: var(--ad-surface);
   border: 1px solid var(--ad-divider);
-  border-radius: 0;
+  border-radius: var(--ad-radius);
 }
 .ad-input::placeholder { color: var(--ad-n500); }
 .ad-input:hover { border-color: color-mix(in srgb, var(--ad-ink) 45%, transparent); }
@@ -261,7 +276,7 @@ textarea.ad-input { min-height: 90px; resize: vertical; }
 .ad-tab {
   padding: 7px 14px;
   border: 1px solid var(--ad-divider);
-  border-radius: 0;
+  border-radius: var(--ad-radius);
   cursor: pointer;
   background: transparent;
   color: var(--ad-ink);
@@ -290,7 +305,7 @@ textarea.ad-input { min-height: 90px; resize: vertical; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
   padding: 3px 10px;
-  border-radius: 0;
+  border-radius: var(--ad-radius);
   white-space: nowrap;
   background: var(--ad-n200);
   color: var(--ad-n800);
@@ -306,7 +321,7 @@ textarea.ad-input { min-height: 90px; resize: vertical; }
 .ad-pill {
   padding: 4px 12px;
   border: 1px solid var(--ad-divider);
-  border-radius: 0;
+  border-radius: var(--ad-radius);
   background: transparent;
   color: var(--ad-n700);
   font-family: var(--ad-font);
@@ -329,7 +344,7 @@ textarea.ad-input { min-height: 90px; resize: vertical; }
   flex: none;
   padding: 3px;
   border: 1px solid var(--ad-divider);
-  border-radius: 0;
+  border-radius: var(--ad-radius);
   background: transparent;
   cursor: pointer;
   display: flex;
@@ -337,7 +352,7 @@ textarea.ad-input { min-height: 90px; resize: vertical; }
   align-items: center;
 }
 .ad-switch[data-on='true'] { background: var(--ad-accent); border-color: var(--ad-accent); justify-content: flex-end; }
-.ad-switch > span { width: 16px; height: 16px; display: block; background: var(--ad-n500); }
+.ad-switch > span { width: 16px; height: 16px; display: block; background: var(--ad-n500); border-radius: calc(var(--ad-radius) - 2px); }
 .ad-switch[data-on='true'] > span { background: var(--ad-bg); }
 
 /* ── Tables ─────────────────────────────────────────────────────────────── */
@@ -368,7 +383,7 @@ textarea.ad-input { min-height: 90px; resize: vertical; }
   width: 100%;
   padding: 10px 14px;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--ad-radius);
   cursor: pointer;
   text-align: left;
   text-decoration: none;
@@ -390,6 +405,7 @@ textarea.ad-input { min-height: 90px; resize: vertical; }
   font-weight: 800;
   font-size: 10px;
   padding: 1px 7px;
+  border-radius: calc(var(--ad-radius) - 2px);
   background: #fff;
   color: var(--ad-accent);
 }
@@ -415,11 +431,21 @@ textarea.ad-input { min-height: 90px; resize: vertical; }
   font-family: var(--ad-font);
 }
 
-/* Square everything except pills/avatars, which stay round by intent. */
+/* Flatten every stray Tailwind radius utility to the console's one small
+   value, except pills/avatars, which stay fully round by intent. Covers
+   Radix portals too (dialogs, dropdowns, selects, popovers) — those render
+   outside `.ad-shell`, tagged instead via `[data-ad-theme]` on <html>. */
 .ad-shell [class*='rounded']:not([class*='rounded-full']),
 [data-ad-theme='modernist'] [data-slot$='-content'],
 [data-ad-theme='modernist'] [data-slot$='-content'] [class*='rounded']:not([class*='rounded-full']) {
-  border-radius: 0;
+  border-radius: var(--ad-radius);
+}
+
+/* Plain bordered panels — the `border-2 border-ad-line` boxes pages reach
+   for directly for cards, empty states and list panels, without going
+   through a named `.ad-*` class. Same little radius, same reasoning. */
+.ad-shell [class*='border-2'] {
+  border-radius: var(--ad-radius);
 }
 
 /* Elevation is not part of this system: structure comes from rules. */

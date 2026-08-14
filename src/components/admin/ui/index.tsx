@@ -4,7 +4,8 @@
  * The admin console's shared primitives, in the Modernist system.
  *
  * Rules of the system, so additions stay consistent:
- *   • No radius, no shadow. Structure is 2px rules and 2px hairline grid gaps.
+ *   • A little radius (`--ad-radius`), no shadow. Structure is 2px rules and
+ *     2px hairline grid gaps; the radius eases corners, it doesn't soften them.
  *   • One accent (hot red) for primary actions and things that need attention.
  *     Everything else is ink and neutrals — a page with four accent colours is
  *     a page with none.
@@ -192,7 +193,7 @@ export function Toggle({
 /** Flat progress bar used by the top-sellers list. */
 export function Bar({ pct }: { pct: number }) {
   return (
-    <div className="h-2 bg-ad-n200">
+    <div className="h-2 bg-ad-n200 rounded-[var(--ad-radius)] overflow-hidden">
       <div
         className="h-full bg-ad-accent"
         style={{ width: `${Math.max(0, Math.min(100, pct))}%` }}
@@ -212,7 +213,7 @@ export function AlertTile({
   return (
     <Link href={href} className="no-underline block text-inherit">
       <div
-        className="flex items-center gap-3 px-4 py-3 bg-ad-surface hover:bg-ad-n200 transition-colors"
+        className="flex items-center gap-3 px-4 py-3 bg-ad-surface hover:bg-ad-n200 transition-colors rounded-[var(--ad-radius)] overflow-hidden"
         style={{ borderLeft: `4px solid ${stripe}` }}
       >
         {icon && <span className="flex-none opacity-70">{icon}</span>}

@@ -476,7 +476,7 @@ export default function PosPage() {
                   onClick={() => setSelectedCategory(cat.slug)}
                   data-active={selectedCategory === cat.slug}
                   title={cat.name}
-                  className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-semibold leading-tight text-white/75 data-[active=true]:text-ad-accent data-[active=true]:bg-white transition-colors"
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-semibold leading-tight text-white/75 data-[active=true]:text-ad-accent data-[active=true]:bg-white rounded-[var(--ad-radius)] transition-colors"
                 >
                   <Icon className="size-4.5 shrink-0" />
                   <span className="truncate">{cat.name}</span>

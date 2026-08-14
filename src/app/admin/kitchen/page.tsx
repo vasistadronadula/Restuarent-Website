@@ -1160,7 +1160,7 @@ function OrderTicketCard({
 
   return (
     <div
-      className="bg-ad-surface flex flex-col justify-between transition-colors"
+      className="bg-ad-surface flex flex-col justify-between transition-colors rounded-[var(--ad-radius)] overflow-hidden"
       style={{ borderLeft: `4px solid ${spineColor}` }}
     >
       {/* ── CARD HEADER ── */}
@@ -1195,7 +1195,7 @@ function OrderTicketCard({
               <span>{checkedCount} of {items.length} prepped</span>
               {allChecked && <span style={{ color: 'var(--ad-ok)' }}>All done</span>}
             </div>
-            <div className="h-2 bg-ad-n200">
+            <div className="h-2 bg-ad-n200 rounded-[var(--ad-radius)] overflow-hidden">
               <div
                 className="h-full transition-all duration-500"
                 style={{
