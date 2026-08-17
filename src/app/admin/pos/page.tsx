@@ -345,25 +345,32 @@ export default function PosPage() {
     isPlacing: placing,
   };
 
-  const VEG_FILTERS: { value: typeof vegFilter; label: string; dot?: string }[] = [
-    { value: 'all', label: 'All Items' },
-    { value: 'veg', label: 'Veg', dot: 'bg-ad-ok' },
-    { value: 'non-veg', label: 'Non-veg', dot: 'bg-ad-accent' },
-    { value: 'egg', label: 'Egg', dot: 'bg-ad-warn' },
+  const VEG_FILTERS: { value: typeof vegFilter; label: string; shortLabel?: string; dot?: string }[] = [
+    { value: 'all', label: 'All Items', shortLabel: 'All' },
+    { value: 'veg', label: 'Veg', shortLabel: 'Veg', dot: 'bg-ad-ok' },
+    { value: 'non-veg', label: 'Non-veg', shortLabel: 'Non-Veg', dot: 'bg-ad-accent' },
+    { value: 'egg', label: 'Egg', shortLabel: 'Egg', dot: 'bg-ad-warn' },
   ];
+
+  const resetAllFilters = useCallback(() => {
+    setSearch('');
+    setVegFilter('all');
+    setSelectedCategory('all');
+  }, []);
+  const hasActiveFilters = search.trim() !== '' || vegFilter !== 'all' || selectedCategory !== 'all';
 
   return (
     <AdminLayout title="Cashier POS System (2026)">
       <div className="flex flex-col w-full h-full bg-ad-bg text-ad-ink overflow-hidden select-none">
 
-        {/* ── 1. CASHIER FAST CONTROL BAR ── */}
-        <div className="h-[56px] bg-ad-bg border-b-2 border-ad-line px-3 sm:px-4 flex items-center justify-between gap-2.5 shrink-0 z-20">
+        {/* ── 1. CASHIER FAST CONTROL BAR (Desktop / Tablet md+) ── */}
+        <div className="hidden md:flex h-[56px] bg-ad-bg border-b-2 border-ad-line px-3 sm:px-4 items-center justify-between gap-3 shrink-0 z-20">
           {/* Left: Quick Search */}
-          <div className="relative w-32 sm:w-60 md:w-72 shrink-0">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-ad-muted" />
+          <div className="relative w-60 md:w-72 lg:w-80 shrink-0">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-ad-muted pointer-events-none" />
             <input
               ref={searchInputRef}
-              className="ad-input h-9 pl-7.5 pr-7"
+              className="ad-input h-9 !pl-8 !pr-7"
               placeholder="Search dishes… (/)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -397,8 +404,7 @@ export default function PosPage() {
 
           {/* Right: Cashier Info & Action Shortcuts */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Live clock + cashier name — sits inline in the control bar so
-                it never overlaps the catalog below it. */}
+            {/* Live clock + cashier name */}
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 h-9 border border-ad-line bg-ad-surface shrink-0">
               <span className="size-1.5 bg-ad-accent animate-pulse shrink-0" />
               <span className="ad-num text-[12px]">{timeStr}</span>
@@ -419,9 +425,8 @@ export default function PosPage() {
               </span>
             </button>
 
-            {/* Grid / List Layout Switcher — desktop/tablet only; below `md`
-                the catalog always runs as image-free rows (see effectiveLayoutMode). */}
-            <div className="hidden md:flex items-center gap-1.5">
+            {/* Grid / List Layout Switcher */}
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setLayoutMode('cards')}
@@ -454,6 +459,131 @@ export default function PosPage() {
           </div>
         </div>
 
+        {/* ── 1. MOBILE RESPONSIVE CONTROL BAR (< md) ── */}
+        <div className="md:hidden flex flex-col bg-ad-bg border-b-2 border-ad-line shrink-0 z-20">
+          {/* Top Row: Full-width Search + Quick Actions */}
+          <div className="p-2.5 flex items-center gap-2 border-b border-ad-hairline">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-ad-muted pointer-events-none" />
+              <input
+                className="ad-input h-9.5 text-[13px] !pl-8 !pr-7 w-full bg-ad-surface"
+                placeholder="Search dishes…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ad-muted hover:text-ad-ink p-1"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Table Selector Quick Badge */}
+            <button
+              type="button"
+              onClick={() => setTableMapOpen(true)}
+              className={cn(
+                'h-9.5 px-2.5 rounded-[var(--ad-radius)] border flex items-center gap-1.5 text-xs font-bold shrink-0 transition-colors',
+                tableNumber !== ''
+                  ? 'bg-ad-accent text-white border-ad-accent'
+                  : 'bg-ad-surface text-ad-ink border-ad-divider hover:bg-ad-n200'
+              )}
+              title="Table Floor Map"
+            >
+              <LayoutGrid className="size-3.5" />
+              <span>{tableNumber !== '' ? `T${tableNumber}` : 'Tables'}</span>
+            </button>
+
+            {/* Fullscreen Button */}
+            <button
+              type="button"
+              onClick={toggleFullscreen}
+              className="h-9.5 w-9.5 grid place-items-center rounded-[var(--ad-radius)] border border-ad-divider bg-ad-surface text-ad-ink hover:bg-ad-n200 shrink-0"
+              title="Fullscreen"
+            >
+              {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+            </button>
+          </div>
+
+          {/* Middle Row: Segmented Veg / Dietary Filter Bar */}
+          <div className="px-2.5 py-1.5 bg-ad-surface border-b border-ad-hairline">
+            <div className="grid grid-cols-4 gap-1 p-0.5 bg-ad-n200 rounded-[var(--ad-radius)] border border-ad-hairline">
+              {VEG_FILTERS.map((f) => {
+                const isActive = vegFilter === f.value;
+                return (
+                  <button
+                    key={f.value}
+                    type="button"
+                    onClick={() => setVegFilter(f.value)}
+                    className={cn(
+                      'h-7.5 px-1 rounded-[calc(var(--ad-radius)-2px)] text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all',
+                      isActive
+                        ? 'bg-ad-ink text-white shadow-xs'
+                        : 'text-ad-ink/70 hover:text-ad-ink hover:bg-white/60'
+                    )}
+                  >
+                    {f.dot && (
+                      <span
+                        className={cn(
+                          'size-1.5 rounded-full shrink-0',
+                          f.dot,
+                          isActive && f.value === 'non-veg' ? 'ring-1 ring-white' : ''
+                        )}
+                      />
+                    )}
+                    <span className="truncate">{f.shortLabel || f.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Bottom Row: Mobile Category Strip */}
+          <div className="px-2.5 py-1.5 overflow-x-auto scrollbar-none flex items-center gap-1.5">
+            {categoriesList.map((cat) => {
+              const Icon = cat.icon;
+              const isActive = selectedCategory === cat.slug;
+              return (
+                <button
+                  key={cat.slug}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat.slug)}
+                  data-active={isActive}
+                  className={cn(
+                    'ad-tab shrink-0 flex items-center gap-1.5 py-1 px-2.5 text-[11px] h-7.5',
+                    isActive && 'bg-ad-accent text-white border-ad-accent'
+                  )}
+                >
+                  <Icon className="size-3 shrink-0" />
+                  <span>{cat.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active Filter Indicator / Clear All Bar */}
+          {hasActiveFilters && (
+            <div className="px-3 py-1 bg-ad-a100 border-t border-ad-a200 flex items-center justify-between text-[11px] font-semibold text-ad-a800">
+              <span className="truncate">
+                {filteredDishes.length} dish{filteredDishes.length === 1 ? '' : 'es'} match
+                {vegFilter !== 'all' ? ` · ${vegFilter}` : ''}
+                {selectedCategory !== 'all' ? ` · ${categoriesList.find((c) => c.slug === selectedCategory)?.name || selectedCategory}` : ''}
+              </span>
+              <button
+                type="button"
+                onClick={resetAllFilters}
+                className="text-ad-accent hover:underline font-bold flex items-center gap-1 shrink-0 ml-2"
+              >
+                Reset <X className="size-3" />
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* ── 2. MAIN BODY: Category Rail | Product Catalog ──
             The admin nav rail doesn't render on this page at all (see
             AdminLayout). The cart no longer docks a column here on any size
@@ -462,10 +592,7 @@ export default function PosPage() {
         <div className="flex-1 min-h-0 flex w-full overflow-hidden">
 
           {/* Category rail — desktop/tablet only (`md` up). Below that the
-              same list runs as a horizontal strip above the dish list
-              instead, since a vertical rail on a phone-width screen either
-              crowds out the dishes or shrinks to unreadable icons. Coral
-              ground, matching the sidebar in the rest of the console. */}
+              same list runs as a horizontal strip in the mobile control bar. */}
           <div className="hidden md:block w-44 lg:w-52 shrink-0 h-full overflow-y-auto scrollbar-none border-r-2 border-ad-line bg-ad-accent">
             {categoriesList.map((cat) => {
               const Icon = cat.icon;
@@ -486,27 +613,6 @@ export default function PosPage() {
           </div>
 
           <div className="relative flex-1 min-w-0 flex flex-col overflow-hidden bg-ad-bg">
-
-            {/* Mobile category strip — replaces the desktop rail below `md`. */}
-            <div className="md:hidden border-b-2 border-ad-line px-3 py-2 shrink-0 overflow-x-auto scrollbar-none">
-              <div className="flex items-center gap-1.5 w-max">
-                {categoriesList.map((cat) => {
-                  const Icon = cat.icon;
-                  return (
-                    <button
-                      key={cat.slug}
-                      type="button"
-                      onClick={() => setSelectedCategory(cat.slug)}
-                      data-active={selectedCategory === cat.slug}
-                      className="ad-tab shrink-0 flex items-center gap-1.5"
-                    >
-                      <Icon className="size-3.5 shrink-0" />
-                      <span>{cat.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
             {/* Table Allocation Fast Strip (Visible when Dine-In is active) */}
             {orderType === 'dine-in' && (
