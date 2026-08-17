@@ -39,6 +39,40 @@ export default function CategoryRail({
   className?: string;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
+  // Starts optimistic (both true) rather than false — a false-to-true flip
+  // after the first measurement is what makes an arrow visibly pop in a beat
+  // after the rail renders; starting hidden (both false) instead would just
+  // move that same flash to the common case of a rail that does overflow.
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const updateScrollState = () => {
+    const track = trackRef.current;
+    if (!track) return;
+    setCanScrollLeft(track.scrollLeft > 4);
+    setCanScrollRight(track.scrollLeft + track.clientWidth < track.scrollWidth - 4);
+  };
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    updateScrollState();
+
+    const onScroll = () => updateScrollState();
+    track.addEventListener('scroll', onScroll, { passive: true });
+
+    // Re-checks when the rail's own content changes width (category list
+    // loads in, or the viewport is resized) — a plain resize listener misses
+    // both.
+    const observer = new ResizeObserver(updateScrollState);
+    observer.observe(track);
+
+    return () => {
+      track.removeEventListener('scroll', onScroll);
+      observer.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories.length]);
 
   const nudge = (direction: -1 | 1) => {
     const track = trackRef.current;
@@ -108,9 +142,12 @@ export default function CategoryRail({
       </div>
 
       {/* Desktop-only. On touch the finger already does this, and two extra
-          buttons over a rail you can swipe is clutter. */}
-      <RailArrow side="left" onClick={() => nudge(-1)} />
-      <RailArrow side="right" onClick={() => nudge(1)} />
+          buttons over a rail you can swipe is clutter. Each arrow only
+          renders while there's somewhere left for it to take you — a rail
+          that fits on screen, or one you've scrolled to the end of, showed a
+          fully functional-looking button that did nothing when pressed. */}
+      {canScrollLeft && <RailArrow side="left" onClick={() => nudge(-1)} />}
+      {canScrollRight && <RailArrow side="right" onClick={() => nudge(1)} />}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-import { cn, formatCurrency, FALLBACK_DISH_IMAGE } from '@/lib/utils';
+import { cn, formatCurrency, FALLBACK_DISH_IMAGE, displayNameWithoutPortion } from '@/lib/utils';
 import type { CartItem } from '@/types';
 import { useCartStore } from '@/store/useCartStore';
 import CartStepper from './CartStepper';
@@ -64,7 +64,7 @@ export function CartLineItem({
             compact ? 'line-clamp-2 text-[13px]' : 'text-[14px] sm:text-[15px]'
           )}
         >
-          {item.name}
+          {displayNameWithoutPortion(item.name, item.selectedPortion)}
         </p>
 
         <p className="text-ink-4 mt-0.5 text-[12px] font-medium tabular-nums">

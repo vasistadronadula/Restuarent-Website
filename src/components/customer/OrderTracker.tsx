@@ -1,55 +1,17 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { CheckCircle2, Clock, CookingPot, Flame, ShoppingBag, XCircle } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, Clock, XCircle } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import type { OrderStatus } from '@/types';
+import type { OrderItem, OrderStatus } from '@/types';
+import {
+  classifyOrderCategory,
+  getOrderStages,
+  type OrderCategoryType,
+} from '@/lib/orderCategory';
 
-/* ------------------------------------------------------------------ */
-/*  Stage definitions                                                   */
-/* ------------------------------------------------------------------ */
-
-/**
- * The four states an order passes through, in order.
- *
- * They deliberately share one colour scheme instead of getting a hue each.
- * The old tracker gave every stage its own — emerald, amber, sky, violet — and
- * the result was that a glance told you nothing: four bright circles look the
- * same whichever one you are on. Here the *position* carries the meaning, and
- * colour only separates three states: done (green), happening now (orange),
- * not yet (grey).
- */
-export const ORDER_STAGES = [
-  {
-    key: 'pending',
-    label: 'Order confirmed',
-    shortTitle: 'Confirmed',
-    desc: 'The kitchen has your ticket',
-    icon: CheckCircle2,
-  },
-  {
-    key: 'preparing',
-    label: 'Cooking now',
-    shortTitle: 'Cooking',
-    desc: 'Your dishes are on the stove',
-    icon: Flame,
-  },
-  {
-    key: 'ready',
-    label: 'Ready for pickup',
-    shortTitle: 'Ready',
-    desc: 'Packed and waiting at the counter',
-    icon: CookingPot,
-  },
-  {
-    key: 'delivered',
-    label: 'Collected',
-    shortTitle: 'Done',
-    desc: 'Thanks for eating with us',
-    icon: ShoppingBag,
-  },
-] as const;
+export const ORDER_STAGES = getOrderStages('food');
 
 export function getStageIndex(status: OrderStatus): number {
   switch (status) {
@@ -128,9 +90,29 @@ function EtaRing({ minutes }: { minutes: number }) {
 interface OrderTrackerProps {
   status: OrderStatus;
   estimatedMinutes?: number;
+  items?: OrderItem[];
+  categoryType?: OrderCategoryType;
 }
 
-export default function OrderTracker({ status, estimatedMinutes }: OrderTrackerProps) {
+export default function OrderTracker({
+  status,
+  estimatedMinutes,
+  items,
+  categoryType: explicitCategory,
+}: OrderTrackerProps) {
+  // Both hooks run on every render, cancelled order or not — a hook can never
+  // sit after an early return, since a later render that takes the other
+  // branch would then call a different number of hooks than the render
+  // before it, which is what actually breaks React's hook bookkeeping (state
+  // for hooks after the divergence point silently attaches to the wrong
+  // hook). The cancelled branch below is a plain `if` on the *return value*,
+  // not a guard in front of the hooks.
+  const categoryType = useMemo(
+    () => explicitCategory || classifyOrderCategory(items),
+    [explicitCategory, items]
+  );
+  const stages = useMemo(() => getOrderStages(categoryType), [categoryType]);
+
   if (status === 'cancelled') {
     return (
       <div className="border-nonveg/25 bg-nonveg/8 flex items-center gap-3 rounded-xl border p-4">
@@ -146,11 +128,11 @@ export default function OrderTracker({ status, estimatedMinutes }: OrderTrackerP
   }
 
   const currentIdx = getStageIndex(status);
-  const currentStage = ORDER_STAGES[currentIdx] ?? ORDER_STAGES[0];
+  const currentStage = stages[currentIdx] ?? stages[0];
   const isComplete = status === 'delivered';
   const StageIcon = currentStage.icon;
   const showEta = !isComplete && estimatedMinutes != null && estimatedMinutes > 0;
-  const progress = (currentIdx / (ORDER_STAGES.length - 1)) * 100;
+  const progress = (currentIdx / (stages.length - 1)) * 100;
 
   return (
     <div className="space-y-4">
@@ -210,7 +192,7 @@ export default function OrderTracker({ status, estimatedMinutes }: OrderTrackerP
             style={{ width: `calc(${progress}% * 0.75)` }}
           />
 
-          {ORDER_STAGES.map((stage, idx) => {
+          {stages.map((stage, idx) => {
             const isDone = currentIdx > idx;
             const isCurrent = currentIdx === idx;
             const NodeIcon = stage.icon;

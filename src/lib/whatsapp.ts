@@ -296,7 +296,7 @@ export async function sendOrderStatusUpdate(
   customerPhone: string | undefined,
   customerName: string,
   newStatus: string,
-  extra?: { orderType?: string; tableNumber?: number; itemCount?: number }
+  extra?: { orderType?: string; tableNumber?: number; itemCount?: number; categoryType?: 'food' | 'dessert' | 'beverage' | 'dessert_and_beverage' }
 ): Promise<boolean> {
   const phone = normalizePhoneForWhatsApp(customerPhone);
   if (!phone) {
@@ -304,10 +304,39 @@ export async function sendOrderStatusUpdate(
     return false;
   }
 
-  const cfg = STATUS_CONFIGS[newStatus];
+  let cfg = STATUS_CONFIGS[newStatus];
   if (!cfg) {
     // Only notify for preparing, ready, delivered
     return false;
+  }
+
+  // Customize for desserts & cool drinks
+  if (newStatus === 'preparing') {
+    if (extra?.categoryType === 'beverage') {
+      cfg = {
+        emoji: '🥤',
+        headline: 'Your drinks are chilling!',
+        body: 'Our team is pouring and chilling your beverages fresh & ice-cold.',
+        eta: '5–10 minutes',
+        cta: `We'll ping you the moment your drinks are ready 🤞`,
+      };
+    } else if (extra?.categoryType === 'dessert') {
+      cfg = {
+        emoji: '🍨',
+        headline: 'Your desserts are being plated!',
+        body: 'Our team is plating and garnishing your sweet treats fresh.',
+        eta: '8–12 minutes',
+        cta: `We'll ping you the moment your desserts are ready 🤞`,
+      };
+    } else if (extra?.categoryType === 'dessert_and_beverage') {
+      cfg = {
+        emoji: '✨',
+        headline: 'Desserts & drinks in prep!',
+        body: 'Our team is plating your desserts and chilling your beverages fresh.',
+        eta: '8–12 minutes',
+        cta: `We'll ping you the moment they are ready 🤞`,
+      };
+    }
   }
 
   const tokenNum = orderId.slice(-4).toUpperCase();

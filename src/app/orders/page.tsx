@@ -6,13 +6,13 @@ import { useRouter } from 'next/navigation';
 import {
   ReceiptText, RotateCcw, Search, ShoppingBag,
   ArrowRight, X, Copy, Check, ChevronDown,
-  Flame, CheckCircle2, CookingPot, Clock,
-  Hourglass, AlertCircle, Wallet,
+  Flame, CheckCircle2,
+  Hourglass, Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { cn, formatCurrency, FALLBACK_DISH_IMAGE } from '@/lib/utils';
+import { cn, formatCurrency, FALLBACK_DISH_IMAGE, displayNameWithoutPortion } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import OrderTracker from '@/components/customer/OrderTracker';
@@ -25,6 +25,7 @@ import { queryKeys } from '@/lib/queries/keys';
 import { supabase } from '@/lib/supabase';
 import { playOrderChimeSound } from '@/lib/audio';
 import type { Order, OrderItem, OrderStatus } from '@/types';
+import { classifyOrderCategory, getStatusBadgeMeta } from '@/lib/orderCategory';
 
 import { Container } from '@/components/customer/Container';
 import { FilterPill, VegMark } from '@/components/customer/store-ui';
@@ -177,10 +178,12 @@ export default function OrderHistoryPage() {
 
   const getEstimatedMinutes = (order: Order): number | undefined => {
     if (order.status === 'delivered' || order.status === 'cancelled') return undefined;
-    const prepTimes = order.items.map((item) => prepTimeMap.get(item.menuItemId) ?? 15);
-    const basePrep  = Math.max(...prepTimes, 12);
+    const categoryType = classifyOrderCategory(order.items);
+    const defaultPrep = categoryType === 'beverage' ? 5 : categoryType === 'dessert' ? 8 : 15;
+    const prepTimes = order.items.map((item) => prepTimeMap.get(item.menuItemId) ?? defaultPrep);
+    const basePrep  = Math.max(...prepTimes, defaultPrep);
     const totalPrep = basePrep + (order.delayMinutes || 0);
-    if (order.status === 'preparing') return Math.max(5, totalPrep - 5);
+    if (order.status === 'preparing') return Math.max(3, totalPrep - 4);
     if (order.status === 'ready') return 0;
     return totalPrep;
   };
@@ -485,8 +488,9 @@ function Stat({
 /*  Shared bits                                                         */
 /* ------------------------------------------------------------------ */
 
-function StatusChip({ status }: { status: OrderStatus }) {
-  const meta = STATUS_META[status] ?? STATUS_META.pending;
+function StatusChip({ status, items }: { status: OrderStatus; items?: OrderItem[] }) {
+  const categoryType = classifyOrderCategory(items);
+  const meta = getStatusBadgeMeta(status, categoryType);
   const Icon = meta.icon;
   return (
     <span
@@ -533,7 +537,9 @@ function ItemLine({ item }: { item: OrderItem }) {
     <div className="flex items-center justify-between gap-3 py-2">
       <span className="flex min-w-0 items-center gap-2">
         <VegMark status={item.vegStatus || 'non-veg'} size={13} />
-        <span className="text-ink-1 truncate text-[13.5px] font-semibold">{item.name}</span>
+        <span className="text-ink-1 truncate text-[13.5px] font-semibold">
+          {displayNameWithoutPortion(item.name, item.selectedPortion)}
+        </span>
         {item.selectedPortion && (
           <span className="text-ink-4 bg-hair-2 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase">
             {item.selectedPortion}
@@ -613,7 +619,7 @@ function ActiveOrderCard({
           </div>
         </div>
 
-        <StatusChip status={order.status} />
+        <StatusChip status={order.status} items={order.items} />
       </header>
 
       <div className="space-y-4 px-4 py-4 sm:px-5">
@@ -624,7 +630,7 @@ function ActiveOrderCard({
           </p>
         )}
 
-        <OrderTracker status={order.status} estimatedMinutes={estimatedMinutes} />
+        <OrderTracker status={order.status} estimatedMinutes={estimatedMinutes} items={order.items} />
 
         <div className="border-hair-1 divide-hair-2 max-h-52 divide-y overflow-y-auto rounded-xl border px-3.5">
           {order.items.map((item, idx) => (
@@ -679,13 +685,27 @@ function HistoryOrderRow({
   const isCancelled = order.status === 'cancelled';
   const itemCount = order.items.reduce((s, i) => s + (i.quantity || 1), 0);
 
+  const toggle = () => setExpanded((v) => !v);
+
   return (
     <div className="border-hair-2 border-b last:border-b-0">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
+      {/* A <div role="button">, not a real <button>: OrderIdLine renders its
+          own copy button inside this row, and a <button> nested inside a
+          <button> is invalid HTML — browsers repair it by closing the outer
+          button early, which desyncs the DOM from React's tree and made the
+          copy icon's click unreliable. */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={toggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggle();
+          }
+        }}
         aria-expanded={expanded}
-        className="hover:bg-hair-2/60 flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors sm:px-5"
+        className="hover:bg-hair-2/60 focus-visible:ring-brand/30 flex w-full cursor-pointer flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors outline-none focus-visible:ring-[3px] sm:px-5"
       >
         <div className="flex min-w-0 items-center gap-3">
           <span className="bg-hair-2 text-ink-2 grid size-10 shrink-0 place-items-center rounded-xl text-[12.5px] font-black">
@@ -700,7 +720,7 @@ function HistoryOrderRow({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-3">
-          <StatusChip status={order.status} />
+          <StatusChip status={order.status} items={order.items} />
           <span className="text-ink-1 text-[14px] font-extrabold tabular-nums">
             {formatCurrency(order.grandTotal)}
           </span>
@@ -708,7 +728,7 @@ function HistoryOrderRow({
             className={cn('text-ink-4 size-4 transition-transform', expanded && 'rotate-180')}
           />
         </div>
-      </button>
+      </div>
 
       {expanded && (
         <div className="border-hair-2 bg-hair-2/40 border-t px-4 py-3 sm:px-5">

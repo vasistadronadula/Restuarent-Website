@@ -354,7 +354,10 @@ function CheckoutForm() {
       image: '/logo.png',
       order_id: orderData.id,
       prefill: { name: effectiveName, contact: effectivePhone },
-      theme: { color: '#C62828' },
+      // Matches --brand-500 in globals.css — this modal is the one surface
+      // Razorpay owns, so it's themed by hand rather than reading the CSS
+      // variable, but it still has to agree with everything else on screen.
+      theme: { color: '#FC8019' },
       // Guarantees the browser is handed back to the app after payment via
       // a server-side POST redirect instead of relying solely on the
       // `handler` callback below, which UPI/QR and bank-redirect payment
@@ -484,9 +487,6 @@ function CheckoutForm() {
   // ─── Order placed ───────────────────────────────────────────────────────
   if (placed && completedOrder) {
     const isPaid = completedOrder.paymentStatus === 'paid';
-    const whatsappHref = `https://wa.me/${restaurantInfo.whatsapp}?text=${encodeURIComponent(
-      `Hi, I've just placed order ${completedOrder.orderId}.`
-    )}`;
 
     return (
       <div className="bg-store flex min-h-screen flex-col">
@@ -547,19 +547,17 @@ function CheckoutForm() {
                 </p>
 
                 <div className="mt-6 grid gap-2.5">
-                  <a
-                    href={whatsappHref}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="bg-brand hover:bg-brand-600 flex h-12 items-center justify-center rounded-xl text-[14.5px] font-extrabold text-white transition-colors"
-                  >
-                    Message the kitchen on WhatsApp
-                  </a>
                   <Link
                     href="/orders"
-                    className="border-hair-1 text-ink-2 hover:bg-hair-2 flex h-12 items-center justify-center rounded-xl border text-[14.5px] font-bold transition-colors"
+                    className="bg-brand hover:bg-brand-600 flex h-12 items-center justify-center rounded-xl text-[14.5px] font-extrabold text-white transition-colors"
                   >
                     Track this order
+                  </Link>
+                  <Link
+                    href="/menu"
+                    className="border-hair-1 text-ink-2 hover:bg-hair-2 flex h-12 items-center justify-center rounded-xl border text-[14.5px] font-bold transition-colors"
+                  >
+                    Browse menu
                   </Link>
                 </div>
               </div>
