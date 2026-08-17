@@ -146,7 +146,7 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
           )}
         </div>
 
-        <div className="absolute bottom-0 left-1/2 flex -translate-x-1/2 justify-center">
+        <div className="absolute bottom-0 left-1/2 z-10 flex -translate-x-1/2 justify-center">
           {cartItem ? (
             <CartStepper
               quantity={cartItem.quantity}

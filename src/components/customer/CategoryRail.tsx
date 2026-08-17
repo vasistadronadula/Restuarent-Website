@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -123,7 +123,11 @@ function RailArrow({ side, onClick }: { side: 'left' | 'right'; onClick: () => v
       onClick={onClick}
       aria-label={side === 'left' ? 'Scroll categories left' : 'Scroll categories right'}
       className={cn(
-        'border-hair-1 text-ink-2 hover:text-brand-600 absolute top-[31px] hidden size-9 -translate-y-1/2 place-items-center rounded-full border bg-white shadow-[0_2px_10px_rgba(2,6,12,0.12)] transition-colors lg:grid',
+        // Vertically centred on the circle image, not the button column: the
+        // arrows only ever render at `lg:` and up, where the circle is
+        // already at its `sm:` size (76px, centre 38px) — using the mobile
+        // 62px centre here left them sitting visibly above the ring.
+        'border-hair-1 text-ink-2 hover:text-brand-600 absolute top-[38px] hidden size-9 -translate-y-1/2 place-items-center rounded-full border bg-white shadow-[0_2px_10px_rgba(2,6,12,0.12)] transition-colors lg:grid',
         side === 'left' ? '-left-4' : '-right-4'
       )}
     >

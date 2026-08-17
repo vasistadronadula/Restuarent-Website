@@ -275,31 +275,41 @@ export default function FoodMenuSlider() {
                           </div>
 
                           {cartItem ? (
-                            <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-600/30 rounded-xl p-1">
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-2 bg-amber-500/10 border border-amber-600/30 rounded-xl p-1 select-none touch-manipulation"
+                            >
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
-                                onClick={() => decreaseQty(dish.id)}
+                                className="h-8 w-8 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer active:scale-95"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  decreaseQty(dish.id, cartItem.selectedPortion);
+                                }}
                               >
                                 <Minus className="w-4 h-4" />
                               </Button>
-                              <span className="font-extrabold text-amber-700 dark:text-amber-400 text-base px-2">
+                              <span className="font-extrabold text-amber-700 dark:text-amber-400 text-base px-2 tabular-nums">
                                 {cartItem.quantity}
                               </span>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
-                                onClick={() => increaseQty(dish.id)}
+                                className="h-8 w-8 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 cursor-pointer active:scale-95"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  increaseQty(dish.id, cartItem.selectedPortion);
+                                }}
                               >
                                 <Plus className="w-4 h-4" />
                               </Button>
                             </div>
                           ) : (
                             <Button
-                              className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl px-5 py-2.5 shadow-md"
+                              className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl px-5 py-2.5 shadow-md cursor-pointer select-none touch-manipulation"
                               onClick={(e) => {
+                                e.stopPropagation();
                                 addItem(dish);
                                 flyToCart({ source: e.currentTarget, imageUrl: dish.image });
                                 toast.success(`${dish.name} added to cart`, { duration: 1800 });

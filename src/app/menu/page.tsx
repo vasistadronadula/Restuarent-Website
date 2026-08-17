@@ -203,35 +203,6 @@ function MenuBrowser() {
     return items;
   }, [menuItems, activeCategory, vegFilter, bestsellerOnly, topRatedOnly, searchQuery, sort]);
 
-  /**
-   * When nothing narrows the list, show it grouped under its category headings
-   * rather than as one 200-row wall. Once a filter *is* on, the grouping stops
-   * helping — the customer already told us what they want — so it collapses to
-   * a flat, ranked list.
-   */
-  const groupedSections = useMemo(() => {
-    if (activeCategory !== ALL || sort !== 'default') return null;
-
-    const order = railCategories.filter((c) => c.id !== ALL).map((c) => c.id);
-    const buckets = new Map<string, MenuItem[]>();
-    filteredItems.forEach((item) => {
-      const bucket = buckets.get(item.category);
-      if (bucket) bucket.push(item);
-      else buckets.set(item.category, [item]);
-    });
-
-    const sections = order
-      .filter((id) => buckets.has(id))
-      .map((id) => ({ id, label: categoryLabels[id] ?? id, items: buckets.get(id)! }));
-
-    // Dishes whose category was deleted or deactivated still have to appear —
-    // silently dropping them from the menu is worse than an "Others" heading.
-    const orphans = filteredItems.filter((item) => !order.includes(item.category));
-    if (orphans.length > 0) sections.push({ id: '__other', label: 'More dishes', items: orphans });
-
-    return sections;
-  }, [activeCategory, sort, filteredItems, railCategories, categoryLabels]);
-
   /* ── Actions ────────────────────────────────────────────────────── */
 
   // Plain functions, not useCallback: the React Compiler memoizes them, and a
@@ -266,6 +237,38 @@ function MenuBrowser() {
     (topRatedOnly ? 1 : 0) +
     (sort !== 'default' ? 1 : 0) +
     (searchQuery.trim() ? 1 : 0);
+
+  /**
+   * When nothing narrows the list, show it grouped under its category headings
+   * rather than as one 200-row wall. Once anything *is* filtering the list —
+   * a chip, a rating floor, a search term, a sort — the grouping stops
+   * helping (the customer already told us what they want) and it collapses
+   * to a flat, ranked list. `activeFilterCount` already accounts for every
+   * one of those except the category itself, which is checked separately
+   * since picking a category from the sidebar isn't a "filter chip".
+   */
+  const groupedSections = useMemo(() => {
+    if (activeCategory !== ALL || activeFilterCount > 0) return null;
+
+    const order = railCategories.filter((c) => c.id !== ALL).map((c) => c.id);
+    const buckets = new Map<string, MenuItem[]>();
+    filteredItems.forEach((item) => {
+      const bucket = buckets.get(item.category);
+      if (bucket) bucket.push(item);
+      else buckets.set(item.category, [item]);
+    });
+
+    const sections = order
+      .filter((id) => buckets.has(id))
+      .map((id) => ({ id, label: categoryLabels[id] ?? id, items: buckets.get(id)! }));
+
+    // Dishes whose category was deleted or deactivated still have to appear —
+    // silently dropping them from the menu is worse than an "Others" heading.
+    const orphans = filteredItems.filter((item) => !order.includes(item.category));
+    if (orphans.length > 0) sections.push({ id: '__other', label: 'More dishes', items: orphans });
+
+    return sections;
+  }, [activeCategory, activeFilterCount, filteredItems, railCategories, categoryLabels]);
 
   const resetAll = () => {
     setSearchQuery('');
@@ -629,8 +632,8 @@ function LayoutToggle({
 function DishSkeletons({ layout }: { layout: 'list' | 'grid' }) {
   if (layout === 'grid') {
     return (
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4" aria-busy="true">
-        {Array.from({ length: 8 }).map((_, i) => (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5" aria-busy="true">
+        {Array.from({ length: 10 }).map((_, i) => (
           <Skeleton key={i} className="h-64 rounded-2xl" />
         ))}
       </div>

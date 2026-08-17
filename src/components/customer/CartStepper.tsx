@@ -52,21 +52,25 @@ export default function CartStepper({
 
   return (
     <div
+      onClick={(e) => e.stopPropagation()}
       className={cn(
-        'border-veg shadow-add inline-flex items-center justify-between overflow-hidden rounded-[10px] border bg-white',
+        'border-veg shadow-add inline-flex items-center justify-between overflow-hidden rounded-[10px] border bg-white select-none touch-manipulation',
         fullWidth ? 'w-full' : 'w-auto',
         compact ? ADD_CONTROL_SIZE.small : ADD_CONTROL_SIZE.medium
       )}
     >
       <button
         type="button"
-        onClick={onDecrease}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDecrease();
+        }}
         aria-label={isOne ? `Remove ${label} from cart` : `Remove one ${label}`}
         className={cn(
-          'grid h-full flex-1 place-items-center transition-colors outline-none',
+          'grid h-full flex-1 place-items-center transition-colors outline-none cursor-pointer',
           isOne
-            ? 'text-nonveg hover:bg-nonveg/8 focus-visible:bg-nonveg/12'
-            : 'text-veg hover:bg-veg/8 focus-visible:bg-veg/12'
+            ? 'text-nonveg hover:bg-nonveg/8 focus-visible:bg-nonveg/12 active:bg-nonveg/16'
+            : 'text-veg hover:bg-veg/8 focus-visible:bg-veg/12 active:bg-veg/16'
         )}
       >
         {isOne ? (
@@ -84,7 +88,7 @@ export default function CartStepper({
         aria-live="polite"
         aria-label={`${label}: ${quantity} in cart`}
         className={cn(
-          'text-veg animate-pop min-w-6 text-center font-extrabold tabular-nums',
+          'text-veg animate-pop min-w-6 text-center font-extrabold tabular-nums select-none',
           compact ? 'text-[14px]' : 'text-[15px]'
         )}
       >
@@ -93,9 +97,12 @@ export default function CartStepper({
 
       <button
         type="button"
-        onClick={onIncrease}
+        onClick={(e) => {
+          e.stopPropagation();
+          onIncrease();
+        }}
         aria-label={`Add one more ${label}`}
-        className="text-veg hover:bg-veg/8 focus-visible:bg-veg/12 grid h-full flex-1 place-items-center transition-colors outline-none"
+        className="text-veg hover:bg-veg/8 focus-visible:bg-veg/12 active:bg-veg/16 grid h-full flex-1 place-items-center transition-colors outline-none cursor-pointer"
       >
         <Plus className={compact ? 'size-4' : 'size-[17px]'} strokeWidth={3} />
       </button>
@@ -125,14 +132,17 @@ export function AddButton({
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick(e);
+      }}
       disabled={disabled}
       aria-label={`Add ${label} to cart`}
       className={cn(
-        'border-veg text-veg shadow-add relative rounded-[10px] border bg-white font-extrabold tracking-[0.06em] uppercase',
+        'border-veg text-veg shadow-add relative rounded-[10px] border bg-white font-extrabold tracking-[0.06em] uppercase select-none touch-manipulation cursor-pointer',
         'transition-[transform,background-color,color] outline-none active:scale-[0.97]',
         'hover:bg-veg hover:text-white focus-visible:ring-[3px] focus-visible:ring-veg/30',
-        'disabled:border-hair-1 disabled:text-ink-4 disabled:bg-hair-2 disabled:shadow-none disabled:hover:bg-hair-2 disabled:hover:text-ink-4 disabled:active:scale-100',
+        'disabled:border-hair-1 disabled:text-ink-4 disabled:bg-hair-2 disabled:shadow-none disabled:hover:bg-hair-2 disabled:hover:text-ink-4 disabled:active:scale-100 disabled:cursor-not-allowed',
         fullWidth ? 'w-full' : '',
         compact ? `${ADD_CONTROL_SIZE.small} text-[13px]` : `${ADD_CONTROL_SIZE.medium} text-[14px]`
       )}

@@ -56,7 +56,7 @@ function RailCard({ item }: { item: MenuItem }) {
 
         {/* Same overhanging action as the list rows, so ADD is always in the
             same place relative to a dish photo wherever a dish is shown. */}
-        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2">
+        <div className="absolute -bottom-4 left-1/2 z-10 -translate-x-1/2">
           {cartItem ? (
             <CartStepper
               quantity={cartItem.quantity}

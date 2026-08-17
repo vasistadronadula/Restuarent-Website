@@ -76,8 +76,12 @@ export function useDishPortion(item: MenuItem) {
     toast.success(`${name} added to cart`, { duration: 1800 });
   };
 
-  const increase = () => { if (cartItem) useCartStore.getState().increaseQty(cartItem.id, cartItem.selectedPortion); };
-  const decrease = () => { if (cartItem) useCartStore.getState().decreaseQty(cartItem.id, cartItem.selectedPortion); };
+  const increase = () => {
+    useCartStore.getState().increaseQty(item.id, hasPortions ? selectedPortion : undefined);
+  };
+  const decrease = () => {
+    useCartStore.getState().decreaseQty(item.id, hasPortions ? selectedPortion : undefined);
+  };
 
   return {
     availablePortions,

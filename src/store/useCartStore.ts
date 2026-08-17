@@ -49,30 +49,53 @@ export const useCartStore = create<CartState>()(
           return { items: [...state.items, { ...incoming, quantity: 1 }] };
         }),
 
-      removeItem: (id, portion = 'full') =>
+      removeItem: (id, portion) =>
         set((state) => ({
-          items: state.items.filter((i) => !(i.id === id && (i.selectedPortion || 'full') === portion)),
+          items: state.items.filter((i) => {
+            if (portion) {
+              return !(i.id === id && (i.selectedPortion || 'full') === (portion || 'full'));
+            }
+            return i.id !== id;
+          }),
         })),
 
-      increaseQty: (id, portion = 'full') =>
-        set((state) => ({
-          items: state.items.map((i) =>
-            i.id === id && (i.selectedPortion || 'full') === portion
-              ? { ...i, quantity: i.quantity + 1 }
-              : i
-          ),
-        })),
+      increaseQty: (id, portion) =>
+        set((state) => {
+          const targetIndex = state.items.findIndex((i) =>
+            portion
+              ? i.id === id && (i.selectedPortion || 'full') === (portion || 'full')
+              : i.id === id
+          );
+          if (targetIndex === -1) return state;
+          const updated = [...state.items];
+          updated[targetIndex] = {
+            ...updated[targetIndex],
+            quantity: updated[targetIndex].quantity + 1,
+          };
+          return { items: updated };
+        }),
 
-      decreaseQty: (id, portion = 'full') =>
-        set((state) => ({
-          items: state.items
-            .map((i) =>
-              i.id === id && (i.selectedPortion || 'full') === portion
-                ? { ...i, quantity: i.quantity - 1 }
-                : i
-            )
-            .filter((i) => i.quantity > 0),
-        })),
+      decreaseQty: (id, portion) =>
+        set((state) => {
+          const targetIndex = state.items.findIndex((i) =>
+            portion
+              ? i.id === id && (i.selectedPortion || 'full') === (portion || 'full')
+              : i.id === id
+          );
+          if (targetIndex === -1) return state;
+          const item = state.items[targetIndex];
+          if (item.quantity <= 1) {
+            return {
+              items: state.items.filter((_, idx) => idx !== targetIndex),
+            };
+          }
+          const updated = [...state.items];
+          updated[targetIndex] = {
+            ...updated[targetIndex],
+            quantity: updated[targetIndex].quantity - 1,
+          };
+          return { items: updated };
+        }),
 
       clearCart: () =>
         set({
