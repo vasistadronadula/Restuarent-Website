@@ -649,14 +649,14 @@ export default function PosPage() {
             )}
 
             {/* Product Catalog Cards / Rows Display */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 scrollbar-none">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 scrollbar-none pb-28">
               {filteredDishes.length === 0 ? (
                 <div className="py-24 text-center">
                   <p className="ad-h text-[16px]">No dishes match</p>
                   <p className="text-[13px] ad-muted mt-1.5">Clear the search or switch category.</p>
                 </div>
               ) : effectiveLayoutMode === 'rows' ? (
-                <div className="border-2 border-ad-line divide-y divide-ad-hairline">
+                <div className="border-2 border-ad-line divide-y divide-ad-hairline mb-8">
                   {filteredDishes.map((item) => (
                     <DishListRow
                       key={item.id}
@@ -669,7 +669,7 @@ export default function PosPage() {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 mb-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-3.5 mb-8">
                   {filteredDishes.map((item) => (
                     <DishCard
                       key={item.id}

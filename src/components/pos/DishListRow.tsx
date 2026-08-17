@@ -78,9 +78,9 @@ function DishListRow({ item, inBill, quantityByPortion, onAdd, onDecrement }: Pr
                   key={portion}
                   type="button"
                   onClick={() => onAdd(item, portion)}
-                  className="ad-tab h-7 px-2.5 flex items-center gap-1"
+                  className="ad-tab h-7 px-2.5 flex items-center gap-1 whitespace-nowrap text-[12px] font-semibold"
                 >
-                  {PORTION_LABEL[portion]} ₹{price}
+                  {PORTION_LABEL[portion]} <span className="font-normal text-ad-muted">₹{price}</span>
                 </button>
               );
             })}
