@@ -23,7 +23,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import {
   Search, X, LayoutGrid, List,
   Utensils, Coffee, Flame, Cake, Soup, Sparkles,
-  Maximize2, Minimize2, ChevronRight,
+  Maximize2, Minimize2, ChevronRight, ShoppingBag,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -687,24 +687,26 @@ export default function PosPage() {
 
         </div>
 
-        {/* ── Cart: a floating bar pinned to the bottom of the page on
-            every size, not a docked side rail — tapping it opens the ticket
-            as a bottom sheet. Keeps the dish grid at full width on tablet
-            and desktop instead of losing a permanent column to the cart. */}
+        {/* ── Cart Floating Overlay: Pinned to bottom-right of the screen ── */}
         {lines.length > 0 && (
-          <div className="fixed left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-xl bottom-4 z-30">
+          <div className="fixed right-3.5 sm:right-6 bottom-4 sm:bottom-6 z-40 animate-in fade-in slide-in-from-bottom-3 duration-200">
             <button
               type="button"
               onClick={() => setCartOpen(true)}
-              className="ad-btn ad-btn-primary w-full h-13 justify-between px-5 text-[14px] shadow-lg"
+              className="ad-btn ad-btn-primary h-13 sm:h-14 px-4 sm:px-5 gap-3 text-[14px] shadow-2xl shadow-ad-accent/40 hover:brightness-105 active:scale-[0.98] transition-all rounded-[var(--ad-radius)] border-2 border-white/25 flex items-center justify-between min-w-[200px] sm:min-w-[250px]"
             >
-              <span className="flex items-center gap-2">
-                <span className="size-6.5 grid place-items-center bg-ad-bg text-ad-accent ad-num text-[12px]">
+              <div className="flex items-center gap-2.5">
+                <span className="size-7 grid place-items-center bg-white text-ad-accent ad-num text-[12.5px] font-black rounded-[calc(var(--ad-radius)-2px)] shrink-0 shadow-xs">
                   {totalUnits}
                 </span>
-                <span>View cart</span>
-              </span>
-              <span className="ad-num text-[17px]">₹{totals.grandTotal.toFixed(2)}</span>
+                <span className="font-bold tracking-wide">View Cart</span>
+              </div>
+              <div className="flex items-center gap-1.5 pl-2.5 border-l border-white/30">
+                <span className="ad-num text-[16px] sm:text-[17px] font-black text-white">
+                  ₹{totals.grandTotal.toFixed(2)}
+                </span>
+                <ChevronRight className="size-4 opacity-80" />
+              </div>
             </button>
           </div>
         )}
