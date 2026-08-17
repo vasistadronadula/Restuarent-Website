@@ -1,10 +1,10 @@
 'use client';
 
-import { useCallback, useMemo, useReducer } from 'react';
+import { useCallback, useMemo, useReducer, useEffect, useRef } from 'react';
 import type { MenuItem, PortionPrices, VegStatus } from '@/types';
 
 /**
- * usePosCart — counter bill line items state machine.
+ * usePosCart — counter bill line items state machine with localStorage persistence.
  */
 
 export type Portion = 'single' | 'full' | 'large';
@@ -17,6 +17,8 @@ export const PORTION_LABEL: Record<Portion, string> = {
 
 /** Max items on a single line */
 export const MAX_LINE_QTY = 99;
+
+const POS_CART_STORAGE_KEY = 'ppr:pos:cart';
 
 export interface PosLine {
   /** menuItemId + portion — two portions of one dish are separate lines. */
@@ -33,6 +35,7 @@ export interface PosLine {
 }
 
 type Action =
+  | { type: 'hydrate'; lines: PosLine[] }
   | { type: 'add'; line: Omit<PosLine, 'quantity'>; quantity?: number }
   | { type: 'increment'; key: string }
   | { type: 'decrement'; key: string }
@@ -45,6 +48,8 @@ const clampQty = (n: number) => Math.min(Math.max(Math.trunc(n), 1), MAX_LINE_QT
 
 function reducer(state: PosLine[], action: Action): PosLine[] {
   switch (action.type) {
+    case 'hydrate':
+      return action.lines;
     case 'add': {
       const existing = state.find((l) => l.key === action.line.key);
       const step = action.quantity ?? 1;
@@ -118,6 +123,40 @@ export interface AddResult {
 
 export function usePosCart() {
   const [lines, dispatch] = useReducer(reducer, [] as PosLine[]);
+  const hasHydrated = useRef(false);
+
+  // Restore cart on mount from localStorage
+  useEffect(() => {
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem(POS_CART_STORAGE_KEY) : null;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          dispatch({ type: 'hydrate', lines: parsed });
+        }
+      }
+    } catch (e) {
+      console.error('Failed to restore POS cart:', e);
+    } finally {
+      hasHydrated.current = true;
+    }
+  }, []);
+
+  // Save cart to localStorage on changes after hydration
+  useEffect(() => {
+    if (!hasHydrated.current) return;
+    try {
+      if (typeof window !== 'undefined') {
+        if (lines.length > 0) {
+          localStorage.setItem(POS_CART_STORAGE_KEY, JSON.stringify(lines));
+        } else {
+          localStorage.removeItem(POS_CART_STORAGE_KEY);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to persist POS cart:', e);
+    }
+  }, [lines]);
 
   const add = useCallback((item: MenuItem, portion?: Portion): AddResult => {
     const portions = sellablePortions(item);
