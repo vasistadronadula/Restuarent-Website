@@ -1,16 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Tag, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { BadgePercent, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { cn, formatCurrency } from '@/lib/utils';
 import { useCoupons } from '@/lib/queries';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore } from '@/store/useCartStore';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useEffect } from 'react';
 
 /**
  * Apply / remove a promo code.
@@ -18,6 +15,11 @@ import { useEffect } from 'react';
  * Shared by the cart drawer, the cart page and the checkout — all three used to
  * carry their own copy, and they disagreed: one checked `minOrder`, one did
  * not, so a code rejected on the cart page applied cleanly at checkout.
+ *
+ * The live offers are listed under the input rather than hidden behind a
+ * "view offers" screen. There are rarely more than three of them, and a code
+ * the customer can tap is worth more than a code they have to remember and
+ * retype.
  */
 export function CouponField({
   subtotal,
@@ -41,13 +43,13 @@ export function CouponField({
 
   if (!user) return null;
 
-  const apply = () => {
-    const code = input.toUpperCase().trim();
+  const applyCode = (raw: string) => {
+    const code = raw.toUpperCase().trim();
     if (!code) return;
 
     const coupon = coupons.find((c) => c.code === code && c.isActive);
     if (!coupon) {
-      toast.error('Invalid or expired coupon code');
+      toast.error('That coupon code is not valid right now');
       return;
     }
     if (subtotal < coupon.minOrder) {
@@ -63,59 +65,83 @@ export function CouponField({
     setInput('');
   };
 
+  /* ── Applied ─────────────────────────────────────────────────────── */
   if (couponCode) {
     return (
       <div
         className={cn(
-          'border-success/25 bg-success/10 text-success flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm',
+          'border-saving/25 bg-saving/8 flex items-center gap-3 rounded-xl border border-dashed px-3.5 py-3',
           className
         )}
       >
-        <Tag className="size-4 shrink-0" aria-hidden="true" />
-        <span className="min-w-0 flex-1">
-          <strong className="font-bold">{couponCode}</strong> applied — you save{' '}
-          {formatCurrency(discountAmount)}
+        <span className="bg-saving grid size-7 shrink-0 place-items-center rounded-full text-white">
+          <Check className="size-4" strokeWidth={3} />
         </span>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="hover:bg-success/15 text-success -mr-1 size-7 shrink-0"
+        <span className="min-w-0 flex-1 text-[13px] leading-tight">
+          <strong className="text-ink-1 font-extrabold tracking-wide">{couponCode}</strong>
+          <span className="text-saving block font-semibold">
+            {formatCurrency(discountAmount)} saved on this order
+          </span>
+        </span>
+        <button
+          type="button"
           onClick={() => useCartStore.getState().removeCoupon()}
           aria-label={`Remove coupon ${couponCode}`}
+          className="text-ink-4 hover:text-ink-1 hover:bg-hair-2 grid size-8 shrink-0 place-items-center rounded-full transition-colors"
         >
           <X className="size-4" />
-        </Button>
+        </button>
       </div>
     );
   }
 
+  /* ── Not applied ─────────────────────────────────────────────────── */
+  const available = coupons.filter((c) => c.isActive);
+
   return (
-    <div className={cn('flex gap-2', className)}>
-      <div className="relative flex-1">
-        <Tag
-          className="text-accent pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-          aria-hidden="true"
-        />
-        <Input
+    <div className={cn('space-y-2.5', className)}>
+      <div className="border-hair-1 flex h-11 items-center gap-2 rounded-xl border border-dashed bg-white pr-1.5 pl-3.5">
+        <BadgePercent className="text-brand size-[18px] shrink-0" aria-hidden="true" />
+        <input
           value={input}
           onChange={(e) => setInput(e.target.value.toUpperCase())}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
-              apply();
+              applyCode(input);
             }
           }}
-          placeholder="Coupon code"
+          placeholder="Enter coupon code"
           aria-label="Coupon code"
           autoComplete="off"
           autoCapitalize="characters"
           spellCheck={false}
-          className="pl-9 font-semibold tracking-wide uppercase"
+          className="text-ink-1 placeholder:text-ink-4 h-full min-w-0 flex-1 bg-transparent text-[13.5px] font-bold tracking-wide uppercase outline-none placeholder:font-medium placeholder:tracking-normal placeholder:normal-case"
         />
+        <button
+          type="button"
+          onClick={() => applyCode(input)}
+          disabled={!input.trim()}
+          className="text-brand-700 hover:bg-brand-50 disabled:text-ink-4 h-8 shrink-0 rounded-lg px-3 text-[13px] font-extrabold transition-colors disabled:hover:bg-transparent"
+        >
+          Apply
+        </button>
       </div>
-      <Button variant="outline" onClick={apply} disabled={!input.trim()}>
-        Apply
-      </Button>
+
+      {available.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {available.map((c) => (
+            <button
+              key={c.code}
+              type="button"
+              onClick={() => applyCode(c.code)}
+              className="border-brand-200 bg-brand-50 text-brand-800 hover:bg-brand-100 rounded-lg border px-2.5 py-1.5 text-[11.5px] font-bold tracking-wide transition-colors"
+            >
+              {c.code} · {c.discount}% off
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

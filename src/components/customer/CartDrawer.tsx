@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ArrowRight, ShoppingCart } from 'lucide-react';
+import { ArrowRight, ShoppingBag } from 'lucide-react';
 
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -16,18 +16,13 @@ import {
   getCartSgst,
   getCartGrandTotal,
 } from '@/store/useCartStore';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { EmptyState } from '@/components/ui/empty-state';
-import {
-  Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle,
-} from '@/components/ui/sheet';
+import { restaurantInfo } from '@/data/restaurantInfo';
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { BillSummary } from './BillSummary';
 import { CartLineItem } from './CartLineItem';
 import { CouponField } from './CouponField';
 
 export default function CartDrawer() {
-  const pathname = usePathname();
   const items = useCartStore((s) => s.items);
   const isOpen = useCartStore((s) => s.isOpen);
   const couponDiscount = useCartStore((s) => s.couponDiscount);
@@ -52,6 +47,7 @@ export default function CartDrawer() {
 
   // Close the drawer whenever the route changes — it is an overlay on the page
   // that was open, not a persistent panel.
+  const pathname = usePathname();
   useEffect(() => {
     useCartStore.getState().closeCart();
   }, [pathname]);
@@ -60,33 +56,38 @@ export default function CartDrawer() {
 
   return (
     <Sheet modal={false} open={isOpen} onOpenChange={(open) => !open && close()}>
-      <SheetContent side="right" className="w-full gap-0 p-0 sm:max-w-md">
-        <SheetHeader className="bg-primary text-primary-foreground border-b-0">
-          <SheetTitle className="text-primary-foreground flex items-center gap-2">
-            <ShoppingCart className="size-5" />
-            Your Cart
+      <SheetContent side="right" className="w-full gap-0 bg-white p-0 sm:max-w-md">
+        <SheetHeader className="border-hair-2 border-b px-5 py-4">
+          <SheetTitle className="text-ink-1 text-[16px] font-extrabold">
+            {restaurantInfo.name}
           </SheetTitle>
-          {totalItems > 0 && (
-            <Badge variant="outline" className="mt-1 w-fit border-white/25 bg-white/15 text-white">
-              {totalItems} {totalItems === 1 ? 'item' : 'items'}
-            </Badge>
-          )}
+          <p className="text-ink-4 text-[12.5px] font-semibold">
+            {totalItems > 0
+              ? `${totalItems} ${totalItems === 1 ? 'item' : 'items'} · Takeaway`
+              : 'Your cart is empty'}
+          </p>
         </SheetHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5">
           {items.length === 0 ? (
-            <EmptyState
-              icon={ShoppingCart}
-              title="Your cart is empty"
-              description="Add something from the menu and it will show up here."
-              action={
-                <Button asChild variant="brand" onClick={close}>
-                  <Link href="/menu">Browse Menu</Link>
-                </Button>
-              }
-            />
+            <div className="grid place-items-center py-20 text-center">
+              <span className="bg-brand-50 text-brand-500 mb-4 grid size-14 place-items-center rounded-full">
+                <ShoppingBag className="size-7" />
+              </span>
+              <p className="text-ink-1 text-[15px] font-extrabold">Nothing here yet</p>
+              <p className="text-ink-3 mt-1 max-w-[240px] text-[13px] leading-relaxed">
+                Add a dish from the menu and it will show up here.
+              </p>
+              <Link
+                href="/menu"
+                onClick={close}
+                className="bg-brand hover:bg-brand-600 mt-5 flex h-11 items-center rounded-xl px-6 text-[14px] font-extrabold text-white transition-colors"
+              >
+                Browse the menu
+              </Link>
+            </div>
           ) : (
-            <ul className="grid gap-2.5">
+            <ul className="divide-hair-2 divide-y">
               {items.map((item) => (
                 <CartLineItem key={`${item.id}-${item.selectedPortion}`} item={item} compact />
               ))}
@@ -95,19 +96,23 @@ export default function CartDrawer() {
         </div>
 
         {items.length > 0 && (
-          <SheetFooter className="gap-3">
+          <SheetFooter className="border-hair-1 gap-4 bg-white">
             <CouponField subtotal={totals.subtotal} discountAmount={totals.discountAmount} />
             <BillSummary {...totals} />
 
-            <Button asChild variant="brand" size="lg" className="w-full" onClick={close}>
-              <Link href="/checkout">
-                Checkout · {formatCurrency(totals.grandTotal)}
-                <ArrowRight />
-              </Link>
-            </Button>
-            <Button asChild variant="ghost" size="sm" className="w-full" onClick={close}>
-              <Link href="/menu">Add more items</Link>
-            </Button>
+            <Link
+              href="/checkout"
+              onClick={close}
+              className="bg-brand hover:bg-brand-600 flex h-13 w-full items-center justify-between rounded-xl px-5 text-white transition-colors"
+            >
+              <span className="text-[15px] font-extrabold tabular-nums">
+                {formatCurrency(totals.grandTotal)}
+              </span>
+              <span className="flex items-center gap-1.5 text-[14px] font-extrabold tracking-wide">
+                Checkout
+                <ArrowRight className="size-[18px]" />
+              </span>
+            </Link>
           </SheetFooter>
         )}
       </SheetContent>

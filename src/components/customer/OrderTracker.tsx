@@ -1,10 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
-import {
-  CheckCircle2, Flame, CookingPot, ShoppingBag, XCircle, Clock,
-} from 'lucide-react';
+import { CheckCircle2, Clock, CookingPot, Flame, ShoppingBag, XCircle } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import type { OrderStatus } from '@/types';
@@ -13,50 +10,44 @@ import type { OrderStatus } from '@/types';
 /*  Stage definitions                                                   */
 /* ------------------------------------------------------------------ */
 
+/**
+ * The four states an order passes through, in order.
+ *
+ * They deliberately share one colour scheme instead of getting a hue each.
+ * The old tracker gave every stage its own — emerald, amber, sky, violet — and
+ * the result was that a glance told you nothing: four bright circles look the
+ * same whichever one you are on. Here the *position* carries the meaning, and
+ * colour only separates three states: done (green), happening now (orange),
+ * not yet (grey).
+ */
 export const ORDER_STAGES = [
   {
     key: 'pending',
-    label: 'Order Confirmed',
+    label: 'Order confirmed',
     shortTitle: 'Confirmed',
-    desc: 'Kitchen received your ticket & is preparing ingredients',
+    desc: 'The kitchen has your ticket',
     icon: CheckCircle2,
-    activeColor: 'text-emerald-600',
-    activeBg: 'bg-emerald-50 border-emerald-200',
-    doneBg: 'bg-emerald-500 border-emerald-500 text-white',
-    trackColor: '#10b981',
   },
   {
     key: 'preparing',
-    label: 'Cooking on Stove',
+    label: 'Cooking now',
     shortTitle: 'Cooking',
-    desc: 'Chef is actively cooking your fresh food on the stove',
+    desc: 'Your dishes are on the stove',
     icon: Flame,
-    activeColor: 'text-amber-600',
-    activeBg: 'bg-amber-50 border-amber-200',
-    doneBg: 'bg-amber-500 border-amber-500 text-white',
-    trackColor: '#f59e0b',
   },
   {
     key: 'ready',
-    label: 'Ready for Pickup',
+    label: 'Ready for pickup',
     shortTitle: 'Ready',
-    desc: 'Fresh & hot, packed and waiting at the counter for you',
+    desc: 'Packed and waiting at the counter',
     icon: CookingPot,
-    activeColor: 'text-sky-600',
-    activeBg: 'bg-sky-50 border-sky-200',
-    doneBg: 'bg-sky-500 border-sky-500 text-white',
-    trackColor: '#0ea5e9',
   },
   {
     key: 'delivered',
-    label: 'Order Collected',
+    label: 'Collected',
     shortTitle: 'Done',
-    desc: 'Enjoy your authentic Telangana flavours! 🎉',
+    desc: 'Thanks for eating with us',
     icon: ShoppingBag,
-    activeColor: 'text-violet-600',
-    activeBg: 'bg-violet-50 border-violet-200',
-    doneBg: 'bg-violet-500 border-violet-500 text-white',
-    trackColor: '#7c3aed',
   },
 ] as const;
 
@@ -72,7 +63,7 @@ export function getStageIndex(status: OrderStatus): number {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Live ETA ring countdown                                             */
+/*  Live ETA ring                                                       */
 /* ------------------------------------------------------------------ */
 
 function EtaRing({ minutes }: { minutes: number }) {
@@ -92,39 +83,46 @@ function EtaRing({ minutes }: { minutes: number }) {
 
   const m = Math.floor(secs / 60);
   const s = secs % 60;
-  const total = minutes * 60;
-  const pct = Math.max(0, secs / Math.max(total, 1));
-  const r = 16;
+  const total = Math.max(minutes * 60, 1);
+  const r = 17;
   const circ = 2 * Math.PI * r;
-  const offset = circ - pct * circ;
+  const offset = circ - Math.max(0, secs / total) * circ;
 
   return (
-    <div className="flex items-center gap-2 shrink-0">
-      <div className="relative size-10">
-        <svg className="size-10 -rotate-90" viewBox="0 0 40 40">
-          <circle cx="20" cy="20" r={r} fill="none" strokeWidth="3" className="stroke-stone-100" />
+    <div className="flex shrink-0 items-center gap-2.5">
+      <div className="relative size-11">
+        <svg className="size-11 -rotate-90" viewBox="0 0 44 44" aria-hidden="true">
+          <circle cx="22" cy="22" r={r} fill="none" strokeWidth="3" className="stroke-hair-1" />
           <circle
-            cx="20" cy="20" r={r} fill="none" strokeWidth="3"
-            strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-            className="stroke-amber-500 transition-all duration-1000"
+            cx="22"
+            cy="22"
+            r={r}
+            fill="none"
+            strokeWidth="3"
+            strokeDasharray={circ}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            className="stroke-brand transition-[stroke-dashoffset] duration-1000 ease-linear"
           />
         </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="font-mono text-[9px] font-black tabular-nums text-stone-700 leading-none">
-            {m}:{s < 10 ? '0' : ''}{s}
-          </span>
-        </div>
+        <span className="text-ink-1 absolute inset-0 grid place-items-center text-[10px] leading-none font-extrabold tabular-nums">
+          {m}:{s < 10 ? '0' : ''}{s}
+        </span>
       </div>
-      <div>
-        <p className="text-[10px] text-stone-400 font-semibold leading-none">Est. Ready</p>
-        <p className="text-sm font-black text-stone-900 leading-tight tabular-nums">~{minutes}m</p>
+      <div className="hidden sm:block">
+        <p className="text-ink-4 text-[10.5px] leading-none font-bold tracking-wide uppercase">
+          Est. ready
+        </p>
+        <p className="text-ink-1 text-[14px] leading-tight font-extrabold tabular-nums">
+          ~{minutes} min
+        </p>
       </div>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  Main OrderTracker Component                                         */
+/*  Tracker                                                             */
 /* ------------------------------------------------------------------ */
 
 interface OrderTrackerProps {
@@ -135,11 +133,13 @@ interface OrderTrackerProps {
 export default function OrderTracker({ status, estimatedMinutes }: OrderTrackerProps) {
   if (status === 'cancelled') {
     return (
-      <div className="flex items-center gap-3 rounded-2xl bg-rose-50 border border-rose-200 p-4 text-rose-700 shadow-xs">
-        <XCircle className="size-5 shrink-0 text-rose-600" />
+      <div className="border-nonveg/25 bg-nonveg/8 flex items-center gap-3 rounded-xl border p-4">
+        <XCircle className="text-nonveg size-5 shrink-0" />
         <div>
-          <p className="text-sm font-black">Order Cancelled</p>
-          <p className="text-xs text-rose-500 mt-0.5">This order has been cancelled and will not be prepared.</p>
+          <p className="text-ink-1 text-[14px] font-extrabold">Order cancelled</p>
+          <p className="text-ink-3 mt-0.5 text-[12.5px]">
+            This order will not be prepared. Any online payment is refunded automatically.
+          </p>
         </div>
       </div>
     );
@@ -150,121 +150,95 @@ export default function OrderTracker({ status, estimatedMinutes }: OrderTrackerP
   const isComplete = status === 'delivered';
   const StageIcon = currentStage.icon;
   const showEta = !isComplete && estimatedMinutes != null && estimatedMinutes > 0;
+  const progress = (currentIdx / (ORDER_STAGES.length - 1)) * 100;
 
   return (
-    <div className="space-y-3">
-      {/* Active status banner */}
-      <motion.div
-        key={status}
-        initial={{ opacity: 0, y: 6 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className={cn('flex items-center justify-between gap-3 rounded-2xl border p-4', currentStage.activeBg)}
+    <div className="space-y-4">
+      {/* ── Where it is right now ────────────────────────────────────── */}
+      <div
+        className={cn(
+          'flex items-center justify-between gap-3 rounded-xl border p-4',
+          isComplete ? 'border-veg/25 bg-veg/8' : 'border-brand-200 bg-brand-50'
+        )}
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={cn(
-            'relative flex size-11 shrink-0 items-center justify-center rounded-xl bg-white border-2 shadow-xs',
-            currentStage.activeColor, 'border-current'
-          )}>
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            className={cn(
+              'relative grid size-11 shrink-0 place-items-center rounded-xl bg-white',
+              isComplete ? 'text-veg' : 'text-brand-600'
+            )}
+          >
             <StageIcon className="size-5" />
             {!isComplete && (
-              <span className="absolute -top-1 -right-1 flex size-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-60" />
-                <span className="relative inline-flex rounded-full size-2.5 bg-current" />
+              <span className="absolute -top-0.5 -right-0.5 flex size-2.5">
+                <span className="bg-brand absolute inline-flex size-full animate-ping rounded-full opacity-60" />
+                <span className="bg-brand relative inline-flex size-2.5 rounded-full" />
               </span>
             )}
-          </div>
+          </span>
           <div className="min-w-0">
-            <p className={cn('text-sm font-black leading-tight', currentStage.activeColor)}>{currentStage.label}</p>
-            <p className="text-xs text-stone-500 mt-0.5 truncate">{currentStage.desc}</p>
+            <p className={cn('text-[14.5px] font-extrabold', isComplete ? 'text-veg' : 'text-brand-800')}>
+              {currentStage.label}
+            </p>
+            <p className="text-ink-3 mt-0.5 truncate text-[12.5px]">{currentStage.desc}</p>
           </div>
         </div>
 
-        {showEta && <EtaRing minutes={estimatedMinutes!} />}
-        {!showEta && status === 'ready' && (
-          <div className="flex items-center gap-1.5 bg-white border border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-xl shrink-0">
-            <span className="text-xs font-black">🎉 Collect Now!</span>
-          </div>
-        )}
-        {!showEta && status === 'delivered' && (
-          <div className="flex items-center gap-1.5 bg-white border border-violet-200 text-violet-700 px-3 py-1.5 rounded-xl shrink-0">
-            <span className="text-xs font-black">✓ Enjoyed!</span>
-          </div>
-        )}
-        {!showEta && status === 'pending' && (
-          <div className="shrink-0 flex items-center gap-1 text-stone-500 text-xs font-semibold">
+        {showEta ? (
+          <EtaRing minutes={estimatedMinutes} />
+        ) : status === 'ready' ? (
+          <span className="text-veg shrink-0 rounded-lg bg-white px-3 py-2 text-[12px] font-extrabold">
+            Collect now
+          </span>
+        ) : status === 'pending' ? (
+          <span className="text-ink-4 flex shrink-0 items-center gap-1.5 text-[12px] font-bold">
             <Clock className="size-3.5" />
             Queued
-          </div>
-        )}
-      </motion.div>
+          </span>
+        ) : null}
+      </div>
 
-      {/* 4-Step Stepper */}
-      <div className="bg-white rounded-2xl border border-stone-100 p-4 shadow-xs">
+      {/* ── Four-step rail ───────────────────────────────────────────── */}
+      <div className="px-1">
         <div className="relative flex items-start justify-between">
-          {/* Track */}
-          <div className="absolute top-5 left-5 right-5 h-[2px] rounded-full bg-stone-100" />
-
-          {/* Animated fill */}
-          <motion.div
-            className="absolute top-5 left-5 h-[2px] rounded-full"
-            style={{ maxWidth: 'calc(100% - 40px)', background: 'linear-gradient(90deg, #10b981, #f59e0b, #0ea5e9)' }}
-            initial={{ width: '0%' }}
-            animate={{
-              width: `${Math.min(100, Math.max(0, (currentIdx / (ORDER_STAGES.length - 1)) * 100))}%`,
-            }}
-            transition={{ duration: 0.8, ease: 'easeInOut' }}
+          {/* The rail is inset by half a node on each side so it starts and
+              ends at the centre of the first and last circle rather than at
+              the edge of the row. */}
+          <div className="bg-hair-1 absolute top-[18px] right-[12.5%] left-[12.5%] h-[3px] rounded-full" />
+          <div
+            className="bg-veg absolute top-[18px] left-[12.5%] h-[3px] rounded-full transition-[width] duration-700 ease-out"
+            style={{ width: `calc(${progress}% * 0.75)` }}
           />
 
           {ORDER_STAGES.map((stage, idx) => {
-            const isDone    = currentIdx > idx;
+            const isDone = currentIdx > idx;
             const isCurrent = currentIdx === idx;
-            const isFuture  = currentIdx < idx;
-            const NodeIcon  = stage.icon;
+            const NodeIcon = stage.icon;
 
             return (
-              <div
-                key={stage.key}
-                className="relative z-10 flex flex-col items-center"
-                style={{ width: `${100 / ORDER_STAGES.length}%` }}
-              >
-                <motion.div
-                  initial={false}
-                  animate={{ scale: isCurrent ? 1.1 : 1 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+              <div key={stage.key} className="relative z-10 flex w-1/4 flex-col items-center">
+                <span
                   className={cn(
-                    'relative flex size-10 sm:size-11 items-center justify-center rounded-full border-2 transition-colors duration-300 shadow-xs',
-                    isDone  && stage.doneBg,
-                    isCurrent && cn(stage.activeBg, 'ring-4 ring-offset-1', stage.activeColor.replace('text-', 'ring-') + '/20'),
-                    isFuture && 'bg-white border-stone-200 text-stone-300',
+                    'grid size-9 place-items-center rounded-full border-2 transition-colors duration-300',
+                    isDone && 'border-veg bg-veg text-white',
+                    isCurrent && 'border-brand bg-white text-brand ring-brand/20 ring-4',
+                    !isDone && !isCurrent && 'border-hair-1 text-ink-4 bg-white'
                   )}
                 >
-                  {isCurrent && (
-                    <span className="absolute inset-0 rounded-full animate-ping opacity-20 border-2 border-current" />
-                  )}
                   {isDone ? (
-                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 15 }}>
-                      <CheckCircle2 className="size-5 text-white" />
-                    </motion.div>
-                  ) : isCurrent ? (
-                    <motion.div initial={{ scale: 0, rotate: -15 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 350, damping: 18 }}>
-                      <NodeIcon className={cn('size-5', stage.activeColor)} />
-                    </motion.div>
+                    <CheckCircle2 className="size-[18px]" />
                   ) : (
-                    <NodeIcon className="size-4 text-stone-300" />
+                    <NodeIcon className="size-[17px]" />
                   )}
-                </motion.div>
-
-                <span className={cn(
-                  'mt-2 text-center text-[10px] sm:text-xs font-bold leading-tight px-0.5',
-                  isCurrent && stage.activeColor,
-                  isDone    && 'text-stone-600',
-                  isFuture  && 'text-stone-300',
-                )}>
-                  {stage.shortTitle}
                 </span>
-                <span className="text-[9px] text-stone-400 hidden sm:block mt-0.5">
-                  {isDone ? '✓ Done' : isCurrent ? 'In Progress' : 'Pending'}
+
+                <span
+                  className={cn(
+                    'mt-2 px-0.5 text-center text-[11px] leading-tight font-bold',
+                    isCurrent ? 'text-brand-700' : isDone ? 'text-ink-2' : 'text-ink-4'
+                  )}
+                >
+                  {stage.shortTitle}
                 </span>
               </div>
             );

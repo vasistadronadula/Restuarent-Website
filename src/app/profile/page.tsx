@@ -2,12 +2,13 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  ArrowRight, BookOpen, CheckCircle2, Loader2, Lock, LogOut, Mail, Phone,
-  Receipt, Save, Shield, ShoppingBag, User
-} from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import {
+  ArrowRight, Check, Loader2, Lock, LogOut, Mail, Phone, Receipt, Save,
+  ShoppingBag, User,
+} from 'lucide-react';
 
+import { cn } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import { Container } from '@/components/customer/Container';
@@ -16,34 +17,26 @@ import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
 import { accountDisplayName, formatMobileForDisplay, isInternalPhoneEmail } from '@/lib/phoneIdentity';
 import { validateEmail, validateName, validatePhone, normalizePhone } from '@/lib/validation';
-import { ROLE_ICONS, ROLE_LABELS, isStaffRole } from '@/lib/roleAccess';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ROLE_LABELS, isStaffRole } from '@/lib/roleAccess';
 
 const QUICK_LINKS = [
   {
     href: '/orders',
-    icon: <Receipt className="size-5" />,
-    tint: 'bg-red-500/10 text-red-600 border-red-500/20',
-    title: 'My Orders',
-    body: 'Track live deliveries and reorder past favourites',
+    icon: Receipt,
+    title: 'My orders',
+    body: 'Track what is cooking and reorder a favourite',
   },
   {
     href: '/menu',
-    icon: <ShoppingBag className="size-5" />,
-    tint: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
-    title: 'Explore Menu',
-    body: 'Browse the full menu and order online',
+    icon: ShoppingBag,
+    title: 'Browse the menu',
+    body: 'Biryanis, vepudus and the day’s specials',
   },
 ];
 
 function PageFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen w-full bg-background flex flex-col">
+    <div className="bg-store flex min-h-screen w-full flex-col">
       <Navbar />
       {children}
       <Footer />
@@ -135,9 +128,9 @@ export default function CustomerProfilePage() {
   if (!authReady || loadingProfile) {
     return (
       <PageFrame>
-        <div className="flex-1 w-full flex flex-col items-center justify-center py-24 gap-3">
-          <Loader2 className="size-8 animate-spin text-primary" />
-          <p className="text-xs text-muted-foreground font-medium">Loading your profile…</p>
+        <div className="flex w-full flex-1 flex-col items-center justify-center gap-3 py-24">
+          <div className="border-brand/25 border-t-brand size-9 animate-spin rounded-full border-[3px]" />
+          <p className="text-ink-4 text-[13px] font-semibold">Loading your profile…</p>
         </div>
       </PageFrame>
     );
@@ -147,42 +140,39 @@ export default function CustomerProfilePage() {
   if (!user) {
     return (
       <PageFrame>
-        <div className="flex-1 w-full flex items-center justify-center py-16 px-6">
-          <Card className="max-w-md w-full p-8 text-center rounded-3xl shadow-xl border-border/80 bg-background">
-            <CardContent className="p-0 flex flex-col items-center">
-              <div className="size-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4">
-                <Lock className="size-8" />
-              </div>
-              <h2 className="text-2xl font-black text-foreground mb-2">
-                Sign in to view your profile
-              </h2>
-              <p className="text-xs text-muted-foreground mb-6 leading-relaxed">
-                Log in to manage your details, follow your orders and keep track of table bookings.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
-                <Button
-                  asChild
-                  className="font-extrabold px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white"
-                >
-                  <Link href="/login?redirect=%2Fprofile">Log In</Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  className="font-extrabold px-6 py-2.5 rounded-xl border-primary/30 text-primary hover:bg-primary/5"
-                >
-                  <Link href="/signup?redirect=%2Fprofile">Create Account</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex flex-1 items-center justify-center px-4 py-16">
+          <div className="border-hair-1 shadow-store w-full max-w-md rounded-2xl border bg-white p-7 text-center sm:p-8">
+            <span className="bg-brand-50 text-brand-500 mx-auto mb-5 grid size-16 place-items-center rounded-full">
+              <Lock className="size-8" />
+            </span>
+            <h1 className="text-ink-1 font-display text-[21px] font-black tracking-tight">
+              Sign in to see your profile
+            </h1>
+            <p className="text-ink-3 mx-auto mt-2 max-w-[320px] text-[13.5px] leading-relaxed">
+              Your saved details, coupons and full order history all live behind your account.
+            </p>
+            <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:justify-center">
+              <Link
+                href="/login?redirect=%2Fprofile"
+                className="bg-brand hover:bg-brand-600 flex h-12 items-center justify-center rounded-xl px-7 text-[15px] font-extrabold text-white transition-colors"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/signup?redirect=%2Fprofile"
+                className="border-hair-1 text-ink-2 hover:bg-hair-2 flex h-12 items-center justify-center rounded-xl border px-7 text-[15px] font-bold transition-colors"
+              >
+                Create account
+              </Link>
+            </div>
+          </div>
         </div>
       </PageFrame>
     );
   }
 
   /* ── Signed in ────────────────────────────────────────────────────────── */
-  const displayName = fullName || accountDisplayName(user) || 'Valued Customer';
+  const displayName = fullName || accountDisplayName(user) || 'Valued customer';
   const signInCredential = isPhoneAccount
     ? formatMobileForDisplay(user.user_metadata?.phone || user.email?.split('@')[0]?.replace(/^phone_/, '') || '')
     : user.email || '';
@@ -192,186 +182,214 @@ export default function CustomerProfilePage() {
 
   return (
     <PageFrame>
-      <div className="flex-1 w-full bg-orange-50/40 dark:bg-zinc-900/40 py-4 md:py-6">
-        <Container className="space-y-4">
+      <main className="flex-1 py-5 sm:py-7">
+        <Container className="max-w-[960px]">
+          {/* ── Identity ─────────────────────────────────────────────── */}
+          <section className="border-hair-1 shadow-store flex items-center gap-4 rounded-2xl border bg-white p-5 sm:p-6">
+            <span className="bg-brand grid size-14 shrink-0 place-items-center rounded-full text-[22px] font-black text-white sm:size-16 sm:text-[26px]">
+              {displayName.charAt(0).toUpperCase()}
+            </span>
 
-          {/* Banner - Full Width Card */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1A0606] via-[#370C0C] to-[#150404] p-4 md:p-5 text-white shadow-lg">
-            <div className="pointer-events-none absolute -right-10 -top-20 size-72 rounded-full bg-amber-500/20 blur-3xl" />
+            <div className="min-w-0">
+              <h1 className="text-ink-1 font-display truncate text-[20px] font-black tracking-tight sm:text-[24px]">
+                {displayName}
+              </h1>
+              <p className="text-ink-3 mt-0.5 truncate text-[13px] font-medium">
+                {signInCredential}
+              </p>
+              <p className="text-ink-4 mt-1.5 text-[11.5px] font-bold tracking-wide uppercase">
+                {userRole ? ROLE_LABELS[userRole] : 'Customer'}
+                {memberSince && ` · Member since ${memberSince}`}
+              </p>
+            </div>
+          </section>
 
-            <div className="relative z-10 flex flex-wrap items-center gap-3 md:gap-5">
-              <Avatar className="size-14 md:size-16 border-2 border-amber-400 shadow-md">
-                <AvatarFallback className="bg-primary text-white text-lg md:text-xl font-black">
-                  {displayName.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+          <div className="mt-5 grid items-start gap-5 lg:grid-cols-[1fr_20rem]">
+            {/* ── Details form ───────────────────────────────────────── */}
+            <section className="border-hair-1 shadow-store rounded-2xl border bg-white p-5 sm:p-6">
+              <h2 className="text-ink-1 text-[16px] font-extrabold">Personal information</h2>
+              <p className="text-ink-4 mt-0.5 text-[12.5px]">
+                What we put on your bill and use to reach you about an order.
+              </p>
 
-              <div className="flex-1 min-w-0">
-                <h1 className="text-lg md:text-xl font-black tracking-tight text-white">
-                  {displayName}
-                </h1>
-                <p className="text-xs text-white/70 truncate mt-0.5">
-                  {signInCredential}
-                </p>
+              <form onSubmit={handleSave} className="mt-5 grid gap-4">
+                {formError && (
+                  <p
+                    role="alert"
+                    className="border-nonveg/25 bg-nonveg/8 text-nonveg rounded-xl border px-3.5 py-2.5 text-[12.5px] font-semibold"
+                  >
+                    {formError}
+                  </p>
+                )}
 
-                <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                  <Badge className="bg-amber-400/20 text-amber-300 border border-amber-400/40 font-bold px-2 py-0.5 text-[11px] gap-1">
-                    <Shield className="size-3" />
-                    {userRole ? `${ROLE_ICONS[userRole] || ''} ${ROLE_LABELS[userRole]}` : '👤 Customer'}
-                  </Badge>
+                <ProfileField
+                  id="prof-name"
+                  label="Full name"
+                  icon={User}
+                  value={fullName}
+                  onChange={(v) => { setFullName(v); setFormError(null); }}
+                  placeholder="e.g. Rahul Sharma"
+                  autoComplete="name"
+                  maxLength={80}
+                  required
+                />
 
-                  {memberSince && (
-                    <Badge variant="outline" className="border-white/20 text-white/80 font-semibold px-2 py-0.5 text-[11px]">
-                      Member since {memberSince}
-                    </Badge>
+                <ProfileField
+                  id="prof-email"
+                  label={isPhoneAccount ? 'Email address' : 'Sign-in email'}
+                  icon={Mail}
+                  type="email"
+                  value={email}
+                  onChange={(v) => { setEmail(v); setFormError(null); }}
+                  disabled={!isPhoneAccount}
+                  verified={!isPhoneAccount}
+                  placeholder="e.g. rahul@example.com"
+                  autoComplete="email"
+                  hint={
+                    isPhoneAccount
+                      ? 'Where receipts and confirmations are sent.'
+                      : 'This is how you sign in, so only our team can change it.'
+                  }
+                />
+
+                <ProfileField
+                  id="prof-phone"
+                  label={isPhoneAccount ? 'Verified mobile number' : 'Mobile number'}
+                  icon={Phone}
+                  type="tel"
+                  inputMode="numeric"
+                  value={phone}
+                  onChange={(v) => { setPhone(v.replace(/\D/g, '').slice(0, 10)); setFormError(null); }}
+                  disabled={isPhoneAccount}
+                  verified={isPhoneAccount}
+                  placeholder="10-digit mobile number"
+                  autoComplete="tel-national"
+                  maxLength={10}
+                  hint={
+                    isPhoneAccount
+                      ? 'The number you sign in with, verified by SMS.'
+                      : 'So the kitchen can reach you about an order.'
+                  }
+                />
+
+                <button
+                  type="submit"
+                  disabled={saving || !dirty}
+                  className={cn(
+                    'mt-1 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl text-[15px] font-extrabold transition-colors sm:w-auto sm:px-8',
+                    dirty
+                      ? 'bg-brand hover:bg-brand-600 text-white'
+                      : 'bg-hair-2 text-ink-4 cursor-default'
                   )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Details Form Column */}
-            <div className="lg:col-span-7">
-              <Card className="p-6 md:p-8 shadow-sm border-border/80 bg-background rounded-3xl">
-                <CardContent className="p-0 space-y-6">
-                  <div>
-                    <h2 className="text-xl font-extrabold text-foreground">Personal information</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      This is what we put on your orders and use to reach you about a delivery or a booking.
-                    </p>
-                  </div>
-
-                  <form onSubmit={handleSave} className="space-y-4">
-                    {formError && (
-                      <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs font-medium text-destructive">
-                        {formError}
-                      </div>
-                    )}
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="prof-name">Full name</Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-primary" />
-                        <Input
-                          id="prof-name"
-                          value={fullName}
-                          onChange={(e) => { setFullName(e.target.value); setFormError(null); }}
-                          required
-                          placeholder="e.g. Rahul Sharma"
-                          autoComplete="name"
-                          maxLength={80}
-                          className="pl-9"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="prof-email">{isPhoneAccount ? 'Email address' : 'Sign-in email'}</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-primary" />
-                        <Input
-                          id="prof-email"
-                          type="email"
-                          value={email}
-                          onChange={(e) => { setEmail(e.target.value); setFormError(null); }}
-                          disabled={!isPhoneAccount}
-                          placeholder="e.g. rahul@example.com"
-                          autoComplete="email"
-                          className="pl-9 pr-9"
-                        />
-                        {!isPhoneAccount && (
-                          <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-emerald-600" />
-                        )}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        {isPhoneAccount
-                          ? 'Where your receipts and booking confirmations are sent.'
-                          : 'This is how you sign in, so it can only be changed by our team.'}
-                      </p>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="prof-phone">{isPhoneAccount ? 'Verified mobile number' : 'Mobile number'}</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-primary" />
-                        <Input
-                          id="prof-phone"
-                          type="tel"
-                          value={phone}
-                          onChange={(e) => { setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); setFormError(null); }}
-                          disabled={isPhoneAccount}
-                          placeholder="10-digit mobile number"
-                          autoComplete="tel-national"
-                          maxLength={10}
-                          className="pl-9 pr-9"
-                        />
-                        {isPhoneAccount && (
-                          <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-emerald-600" />
-                        )}
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        {isPhoneAccount
-                          ? 'This is the number you sign in with, verified by SMS.'
-                          : 'So the kitchen can reach you about an order.'}
-                      </p>
-                    </div>
-
-                    <Button
-                      type="submit"
-                      disabled={saving || !dirty}
-                      className="font-extrabold shadow-md px-6 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white gap-2 transition-all"
-                    >
-                      {saving ? (
-                        <>
-                          <Loader2 className="size-4 animate-spin" />
-                          Saving…
-                        </>
-                      ) : (
-                        <>
-                          <Save className="size-4" />
-                          {dirty ? 'Save changes' : 'Saved'}
-                        </>
-                      )}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Shortcuts Column */}
-            <div className="lg:col-span-5 space-y-4">
-              {QUICK_LINKS.map((item) => (
-                <Card
-                  key={item.href}
-                  className="group shadow-sm border-border/80 bg-background hover:shadow-md transition-all rounded-2xl overflow-hidden"
                 >
-                  <Link href={item.href} className="p-4 flex items-center gap-4 block">
-                    <div className={`flex size-11 shrink-0 items-center justify-center rounded-xl border ${item.tint}`}>
-                      {item.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-extrabold text-foreground group-hover:text-primary transition-colors">{item.title}</p>
-                      <p className="text-xs text-muted-foreground leading-snug">{item.body}</p>
-                    </div>
-                    <ArrowRight className="size-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0" />
-                  </Link>
-                </Card>
+                  {saving ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Save className="size-4" />
+                      {dirty ? 'Save changes' : 'All saved'}
+                    </>
+                  )}
+                </button>
+              </form>
+            </section>
+
+            {/* ── Shortcuts ──────────────────────────────────────────── */}
+            <aside className="grid gap-3">
+              {QUICK_LINKS.map(({ href, icon: Icon, title, body }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="group border-hair-1 shadow-store hover:shadow-store-lifted flex items-center gap-3.5 rounded-2xl border bg-white p-4 transition-shadow"
+                >
+                  <span className="bg-brand-50 text-brand-600 grid size-11 shrink-0 place-items-center rounded-xl">
+                    <Icon className="size-5" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="text-ink-1 group-hover:text-brand-700 block text-[14px] font-extrabold transition-colors">
+                      {title}
+                    </span>
+                    <span className="text-ink-3 block text-[12.5px] leading-snug">{body}</span>
+                  </span>
+                  <ArrowRight className="text-ink-4 group-hover:text-brand size-4 shrink-0 transition-all group-hover:translate-x-0.5" />
+                </Link>
               ))}
 
-              <Button
-                variant="outline"
+              <button
+                type="button"
                 onClick={signOutUser}
-                className="w-full font-extrabold py-3 rounded-2xl border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-500/10 gap-2 mt-4"
+                className="border-hair-1 text-nonveg hover:border-nonveg/30 hover:bg-nonveg/6 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border bg-white text-[14px] font-extrabold transition-colors"
               >
                 <LogOut className="size-4" />
-                Sign Out
-              </Button>
-            </div>
+                Sign out
+              </button>
+            </aside>
           </div>
-
         </Container>
-      </div>
+      </main>
     </PageFrame>
+  );
+}
+
+/**
+ * A profile field. `verified` marks the credential the account signs in with —
+ * that one is read-only by design, and a lock with no explanation reads as a
+ * bug, so the green tick plus the hint underneath say why.
+ */
+function ProfileField({
+  id,
+  label,
+  icon: Icon,
+  value,
+  onChange,
+  hint,
+  verified,
+  ...input
+}: {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  value: string;
+  onChange: (value: string) => void;
+  hint?: string;
+  verified?: boolean;
+} & Omit<React.ComponentProps<'input'>, 'id' | 'value' | 'onChange'>) {
+  return (
+    <div className="grid gap-1.5">
+      <label htmlFor={id} className="text-ink-2 text-[13px] font-bold">
+        {label}
+      </label>
+      <div className="relative">
+        <Icon className="text-ink-4 pointer-events-none absolute top-1/2 left-3.5 size-[17px] -translate-y-1/2" />
+        <input
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-describedby={hint ? `${id}-hint` : undefined}
+          className={cn(
+            'border-hair-1 text-ink-1 placeholder:text-ink-4 h-12 w-full rounded-xl border bg-white pr-10 pl-11 text-[14px] font-medium',
+            'transition-colors outline-none focus:border-brand-300 focus:ring-[3px] focus:ring-brand/15',
+            'disabled:bg-hair-2/60 disabled:text-ink-3'
+          )}
+          {...input}
+        />
+        {verified && (
+          <span
+            className="bg-veg absolute top-1/2 right-3.5 grid size-[18px] -translate-y-1/2 place-items-center rounded-full text-white"
+            title="Verified"
+          >
+            <Check className="size-3" strokeWidth={3} />
+          </span>
+        )}
+      </div>
+      {hint && (
+        <p id={`${id}-hint`} className="text-ink-4 text-[12px]">
+          {hint}
+        </p>
+      )}
+    </div>
   );
 }

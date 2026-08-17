@@ -15,6 +15,12 @@ interface Props {
   label: string;
 }
 
+/** Kept in one place so ADD and the stepper cannot drift apart. */
+export const ADD_CONTROL_SIZE = {
+  small: 'h-9 min-w-[104px]',
+  medium: 'h-10 min-w-[118px]',
+} as const;
+
 /**
  * The −/qty/+ control that replaces ADD once a dish is in the cart.
  *
@@ -23,10 +29,15 @@ interface Props {
  * stepper even a few pixels wider than the button it replaces makes the whole
  * dish list twitch sideways on the first tap.
  *
- * Green rather than the brand red on purpose: this control only ever appears
- * for a dish that is already in the cart, so its colour is the confirmation.
- * (The neutral `QuantityStepper` in components/ui is the one used inside the
- * cart itself, where "in the cart" is not news.)
+ * Green rather than the brand orange on purpose: orange is this storefront's
+ * action colour and means "tap me to do the thing". This control only ever
+ * appears for a dish that is *already* in the cart, so it is confirmation, not
+ * a call to action, and takes the confirmation colour.
+ *
+ * At quantity 1 the minus becomes a bin. Decrementing to zero and removing the
+ * line are the same intent, and a minus that silently deletes a row — with no
+ * change of icon to warn you — is the single most complained-about control in
+ * a cart.
  */
 export default function CartStepper({
   quantity,
@@ -42,9 +53,9 @@ export default function CartStepper({
   return (
     <div
       className={cn(
-        'border-success bg-card inline-flex items-center justify-between overflow-hidden rounded-xl border-[1.5px] shadow-[0_4px_14px_rgba(46,125,50,0.18)]',
+        'border-veg shadow-add inline-flex items-center justify-between overflow-hidden rounded-[10px] border bg-white',
         fullWidth ? 'w-full' : 'w-auto',
-        compact ? 'h-8 min-w-23' : 'h-9.5 min-w-26'
+        compact ? ADD_CONTROL_SIZE.small : ADD_CONTROL_SIZE.medium
       )}
     >
       <button
@@ -52,24 +63,29 @@ export default function CartStepper({
         onClick={onDecrease}
         aria-label={isOne ? `Remove ${label} from cart` : `Remove one ${label}`}
         className={cn(
-          isOne ? 'text-destructive hover:bg-destructive/10' : 'text-success hover:bg-success/10',
-          'grid h-full place-items-center transition-colors outline-none focus-visible:bg-success/15',
-          compact ? 'w-7' : 'w-8.5'
+          'grid h-full flex-1 place-items-center transition-colors outline-none',
+          isOne
+            ? 'text-nonveg hover:bg-nonveg/8 focus-visible:bg-nonveg/12'
+            : 'text-veg hover:bg-veg/8 focus-visible:bg-veg/12'
         )}
       >
         {isOne ? (
-          <Trash2 className={compact ? 'size-3.5' : 'size-4'} />
+          <Trash2 className={compact ? 'size-4' : 'size-[17px]'} />
         ) : (
-          <Minus className={compact ? 'size-3.5' : 'size-4'} />
+          <Minus className={compact ? 'size-4' : 'size-[17px]'} strokeWidth={3} />
         )}
       </button>
 
       <span
+        // `key` restarts the pop animation on every change, so 2→3 is as
+        // visible as 1→2. Without it React reuses the node and the animation
+        // only ever plays once.
+        key={quantity}
         aria-live="polite"
         aria-label={`${label}: ${quantity} in cart`}
         className={cn(
-          'text-success min-w-5.5 text-center font-black tabular-nums',
-          compact ? 'text-[13px]' : 'text-[15px]'
+          'text-veg animate-pop min-w-6 text-center font-extrabold tabular-nums',
+          compact ? 'text-[14px]' : 'text-[15px]'
         )}
       >
         {quantity}
@@ -79,13 +95,54 @@ export default function CartStepper({
         type="button"
         onClick={onIncrease}
         aria-label={`Add one more ${label}`}
-        className={cn(
-          'text-success hover:bg-success/10 grid h-full place-items-center transition-colors outline-none focus-visible:bg-success/15',
-          compact ? 'w-7' : 'w-8.5'
-        )}
+        className="text-veg hover:bg-veg/8 focus-visible:bg-veg/12 grid h-full flex-1 place-items-center transition-colors outline-none"
       >
-        <Plus className={compact ? 'size-3.5' : 'size-4'} />
+        <Plus className={compact ? 'size-4' : 'size-[17px]'} strokeWidth={3} />
       </button>
     </div>
+  );
+}
+
+/**
+ * The ADD button itself, so the two halves of the swap live in one file and
+ * share `ADD_CONTROL_SIZE` by construction rather than by convention.
+ */
+export function AddButton({
+  onClick,
+  disabled,
+  label,
+  size = 'medium',
+  fullWidth = false,
+}: {
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  disabled?: boolean;
+  label: string;
+  size?: 'small' | 'medium';
+  fullWidth?: boolean;
+}) {
+  const compact = size === 'small';
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={`Add ${label} to cart`}
+      className={cn(
+        'border-veg text-veg shadow-add relative rounded-[10px] border bg-white font-extrabold tracking-[0.06em] uppercase',
+        'transition-[transform,background-color,color] outline-none active:scale-[0.97]',
+        'hover:bg-veg hover:text-white focus-visible:ring-[3px] focus-visible:ring-veg/30',
+        'disabled:border-hair-1 disabled:text-ink-4 disabled:bg-hair-2 disabled:shadow-none disabled:hover:bg-hair-2 disabled:hover:text-ink-4 disabled:active:scale-100',
+        fullWidth ? 'w-full' : '',
+        compact ? `${ADD_CONTROL_SIZE.small} text-[13px]` : `${ADD_CONTROL_SIZE.medium} text-[14px]`
+      )}
+    >
+      {disabled ? 'Sold out' : 'Add'}
+      {!disabled && (
+        <span className="absolute top-1 right-2 text-[11px] leading-none font-bold" aria-hidden="true">
+          +
+        </span>
+      )}
+    </button>
   );
 }

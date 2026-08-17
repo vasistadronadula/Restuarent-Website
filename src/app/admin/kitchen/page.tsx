@@ -601,8 +601,8 @@ export default function KitchenDisplayPage() {
 
   const openDelayModal = (order: Order) => {
     setSelectedOrderForDelay(order);
-    setCustomDelayMins(order.delayMinutes ? order.delayMinutes + 5 : 10);
-    setDelayReason(order.notes || '');
+    setCustomDelayMins(10); // default increment to add
+    setDelayReason('');
     setDelayDialogOpen(true);
   };
 
@@ -610,8 +610,24 @@ export default function KitchenDisplayPage() {
     if (!selectedOrderForDelay) return;
     setIsSavingDelay(true);
     try {
-      await updateOrderPrepTime(selectedOrderForDelay.id, customDelayMins, delayReason);
-      toast.success(`Ticket #${selectedOrderForDelay.id.slice(-4)} extended by +${customDelayMins}m`);
+      // Add the extra minutes on top of any existing delay
+      const existingDelay = selectedOrderForDelay.delayMinutes || 0;
+      const newTotal = existingDelay + customDelayMins;
+      await updateOrderPrepTime(selectedOrderForDelay.id, newTotal, delayReason || undefined);
+      toast.success(
+        `Ticket #${selectedOrderForDelay.id.slice(-4)}: +${customDelayMins}m added — new total ${newTotal}m`,
+        { description: delayReason ? `Reason: ${delayReason}` : undefined }
+      );
+      // Fire-and-forget: notify customer via WhatsApp about the delay
+      fetch('/api/whatsapp/send-delay-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: selectedOrderForDelay.id,
+          extraMinutes: customDelayMins,
+          reason: delayReason || undefined,
+        }),
+      }).catch(() => {/* non-critical */});
       setDelayDialogOpen(false);
     } catch {
       toast.error('Failed to update prep delay');
@@ -985,10 +1001,17 @@ export default function KitchenDisplayPage() {
             </DialogHeader>
 
             <div className="space-y-4 py-3">
+              {/* Show current delay if any */}
+              {(selectedOrderForDelay?.delayMinutes ?? 0) > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-ad-accent-soft text-ad-accent-deep text-[13px] font-medium rounded-[var(--ad-radius)]">
+                  <Hourglass className="size-3.5 shrink-0" />
+                  Already extended by {selectedOrderForDelay?.delayMinutes}m. Adding more below.
+                </div>
+              )}
               <div>
-                <label className="ad-kicker block mb-2">Quick extend</label>
+                <label className="ad-kicker block mb-2">Add extra minutes</label>
                 <div className="grid grid-cols-4 gap-2">
-                  {[5, 10, 15, 25].map((mins) => (
+                  {[5, 10, 15, 20].map((mins) => (
                     <button
                       key={mins}
                       type="button"
@@ -1003,12 +1026,12 @@ export default function KitchenDisplayPage() {
               </div>
 
               <div className="ad-field">
-                <label htmlFor="kds-delay-mins">Custom extra minutes</label>
+                <label htmlFor="kds-delay-mins">Custom minutes to add</label>
                 <input
                   id="kds-delay-mins"
                   className="ad-input tabular-nums"
                   type="number"
-                  min={0}
+                  min={1}
                   max={120}
                   value={customDelayMins}
                   onChange={(e) => setCustomDelayMins(parseInt(e.target.value, 10) || 0)}
@@ -1016,7 +1039,7 @@ export default function KitchenDisplayPage() {
               </div>
 
               <div className="ad-field">
-                <label htmlFor="kds-delay-reason">Message to the diner</label>
+                <label htmlFor="kds-delay-reason">Reason (shown in kitchen notes)</label>
                 <input
                   id="kds-delay-reason"
                   className="ad-input"
@@ -1025,14 +1048,21 @@ export default function KitchenDisplayPage() {
                   onChange={(e) => setDelayReason(e.target.value)}
                 />
               </div>
+
+              <div className="px-3 py-2 bg-ad-n100 text-ad-ink text-[12px] ad-muted rounded-[var(--ad-radius)]">
+                New total delay:{' '}
+                <b className="ad-num text-ad-ink">
+                  {(selectedOrderForDelay?.delayMinutes || 0) + customDelayMins}m
+                </b>
+              </div>
             </div>
 
             <DialogFooter className="gap-2">
               <button type="button" className="ad-btn ad-btn-secondary" onClick={() => setDelayDialogOpen(false)}>
                 Cancel
               </button>
-              <button type="button" className="ad-btn ad-btn-primary" onClick={handleSaveDelay} disabled={isSavingDelay}>
-                {isSavingDelay ? 'Saving…' : 'Save and notify'}
+              <button type="button" className="ad-btn ad-btn-primary" onClick={handleSaveDelay} disabled={isSavingDelay || customDelayMins <= 0}>
+                {isSavingDelay ? 'Saving…' : `Add +${customDelayMins}m`}
               </button>
             </DialogFooter>
           </DialogContent>

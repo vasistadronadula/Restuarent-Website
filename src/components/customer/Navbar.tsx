@@ -5,8 +5,8 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Home, BookOpen, CalendarDays, ChevronDown, Clock, Info, LayoutDashboard, LogIn, LogOut,
-  Mail, MapPin, Menu as MenuIcon, Phone, ReceiptText, ShoppingCart, User, UserPlus,
+  ChevronDown, LayoutDashboard, LogIn, LogOut, Mail, Menu as MenuIcon, Phone,
+  ReceiptText, ShoppingCart, User, UserPlus, UtensilsCrossed,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -14,17 +14,13 @@ import { useCartStore, getCartTotalItems } from '@/store/useCartStore';
 import { CART_TARGET_ATTR } from '@/lib/flyToCart';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth } from '@/context/AuthContext';
-import { ROLE_LABELS, ROLE_ICONS, getRoleHome, isStaffRole, getRoleDashboardLabel } from '@/lib/roleAccess';
+import { ROLE_LABELS, getRoleHome, isStaffRole, getRoleDashboardLabel } from '@/lib/roleAccess';
 import { accountDisplayName, accountIdentityLabel } from '@/lib/phoneIdentity';
 import { restaurantInfo } from '@/data/restaurantInfo';
 import PalaPittaLogo from './PalaPittaLogo';
 import { Container } from './Container';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -35,10 +31,8 @@ import {
 
 const CartDrawer = dynamic(() => import('./CartDrawer'), { ssr: false });
 
-const PHONE_HREF = `tel:${restaurantInfo.phone.replace(/\s/g, '')}`;
-
 const NAV_LINKS = [
-  { label: 'Menu', href: '/menu', icon: BookOpen },
+  { label: 'Menu', href: '/menu', icon: UtensilsCrossed },
   { label: 'My Orders', href: '/orders', icon: ReceiptText },
   { label: 'Contact', href: '/contact', icon: Mail },
 ];
@@ -48,6 +42,21 @@ const ACCOUNT_LINKS = [
   { label: 'My Orders', href: '/orders', icon: ReceiptText },
 ];
 
+const PHONE_HREF = `tel:${restaurantInfo.phone.replace(/\s/g, '')}`;
+
+/**
+ * The storefront header.
+ *
+ * Deliberately thin — 60px on a phone, 68px on desktop — and carrying only
+ * four things: who you are looking at, where you can go, your cart, and your
+ * account. Everything a delivery app puts here and nothing else, because this
+ * bar is sticky and every pixel of it is a pixel of menu the customer cannot
+ * see.
+ *
+ * The cart is the one item that gets colour. It is the only control here whose
+ * state changes while you browse, and it is the destination of the fly-to-cart
+ * animation, so it has to be findable without being read.
+ */
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -66,10 +75,8 @@ export default function Navbar() {
   const isStaff = isStaffRole(userRole);
 
   const accountLinks = useMemo(() => {
-    if (isStaff) {
-      // Admins and Staff only keep profile on their dashboard (/admin/profile)
-      return ACCOUNT_LINKS.filter((link) => link.href !== '/profile');
-    }
+    // Admins and staff keep their profile on their own dashboard.
+    if (isStaff) return ACCOUNT_LINKS.filter((link) => link.href !== '/profile');
     return ACCOUNT_LINKS;
   }, [isStaff]);
 
@@ -79,8 +86,6 @@ export default function Navbar() {
     setLastPath(pathname);
     setMobileOpen(false);
   }
-
-  const closeDrawer = useCallback(() => setMobileOpen(false), []);
 
   const authHref = useMemo(() => {
     const isAuthPage = !pathname || ['/login', '/signup', '/reset-password'].some((p) => pathname.startsWith(p));
@@ -94,7 +99,7 @@ export default function Navbar() {
       if (frame) return;
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        setScrolled(window.scrollY > 15);
+        setScrolled(window.scrollY > 8);
       });
     };
     window.addEventListener('scroll', handler, { passive: true });
@@ -108,191 +113,189 @@ export default function Navbar() {
     useCartStore.getState().closeCart();
   }, [pathname]);
 
-  const isActive = (href: string) =>
-    href === '/' ? pathname === '/' : Boolean(pathname?.startsWith(href));
-
-  const roleBadge = userRole
-    ? `${ROLE_ICONS[userRole] || ''} ${ROLE_LABELS[userRole]}`.trim()
-    : 'Customer';
+  const isActive = useCallback(
+    (href: string) => (href === '/' ? pathname === '/' : Boolean(pathname?.startsWith(href))),
+    [pathname]
+  );
 
   return (
     <>
-      {/* Main Bar */}
       <header
         className={cn(
-          'sticky top-0 z-40 w-full transition-all duration-150 border-b bg-white',
-          scrolled
-            ? 'border-stone-200 shadow-sm shadow-stone-100/60'
-            : 'border-stone-100'
+          'sticky top-0 z-40 w-full border-b bg-white transition-shadow duration-200',
+          scrolled ? 'border-hair-1 shadow-[0_2px_12px_rgba(2,6,12,0.07)]' : 'border-hair-2'
         )}
       >
-        <Container className="flex h-14 items-center justify-between">
-          {/* Logo */}
-          <Link href="/menu" aria-label={`${restaurantInfo.name} — Menu`} className="flex items-center shrink-0">
+        <Container className="flex h-[var(--store-header-h)] items-center justify-between gap-3">
+          <Link
+            href="/menu"
+            aria-label={`${restaurantInfo.name} — Menu`}
+            className="flex shrink-0 items-center"
+          >
             <PalaPittaLogo variant="light" size="small" priority />
           </Link>
 
-          {/* Desktop Nav Links */}
+          {/* ── Desktop navigation ─────────────────────────────────────── */}
           <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
-            {NAV_LINKS.map((link) => {
-              const active = isActive(link.href);
-              const IconComponent = link.icon;
+            {NAV_LINKS.map(({ label, href, icon: Icon }) => {
+              const active = isActive(href);
               return (
                 <Link
-                  key={link.href}
-                  href={link.href}
+                  key={href}
+                  href={href}
                   prefetch
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors outline-none',
-                    active
-                      ? 'text-amber-700 bg-amber-50'
-                      : 'text-stone-600 hover:text-stone-900 hover:bg-stone-50'
+                    'flex items-center gap-2 rounded-lg px-3.5 py-2 text-[14px] font-semibold transition-colors outline-none',
+                    active ? 'text-brand-700' : 'text-ink-2 hover:text-brand-600'
                   )}
                 >
-                  <IconComponent className="w-3.5 h-3.5" />
-                  {link.label}
+                  <Icon className={cn('size-[17px]', active && 'text-brand')} />
+                  {label}
                 </Link>
               );
             })}
           </nav>
 
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button asChild variant="ghost" size="sm" className="relative h-9 w-9 p-0 text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded-lg">
-                  <Link
-                    href="/cart"
-                    prefetch
-                    aria-label={`Cart, ${totalItems} items`}
-                    {...{ [CART_TARGET_ATTR]: '' }}
-                  >
-                    <ShoppingCart className="w-4.5 h-4.5" />
-                    {totalItems > 0 && (
-                      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center text-[10px] font-semibold bg-amber-600 text-white rounded-full px-1">
-                        {totalItems > 99 ? '99+' : totalItems}
-                      </span>
-                    )}
-                  </Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Your Cart</TooltipContent>
-            </Tooltip>
+          {/* ── Actions ────────────────────────────────────────────────── */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <a
+              href={PHONE_HREF}
+              className="text-ink-2 hover:text-brand-600 hidden items-center gap-2 rounded-lg px-3 py-2 text-[14px] font-semibold transition-colors lg:flex"
+            >
+              <Phone className="size-[17px]" />
+              {restaurantInfo.phoneDisplay}
+            </a>
+
+            {/* Cart. The count lives inside the pill rather than as a floating
+                badge so it can't collide with the header's bottom edge on a
+                short viewport. */}
+            <Link
+              href="/cart"
+              prefetch
+              aria-label={`Cart, ${totalItems} ${totalItems === 1 ? 'item' : 'items'}`}
+              {...{ [CART_TARGET_ATTR]: '' }}
+              className={cn(
+                'inline-flex h-10 items-center gap-2 rounded-full px-3 text-[14px] font-bold transition-colors outline-none sm:px-4',
+                totalItems > 0
+                  ? 'bg-brand text-white hover:bg-brand-600'
+                  : 'text-ink-2 hover:bg-hair-2'
+              )}
+            >
+              <ShoppingCart className="size-[18px]" />
+              <span className="hidden sm:inline">Cart</span>
+              {totalItems > 0 && (
+                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-white/25 px-1.5 text-[11px] font-extrabold tabular-nums">
+                  {totalItems > 99 ? '99+' : totalItems}
+                </span>
+              )}
+            </Link>
 
             {isStaff && (
-              <Button asChild variant="outline" size="sm" className="hidden md:inline-flex h-8 rounded-lg text-xs font-medium border-stone-200 text-stone-700 hover:bg-stone-50">
-                <Link href={getRoleHome(userRole)} className="flex items-center gap-1.5">
-                  <LayoutDashboard className="w-3.5 h-3.5" />
-                  Dashboard
-                </Link>
-              </Button>
+              <Link
+                href={getRoleHome(userRole)}
+                className="border-hair-1 text-ink-2 hover:border-ink-4/60 hidden h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-bold transition-colors md:inline-flex"
+              >
+                <LayoutDashboard className="size-4" />
+                Dashboard
+              </Link>
             )}
 
-            {!user && (
-              <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex h-8 rounded-lg text-xs font-medium border-stone-200 text-stone-700 hover:bg-stone-50">
-                <Link href={authHref.login} prefetch className="flex items-center gap-1.5">
-                  <LogIn className="w-3.5 h-3.5" />
-                  Log in
-                </Link>
-              </Button>
-            )}
-
-            {user && (
+            {!user ? (
+              <Link
+                href={authHref.login}
+                prefetch
+                className="border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 hidden h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-bold transition-colors sm:inline-flex"
+              >
+                <LogIn className="size-4" />
+                Sign in
+              </Link>
+            ) : (
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="h-9 gap-2 rounded-lg px-2 text-sm text-stone-700 hover:bg-stone-100"
+                  <button
+                    type="button"
                     aria-label="Account menu"
+                    className="text-ink-2 hover:bg-hair-2 hidden h-10 items-center gap-2 rounded-full pr-2.5 pl-1.5 transition-colors outline-none sm:inline-flex"
                   >
-                    <Avatar className="w-7 h-7 border border-stone-200">
-                      <AvatarFallback className="bg-amber-600 text-white text-xs font-semibold">
+                    <Avatar className="size-7">
+                      <AvatarFallback className="bg-brand text-[12px] font-extrabold text-white">
                         {(userName || accountLabel || 'U').charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="hidden max-w-[90px] truncate font-medium md:block">
+                    <span className="hidden max-w-[92px] truncate text-[14px] font-semibold md:block">
                       {userName?.split(' ')[0] || 'Account'}
                     </span>
-                    <ChevronDown className="w-3.5 h-3.5 text-stone-400" />
-                  </Button>
+                    <ChevronDown className="text-ink-4 size-4" />
+                  </button>
                 </DropdownMenuTrigger>
 
-                <DropdownMenuContent align="end" sideOffset={6} className="w-56 p-1 rounded-xl bg-white border border-stone-200 text-stone-900 shadow-lg z-50">
-                  <div className="px-3 py-2 border-b border-stone-100 mb-1">
-                    <p className="truncate text-sm font-semibold text-stone-900">{userName || 'User'}</p>
-                    <p className="mt-0.5 text-xs truncate text-stone-500">{accountLabel}</p>
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={8}
+                  className="border-hair-1 w-60 rounded-2xl border bg-white p-1.5 shadow-[0_8px_32px_rgba(2,6,12,0.14)]"
+                >
+                  <div className="border-hair-2 mb-1 border-b px-3 py-2.5">
+                    <p className="text-ink-1 truncate text-[14px] font-bold">{userName || 'User'}</p>
+                    <p className="text-ink-4 mt-0.5 truncate text-[12px]">{accountLabel}</p>
+                    <p className="text-ink-3 mt-1.5 text-[11px] font-semibold tracking-wide uppercase">
+                      {userRole ? ROLE_LABELS[userRole] : 'Customer'}
+                    </p>
                   </div>
 
                   {isStaff && (
-                    <DropdownMenuItem asChild className="rounded-lg text-amber-700 font-medium focus:bg-amber-50 focus:text-amber-800">
-                      <Link href={getRoleHome(userRole)} className="flex items-center gap-2">
-                        <LayoutDashboard className="w-4 h-4" />
+                    <DropdownMenuItem asChild className="focus:bg-brand-50 rounded-xl">
+                      <Link href={getRoleHome(userRole)} className="text-brand-700 flex items-center gap-2.5 text-[14px] font-semibold">
+                        <LayoutDashboard className="size-4" />
                         {getRoleDashboardLabel(userRole, userName)}
                       </Link>
                     </DropdownMenuItem>
                   )}
 
                   {accountLinks.map(({ label, href, icon: Icon }) => (
-                    <DropdownMenuItem key={href} asChild className="rounded-lg focus:bg-stone-50">
-                      <Link href={href} className="flex items-center gap-2 text-sm">
-                        <Icon className="w-4 h-4 text-stone-400" />
+                    <DropdownMenuItem key={href} asChild className="focus:bg-hair-2 rounded-xl">
+                      <Link href={href} className="text-ink-2 flex items-center gap-2.5 text-[14px] font-semibold">
+                        <Icon className="text-ink-4 size-4" />
                         {label}
                       </Link>
                     </DropdownMenuItem>
                   ))}
 
-                  <DropdownMenuSeparator className="bg-stone-100 my-1" />
+                  <DropdownMenuSeparator className="bg-hair-2 my-1" />
 
                   <DropdownMenuItem
                     onClick={() => signOutUser()}
-                    className="rounded-lg text-rose-600 focus:bg-rose-50 focus:text-rose-700 text-sm"
+                    className="text-nonveg focus:bg-nonveg/8 focus:text-nonveg rounded-xl text-[14px] font-semibold"
                   >
-                    <LogOut className="w-4 h-4 mr-2" />
+                    <LogOut className="mr-2.5 size-4" />
                     Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
 
-            {user && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => signOutUser()}
-                    aria-label="Sign out"
-                    className="inline-flex h-9 w-9 p-0 text-stone-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Sign out</TooltipContent>
-              </Tooltip>
-            )}
-
-            <Button asChild size="sm" className="hidden sm:inline-flex h-8 rounded-lg text-xs font-semibold bg-amber-600 hover:bg-amber-700 text-white px-4">
-              <Link href="/menu" prefetch>
-                Order Now
-              </Link>
-            </Button>
-
-            {/* Mobile Sheet Trigger */}
+            {/* ── Phone drawer ─────────────────────────────────────────── */}
             <Sheet modal={false} open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden h-8 w-8 text-stone-700 dark:text-white hover:bg-stone-200/60 dark:hover:bg-stone-800" aria-label="Open menu">
-                  <MenuIcon className="w-5 h-5" />
-                </Button>
+                <button
+                  type="button"
+                  aria-label="Open menu"
+                  className="text-ink-2 hover:bg-hair-2 grid size-10 place-items-center rounded-full transition-colors outline-none md:hidden"
+                >
+                  <MenuIcon className="size-[22px]" />
+                </button>
               </SheetTrigger>
 
-              <SheetContent side="right" className="w-[280px] p-0 bg-white dark:bg-stone-950 border-stone-200 dark:border-stone-800 text-stone-900 dark:text-white flex flex-col justify-between">
-                <SheetHeader className="p-4 border-b border-stone-200 dark:border-stone-800">
-                  <SheetTitle className="sr-only">Site Menu</SheetTitle>
+              <SheetContent
+                side="right"
+                className="border-hair-1 flex w-[290px] flex-col justify-between bg-white p-0"
+              >
+                <SheetHeader className="border-hair-2 border-b p-4">
+                  <SheetTitle className="sr-only">Site menu</SheetTitle>
                   <PalaPittaLogo variant="light" size="small" />
                 </SheetHeader>
 
-                <div className="p-4 space-y-3 flex-1 overflow-y-auto">
+                <div className="flex-1 space-y-5 overflow-y-auto p-4">
                   <MobileSection label="Explore">
                     {NAV_LINKS.map(({ label, href, icon: Icon }) => (
                       <MobileLink key={href} href={href} icon={Icon} active={isActive(href)}>
@@ -304,38 +307,51 @@ export default function Navbar() {
                   {!user ? (
                     <MobileSection label="Account">
                       <MobileLink href={authHref.login} icon={LogIn} active={pathname === '/login'}>
-                        Log In
+                        Sign in
                       </MobileLink>
                       <MobileLink href={authHref.signup} icon={UserPlus} active={pathname === '/signup'}>
-                        Sign Up
+                        Create account
                       </MobileLink>
                     </MobileSection>
                   ) : (
-                    <MobileSection label="Your Account">
+                    <MobileSection label={userName || 'Your account'}>
+                      {isStaff && (
+                        <MobileLink href={getRoleHome(userRole)} icon={LayoutDashboard} active={false}>
+                          Dashboard
+                        </MobileLink>
+                      )}
                       {accountLinks.map(({ label, href, icon: Icon }) => (
                         <MobileLink key={href} href={href} icon={Icon} active={isActive(href)}>
                           {label}
                         </MobileLink>
                       ))}
-                      <div className="pt-2 px-1">
-                        <Separator className="bg-stone-200 dark:bg-stone-850 mb-2" />
-                        <button
-                          onClick={() => { signOutUser(); setMobileOpen(false); }}
-                          className="w-full flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-bold transition-all text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          Sign Out
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { signOutUser(); setMobileOpen(false); }}
+                        className="text-nonveg hover:bg-nonveg/8 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold transition-colors"
+                      >
+                        <LogOut className="size-[18px]" />
+                        Sign out
+                      </button>
                     </MobileSection>
                   )}
                 </div>
 
-                <div className="p-4 border-t border-stone-200 dark:border-stone-800 space-y-2">
+                <div className="border-hair-2 space-y-2 border-t p-4">
+                  <a
+                    href={PHONE_HREF}
+                    className="border-hair-1 text-ink-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl border text-[14px] font-bold"
+                  >
+                    <Phone className="size-4" />
+                    {restaurantInfo.phoneDisplay}
+                  </a>
                   <SheetClose asChild>
-                    <Button asChild size="lg" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl text-sm">
-                      <Link href="/menu">Order Now</Link>
-                    </Button>
+                    <Link
+                      href="/menu"
+                      className="bg-brand hover:bg-brand-600 flex h-12 w-full items-center justify-center rounded-xl text-[15px] font-extrabold text-white transition-colors"
+                    >
+                      Order now
+                    </Link>
                   </SheetClose>
                 </div>
               </SheetContent>
@@ -352,9 +368,7 @@ export default function Navbar() {
 function MobileSection({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1">
-      <p className="text-xs font-medium text-stone-400 px-3 mb-2">
-        {label}
-      </p>
+      <p className="text-ink-4 mb-2 px-3 text-[11px] font-bold tracking-wider uppercase">{label}</p>
       {children}
     </div>
   );
@@ -376,13 +390,11 @@ function MobileLink({
       <Link
         href={href}
         className={cn(
-          'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-          active
-            ? 'bg-amber-600 text-white'
-            : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
+          'flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-semibold transition-colors',
+          active ? 'bg-brand-50 text-brand-700' : 'text-ink-2 hover:bg-hair-2'
         )}
       >
-        <Icon className="w-4 h-4" />
+        <Icon className={cn('size-[18px]', active ? 'text-brand' : 'text-ink-4')} />
         {children}
       </Link>
     </SheetClose>

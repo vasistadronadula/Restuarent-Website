@@ -90,6 +90,85 @@ body[data-scroll-locked] {
 }
 
 /* ============================================================ */
+/* Storefront palette                                           */
+/* ------------------------------------------------------------ */
+/* The customer site only. Written as flat sRGB hex rather than  */
+/* OKLCH because these are matched against a reference (the      */
+/* delivery-app conventions Indian diners already read fluently) */
+/* and a hex is what that reference is specified in — converting */
+/* to OKLCH would make every future comparison a conversion.     */
+/*                                                               */
+/* Deliberately kept separate from the --primary/--accent set    */
+/* above: those drive the admin console and the POS through the  */
+/* shared shadcn primitives, and repainting the till orange is   */
+/* not what "redesign the customer site" asked for.              */
+/*                                                               */
+/* Three rules the whole storefront obeys:                       */
+/*  1. Orange is the ACTION colour and appears nowhere else. If  */
+/*     a thing is orange, tapping it does something.             */
+/*  2. Green is CONFIRMATION — veg marks, ADD, savings, ratings. */
+/*     Never used for a call to action.                          */
+/*  3. Text is one of four inks, never an arbitrary stone-*.     */
+/* ============================================================ */
+
+:root {
+  /* Action */
+  --brand-50:  #fff6ee;
+  --brand-100: #ffead6;
+  --brand-200: #ffd4ac;
+  --brand-300: #ffb877;
+  --brand-400: #fe9c45;
+  --brand-500: #fc8019;
+  --brand-600: #ec6d06;
+  --brand-700: #c25708;
+  --brand-800: #94430b;
+  --brand-900: #6b300b;
+
+  /* Ink. Four steps, and four is the whole budget — a fifth grey is how a
+     page ends up with three different "muted" tones that read as a bug. */
+  --ink-1: #02060c; /* headings, prices, anything the eye lands on first */
+  --ink-2: #3e4152; /* body copy, dish names in a list */
+  --ink-3: #7e808c; /* descriptions, secondary meta */
+  --ink-4: #93959f; /* timestamps, placeholders, disabled */
+
+  /* Structure. Both are deliberately faint: this design carries hierarchy
+     with weight and space, and uses a rule only where a real boundary is. */
+  --hair-1: #e9e9ef;
+  --hair-2: #f2f2f6;
+
+  /* Confirmation & status */
+  --veg-mark:    #0f8a45;
+  --nonveg-mark: #e43b4f;
+  --egg-mark:    #d97706;
+  --rating-pill: #267e3e;
+  --saving:      #1ba672;
+
+  /* Ground. The one place the restaurant's own warmth survives the switch —
+     a cream page behind white cards, rather than the reference's cool grey. */
+  --store-ground: #fff8f2;
+  --store-surface: #ffffff;
+
+  /* Chrome heights, published so sticky offsets are computed rather than
+     guessed. Every `top-[56px]` in the old storefront was a guess, and they
+     disagreed with each other by up to 8px depending on the page. */
+  --store-header-h: 60px;
+  /* The menu's sticky filter bar. Two stacked rows on a phone (search, then
+     the chip scroller) and one row from `md` up, which is why it halves.
+     Kept in sync with the `py-*`/`h-*` on that bar in app/menu/page.tsx —
+     change one and change the other, or the sticky sidebar under it starts
+     its scroll at the wrong offset. */
+  --store-filters-h: 112px;
+  --store-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --store-header-h: 68px;
+    --store-filters-h: 72px;
+  }
+}
+
+/* ============================================================ */
 /* Tailwind theme bridge                                        */
 /* ------------------------------------------------------------ */
 /* `inline` matters: it makes Tailwind emit the utility with the */
@@ -129,6 +208,38 @@ body[data-scroll-locked] {
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
+  /* Storefront. `brand` with no numeric step resolves to 500, so the common
+     case is `bg-brand` and only the shades that genuinely differ spell out
+     a step. */
+  --color-brand: var(--brand-500);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+
+  --color-ink-1: var(--ink-1);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+
+  --color-hair-1: var(--hair-1);
+  --color-hair-2: var(--hair-2);
+
+  --color-veg: var(--veg-mark);
+  --color-nonveg: var(--nonveg-mark);
+  --color-egg: var(--egg-mark);
+  --color-rating: var(--rating-pill);
+  --color-saving: var(--saving);
+
+  --color-store: var(--store-ground);
+  --color-store-surface: var(--store-surface);
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
@@ -296,6 +407,73 @@ body[data-scroll-locked] {
   );
 }
 
+/* ── Storefront utilities ─────────────────────────────────────────────── */
+
+/* The separator between menu sections. Dashed rather than solid because a
+   solid rule at this length reads as a table border and boxes the list in;
+   dashed says "next group" without drawing a container. */
+@utility rule-dash {
+  border-bottom: 1px dashed var(--hair-1);
+}
+
+/* A thick, very pale band — the divider between whole sections of the menu,
+   as distinct from the hairline between two dishes. */
+@utility rule-band {
+  border-bottom: 8px solid var(--hair-2);
+}
+
+/* Any bar pinned to the bottom of a phone screen. Combines the home-indicator
+   inset with the bottom nav's own published height, so a cart bar sits on top
+   of the nav instead of underneath it. */
+@utility pad-bottom-chrome {
+  padding-bottom: calc(var(--store-safe-bottom) + var(--ppr-bottom-nav-h, 0px));
+}
+
+/* Reserves the same space in normal flow, for the last element of a scrolling
+   page rather than for a fixed bar. */
+@utility clear-bottom-chrome {
+  margin-bottom: calc(var(--store-safe-bottom) + var(--ppr-bottom-nav-h, 0px));
+}
+
+/* Cards. One elevation for the whole storefront — a resting shadow and a
+   hover shadow — rather than a different shadow-* utility per component. */
+@utility shadow-store {
+  box-shadow: 0 1px 2px rgba(2, 6, 12, 0.04), 0 2px 10px rgba(2, 6, 12, 0.05);
+}
+
+@utility shadow-store-lifted {
+  box-shadow: 0 2px 4px rgba(2, 6, 12, 0.05), 0 8px 24px rgba(2, 6, 12, 0.09);
+}
+
+/* The ADD button and the stepper that replaces it. Green-tinted so the
+   control reads as attached to the dish photo it overhangs. */
+@utility shadow-add {
+  box-shadow: 0 3px 10px rgba(15, 138, 69, 0.16);
+}
+
+/* Slides a bar up from the bottom edge. Used by the cart bar, which appears
+   the moment the first dish goes in and would otherwise pop. */
+@keyframes store-rise {
+  from { transform: translateY(110%); }
+  to   { transform: translateY(0); }
+}
+
+@utility animate-rise {
+  animation: store-rise 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Quantity readout in a stepper: the number swaps in place, and without this
+   it reads as a static label that happened to change. */
+@keyframes store-pop {
+  0%   { transform: scale(0.7); opacity: 0.4; }
+  60%  { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@utility animate-pop {
+  animation: store-pop 0.2s ease-out;
+}
+
 /* ============================================================ */
 /* Veg & non-veg badge indicators                               */
 /* ------------------------------------------------------------ */
@@ -304,60 +482,55 @@ body[data-scroll-locked] {
 /* the printed bill needs them without loading React.             */
 /* ============================================================ */
 
+/* The mark scales off one custom property so a 14px mark in a cart row and an
+   18px one on a dish card are the same drawing, not two hand-tuned copies
+   that drift. `em`-free on purpose: these sit next to text of many sizes and
+   must stay a fixed, recognisable size regardless. */
 .veg-indicator,
-.non-veg-indicator {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
+.non-veg-indicator,
+.egg-indicator {
+  --mark-size: 15px;
+  width: var(--mark-size);
+  height: var(--mark-size);
+  border-radius: calc(var(--mark-size) / 5);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1.5px solid #2e7d32;
+  border: 1.5px solid var(--veg-mark);
   position: relative;
   flex-shrink: 0;
   vertical-align: middle;
+  background: #fff;
 }
 
-.veg-indicator::after {
+.veg-indicator::after,
+.egg-indicator::after {
   content: '';
-  width: 6px;
-  height: 6px;
+  width: calc(var(--mark-size) * 0.44);
+  height: calc(var(--mark-size) * 0.44);
   border-radius: 50%;
-  background-color: #2e7d32;
+  background-color: var(--veg-mark);
 }
 
 .non-veg-indicator {
-  border-color: #c62828;
+  border-color: var(--nonveg-mark);
 }
 
 .non-veg-indicator::after {
   content: '';
   width: 0;
   height: 0;
-  border-left: 4px solid transparent;
-  border-right: 4px solid transparent;
-  border-bottom: 7px solid #c62828;
+  border-left: calc(var(--mark-size) * 0.28) solid transparent;
+  border-right: calc(var(--mark-size) * 0.28) solid transparent;
+  border-bottom: calc(var(--mark-size) * 0.48) solid var(--nonveg-mark);
 }
 
 .egg-indicator {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid #d97706;
-  position: relative;
-  flex-shrink: 0;
-  vertical-align: middle;
+  border-color: var(--egg-mark);
 }
 
 .egg-indicator::after {
-  content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #d97706;
+  background-color: var(--egg-mark);
 }
 
 
@@ -597,21 +770,37 @@ body[data-scroll-locked] {
   }
 }
 
-/* Smooth Page Route Transition Keyframes */
+/* ============================================================ */
+/* Page route transition                                        */
+/* ------------------------------------------------------------ */
+/* Opacity only, and deliberately so.                            */
+/*                                                               */
+/* This class sits on app/template.tsx, i.e. on an ancestor of    */
+/* every page. It used to also animate `transform` and declare    */
+/* `will-change: opacity, transform`, and either of those makes   */
+/* the element a *containing block for fixed-position            */
+/* descendants* — `transform` permanently, because the animation  */
+/* holds a non-`none` end state, and `will-change` always.        */
+/*                                                               */
+/* The effect was that every `position: fixed` bar rendered       */
+/* inside a page — the storefront's cart bar, the checkout pay    */
+/* bar, the floating menu button — measured its `bottom` against  */
+/* the full scroll height of the page instead of the viewport,    */
+/* and landed 30,000px down where nobody would ever see it.       */
+/* (The phone bottom nav escaped only because it is mounted in    */
+/* providers.tsx, outside this wrapper.)                          */
+/*                                                               */
+/* A slide would have to come back as a property that doesn't     */
+/* establish a containing block; `transform`, `translate`,        */
+/* `filter` and `perspective` all do. Not worth it for 320ms.     */
+/* ============================================================ */
 @keyframes pageFadeIn {
-  0% {
-    opacity: 0;
-    transform: translateY(8px) scale(0.996);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .animate-page-transition {
-  animation: pageFadeIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: opacity, transform;
+  animation: pageFadeIn 0.28s ease-out both;
 }
 
 /* Slow ping for the active order stage indicator */

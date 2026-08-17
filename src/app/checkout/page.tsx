@@ -4,7 +4,7 @@ import React, { Suspense, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ArrowRight, Banknote, CheckCircle2, Copy, CreditCard, Lock, LogIn,
+  ArrowRight, Banknote, Check, Copy, CreditCard, Loader2, Lock,
   Phone, ShoppingBag, Store, User,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,25 +15,17 @@ import Footer from '@/components/customer/Footer';
 import { Container } from '@/components/customer/Container';
 import { BillSummary } from '@/components/customer/BillSummary';
 import { CouponField } from '@/components/customer/CouponField';
-import PrintBillButton from '@/components/bill/PrintBillButton';
+import { VegMark } from '@/components/customer/store-ui';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
-import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
+import { generateOrderId } from '@/lib/idGenerator';
 import { supabase } from '@/lib/supabase';
 import { normalizePhone } from '@/lib/validation';
 import { accountDisplayName, isInternalPhoneEmail } from '@/lib/phoneIdentity';
 import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
 import { restaurantInfo } from '@/data/restaurantInfo';
 import type { Order, PaymentMode, PaymentStatus } from '@/types';
-
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { EmptyState } from '@/components/ui/empty-state';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 
 interface RazorpayResponse {
   razorpay_order_id: string;
@@ -93,7 +85,7 @@ function CheckoutForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { state, subtotal, cgst, sgst, discountAmount, clearCart } = useCart();
-  const { user, loading: authLoading, openAuthModal } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { addOrderLocallyAndDB } = useAdmin();
 
   const [form, setForm] = useState({ name: '', phone: '' });
@@ -462,27 +454,30 @@ function CheckoutForm() {
   // ─── Empty cart ─────────────────────────────────────────────────────────
   if (state.items.length === 0 && !placed) {
     return (
-      <>
+      <div className="bg-store flex min-h-screen flex-col">
         <Navbar />
-        <main className="grid min-h-[70vh] place-items-center py-16">
-          <div className="w-full max-w-md px-5">
-            <EmptyState
-              icon={ShoppingBag}
-              title="Nothing to check out"
-              description="Your cart is empty — add a dish or two and come back."
-              action={
-                <Button asChild variant="brand" size="lg">
-                  <Link href="/menu">
-                    Browse Menu
-                    <ArrowRight />
-                  </Link>
-                </Button>
-              }
-            />
+        <main className="grid flex-1 place-items-center px-4 py-16">
+          <div className="w-full max-w-sm text-center">
+            <span className="bg-brand-50 text-brand-500 mx-auto mb-5 grid size-20 place-items-center rounded-full">
+              <ShoppingBag className="size-9" />
+            </span>
+            <h1 className="text-ink-1 font-display text-[22px] font-black tracking-tight">
+              Nothing to check out
+            </h1>
+            <p className="text-ink-3 mt-2 text-[13.5px] leading-relaxed">
+              Your cart is empty — add a dish or two and come back.
+            </p>
+            <Link
+              href="/menu"
+              className="bg-brand hover:bg-brand-600 mt-6 inline-flex h-12 items-center gap-2 rounded-xl px-7 text-[15px] font-extrabold text-white transition-colors"
+            >
+              Browse the menu
+              <ArrowRight className="size-[18px]" />
+            </Link>
           </div>
         </main>
         <Footer />
-      </>
+      </div>
     );
   }
 
@@ -494,246 +489,271 @@ function CheckoutForm() {
     )}`;
 
     return (
-      <>
+      <div className="bg-store flex min-h-screen flex-col">
         <Navbar />
-        <main className="grid min-h-[70vh] place-items-center py-12">
-          <div className="w-full max-w-lg px-5">
-            <Card className="rounded-3xl text-center">
-              <CardContent className="grid gap-5 p-8">
-                <div className="bg-success/10 text-success mx-auto grid size-20 place-items-center rounded-full">
-                  <CheckCircle2 className="size-11" />
-                </div>
+        <main className="grid flex-1 place-items-center px-4 py-10">
+          <div className="w-full max-w-md">
+            <div className="border-hair-1 shadow-store overflow-hidden rounded-2xl border bg-white">
+              {/* Green, not orange. This panel confirms something that already
+                  happened — there is no action left to take here. */}
+              <div className="bg-veg px-6 py-8 text-center text-white">
+                <span className="mx-auto mb-4 grid size-16 place-items-center rounded-full bg-white/20">
+                  <Check className="size-9" strokeWidth={3} />
+                </span>
+                <h1 className="font-display text-[22px] font-black tracking-tight">
+                  Order confirmed
+                </h1>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-white/85">
+                  It&apos;s with the kitchen now. Ready for pickup at Madhapur in about 25 minutes.
+                </p>
+              </div>
 
-                <div className="grid gap-1.5">
-                  <h1 className="font-display text-2xl font-black tracking-tight">
-                    Order confirmed
-                  </h1>
-                  <p className="text-muted-foreground text-sm">
-                    We&apos;ve sent it to the kitchen. It&apos;ll be ready for pickup at Madhapur
-                    in about 25 minutes.
-                  </p>
-                </div>
-
-                <div className="bg-muted grid gap-2 rounded-xl p-4">
-                  <p className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
+              <div className="p-5 sm:p-6">
+                <div className="border-hair-1 rounded-xl border border-dashed px-4 py-3.5 text-center">
+                  <p className="text-ink-4 text-[11px] font-bold tracking-wider uppercase">
                     Order ID
                   </p>
-                  <div className="flex items-center justify-center gap-2">
-                    <code className="text-lg font-black break-all">{completedOrder.orderId}</code>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
+                  <div className="mt-1 flex items-center justify-center gap-1.5">
+                    <code className="text-ink-1 text-[17px] font-black break-all">
+                      {completedOrder.orderId}
+                    </code>
+                    <button
+                      type="button"
                       aria-label="Copy order ID"
                       onClick={() => {
                         navigator.clipboard.writeText(completedOrder.orderId);
                         toast.success('Order ID copied');
                       }}
+                      className="text-ink-4 hover:text-ink-1 hover:bg-hair-2 grid size-8 place-items-center rounded-lg transition-colors"
                     >
-                      <Copy />
-                    </Button>
+                      <Copy className="size-4" />
+                    </button>
                   </div>
-                  <Badge
-                    variant={isPaid ? 'soft-success' : 'soft-warning'}
-                    className="mx-auto"
-                    size="lg"
+                </div>
+
+                <div className="border-hair-2 mt-5 flex items-baseline justify-between border-t pt-4">
+                  <span className="text-ink-3 text-[13.5px]">Amount</span>
+                  <span className="text-ink-1 text-[20px] font-black tabular-nums">
+                    {formatCurrency(completedOrder.grandTotal)}
+                  </span>
+                </div>
+                <p
+                  className={cn(
+                    'mt-2 inline-flex rounded-lg px-2.5 py-1 text-[12px] font-bold',
+                    isPaid ? 'bg-saving/10 text-saving' : 'bg-brand-50 text-brand-700'
+                  )}
+                >
+                  {isPaid ? 'Paid online' : 'Pay at the counter when you collect'}
+                </p>
+
+                <div className="mt-6 grid gap-2.5">
+                  <a
+                    href={whatsappHref}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="bg-brand hover:bg-brand-600 flex h-12 items-center justify-center rounded-xl text-[14.5px] font-extrabold text-white transition-colors"
                   >
-                    {isPaid ? 'Paid online' : 'Pay at counter'}
-                  </Badge>
+                    Message the kitchen on WhatsApp
+                  </a>
+                  <Link
+                    href="/orders"
+                    className="border-hair-1 text-ink-2 hover:bg-hair-2 flex h-12 items-center justify-center rounded-xl border text-[14.5px] font-bold transition-colors"
+                  >
+                    Track this order
+                  </Link>
                 </div>
-
-                <div className="flex items-baseline justify-between text-left">
-                  <span className="text-muted-foreground text-sm">Amount</span>
-                  <span className="text-xl font-black">{formatCurrency(completedOrder.grandTotal)}</span>
-                </div>
-
-                <Separator />
-
-                <div className="grid gap-2">
-                  <Button asChild variant="brand" size="lg">
-                    <a href={whatsappHref} target="_blank" rel="noreferrer noopener">
-                      Message the kitchen on WhatsApp
-                    </a>
-                  </Button>
-                  <Button asChild variant="ghost">
-                    <Link href="/orders">View my orders</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
         </main>
         <Footer />
-      </>
+      </div>
     );
   }
 
   // ─── Checkout form ──────────────────────────────────────────────────────
+  const payLabel = paymentChoice === 'online' ? 'Pay now' : 'Place order';
+
   return (
-    <>
+    <div className="bg-store flex min-h-screen flex-col">
       <Navbar />
 
-      <main className="min-h-[85vh] py-4 md:py-5">
-        <Container>
-          <header className="mb-3">
-            <h1 className="font-display text-xl font-black tracking-tight md:text-2xl">
+      <main className="flex-1 py-5 sm:py-7">
+        <Container className="max-w-[1060px]">
+          <header className="mb-4">
+            <h1 className="text-ink-1 font-display text-[22px] font-black tracking-tight sm:text-[26px]">
               Checkout
             </h1>
-            <p className="text-muted-foreground mt-0.5 flex items-center gap-1.5 text-xs sm:text-sm">
-              <Store className="size-4" />
+            <p className="text-ink-3 mt-1 flex items-center gap-1.5 text-[13px] font-medium">
+              <Store className="text-brand size-4" />
               Takeaway — collect from our Madhapur counter
             </p>
           </header>
 
-
-          <div className="grid items-start gap-6 lg:grid-cols-[1fr_22rem]">
-            <div className="grid gap-6">
+          <div className="grid items-start gap-5 lg:grid-cols-[1fr_23rem]">
+            <div className="grid gap-5">
               {/* ── Your details ───────────────────────────────────────── */}
-              <Card>
-                <CardContent className="grid gap-4">
-                  <h2 className="font-display text-lg font-bold">Your details</h2>
+              <section className="border-hair-1 shadow-store rounded-2xl border bg-white p-5 sm:p-6">
+                <h2 className="text-ink-1 text-[16px] font-extrabold">Your details</h2>
+                <p className="text-ink-4 mt-0.5 text-[12.5px]">
+                  The kitchen calls this number when the order is ready.
+                </p>
 
-                  <div className="grid gap-2">
-                    <Label htmlFor="checkout-name">Full name</Label>
-                    <div className="relative">
-                      <User
-                        className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2"
-                        aria-hidden="true"
-                      />
-                      <Input
-                        id="checkout-name"
-                        value={effectiveName}
-                        onChange={(e) => setForm({ ...form, name: e.target.value })}
-                        aria-invalid={!!errors.name}
-                        autoComplete="name"
-                        placeholder="Name for the order"
-                        className="pl-10"
-                      />
-                    </div>
-                    {errors.name && (
-                      <p className="text-destructive text-xs font-medium">{errors.name}</p>
-                    )}
-                  </div>
+                <div className="mt-5 grid gap-4">
+                  <Field
+                    id="checkout-name"
+                    label="Full name"
+                    icon={User}
+                    error={errors.name}
+                    value={effectiveName}
+                    onChange={(value) => setForm({ ...form, name: value })}
+                    placeholder="Name for the order"
+                    autoComplete="name"
+                  />
 
-                  <div className="grid gap-2">
-                    <Label htmlFor="checkout-phone">Mobile number</Label>
-                    <div className="relative">
-                      <Phone
-                        className="text-muted-foreground pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2"
-                        aria-hidden="true"
-                      />
-                      <Input
-                        id="checkout-phone"
-                        type="tel"
-                        inputMode="numeric"
-                        value={effectivePhone}
-                        onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                        aria-invalid={!!errors.phone}
-                        autoComplete="tel"
-                        placeholder="10-digit mobile number"
-                        className="pl-10"
-                      />
-                    </div>
-                    {errors.phone ? (
-                      <p className="text-destructive text-xs font-medium">{errors.phone}</p>
-                    ) : (
-                      <p className="text-muted-foreground text-xs">
-                        We&apos;ll text you when the order is ready.
-                      </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  <Field
+                    id="checkout-phone"
+                    label="Mobile number"
+                    icon={Phone}
+                    error={errors.phone}
+                    hint="We'll text you when the order is ready."
+                    value={effectivePhone}
+                    onChange={(value) => setForm({ ...form, phone: value })}
+                    placeholder="10-digit mobile number"
+                    autoComplete="tel"
+                    type="tel"
+                    inputMode="numeric"
+                  />
+                </div>
+              </section>
 
               {/* ── Payment ────────────────────────────────────────────── */}
-              <Card>
-                <CardContent className="grid gap-4">
-                  <h2 className="font-display text-lg font-bold">How would you like to pay?</h2>
+              <section className="border-hair-1 shadow-store rounded-2xl border bg-white p-5 sm:p-6">
+                <h2 className="text-ink-1 text-[16px] font-extrabold">How would you like to pay?</h2>
 
-                  <div
-                    role="radiogroup"
-                    aria-label="Payment method"
-                    className="grid gap-3 sm:grid-cols-2"
-                  >
-                    <PaymentOption
-                      selected={paymentChoice === 'online'}
-                      onSelect={() => setPaymentChoice('online')}
-                      icon={CreditCard}
-                      title="Pay online"
-                      description="UPI, card or wallet — secured by Razorpay"
-                    />
-                    <PaymentOption
-                      selected={paymentChoice === 'counter'}
-                      onSelect={() => setPaymentChoice('counter')}
-                      icon={Banknote}
-                      title="Pay at counter"
-                      description="Settle when you collect your order"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+                <div
+                  role="radiogroup"
+                  aria-label="Payment method"
+                  className="mt-4 grid gap-3 sm:grid-cols-2"
+                >
+                  <PaymentOption
+                    selected={paymentChoice === 'online'}
+                    onSelect={() => setPaymentChoice('online')}
+                    icon={CreditCard}
+                    title="Pay online"
+                    description="UPI, card or wallet — secured by Razorpay"
+                  />
+                  <PaymentOption
+                    selected={paymentChoice === 'counter'}
+                    onSelect={() => setPaymentChoice('counter')}
+                    icon={Banknote}
+                    title="Pay at counter"
+                    description="Settle when you collect your order"
+                  />
+                </div>
+              </section>
             </div>
 
             {/* ── Summary ──────────────────────────────────────────────── */}
-            <Card className="lg:sticky lg:top-24">
-              <CardContent className="grid gap-4">
-                <h2 className="font-display text-lg font-bold">Order summary</h2>
+            <aside className="border-hair-1 shadow-store rounded-2xl border bg-white p-5 sm:p-6 lg:sticky lg:top-[calc(var(--store-header-h)+1.25rem)]">
+              <h2 className="text-ink-1 text-[16px] font-extrabold">Order summary</h2>
 
-                <ul className="grid gap-2 text-sm">
-                  {state.items.map((item) => (
-                    <li
-                      key={`${item.id}-${item.selectedPortion}`}
-                      className="flex justify-between gap-3"
-                    >
+              <ul className="divide-hair-2 mt-3 divide-y">
+                {state.items.map((item) => (
+                  <li
+                    key={`${item.id}-${item.selectedPortion}`}
+                    className="flex items-start justify-between gap-3 py-2.5 text-[13px]"
+                  >
+                    <span className="text-ink-2 flex min-w-0 items-start gap-2">
+                      <span className="mt-0.5 shrink-0">
+                        <VegMark status={item.vegStatus} size={13} />
+                      </span>
                       <span className="min-w-0">
-                        <span className="text-muted-foreground font-semibold tabular-nums">
-                          {item.quantity}×
-                        </span>{' '}
                         {item.name}
+                        <span className="text-ink-4 ml-1 font-semibold tabular-nums">
+                          × {item.quantity}
+                        </span>
                       </span>
-                      <span className="shrink-0 font-semibold tabular-nums">
-                        {formatCurrency((item.selectedPrice ?? item.price) * item.quantity)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                    </span>
+                    <span className="text-ink-1 shrink-0 font-semibold tabular-nums">
+                      {formatCurrency((item.selectedPrice ?? item.price) * item.quantity)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
 
-                <Separator />
+              <CouponField
+                subtotal={subtotal}
+                discountAmount={discountAmount}
+                className="border-hair-2 mt-4 border-t pt-4"
+              />
 
-                <CouponField subtotal={subtotal} discountAmount={discountAmount} />
+              <BillSummary
+                subtotal={subtotal}
+                discountAmount={discountAmount}
+                cgst={cgst}
+                sgst={sgst}
+                grandTotal={grandTotal}
+                className="border-hair-2 mt-4 border-t pt-4"
+              />
 
-                <BillSummary
-                  subtotal={subtotal}
-                  discountAmount={discountAmount}
-                  cgst={cgst}
-                  sgst={sgst}
-                  grandTotal={grandTotal}
-                />
+              {/* Desktop pay button. The phone gets the fixed bar below
+                  instead, so this one is hidden there rather than duplicated. */}
+              <button
+                type="button"
+                onClick={handleProceedToPayment}
+                disabled={loading}
+                className="bg-brand hover:bg-brand-600 mt-5 hidden h-13 w-full items-center justify-between rounded-xl px-5 text-white transition-colors disabled:opacity-60 lg:flex"
+              >
+                <span className="text-[15px] font-extrabold tabular-nums">
+                  {formatCurrency(grandTotal)}
+                </span>
+                <span className="flex items-center gap-1.5 text-[14px] font-extrabold tracking-wide">
+                  {loading ? <Loader2 className="size-[18px] animate-spin" /> : payLabel}
+                  {!loading && <ArrowRight className="size-[18px]" />}
+                </span>
+              </button>
 
-                <Button
-                  variant="brand"
-                  size="lg"
-                  className="w-full"
-                  loading={loading}
-                  onClick={handleProceedToPayment}
-                >
-                  {paymentChoice === 'online'
-                    ? `Pay ${formatCurrency(grandTotal)}`
-                    : `Place order · ${formatCurrency(grandTotal)}`}
-                  {!loading && <ArrowRight />}
-                </Button>
-
-                <p className="text-muted-foreground flex items-center justify-center gap-1.5 text-xs">
-                  <Lock className="size-3.5" />
-                  Payments are processed securely by Razorpay
-                </p>
-              </CardContent>
-            </Card>
+              <p className="text-ink-4 mt-3 flex items-center justify-center gap-1.5 text-[11.5px] font-medium">
+                <Lock className="size-3.5" />
+                Payments are processed securely by Razorpay
+              </p>
+            </aside>
           </div>
         </Container>
       </main>
 
+      {/* Phone pay bar. Checkout hides the bottom nav (see MobileBottomNav's
+          HIDDEN_PREFIXES), so this only has to clear the home indicator. */}
+      <div
+        className="border-hair-1 fixed inset-x-0 bottom-0 z-30 border-t bg-white px-4 py-3 lg:hidden"
+        style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom,0px))' }}
+      >
+        <button
+          type="button"
+          onClick={handleProceedToPayment}
+          disabled={loading}
+          className="bg-brand hover:bg-brand-600 flex h-13 w-full items-center justify-between rounded-xl px-5 text-white transition-colors active:scale-[0.99] disabled:opacity-60"
+        >
+          <span className="flex flex-col items-start leading-tight">
+            <span className="text-[11.5px] font-semibold text-white/85">
+              {paymentChoice === 'online' ? 'UPI · card · wallet' : 'Pay when you collect'}
+            </span>
+            <span className="text-[16px] font-extrabold tabular-nums">
+              {formatCurrency(grandTotal)}
+            </span>
+          </span>
+          <span className="flex items-center gap-1.5 text-[14px] font-extrabold tracking-wide">
+            {loading ? <Loader2 className="size-[18px] animate-spin" /> : payLabel}
+            {!loading && <ArrowRight className="size-[18px]" />}
+          </span>
+        </button>
+      </div>
+
+      <div aria-hidden="true" className="h-[76px] lg:hidden" />
+
       <Footer />
-    </>
+    </div>
   );
 }
 
@@ -765,26 +785,84 @@ function PaymentOption({
       aria-checked={selected}
       onClick={onSelect}
       className={cn(
-        'flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-colors outline-none',
-        'focus-visible:ring-ring/40 focus-visible:ring-[3px]',
-        selected ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'
+        'flex items-start gap-3 rounded-xl border p-4 text-left transition-colors outline-none',
+        'focus-visible:ring-brand/25 focus-visible:ring-[3px]',
+        selected ? 'border-brand bg-brand-50' : 'border-hair-1 hover:border-ink-4/50 bg-white'
       )}
     >
       <span
         className={cn(
-          'mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border-2',
-          selected ? 'border-primary' : 'border-muted-foreground/40'
+          'mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full border-2',
+          selected ? 'border-brand' : 'border-ink-4/50'
         )}
       >
-        {selected && <span className="bg-primary size-2.5 rounded-full" />}
+        {selected && <span className="bg-brand size-2.5 rounded-full" />}
       </span>
       <span className="min-w-0">
-        <span className="flex items-center gap-1.5 text-sm font-bold">
-          <Icon className="size-4" />
+        <span className="text-ink-1 flex items-center gap-1.5 text-[14px] font-bold">
+          <Icon className={cn('size-4', selected ? 'text-brand' : 'text-ink-4')} />
           {title}
         </span>
-        <span className="text-muted-foreground mt-0.5 block text-xs">{description}</span>
+        <span className="text-ink-3 mt-1 block text-[12px] leading-snug">{description}</span>
       </span>
     </button>
+  );
+}
+
+/**
+ * One labelled input. Extracted because the two on this page were 20 identical
+ * lines apart from the icon, and the error/hint slot below them had already
+ * drifted — one showed the hint under an error, the other replaced it.
+ */
+function Field({
+  id,
+  label,
+  icon: Icon,
+  value,
+  onChange,
+  error,
+  hint,
+  ...input
+}: {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  value: string;
+  onChange: (value: string) => void;
+  error?: string;
+  hint?: string;
+} & Omit<React.ComponentProps<'input'>, 'id' | 'value' | 'onChange'>) {
+  return (
+    <div className="grid gap-1.5">
+      <label htmlFor={id} className="text-ink-2 text-[13px] font-bold">
+        {label}
+      </label>
+      <div className="relative">
+        <Icon className="text-ink-4 pointer-events-none absolute top-1/2 left-3.5 size-[17px] -translate-y-1/2" />
+        <input
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          aria-invalid={!!error}
+          aria-describedby={error || hint ? `${id}-note` : undefined}
+          className={cn(
+            'text-ink-1 placeholder:text-ink-4 h-12 w-full rounded-xl border bg-white pr-4 pl-11 text-[14px] font-medium',
+            'transition-colors outline-none focus:ring-[3px]',
+            error
+              ? 'border-nonveg focus:ring-nonveg/20'
+              : 'border-hair-1 focus:border-brand-300 focus:ring-brand/15'
+          )}
+          {...input}
+        />
+      </div>
+      {(error || hint) && (
+        <p
+          id={`${id}-note`}
+          className={cn('text-[12px]', error ? 'text-nonveg font-semibold' : 'text-ink-4')}
+        >
+          {error || hint}
+        </p>
+      )}
+    </div>
   );
 }

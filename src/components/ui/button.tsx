@@ -16,8 +16,13 @@ const buttonVariants = cva(
       variant: {
         default:
           'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md hover:shadow-primary/20',
+        // The storefront's action colour. Solid, not the gradient it used to
+        // be: a gradient under white text has two different contrast ratios
+        // across one button, and the darker end was the only one that passed.
+        // Only the customer site uses `brand` — the admin console and the POS
+        // run on their own `--ad-*` system and never reach for it.
         brand:
-          'text-primary-foreground shadow-sm bg-linear-to-br from-primary to-accent hover:shadow-lg hover:shadow-primary/25',
+          'bg-brand text-white shadow-sm hover:bg-brand-600 focus-visible:ring-brand/35',
         destructive:
           'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 focus-visible:ring-destructive/40',
         success:

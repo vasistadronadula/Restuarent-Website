@@ -172,6 +172,13 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: id, newStatus: status }),
       }).catch(() => {/* non-critical */});
+
+      // Push notification to subscribed staff devices
+      fetch('/api/push/notify-status-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: id, newStatus: status }),
+      }).catch(() => {/* non-critical */});
     }
 
     return true;
@@ -185,6 +192,14 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
       return false;
     }
     notify(`Added +${delayMinutes}m delay to order ${id}`);
+
+    // Fire-and-forget: alert front-of-house staff via push
+    fetch('/api/push/notify-delay', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId: id, extraMinutes: delayMinutes, reason: notes }),
+    }).catch(() => {/* non-critical */});
+
     return true;
   };
 

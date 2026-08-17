@@ -2,14 +2,16 @@
 
 import React, { useMemo } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Clock, Plus, ShoppingBag, ShoppingCart, Trash2, ShieldCheck, Utensils, Tag } from 'lucide-react';
+import { ArrowRight, Clock, Plus, ShieldCheck, ShoppingBag, Store, Trash2 } from 'lucide-react';
 
+import { formatCurrency } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import { Container } from '@/components/customer/Container';
 import { BillSummary } from '@/components/customer/BillSummary';
 import { CartLineItem } from '@/components/customer/CartLineItem';
 import { CouponField } from '@/components/customer/CouponField';
+import { restaurantInfo } from '@/data/restaurantInfo';
 import { useCoupons } from '@/lib/queries';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -22,11 +24,6 @@ import {
   getCartSgst,
   getCartGrandTotal,
 } from '@/store/useCartStore';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { EmptyState } from '@/components/ui/empty-state';
-import { Separator } from '@/components/ui/separator';
 
 export default function CartPage() {
   const items = useCartStore((s) => s.items);
@@ -50,195 +47,207 @@ export default function CartPage() {
     };
   }, [items, couponDiscount, couponMaxDiscount]);
 
-  const totalItemsCount = getCartTotalItems(items);
+  const itemCount = getCartTotalItems(items);
 
+  /* ── Empty ──────────────────────────────────────────────────────────── */
   if (items.length === 0) {
     const activeCoupons = coupons.filter((c) => c.isActive);
 
     return (
-      <>
+      <div className="bg-store flex min-h-screen flex-col">
         <Navbar />
-        <main className="flex min-h-[75vh] items-center justify-center py-10 px-4">
-          <div className="w-full max-w-md">
-            <Card className="rounded-3xl border border-stone-200/80 dark:border-stone-800 shadow-sm bg-card">
-              <CardContent className="p-6 sm:p-8 text-center">
-                <EmptyState
-                  icon={ShoppingCart}
-                  title="Your cart is empty"
-                  description="You haven't added any dishes yet. Explore our authentic Telangana, Andhra, and Hyderabadi menu."
-                  action={
-                    <Button asChild variant="brand" size="lg" className="rounded-xl font-bold shadow-md">
-                      <Link href="/menu">
-                        <Utensils className="mr-1.5 size-4" />
-                        Browse Menu
-                        <ArrowRight className="ml-1 size-4" />
-                      </Link>
-                    </Button>
-                  }
-                  className="py-2"
-                />
 
-                {user ? (
-                  activeCoupons.length > 0 && (
-                    <>
-                      <Separator className="my-6" />
-                      <div className="space-y-2.5">
-                        <p className="text-muted-foreground text-xs font-bold uppercase tracking-wider">
-                          Available Offers Today
-                        </p>
-                        <div className="flex flex-wrap justify-center gap-2">
-                          {activeCoupons.map((c) => (
-                            <Badge key={c.code} variant="soft-warning" size="lg" className="rounded-lg font-bold">
-                              {c.code} · {c.discount}% off
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  )
-                ) : (
-                  <>
-                    <Separator className="my-6" />
-                    <div className="bg-stone-50 dark:bg-stone-900 border border-stone-200/60 dark:border-stone-800 rounded-2xl p-4 flex flex-col items-center gap-3">
-                      <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                        <Tag className="size-4 shrink-0" />
-                        <span className="text-xs font-bold uppercase tracking-wider">Unlock Special Offers</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground max-w-[280px] leading-normal mx-auto">
-                        Sign in to view active coupons and claim discounts on your order.
-                      </p>
-                      <Button size="sm" variant="brand" className="rounded-xl h-8 text-xs font-bold px-4" asChild>
-                        <Link href="/login?redirect=/cart">
-                          Log In
-                        </Link>
-                      </Button>
-                    </div>
-                  </>
-                )}
-              </CardContent>
-            </Card>
+        <main className="flex flex-1 items-center justify-center px-4 py-14">
+          <div className="w-full max-w-md text-center">
+            <span className="bg-brand-50 text-brand-500 mx-auto mb-5 grid size-20 place-items-center rounded-full">
+              <ShoppingBag className="size-9" />
+            </span>
+
+            <h1 className="text-ink-1 font-display text-[22px] font-black tracking-tight">
+              Your cart is empty
+            </h1>
+            <p className="text-ink-3 mx-auto mt-2 max-w-[320px] text-[13.5px] leading-relaxed">
+              Nothing added yet. Have a look at the biryanis, the vepudus and the day&apos;s
+              specials.
+            </p>
+
+            <Link
+              href="/menu"
+              className="bg-brand hover:bg-brand-600 mt-6 inline-flex h-12 items-center gap-2 rounded-xl px-7 text-[15px] font-extrabold text-white transition-colors"
+            >
+              Browse the menu
+              <ArrowRight className="size-[18px]" />
+            </Link>
+
+            {user && activeCoupons.length > 0 && (
+              <div className="border-hair-1 mt-8 rounded-2xl border border-dashed bg-white p-5">
+                <p className="text-ink-4 text-[11px] font-bold tracking-wider uppercase">
+                  Offers running today
+                </p>
+                <div className="mt-3 flex flex-wrap justify-center gap-2">
+                  {activeCoupons.map((c) => (
+                    <span
+                      key={c.code}
+                      className="border-brand-200 bg-brand-50 text-brand-800 rounded-lg border px-3 py-1.5 text-[12px] font-bold tracking-wide"
+                    >
+                      {c.code} · {c.discount}% off
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {!user && (
+              <div className="border-hair-1 mt-8 rounded-2xl border bg-white p-5">
+                <p className="text-ink-1 text-[14px] font-bold">Sign in for offers</p>
+                <p className="text-ink-3 mx-auto mt-1 max-w-[280px] text-[12.5px] leading-relaxed">
+                  Coupons, saved details and order history all live behind your account.
+                </p>
+                <Link
+                  href="/login?redirect=/cart"
+                  className="border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 mt-4 inline-flex h-10 items-center rounded-xl border px-5 text-[13px] font-extrabold transition-colors"
+                >
+                  Sign in
+                </Link>
+              </div>
+            )}
           </div>
         </main>
+
         <Footer />
-      </>
+      </div>
     );
   }
 
+  /* ── With items ─────────────────────────────────────────────────────── */
   return (
-    <>
+    <div className="bg-store flex min-h-screen flex-col">
       <Navbar />
 
-      <main className="min-h-[85vh] py-5 sm:py-7 pb-[calc(var(--ppr-bottom-nav-h,0px)+2.5rem)] md:pb-12">
-        <Container className="max-w-6xl">
-          {/* Header */}
-          <div className="mb-5 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border/60 pb-4">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-9 items-center justify-center rounded-xl bg-amber-500/15 text-amber-700 dark:text-amber-400">
-                  <ShoppingBag className="size-5" />
+      <main className="flex-1 py-5 sm:py-7">
+        <Container className="max-w-[1060px]">
+          <h1 className="text-ink-1 font-display mb-4 text-[22px] font-black tracking-tight sm:text-[26px]">
+            Your order
+          </h1>
+
+          <div className="grid items-start gap-5 lg:grid-cols-[1fr_23rem]">
+            {/* ── Items ─────────────────────────────────────────────── */}
+            <section className="border-hair-1 shadow-store overflow-hidden rounded-2xl border bg-white">
+              <header className="border-hair-2 flex items-center gap-3 border-b px-4 py-3.5 sm:px-5">
+                <span className="bg-brand-50 text-brand-600 grid size-10 shrink-0 place-items-center rounded-xl">
+                  <Store className="size-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-ink-1 truncate text-[15px] font-extrabold">
+                    {restaurantInfo.name}
+                  </p>
+                  <p className="text-ink-4 text-[12px] font-semibold">
+                    {itemCount} {itemCount === 1 ? 'item' : 'items'} · Takeaway from{' '}
+                    {restaurantInfo.addressLine}
+                  </p>
                 </div>
-                <h1 className="font-display text-xl sm:text-2xl font-black tracking-tight">
-                  Your Cart
-                </h1>
-                <Badge className="bg-primary text-primary-foreground font-black text-xs px-2.5 py-0.5 rounded-full">
-                  {totalItemsCount} {totalItemsCount === 1 ? 'item' : 'items'}
-                </Badge>
-              </div>
-              <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
-                Review your selected dishes before proceeding to secure checkout
-              </p>
-            </div>
+              </header>
 
-            <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex rounded-xl font-bold text-xs h-9">
-              <Link href="/menu">
-                <Plus className="size-3.5 mr-1" />
-                Add More Dishes
-              </Link>
-            </Button>
-          </div>
-
-          {/* Cart Grid Layout */}
-          <div className="grid items-start gap-6 lg:grid-cols-12">
-            {/* ── Left Column: Items List ─────────────────────────────────── */}
-            <div className="lg:col-span-7 xl:col-span-7 flex flex-col gap-4">
-              <ul className="flex flex-col gap-3">
+              <ul className="divide-hair-2 divide-y px-4 sm:px-5">
                 {items.map((item) => (
                   <CartLineItem key={`${item.id}-${item.selectedPortion}`} item={item} />
                 ))}
               </ul>
 
-              {/* Cart Action Buttons */}
-              <div className="flex items-center justify-between gap-3 pt-2">
-                <Button asChild variant="outline" size="sm" className="rounded-xl font-bold text-xs h-9 sm:hidden">
-                  <Link href="/menu">
-                    <Plus className="size-3.5 mr-1" />
-                    Add More Items
-                  </Link>
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:bg-destructive/10 text-xs font-bold h-9 rounded-xl ml-auto"
-                  onClick={() => useCartStore.getState().clearCart()}
+              <div className="border-hair-2 flex items-center justify-between gap-3 border-t px-4 py-3 sm:px-5">
+                <Link
+                  href="/menu"
+                  className="text-brand-700 hover:bg-brand-50 inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[13px] font-extrabold transition-colors"
                 >
-                  <Trash2 className="size-3.5 mr-1.5" />
-                  Clear Entire Cart
-                </Button>
+                  <Plus className="size-4" />
+                  Add more items
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={() => useCartStore.getState().clearCart()}
+                  className="text-ink-4 hover:text-nonveg hover:bg-nonveg/8 inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[13px] font-bold transition-colors"
+                >
+                  <Trash2 className="size-4" />
+                  Empty cart
+                </button>
               </div>
-            </div>
+            </section>
 
-            {/* ── Right Column: Order Summary ────────────────────────────── */}
-            <div className="lg:col-span-5 xl:col-span-5 lg:sticky lg:top-24 flex flex-col gap-4">
-              <Card className="rounded-2xl border border-stone-200/90 dark:border-stone-800 shadow-sm bg-card overflow-hidden">
-                <div className="bg-stone-50 dark:bg-stone-900/60 px-5 py-3.5 border-b border-border/80 flex items-center justify-between">
-                  <h2 className="font-display text-sm sm:text-base font-bold text-foreground">
-                    Bill Summary
-                  </h2>
-                  <span className="text-xs text-muted-foreground font-semibold">
-                    {totalItemsCount} {totalItemsCount === 1 ? 'dish' : 'dishes'}
+            {/* ── Bill ──────────────────────────────────────────────── */}
+            <aside className="flex flex-col gap-4 lg:sticky lg:top-[calc(var(--store-header-h)+1.25rem)]">
+              <div className="border-hair-1 shadow-store rounded-2xl border bg-white p-4 sm:p-5">
+                <CouponField
+                  subtotal={totals.subtotal}
+                  discountAmount={totals.discountAmount}
+                  className="mb-5"
+                />
+
+                <BillSummary {...totals} />
+
+                {/* Desktop only. On a phone the fixed bar at the bottom of the
+                    screen is already this button, and rendering both put two
+                    identical orange Checkout buttons on screen at once. */}
+                <Link
+                  href="/checkout"
+                  className="bg-brand hover:bg-brand-600 mt-5 hidden h-13 w-full items-center justify-between rounded-xl px-5 text-white transition-colors lg:flex"
+                >
+                  <span className="text-[15px] font-extrabold tabular-nums">
+                    {formatCurrency(totals.grandTotal)}
                   </span>
-                </div>
+                  <span className="flex items-center gap-1.5 text-[14px] font-extrabold tracking-wide">
+                    Checkout
+                    <ArrowRight className="size-[18px]" />
+                  </span>
+                </Link>
+              </div>
 
-                <CardContent className="p-5 sm:p-6 space-y-4">
-                  {/* Coupon / Promo Code Field */}
-                  <CouponField
-                    subtotal={totals.subtotal}
-                    discountAmount={totals.discountAmount}
-                  />
-
-                  <Separator />
-
-                  {/* Calculated Bill Breakdown */}
-                  <BillSummary {...totals} />
-
-                  {/* Checkout Button */}
-                  <Button asChild variant="brand" size="lg" className="w-full h-12 rounded-xl text-base font-extrabold shadow-md">
-                    <Link href="/checkout">
-                      Proceed to Checkout
-                      <ArrowRight className="ml-1.5 size-4" />
-                    </Link>
-                  </Button>
-
-                  {/* Delivery & Assurance Info */}
-                  <div className="space-y-2 pt-1 border-t border-border/60">
-                    <p className="text-muted-foreground flex items-center justify-center gap-1.5 text-xs font-medium text-center">
-                      <Clock className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                      Freshly prepared · Ready in ~25-30 mins
-                    </p>
-                    <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground/80">
-                      <ShieldCheck className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      100% Authentic Telugu & Hyderabadi Quality
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+              <div className="text-ink-3 grid gap-2 px-1 text-[12.5px]">
+                <p className="flex items-center gap-2">
+                  <Clock className="text-brand size-4 shrink-0" />
+                  Cooked to order · ready in about 25–30 minutes
+                </p>
+                <p className="flex items-center gap-2">
+                  <ShieldCheck className="text-veg size-4 shrink-0" />
+                  Collect from our Madhapur counter — no delivery charge
+                </p>
+              </div>
+            </aside>
           </div>
         </Container>
       </main>
 
+      {/* Phone-only checkout bar. The bill card's own button is below the fold
+          on a 360px screen once there are three dishes in the cart. */}
+      <div
+        className="border-hair-1 fixed inset-x-0 z-30 border-t bg-white px-4 py-3 lg:hidden"
+        style={{
+          bottom: 'calc(var(--ppr-bottom-nav-h,0px) + env(safe-area-inset-bottom,0px))',
+        }}
+      >
+        <Link
+          href="/checkout"
+          className="bg-brand hover:bg-brand-600 flex h-13 w-full items-center justify-between rounded-xl px-5 text-white transition-colors active:scale-[0.99]"
+        >
+          <span className="flex flex-col leading-tight">
+            <span className="text-[11.5px] font-semibold text-white/85 tabular-nums">
+              {itemCount} {itemCount === 1 ? 'item' : 'items'}
+            </span>
+            <span className="text-[16px] font-extrabold tabular-nums">
+              {formatCurrency(totals.grandTotal)}
+            </span>
+          </span>
+          <span className="flex items-center gap-1.5 text-[14px] font-extrabold tracking-wide">
+            Checkout
+            <ArrowRight className="size-[18px]" />
+          </span>
+        </Link>
+      </div>
+
+      {/* Reserves the fixed bar's height so the footer clears it. */}
+      <div aria-hidden="true" className="h-[76px] lg:hidden" />
+
       <Footer />
-    </>
+    </div>
   );
 }

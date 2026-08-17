@@ -1,21 +1,25 @@
 'use client';
 
-import React, { Suspense, useCallback, useMemo, useState } from 'react';
+import React, { Suspense, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { Search, UtensilsCrossed, X, ShoppingBag, BookOpen, LayoutGrid, List } from 'lucide-react';
+import {
+  ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, LayoutGrid, MapPin, Rows3,
+  Search, Star, UtensilsCrossed, X,
+} from 'lucide-react';
 
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import { Container } from '@/components/customer/Container';
 import MenuCard from '@/components/customer/MenuCard';
 import DishListItem from '@/components/customer/DishListItem';
+import CategoryRail, { type RailCategory } from '@/components/customer/CategoryRail';
+import MenuNavSheet from '@/components/customer/MenuNavSheet';
+import StoreCartBar from '@/components/customer/StoreCartBar';
+import { FilterPill, SectionHeading, VegMark } from '@/components/customer/store-ui';
 import { useAdmin } from '@/context/AdminContext';
-import { VegStatus } from '@/types';
-import { Button } from '@/components/ui/button';
-import { EmptyState } from '@/components/ui/empty-state';
-import { Input } from '@/components/ui/input';
+import { restaurantInfo } from '@/data/restaurantInfo';
+import type { MenuItem, VegStatus } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import {
@@ -29,54 +33,23 @@ import {
   getCartGrandTotal,
 } from '@/store/useCartStore';
 
-/* ------------------------------------------------------------------ */
-/*  Static filters                                                     */
-/* ------------------------------------------------------------------ */
+const ALL = 'all';
 
-const VEG_FILTERS: { value: VegStatus | 'all'; label: string; dot: string }[] = [
-  { value: 'all', label: 'All', dot: 'bg-stone-500' },
-  { value: 'veg', label: 'Veg Only', dot: 'bg-emerald-600' },
-  { value: 'non-veg', label: 'Non-Veg', dot: 'bg-rose-600' },
-  { value: 'egg', label: 'Egg', dot: 'bg-amber-500' },
-];
+type SortMode = 'default' | 'price-asc' | 'price-desc';
 
 const isVegStatus = (value: string | null): value is VegStatus =>
   value !== null && ['veg', 'non-veg', 'egg'].includes(value);
 
-
 /* ------------------------------------------------------------------ */
-/*  Menu Browser — Single Screen Billing POS Layout                   */
+/*  Menu browser                                                       */
 /* ------------------------------------------------------------------ */
 
 function MenuBrowser() {
-  const { menuItems: liveMenuItems, isLoadingDB, categories } = useAdmin();
+  const { menuItems, isLoadingDB, categories } = useAdmin();
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Build dynamic category items from DB
-  const CATEGORY_ITEMS = useMemo(() => {
-    const items: { id: string; label: string; image: string }[] = [
-      { id: 'all', label: 'All Items', image: '' },
-    ];
-    categories
-      .filter((c) => c.isActive)
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .forEach((c) => {
-        items.push({ id: c.slug, label: c.name, image: c.image || '' });
-      });
-    return items;
-  }, [categories]);
-
-  // Build dynamic label map
-  const categoryLabelMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    categories.forEach((c) => { map[c.slug] = c.name; });
-    return map;
-  }, [categories]);
-
-  const isValidCategory = useCallback((value: string | null): boolean => {
-    return value !== null && value !== 'all' && CATEGORY_ITEMS.some((c) => c.id === value);
-  }, [CATEGORY_ITEMS]);
+  /* ── URL-backed state ───────────────────────────────────────────── */
 
   const categoryParam = searchParams.get('category');
   const queryParam = searchParams.get('q');
@@ -84,14 +57,14 @@ function MenuBrowser() {
 
   const [searchQuery, setSearchQuery] = useState(queryParam ?? '');
   const [activeCategory, setActiveCategory] = useState<string>(
-    categoryParam && categoryParam !== 'all' ? categoryParam : 'all'
+    categoryParam && categoryParam !== ALL ? categoryParam : ALL
   );
-  const [vegFilter, setVegFilter] = useState<VegStatus | 'all'>(
-    isVegStatus(vegParam) ? vegParam : 'all'
+  const [vegFilter, setVegFilter] = useState<VegStatus | typeof ALL>(
+    isVegStatus(vegParam) ? vegParam : ALL
   );
-  const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
 
-  // Sync state with URL params
+  // Re-sync when the URL changes underneath us — a back/forward navigation, or
+  // a link into /menu?category=biryani from elsewhere on the site.
   const [syncedParams, setSyncedParams] = useState(() => ({ categoryParam, queryParam, vegParam }));
   if (
     syncedParams.categoryParam !== categoryParam ||
@@ -99,403 +72,620 @@ function MenuBrowser() {
     syncedParams.vegParam !== vegParam
   ) {
     setSyncedParams({ categoryParam, queryParam, vegParam });
-    setActiveCategory(categoryParam && categoryParam !== 'all' ? categoryParam : 'all');
+    setActiveCategory(categoryParam && categoryParam !== ALL ? categoryParam : ALL);
     setSearchQuery(queryParam ?? '');
-    setVegFilter(isVegStatus(vegParam) ? vegParam : 'all');
+    setVegFilter(isVegStatus(vegParam) ? vegParam : ALL);
   }
 
-  // Cart Store Hooks
+  /* ── View-only state ────────────────────────────────────────────── */
+  // Deliberately not in the URL. A shared link should carry *what* someone is
+  // looking at, not how they happened to have their sort set.
+  const [bestsellerOnly, setBestsellerOnly] = useState(false);
+  const [topRatedOnly, setTopRatedOnly] = useState(false);
+  const [sort, setSort] = useState<SortMode>('default');
+  const [layout, setLayout] = useState<'list' | 'grid'>('list');
+
+  /* ── Cart ───────────────────────────────────────────────────────── */
+
   const cartItems = useCartStore((s) => s.items);
   const couponDiscount = useCartStore((s) => s.couponDiscount);
   const couponMaxDiscount = useCartStore((s) => s.couponMaxDiscount);
-
-  const increaseQty = useCartStore((s) => s.increaseQty);
-  const decreaseQty = useCartStore((s) => s.decreaseQty);
-  const removeItem = useCartStore((s) => s.removeItem);
-  const clearCart = useCartStore((s) => s.clearCart);
 
   const cartTotals = useMemo(() => {
     const subtotal = getCartSubtotal(cartItems);
     const discountAmount = getCartDiscountAmount(subtotal, couponDiscount, couponMaxDiscount);
     const taxable = getCartTaxableAmount(subtotal, discountAmount);
-    const cgst = getCartCgst(taxable);
-    const sgst = getCartSgst(taxable);
-    const totalItems = getCartTotalItems(cartItems);
-    const grandTotal = getCartGrandTotal(taxable, cgst, sgst);
-    return { subtotal, discountAmount, cgst, sgst, totalItems, grandTotal };
+    const grandTotal = getCartGrandTotal(taxable, getCartCgst(taxable), getCartSgst(taxable));
+    return { totalItems: getCartTotalItems(cartItems), grandTotal };
   }, [cartItems, couponDiscount, couponMaxDiscount]);
 
-  const handleCategorySelect = (catId: string) => {
-    setActiveCategory(catId);
-    const params = new URLSearchParams(window.location.search);
-    if (catId === 'all') {
-      params.delete('category');
-    } else {
-      params.set('category', catId);
-    }
-    router.push(`/menu?${params.toString()}`, { scroll: false });
-  };
-
-  const handleVegFilterSelect = (val: VegStatus | 'all') => {
-    setVegFilter(val);
-    const params = new URLSearchParams(window.location.search);
-    if (val === 'all') {
-      params.delete('veg');
-    } else {
-      params.set('veg', val);
-    }
-    router.push(`/menu?${params.toString()}`, { scroll: false });
-  };
-
-  // Main filter logic
-  const filteredItems = useMemo(() => {
-    let items = [...liveMenuItems];
-    if (activeCategory !== 'all') items = items.filter((i) => i.category === activeCategory);
-    if (vegFilter !== 'all') items = items.filter((i) => i.vegStatus === vegFilter);
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      items = items.filter(
-        (i) =>
-          i.name.toLowerCase().includes(q) ||
-          i.description.toLowerCase().includes(q) ||
-          i.tags.some((t) => t.toLowerCase().includes(q))
-      );
-    }
-    items.sort((a, b) => (b.isPopular ? 1 : 0) - (a.isPopular ? 1 : 0));
-    return items;
-  }, [liveMenuItems, searchQuery, activeCategory, vegFilter]);
+  /* ── Derived catalogue data ─────────────────────────────────────── */
 
   const countByCategory = useMemo(() => {
-    const counts: Record<string, number> = { all: liveMenuItems.length };
-    liveMenuItems.forEach((item) => {
+    const counts: Record<string, number> = { [ALL]: menuItems.length };
+    menuItems.forEach((item) => {
       counts[item.category] = (counts[item.category] || 0) + 1;
     });
     return counts;
-  }, [liveMenuItems]);
+  }, [menuItems]);
 
-  const resetFilters = () => {
-    setSearchQuery('');
-    setActiveCategory('all');
-    setVegFilter('all');
-    router.push('/menu');
+  const categoryLabels = useMemo(() => {
+    const map: Record<string, string> = { [ALL]: 'All dishes' };
+    categories.forEach((c) => { map[c.slug] = c.name; });
+    return map;
+  }, [categories]);
+
+  /**
+   * Categories that are active *and* actually have dishes behind them.
+   *
+   * A category with no photo of its own borrows one from a dish inside it
+   * rather than falling back to a letter in a circle. Most of this menu's
+   * categories have never had a photo uploaded, and a rail of "U · S · T · B"
+   * initials teaches a customer nothing about what is in them — which was the
+   * entire reason for showing pictures instead of a list of names.
+   */
+  const railCategories = useMemo<RailCategory[]>(() => {
+    const coverByCategory = new Map<string, string>();
+    menuItems.forEach((item) => {
+      if (item.image && !coverByCategory.has(item.category)) {
+        coverByCategory.set(item.category, item.image);
+      }
+    });
+
+    const list: RailCategory[] = [
+      { id: ALL, label: 'All dishes', image: '', count: menuItems.length, icon: UtensilsCrossed },
+    ];
+    categories
+      .filter((c) => c.isActive && (countByCategory[c.slug] || 0) > 0)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .forEach((c) => {
+        list.push({
+          id: c.slug,
+          label: c.name,
+          image: c.image || coverByCategory.get(c.slug) || '',
+          count: countByCategory[c.slug] || 0,
+        });
+      });
+    return list;
+  }, [categories, countByCategory, menuItems]);
+
+  /**
+   * The headline rating, averaged over the dishes that actually carry one.
+   * It used to be a hard-coded 4.6 with "1,200+ ratings" underneath, which is
+   * a number the restaurant would have had to defend without ever having
+   * measured it.
+   */
+  const houseRating = useMemo(() => {
+    const rated = menuItems.filter((i) => (i.rating ?? 0) > 0);
+    if (rated.length === 0) return null;
+    const average = rated.reduce((sum, i) => sum + i.rating, 0) / rated.length;
+    const reviews = menuItems.reduce((sum, i) => sum + (i.reviewCount ?? 0), 0);
+    return { average, reviews };
+  }, [menuItems]);
+
+  const hasEggDishes = useMemo(() => menuItems.some((i) => i.vegStatus === 'egg'), [menuItems]);
+
+  /* ── Filtering ──────────────────────────────────────────────────── */
+
+  const filteredItems = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+
+    let items = menuItems.filter((item) => {
+      if (activeCategory !== ALL && item.category !== activeCategory) return false;
+      if (vegFilter !== ALL && item.vegStatus !== vegFilter) return false;
+      if (bestsellerOnly && !item.isPopular && !item.isSpecial) return false;
+      if (topRatedOnly && (item.rating ?? 0) < 4) return false;
+      if (!needle) return true;
+      return (
+        item.name.toLowerCase().includes(needle) ||
+        item.description.toLowerCase().includes(needle) ||
+        item.tags.some((t) => t.toLowerCase().includes(needle))
+      );
+    });
+
+    if (sort === 'price-asc') {
+      items = [...items].sort((a, b) => a.price - b.price);
+    } else if (sort === 'price-desc') {
+      items = [...items].sort((a, b) => b.price - a.price);
+    } else {
+      // Default order: in stock first, then bestsellers, then by rating. An
+      // out-of-stock dish at the top of a category is the fastest way to make
+      // a menu feel unmaintained.
+      items = [...items].sort((a, b) => {
+        if (a.isAvailable !== b.isAvailable) return a.isAvailable ? -1 : 1;
+        const aFlag = a.isSpecial || a.isPopular ? 1 : 0;
+        const bFlag = b.isSpecial || b.isPopular ? 1 : 0;
+        if (aFlag !== bFlag) return bFlag - aFlag;
+        return (b.rating ?? 0) - (a.rating ?? 0);
+      });
+    }
+
+    return items;
+  }, [menuItems, activeCategory, vegFilter, bestsellerOnly, topRatedOnly, searchQuery, sort]);
+
+  /**
+   * When nothing narrows the list, show it grouped under its category headings
+   * rather than as one 200-row wall. Once a filter *is* on, the grouping stops
+   * helping — the customer already told us what they want — so it collapses to
+   * a flat, ranked list.
+   */
+  const groupedSections = useMemo(() => {
+    if (activeCategory !== ALL || sort !== 'default') return null;
+
+    const order = railCategories.filter((c) => c.id !== ALL).map((c) => c.id);
+    const buckets = new Map<string, MenuItem[]>();
+    filteredItems.forEach((item) => {
+      const bucket = buckets.get(item.category);
+      if (bucket) bucket.push(item);
+      else buckets.set(item.category, [item]);
+    });
+
+    const sections = order
+      .filter((id) => buckets.has(id))
+      .map((id) => ({ id, label: categoryLabels[id] ?? id, items: buckets.get(id)! }));
+
+    // Dishes whose category was deleted or deactivated still have to appear —
+    // silently dropping them from the menu is worse than an "Others" heading.
+    const orphans = filteredItems.filter((item) => !order.includes(item.category));
+    if (orphans.length > 0) sections.push({ id: '__other', label: 'More dishes', items: orphans });
+
+    return sections;
+  }, [activeCategory, sort, filteredItems, railCategories, categoryLabels]);
+
+  /* ── Actions ────────────────────────────────────────────────────── */
+
+  // Plain functions, not useCallback: the React Compiler memoizes them, and a
+  // hand-written dependency array here disagreed with the one it inferred,
+  // which makes it bail out of optimizing the whole component.
+  const pushParams = (mutate: (params: URLSearchParams) => void) => {
+    const params = new URLSearchParams(window.location.search);
+    mutate(params);
+    const query = params.toString();
+    router.push(query ? `/menu?${query}` : '/menu', { scroll: false });
   };
 
-  const hasActiveFilters = searchQuery.trim() || activeCategory !== 'all' || vegFilter !== 'all';
+  const selectCategory = (id: string) => {
+    setActiveCategory(id);
+    pushParams((p) => (id === ALL ? p.delete('category') : p.set('category', id)));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const toggleVeg = (value: VegStatus) => {
+    const next = vegFilter === value ? ALL : value;
+    setVegFilter(next);
+    pushParams((p) => (next === ALL ? p.delete('veg') : p.set('veg', next)));
+  };
+
+  const toggleSort = (mode: Exclude<SortMode, 'default'>) => {
+    setSort((current) => (current === mode ? 'default' : mode));
+  };
+
+  const activeFilterCount =
+    (vegFilter !== ALL ? 1 : 0) +
+    (bestsellerOnly ? 1 : 0) +
+    (topRatedOnly ? 1 : 0) +
+    (sort !== 'default' ? 1 : 0) +
+    (searchQuery.trim() ? 1 : 0);
+
+  const resetAll = () => {
+    setSearchQuery('');
+    setVegFilter(ALL);
+    setBestsellerOnly(false);
+    setTopRatedOnly(false);
+    setSort('default');
+    setActiveCategory(ALL);
+    router.push('/menu', { scroll: false });
+  };
+
+  /* ── Render ─────────────────────────────────────────────────────── */
 
   return (
-    <div className="flex flex-col min-h-screen bg-stone-100/40">
+    <div className="bg-store flex min-h-screen flex-col">
       <Navbar />
 
-      {/* ── Sub-header / Filters Panel ── */}
-      <div className="bg-white border-b border-stone-200 sticky top-[56px] z-20 shadow-3xs py-3.5">
-        <Container className="max-w-[1600px]">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            
-            {/* Search Input */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-stone-400" />
-              <Input
+      {/* ── Restaurant strip ─────────────────────────────────────────
+          The context a diner wants before they start ordering: is this the
+          right place, is it any good, and when does it close. */}
+      <section className="border-hair-2 border-b bg-white">
+        <Container className="max-w-[1180px] py-5 sm:py-6">
+          <h1 className="text-ink-1 font-display text-[24px] leading-tight font-black tracking-tight sm:text-[30px]">
+            {restaurantInfo.name}
+          </h1>
+          <p className="text-ink-3 mt-1 text-[13px] font-medium sm:text-[14px]">
+            {restaurantInfo.tagline}
+            <span className="text-ink-4 px-1.5">·</span>
+            Telangana, Andhra &amp; Hyderabadi
+          </p>
+
+          <div className="mt-3.5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px]">
+            {houseRating && (
+              <span className="text-rating inline-flex items-center gap-1.5 font-bold">
+                <span className="bg-rating grid size-[18px] place-items-center rounded-full">
+                  <Star className="size-[10px] fill-white text-white" />
+                </span>
+                {houseRating.average.toFixed(1)}
+                {houseRating.reviews > 0 && (
+                  <span className="text-ink-3 font-semibold">
+                    ({houseRating.reviews.toLocaleString('en-IN')} ratings)
+                  </span>
+                )}
+              </span>
+            )}
+            <span className="text-ink-2 inline-flex items-center gap-1.5 font-semibold">
+              <Clock className="text-ink-4 size-4" />
+              {restaurantInfo.openingDisplay}
+            </span>
+            <span className="text-ink-2 inline-flex items-center gap-1.5 font-semibold">
+              <MapPin className="text-ink-4 size-4" />
+              {restaurantInfo.addressLine}
+            </span>
+          </div>
+        </Container>
+      </section>
+
+      {/* ── Sticky search + filters ──────────────────────────────────
+          Height is pinned to --store-filters-h so the sidebar below can
+          compute its own sticky offset instead of guessing at a number that
+          goes stale the next time a chip is added. */}
+      <div
+        className="border-hair-1 bg-store/92 sticky z-30 border-b backdrop-blur-md"
+        style={{ top: 'var(--store-header-h)' }}
+      >
+        <Container className="max-w-[1180px] py-2.5 md:py-3.5">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
+            {/* Search */}
+            <div className="relative h-11 w-full md:max-w-[340px]">
+              <Search className="text-ink-4 pointer-events-none absolute top-1/2 left-4 size-[18px] -translate-y-1/2" />
+              <input
+                type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Type to search dish..."
-                className="h-10 pl-10 pr-9 text-xs rounded-xl border-stone-200 bg-stone-50/70 focus-visible:ring-amber-500/20 focus-visible:border-amber-500"
+                placeholder="Search for a dish…"
+                aria-label="Search dishes"
+                className={cn(
+                  'border-hair-1 text-ink-1 placeholder:text-ink-4 h-11 w-full rounded-full border bg-white pr-10 pl-11 text-[14px] font-medium',
+                  'transition-colors outline-none focus:border-brand-300 focus:ring-[3px] focus:ring-brand/15',
+                  // Safari draws its own clear button on type=search and it
+                  // collides with ours.
+                  '[&::-webkit-search-cancel-button]:appearance-none'
+                )}
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 size-6 flex items-center justify-center rounded-lg text-stone-400 hover:text-stone-600 hover:bg-stone-250/50"
+                  aria-label="Clear search"
+                  className="text-ink-4 hover:text-ink-1 absolute top-1/2 right-3 grid size-7 -translate-y-1/2 place-items-center rounded-full transition-colors"
                 >
-                  <X className="size-3" />
+                  <X className="size-4" />
                 </button>
               )}
             </div>
 
-            {/* Veg / Non-Veg Chips & Layout Toggle */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex flex-wrap items-center gap-1.5">
-                {VEG_FILTERS.map((chip) => {
-                  const active = vegFilter === chip.value;
-                  return (
-                    <button
-                      key={chip.value}
-                      type="button"
-                      onClick={() => handleVegFilterSelect(chip.value)}
-                      className={cn(
-                        'px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-all flex items-center gap-1.5 active:scale-95',
-                        active
-                          ? 'border-amber-500 bg-amber-500 text-stone-950 font-extrabold shadow-3xs'
-                          : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
-                      )}
-                    >
-                      <span className={cn('size-2 rounded-full', chip.dot)} />
-                      {chip.label}
-                    </button>
-                  );
-                })}
+            {/* Filter chips */}
+            <div className="scrollbar-none -mx-4 flex h-10 items-center gap-2 overflow-x-auto px-4 md:mx-0 md:min-w-0 md:flex-1 md:px-0">
+              <FilterPill
+                active={vegFilter === 'veg'}
+                onClick={() => toggleVeg('veg')}
+                leading={<VegMark status="veg" size={13} />}
+              >
+                Veg
+              </FilterPill>
+              <FilterPill
+                active={vegFilter === 'non-veg'}
+                onClick={() => toggleVeg('non-veg')}
+                leading={<VegMark status="non-veg" size={13} />}
+              >
+                Non-veg
+              </FilterPill>
+              {hasEggDishes && (
+                <FilterPill
+                  active={vegFilter === 'egg'}
+                  onClick={() => toggleVeg('egg')}
+                  leading={<VegMark status="egg" size={13} />}
+                >
+                  Egg
+                </FilterPill>
+              )}
+              <FilterPill active={bestsellerOnly} onClick={() => setBestsellerOnly((v) => !v)}>
+                Bestsellers
+              </FilterPill>
+              <FilterPill active={topRatedOnly} onClick={() => setTopRatedOnly((v) => !v)}>
+                Rated 4.0+
+              </FilterPill>
+              <FilterPill
+                active={sort === 'price-asc'}
+                onClick={() => toggleSort('price-asc')}
+                leading={<ArrowUpNarrowWide className="size-3.5" />}
+              >
+                Price: low first
+              </FilterPill>
+              <FilterPill
+                active={sort === 'price-desc'}
+                onClick={() => toggleSort('price-desc')}
+                leading={<ArrowDownWideNarrow className="size-3.5" />}
+              >
+                Price: high first
+              </FilterPill>
 
-                {hasActiveFilters && (
-                  <Button
-                    variant="ghost"
-                    onClick={resetFilters}
-                    className="h-8 px-3.5 text-xs text-stone-500 hover:text-stone-800 rounded-lg"
-                  >
-                    Reset View
-                  </Button>
-                )}
-              </div>
-
-              {/* Layout Mode Toggle */}
-              <div className="flex items-center gap-1 bg-stone-100 p-0.5 rounded-xl border border-stone-200">
+              {activeFilterCount > 0 && (
                 <button
                   type="button"
-                  onClick={() => setLayoutMode('grid')}
-                  className={cn(
-                    'p-1.5 rounded-lg transition-all',
-                    layoutMode === 'grid'
-                      ? 'bg-white text-amber-600 shadow-3xs font-bold'
-                      : 'text-stone-400 hover:text-stone-600'
-                  )}
-                  title="Grid View"
+                  onClick={resetAll}
+                  className="text-brand-700 hover:bg-brand-50 shrink-0 rounded-full px-3 py-2 text-[13px] font-bold whitespace-nowrap transition-colors"
                 >
-                  <LayoutGrid className="size-4" />
+                  Clear all
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setLayoutMode('list')}
-                  className={cn(
-                    'p-1.5 rounded-lg transition-all',
-                    layoutMode === 'list'
-                      ? 'bg-white text-amber-600 shadow-3xs font-bold'
-                      : 'text-stone-400 hover:text-stone-600'
-                  )}
-                  title="List View"
-                >
-                  <List className="size-4" />
-                </button>
-              </div>
+              )}
             </div>
-
           </div>
         </Container>
       </div>
 
-      <main className="flex-1 flex flex-col">
-        
-        {/* ── Mobile Horizontal Category Bar ── */}
-        <div className="lg:hidden bg-white border-b border-stone-200 py-3.5 px-4 overflow-x-auto scrollbar-none flex gap-4 sticky top-[120px] z-10 shadow-3xs">
-          {CATEGORY_ITEMS.map((cat) => {
-            const active = activeCategory === cat.id;
-            const count = countByCategory[cat.id] || 0;
-            if (cat.id !== 'all' && count === 0) return null;
+      <main className="flex-1">
+        <Container className="max-w-[1180px] py-6 sm:py-8">
+          {/* ── Category rail ──────────────────────────────────────── */}
+          {!isLoadingDB && railCategories.length > 1 && (
+            <section aria-label="Browse by category" className="mb-8">
+              <SectionHeading title="What are you in the mood for?" className="mb-4" />
+              <CategoryRail
+                categories={railCategories}
+                activeId={activeCategory}
+                onSelect={selectCategory}
+              />
+            </section>
+          )}
 
-            return (
-              <button
-                key={cat.id}
-                onClick={() => handleCategorySelect(cat.id)}
-                className="flex flex-col items-center gap-1 shrink-0 select-none outline-none group"
+          <div className="flex items-start gap-10">
+            {/* ── Desktop category sidebar ─────────────────────────── */}
+            {railCategories.length > 1 && (
+              <aside
+                className="scrollbar-none hidden w-[212px] shrink-0 self-start overflow-y-auto lg:block"
+                style={{
+                  position: 'sticky',
+                  top: 'calc(var(--store-header-h) + var(--store-filters-h) + 1.5rem)',
+                  maxHeight: 'calc(100dvh - var(--store-header-h) - var(--store-filters-h) - 3rem)',
+                }}
               >
-                <div className={cn(
-                  'relative size-12 rounded-full overflow-hidden border-2 transition-all p-0.5',
-                  active ? 'border-amber-500 ring-2 ring-amber-500/20 scale-105' : 'border-stone-200 group-hover:border-stone-300'
-                )}>
-                  <div className="relative w-full h-full rounded-full overflow-hidden">
-                    {cat.image ? (
-                      <Image
-                        src={cat.image}
-                        alt={cat.label}
-                        fill
-                        sizes="48px"
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-700 font-bold text-sm">
-                        {(cat.label || 'C')[0].toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <span className={cn(
-                  'text-[10px] font-black leading-none text-center max-w-[64px] truncate',
-                  active ? 'text-amber-800' : 'text-stone-600'
-                )}>
-                  {cat.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="flex-1 flex items-stretch">
-
-          {/* ── 1. Desktop Light Category Sidebar with circular images ── */}
-          <aside className="hidden lg:flex w-64 shrink-0 bg-white border-r border-stone-200 flex-col justify-between py-6 min-h-[calc(100vh-120px)] sticky top-[120px] max-h-[calc(100vh-120px)] overflow-y-auto scrollbar-none shadow-3xs">
-            <div className="space-y-1 px-3">
-              {CATEGORY_ITEMS.map((cat) => {
-                const active = activeCategory === cat.id;
-                const count = countByCategory[cat.id] || 0;
-                if (cat.id !== 'all' && count === 0) return null;
-
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => handleCategorySelect(cat.id)}
-                    className={cn(
-                      'w-full flex items-center justify-between px-4 py-2.5 transition-all text-left outline-none rounded-xl text-xs sm:text-sm font-bold group',
-                      active
-                        ? 'bg-amber-500/10 text-amber-950 font-extrabold shadow-3xs border-l-4 border-amber-500 pl-3'
-                        : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      {/* Circular Thumbnail Image */}
-                      <div className={cn(
-                        'relative size-8 rounded-full overflow-hidden border-2 transition-all p-0.5 shrink-0',
-                        active ? 'border-amber-500 ring-2 ring-amber-500/20' : 'border-stone-200'
-                      )}>
-                        <div className="relative w-full h-full rounded-full overflow-hidden">
-                          {cat.image ? (
-                            <Image
-                              src={cat.image}
-                              alt={cat.label}
-                              fill
-                              sizes="32px"
-                              className="object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-700 font-bold text-xs">
-                              {(cat.label || 'C')[0].toUpperCase()}
-                            </div>
+                <p className="text-ink-4 mb-2 px-3 text-[11px] font-bold tracking-wider uppercase">
+                  Sections
+                </p>
+                <nav className="space-y-0.5">
+                  {railCategories.map((cat) => {
+                    const active = cat.id === activeCategory;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => selectCategory(cat.id)}
+                        aria-current={active ? 'true' : undefined}
+                        className={cn(
+                          'flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors outline-none',
+                          active ? 'bg-brand-50' : 'hover:bg-white'
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            'truncate text-[14px]',
+                            active ? 'text-brand-700 font-extrabold' : 'text-ink-2 font-semibold'
                           )}
-                        </div>
-                      </div>
-                      <span className="group-hover:translate-x-0.5 transition-transform duration-200">{cat.label}</span>
-                    </div>
-                    <span className={cn(
-                      'font-mono text-[9px] font-black px-1.5 py-0.5 rounded-md tabular-nums border leading-none',
-                      active ? 'bg-amber-500 text-stone-950 border-amber-500' : 'bg-stone-100 text-stone-500 border-stone-200'
-                    )}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+                        >
+                          {cat.label}
+                        </span>
+                        <span
+                          className={cn(
+                            'shrink-0 text-[12px] font-bold tabular-nums',
+                            active ? 'text-brand-600' : 'text-ink-4'
+                          )}
+                        >
+                          {cat.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </nav>
+              </aside>
+            )}
 
-            {/* Bottom Icon */}
-            <div className="px-6 pt-6 border-t border-stone-100 text-stone-400 flex items-center gap-2">
-              <BookOpen className="size-4" />
-              <span className="text-[10px] font-black uppercase tracking-wider">PPR Digital POS</span>
-            </div>
-          </aside>
+            {/* ── Dishes ───────────────────────────────────────────── */}
+            <div className="min-w-0 flex-1">
+              {/* Result header. When the list is grouped, its own section
+                  headings already name everything, so this collapses to a
+                  plain count rather than repeating "All dishes" directly above
+                  the first real heading. */}
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  {groupedSections ? (
+                    <p className="text-ink-2 text-[14px] font-bold tabular-nums">
+                      {isLoadingDB ? 'Loading the menu…' : `${filteredItems.length} dishes`}
+                    </p>
+                  ) : (
+                    <SectionHeading
+                      title={categoryLabels[activeCategory] ?? activeCategory}
+                      count={isLoadingDB ? undefined : filteredItems.length}
+                    />
+                  )}
+                  {activeFilterCount > 0 && !isLoadingDB && (
+                    <p className="text-ink-4 mt-0.5 text-[12px] font-semibold">
+                      {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'} applied
+                    </p>
+                  )}
+                </div>
 
-          {/* ── 2. Middle Dish Grid area ── */}
-          <div className="flex-1 p-6 overflow-y-auto max-w-[1600px] mx-auto min-w-0 pb-24">
-            {isLoadingDB ? (
-              <div className="grid gap-4.5 grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5" aria-busy="true">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <Skeleton key={i} className="aspect-square rounded-2xl" />
-                ))}
+                <div className="border-hair-1 flex shrink-0 items-center gap-0.5 rounded-full border bg-white p-1">
+                  <LayoutToggle
+                    active={layout === 'list'}
+                    onClick={() => setLayout('list')}
+                    icon={Rows3}
+                    label="List view"
+                  />
+                  <LayoutToggle
+                    active={layout === 'grid'}
+                    onClick={() => setLayout('grid')}
+                    icon={LayoutGrid}
+                    label="Grid view"
+                  />
+                </div>
               </div>
-            ) : filteredItems.length === 0 ? (
-               <div className="bg-white rounded-3xl border border-stone-200 p-12 text-center shadow-3xs max-w-lg mx-auto mt-12">
-                 <EmptyState
-                   icon={UtensilsCrossed}
-                   title="No matching dishes found"
-                   description="Try checking another category or resetting the filters."
-                   action={
-                     <Button variant="brand" onClick={resetFilters}>Reset View</Button>
-                   }
-                 />
-               </div>
-             ) : (
-               <div className="space-y-6">
-                 <div>
-                   <h2 className="text-lg font-black text-stone-900 leading-none">
-                     {activeCategory === 'all' ? 'All Items' : (categoryLabelMap[activeCategory] || activeCategory)}
-                   </h2>
-                   <p className="text-[10px] text-stone-400 font-bold uppercase tracking-wider mt-1">
-                     Showing {filteredItems.length} dishes
-                   </p>
-                 </div>
- 
-                 {layoutMode === 'grid' ? (
-                   <div className="grid gap-4.5 grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-                     {filteredItems.map((item) => (
-                       <MenuCard key={item.id} item={item} />
-                     ))}
-                   </div>
-                 ) : (
-                   <div className="bg-white px-5 py-2 rounded-2xl border border-stone-200/80 shadow-3xs divide-y-0">
-                     {filteredItems.map((item, idx) => (
-                       <DishListItem
-                         key={item.id}
-                         item={item}
-                         divider={idx < filteredItems.length - 1}
-                       />
-                     ))}
-                   </div>
-                 )}
-               </div>
-             )}
-          </div>
 
-        </div>
+              {isLoadingDB ? (
+                <DishSkeletons layout={layout} />
+              ) : filteredItems.length === 0 ? (
+                <EmptyResult onReset={resetAll} hasFilters={activeFilterCount > 0} />
+              ) : groupedSections ? (
+                <div className="space-y-10">
+                  {groupedSections.map((section) => (
+                    <section key={section.id}>
+                      <SectionHeading
+                        title={section.label}
+                        count={section.items.length}
+                        className="mb-1"
+                      />
+                      <DishCollection items={section.items} layout={layout} />
+                    </section>
+                  ))}
+                </div>
+              ) : (
+                <DishCollection items={filteredItems} layout={layout} />
+              )}
+            </div>
+          </div>
+        </Container>
       </main>
 
-      {/* Floating Cart Bar / Button (Responsive) */}
-      {cartItems.length > 0 && (
-        <>
-          {/* Mobile Sticky Bottom Cart Bar */}
-          <div className="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-stone-200 p-4 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] z-30 flex items-center justify-between animate-slide-up">
-            <div className="flex flex-col">
-              <span className="text-[10px] text-stone-400 font-bold uppercase tracking-wider">{cartTotals.totalItems} Items Added</span>
-              <span className="text-base font-black text-stone-900 leading-none mt-1">{formatCurrency(cartTotals.grandTotal)}</span>
-            </div>
-            <button
-              onClick={() => router.push('/cart')}
-              className="bg-amber-500 hover:bg-amber-600 active:scale-95 text-stone-950 font-black px-6 py-3 rounded-xl text-xs flex items-center gap-1.5 shadow-md border border-amber-400 transition-all"
-            >
-              View Cart & Checkout
-            </button>
-          </div>
+      <MenuNavSheet
+        categories={railCategories}
+        activeId={activeCategory}
+        onSelect={selectCategory}
+        raised={cartTotals.totalItems > 0}
+      />
 
-          {/* Desktop Floating Cart Button */}
-          <button
-            onClick={() => router.push('/cart')}
-            className="hidden lg:flex fixed bottom-8 right-8 z-30 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold px-6 py-4 rounded-full shadow-2xl border border-emerald-500/20 items-center gap-4 transition-all hover:shadow-emerald-600/10 cursor-pointer"
-          >
-            <div className="relative">
-              <ShoppingBag className="size-5" />
-              <span className="absolute -top-2 -right-2.5 bg-amber-500 text-stone-950 text-[9px] font-black rounded-full min-w-4.5 h-4.5 flex items-center justify-center border border-white">
-                {cartTotals.totalItems}
-              </span>
-            </div>
-            <div className="h-4 w-px bg-white/20" />
-            <div className="flex flex-col items-start leading-none text-left">
-              <span className="text-[9px] opacity-75 uppercase tracking-wider font-semibold">Your Order</span>
-              <span className="text-sm font-black mt-0.5">{formatCurrency(cartTotals.subtotal)}</span>
-            </div>
-            <div className="h-4 w-px bg-white/20" />
-            <span className="text-xs font-black uppercase tracking-wider font-extrabold">View Cart &rarr;</span>
-          </button>
-        </>
-      )}
+      <StoreCartBar itemCount={cartTotals.totalItems} total={cartTotals.grandTotal} />
 
-      {/* Renders Footer responsively */}
-      <div className="lg:hidden">
-        <Footer />
-      </div>
+      {/* Space for the two fixed bars, so the last dish is never trapped
+          underneath them. */}
+      <div
+        aria-hidden="true"
+        style={{ height: cartTotals.totalItems > 0 ? '9rem' : '4.5rem' }}
+        className="lg:hidden"
+      />
+
+      <Footer />
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Pieces                                                             */
+/* ------------------------------------------------------------------ */
+
+function DishCollection({ items, layout }: { items: MenuItem[]; layout: 'list' | 'grid' }) {
+  if (layout === 'grid') {
+    return (
+      <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
+        {items.map((item) => (
+          <MenuCard key={item.id} item={item} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {items.map((item, index) => (
+        <DishListItem key={item.id} item={item} divider={index < items.length - 1} />
+      ))}
+    </div>
+  );
+}
+
+function LayoutToggle({
+  active,
+  onClick,
+  icon: Icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
+      className={cn(
+        'grid size-8 place-items-center rounded-full transition-colors outline-none',
+        active ? 'bg-brand text-white' : 'text-ink-4 hover:text-ink-2'
+      )}
+    >
+      <Icon className="size-[17px]" />
+    </button>
+  );
+}
+
+function DishSkeletons({ layout }: { layout: 'list' | 'grid' }) {
+  if (layout === 'grid') {
+    return (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4" aria-busy="true">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} className="h-64 rounded-2xl" />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div aria-busy="true">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="rule-dash flex items-start gap-4 py-5 sm:gap-8">
+          <div className="min-w-0 flex-1 space-y-2.5">
+            <Skeleton className="size-4 rounded" />
+            <Skeleton className="h-4 w-2/3 rounded" />
+            <Skeleton className="h-3.5 w-20 rounded" />
+            <Skeleton className="h-3 w-full rounded" />
+            <Skeleton className="h-3 w-4/5 rounded" />
+          </div>
+          <Skeleton className="h-[104px] w-[118px] shrink-0 rounded-2xl sm:w-[130px]" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyResult({ onReset, hasFilters }: { onReset: () => void; hasFilters: boolean }) {
+  return (
+    <div className="border-hair-1 grid place-items-center rounded-2xl border border-dashed bg-white px-6 py-16 text-center">
+      <span className="bg-brand-50 text-brand-600 mb-4 grid size-14 place-items-center rounded-full">
+        <UtensilsCrossed className="size-7" />
+      </span>
+      <h3 className="text-ink-1 text-[17px] font-extrabold">No dishes match that</h3>
+      <p className="text-ink-3 mt-1.5 max-w-sm text-[13.5px] leading-relaxed">
+        {hasFilters
+          ? 'Try removing a filter, or search for something else.'
+          : 'This section is empty right now. Have a look at the rest of the menu.'}
+      </p>
+      <button
+        type="button"
+        onClick={onReset}
+        className="bg-brand hover:bg-brand-600 mt-5 h-11 rounded-xl px-6 text-[14px] font-extrabold text-white transition-colors"
+      >
+        Show the full menu
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 
 export default function MenuPage() {
   return (
     <Suspense
       fallback={
-        <div className="grid min-h-screen place-items-center bg-[#FDFBF7]">
-          <Skeleton className="size-10 rounded-full animate-spin" />
+        <div className="bg-store grid min-h-screen place-items-center">
+          <div className="border-brand/25 border-t-brand size-9 animate-spin rounded-full border-[3px]" />
         </div>
       }
     >

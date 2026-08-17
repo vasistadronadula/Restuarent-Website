@@ -1,12 +1,12 @@
 'use client';
 
 import React, { memo } from 'react';
-import Link from 'next/link';
 
 import { cn, formatCurrency, FALLBACK_DISH_IMAGE } from '@/lib/utils';
 import type { MenuItem } from '@/types';
 import { useDishPortion, PORTION_LABELS, type Portion } from '@/hooks/useDishPortion';
-import CartStepper from './CartStepper';
+import CartStepper, { AddButton } from './CartStepper';
+import { DishFlag, RatingPill, VegMark } from './store-ui';
 
 interface Props {
   item: MenuItem;
@@ -15,15 +15,20 @@ interface Props {
 }
 
 /**
- * A single dish as a full-width row: text on the left, photo and the ADD
- * button on the right.
+ * A single dish as a full-width row: everything you read on the left, the
+ * photo and the ADD button on the right.
  *
- * This is the shape delivery apps settled on for phones, and the reason is
+ * This is the shape every Indian delivery app converged on, and the reason is
  * width. A card grid gives each dish half a 360px screen, which leaves no room
  * for a description and squeezes the price and the button onto separate lines.
- * A row gives the name and description the full column and keeps the photo at
- * a legible 112px — so a customer can actually read what they are ordering
+ * A row gives the name and description the full column and still keeps the
+ * photo at a legible ~118px — so a customer can read what they are ordering
  * without opening anything.
+ *
+ * Reading order is fixed and never varies between dishes: mark → flag → name →
+ * price → rating → description. A row where the rating sometimes sits above
+ * the price and sometimes below forces the eye to re-find each field on every
+ * row, which is what makes a long menu tiring to scan.
  *
  * The ADD button deliberately overhangs the bottom edge of the photo. It puts
  * the primary action at a fixed, predictable place in every row instead of
@@ -38,54 +43,48 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
   const unavailable = !item.isAvailable;
 
   return (
-    <div
+    <article
       className={cn(
-        'flex gap-3 py-4 sm:gap-6 sm:py-5',
-        divider && 'border-b border-dashed',
+        'flex items-start gap-4 py-5 sm:gap-8',
+        divider && 'rule-dash',
         unavailable && 'opacity-55'
       )}
     >
       {/* ── Left: everything you read ───────────────────────────────────── */}
       <div className="min-w-0 flex-1">
-        <div className="mb-1.5 flex flex-wrap items-center gap-2">
-          <span
-            className={item.vegStatus === 'veg' ? 'veg-indicator' : 'non-veg-indicator'}
-            role="img"
-            aria-label={item.vegStatus === 'veg' ? 'Vegetarian' : 'Non-vegetarian'}
-          />
-          {item.isSpecial ? (
-            <span className="text-[11px] font-extrabold tracking-wide text-[#E65100] uppercase dark:text-warning">
-              ★ Chef&apos;s Special
-            </span>
-          ) : item.isPopular ? (
-            <span className="text-primary text-[11px] font-extrabold tracking-wide uppercase">
-              Bestseller
-            </span>
-          ) : null}
-        </div>
+        <VegMark status={item.vegStatus} />
 
-        <Link
-          href={`/menu?q=${encodeURIComponent(item.name)}`}
-          className="hover:text-primary font-display mb-1 block text-[15px] leading-snug font-bold transition-colors sm:text-[16.5px]"
-        >
-          {item.name}
-        </Link>
-
-        <p className="mb-1.5 text-[14.5px] font-extrabold tabular-nums sm:text-[15.5px]">
-          {formatCurrency(activePrice)}
-        </p>
-
-        {/* Prep time badge — prominent customer-friendly callout */}
-        {item.prepTime != null && item.prepTime > 0 && (
-          <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-100 px-2.5 py-1 text-[11px] font-bold text-amber-700">
-            <span>🕒</span>
-            Ready in {item.prepTime} mins
+        {(item.isSpecial || item.isPopular) && (
+          <div className="mt-1.5">
+            <DishFlag kind={item.isSpecial ? 'special' : 'popular'} />
           </div>
         )}
 
-        <p className="text-muted-foreground line-clamp-2 text-[12.5px] leading-relaxed sm:text-[13px]">
-          {item.description}
+        <h3 className="text-ink-1 mt-1 text-[16px] leading-snug font-bold sm:text-[17px]">
+          {item.name}
+        </h3>
+
+        <p className="text-ink-1 mt-1 text-[15px] font-bold tabular-nums sm:text-[15.5px]">
+          {formatCurrency(activePrice)}
         </p>
+
+        {item.rating > 0 && (
+          <div className="mt-1.5">
+            <RatingPill value={item.rating} count={item.reviewCount} />
+          </div>
+        )}
+
+        {item.description && (
+          <p className="text-ink-3 mt-2 line-clamp-2 text-[13px] leading-[1.45]">
+            {item.description}
+          </p>
+        )}
+
+        {item.prepTime != null && item.prepTime > 0 && (
+          <p className="text-ink-4 mt-2 text-[12px] font-semibold">
+            Ready in ~{item.prepTime} mins
+          </p>
+        )}
 
         {/* Portion pills. Only rendered when a dish genuinely has more than one
             size — a lone "Full" pill is a control that can't do anything. */}
@@ -100,14 +99,14 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
                   onClick={() => setSelectedPortion(portion)}
                   aria-pressed={selected}
                   className={cn(
-                    'rounded-lg border-[1.5px] px-2.5 py-1 text-[11.5px] font-bold transition-colors outline-none',
-                    'focus-visible:ring-ring/40 focus-visible:ring-[3px]',
+                    'rounded-lg border px-2.5 py-1 text-[12px] font-semibold transition-colors outline-none',
+                    'focus-visible:ring-brand/30 focus-visible:ring-[3px]',
                     selected
-                      ? 'border-primary bg-primary/8 text-primary'
-                      : 'border-border bg-card text-muted-foreground hover:border-foreground/25'
+                      ? 'border-brand-300 bg-brand-50 text-brand-800'
+                      : 'border-hair-1 text-ink-3 bg-white hover:border-ink-4/60'
                   )}
                 >
-                  {PORTION_LABELS[portion]} {formatCurrency(item.portionPrices?.[portion] ?? 0)}
+                  {PORTION_LABELS[portion]} · {formatCurrency(item.portionPrices?.[portion] ?? 0)}
                 </button>
               );
             })}
@@ -116,8 +115,8 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
       </div>
 
       {/* ── Right: photo with the action pinned to it ────────────────────── */}
-      <div className="relative w-28 shrink-0 pb-5 sm:w-33">
-        <div className="bg-muted relative aspect-square w-full overflow-hidden rounded-2xl shadow-md">
+      <div className="relative w-[118px] shrink-0 pb-4 sm:w-[130px]">
+        <div className="bg-hair-2 relative aspect-[4/3.4] w-full overflow-hidden rounded-2xl">
           {/* eslint-disable-next-line @next/next/no-img-element -- dish images
               come from Supabase Storage and arbitrary admin-pasted URLs, which
               next/image's loader would need a remotePatterns entry per host. */}
@@ -136,7 +135,7 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
 
           {unavailable && (
             <div className="absolute inset-0 grid place-items-center bg-black/55">
-              <span className="rounded-md bg-white px-2 py-0.5 text-[10px] font-extrabold text-black">
+              <span className="text-ink-1 rounded-md bg-white px-2 py-0.5 text-[10px] font-extrabold tracking-wide uppercase">
                 Sold out
               </span>
             </div>
@@ -153,25 +152,11 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
               label={item.name}
             />
           ) : (
-            <button
-              type="button"
-              onClick={add}
-              disabled={unavailable}
-              aria-label={`Add ${item.name} to cart`}
-              className={cn(
-                'h-8 min-w-23 rounded-xl border-[1.5px] px-4 text-[13px] font-black tracking-wide transition-all outline-none',
-                'focus-visible:ring-ring/40 focus-visible:ring-[3px]',
-                'border-success bg-card text-success shadow-[0_4px_14px_rgba(46,125,50,0.18)]',
-                'hover:bg-success hover:text-white hover:shadow-[0_6px_18px_rgba(46,125,50,0.26)]',
-                'disabled:border-transparent disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none'
-              )}
-            >
-              ADD
-            </button>
+            <AddButton onClick={add} disabled={unavailable} label={item.name} size="small" />
           )}
         </div>
       </div>
-    </div>
+    </article>
   );
 });
 

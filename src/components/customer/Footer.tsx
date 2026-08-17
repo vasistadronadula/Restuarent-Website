@@ -6,26 +6,20 @@ import { Clock, Mail, MapPin, Phone } from 'lucide-react';
 
 import { restaurantInfo } from '@/data/restaurantInfo';
 import { useCartStore } from '@/store/useCartStore';
-import { Separator } from '@/components/ui/separator';
 import PalaPittaLogo from './PalaPittaLogo';
 import { Container } from './Container';
 
 const NAV_LINKS = [
-  { label: 'Our Menu', href: '/menu' },
-  { label: 'My Orders', href: '/orders' },
-  { label: 'Contact', href: '/contact' },
-  { label: 'Staff Login', href: '/admin' },
+  { label: 'Our menu', href: '/menu' },
+  { label: 'My orders', href: '/orders' },
+  { label: 'Contact us', href: '/contact' },
+  { label: 'Staff login', href: '/admin' },
 ];
 
 const POLICY_LINKS = [
-  { label: 'Privacy Policy', href: '/privacy-policy' },
+  { label: 'Privacy policy', href: '/privacy-policy' },
   { label: 'Terms', href: '/terms' },
-  { label: 'Refund Policy', href: '/refund-policy' },
-];
-
-const HOURS = [
-  'Mon – Sun: 12:00 PM – 11:00 PM',
-  'Takeaway & Dine-In',
+  { label: 'Refund policy', href: '/refund-policy' },
 ];
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -36,6 +30,14 @@ function WhatsAppIcon({ className }: { className?: string }) {
   );
 }
 
+/**
+ * The site footer.
+ *
+ * Light rather than the dark slab it replaces. A near-black footer under a
+ * white menu reads as the end of the internet, and on a phone — where it sits
+ * directly above the bottom nav — it made the nav look like part of the
+ * footer rather than part of the app.
+ */
 export default function Footer() {
   const closeCart = () => useCartStore.getState().closeCart();
 
@@ -46,41 +48,42 @@ export default function Footer() {
 
   return (
     <footer
-      className="mt-auto bg-stone-900 pt-10 text-white"
-      style={{ paddingBottom: 'calc(1.5rem + var(--ppr-bottom-nav-h, 0px))' }}
+      className="border-hair-1 mt-auto border-t bg-white pt-10"
+      style={{ paddingBottom: 'calc(1.5rem + var(--ppr-bottom-nav-h, 0px) + env(safe-area-inset-bottom, 0px))' }}
     >
-      <Container>
-        <div className="grid gap-8 md:grid-cols-3">
-
+      <Container className="max-w-[1180px]">
+        <div className="grid gap-9 sm:grid-cols-2 lg:grid-cols-3">
           {/* Brand */}
           <div>
-            <PalaPittaLogo variant="dark" size="medium" />
-            <p className="mt-4 text-sm leading-relaxed text-stone-400 max-w-64">
-              Authentic Indian taste since 1998. Savour the rich heritage of Telangana & Hyderabadi cuisine.
+            <PalaPittaLogo variant="light" size="small" />
+            <p className="text-ink-3 mt-4 max-w-[280px] text-[13px] leading-relaxed">
+              Authentic Telangana, Andhra and Hyderabadi cooking, served in Madhapur since 1998.
             </p>
             {restaurantInfo.whatsapp && (
               <a
                 href={`https://wa.me/${restaurantInfo.whatsapp}`}
                 target="_blank"
                 rel="noreferrer noopener"
-                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-stone-700 px-3 py-2 text-sm font-medium text-stone-300 transition-colors hover:border-emerald-600/50 hover:text-white"
+                className="border-hair-1 text-ink-2 hover:border-veg/50 hover:text-veg mt-4 inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-[13px] font-bold transition-colors"
               >
-                <WhatsAppIcon className="size-4 text-emerald-400" />
-                WhatsApp us
+                <WhatsAppIcon className="text-veg size-4" />
+                Message us on WhatsApp
               </a>
             )}
           </div>
 
           {/* Navigation */}
           <div>
-            <h2 className="text-sm font-semibold text-stone-200 mb-4">Navigation</h2>
-            <ul className="grid gap-2">
+            <h2 className="text-ink-4 mb-4 text-[11px] font-bold tracking-wider uppercase">
+              Explore
+            </h2>
+            <ul className="grid gap-2.5">
               {NAV_LINKS.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
                     onClick={closeCart}
-                    className="text-sm text-stone-400 hover:text-white transition-colors"
+                    className="text-ink-2 hover:text-brand-600 text-[13.5px] font-semibold transition-colors"
                   >
                     {link.label}
                   </Link>
@@ -89,58 +92,57 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Contact & Hours */}
+          {/* Contact & hours */}
           <div>
-            <h2 className="text-sm font-semibold text-stone-200 mb-4">Contact & Hours</h2>
-            <ul className="grid gap-3 text-sm text-stone-400">
+            <h2 className="text-ink-4 mb-4 text-[11px] font-bold tracking-wider uppercase">
+              Find us
+            </h2>
+            <ul className="text-ink-2 grid gap-3 text-[13.5px]">
               <li className="flex gap-3">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden="true" />
+                <MapPin className="text-brand mt-0.5 size-4 shrink-0" aria-hidden="true" />
                 {restaurantInfo.addressLine}
               </li>
               <li className="flex gap-3">
-                <Phone className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden="true" />
+                <Phone className="text-brand mt-0.5 size-4 shrink-0" aria-hidden="true" />
                 <a
                   href={`tel:${restaurantInfo.phone.replace(/\s/g, '')}`}
-                  className="hover:text-white transition-colors"
+                  className="hover:text-brand-600 font-semibold transition-colors"
                 >
                   {restaurantInfo.phoneDisplay}
                 </a>
               </li>
               <li className="flex gap-3">
-                <Mail className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden="true" />
+                <Mail className="text-brand mt-0.5 size-4 shrink-0" aria-hidden="true" />
                 <a
                   href={`mailto:${restaurantInfo.email}`}
-                  className="hover:text-white break-all transition-colors"
+                  className="hover:text-brand-600 break-all transition-colors"
                 >
                   {restaurantInfo.email}
                 </a>
               </li>
               <li className="flex gap-3">
-                <Clock className="mt-0.5 size-4 shrink-0 text-amber-500" aria-hidden="true" />
-                <div>
-                  {HOURS.map((h) => (
-                    <p key={h} className="text-sm leading-relaxed">{h}</p>
-                  ))}
-                </div>
+                <Clock className="text-brand mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <span>
+                  Every day · {restaurantInfo.openingDisplay}
+                  <span className="text-ink-4 block">Takeaway &amp; dine-in</span>
+                </span>
               </li>
             </ul>
           </div>
         </div>
 
-        <Separator className="my-8 bg-stone-800" />
-
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-stone-500">
+        <div className="border-hair-2 text-ink-4 mt-9 flex flex-wrap items-center justify-between gap-3 border-t pt-6 text-[12px]">
           <p>
-            © {new Date().getFullYear()} {restaurantInfo.name}. All rights reserved.
-            {registrations.length > 0 && ` | ${registrations.join(' | ')}`}
+            © {new Date().getFullYear()} {restaurantInfo.name}
+            {registrations.length > 0 && ` · ${registrations.join(' · ')}`}
           </p>
-          <nav aria-label="Policies" className="flex gap-4">
+          <nav aria-label="Policies" className="flex flex-wrap gap-x-5 gap-y-1">
             {POLICY_LINKS.map((policy) => (
               <Link
                 key={policy.href}
                 href={policy.href}
                 onClick={closeCart}
-                className="hover:text-stone-300 transition-colors"
+                className="hover:text-ink-2 font-semibold transition-colors"
               >
                 {policy.label}
               </Link>
