@@ -31,7 +31,7 @@ export default function ContactPage() {
       <Navbar />
 
       <main className="flex-1 py-6 sm:py-9">
-        <Container className="max-w-[720px]">
+        <Container className="max-w-[1080px]">
           <header className="mb-6">
             <h1 className="text-ink-1 font-display text-[24px] font-black tracking-tight sm:text-[28px]">
               Talk to us
@@ -71,67 +71,74 @@ export default function ContactPage() {
             />
           </div>
 
-          <div className="mt-5 grid gap-4">
-            {/* ── Details ────────────────────────────────────────────── */}
-            <section className="border-hair-1 shadow-store rounded-2xl border bg-white p-5 sm:p-6">
-              <h2 className="text-ink-4 text-[11px] font-bold tracking-wider uppercase">
-                Restaurant details
-              </h2>
+          {/* Two columns from `lg`: details + map on the left, the form on the
+              right. A single stacked column of full-width sections is what
+              this page had before, and at 1080px a details card or a form
+              stretched edge to edge looks unfinished — splitting them keeps
+              every card at a size that was actually designed for it. */}
+          <div className="mt-5 grid gap-4 lg:grid-cols-2 lg:items-start">
+            <div className="grid gap-4">
+              {/* ── Details ──────────────────────────────────────────── */}
+              <section className="border-hair-1 shadow-store rounded-2xl border bg-white p-5 sm:p-6">
+                <h2 className="text-ink-4 text-[11px] font-bold tracking-wider uppercase">
+                  Restaurant details
+                </h2>
 
-              <ul className="mt-4 grid gap-4">
-                <DetailRow icon={MapPin} label="Address">
-                  {ADDRESS}
-                </DetailRow>
-                <DetailRow icon={Phone} label="Phone">
+                <ul className="mt-4 grid gap-4">
+                  <DetailRow icon={MapPin} label="Address">
+                    {ADDRESS}
+                  </DetailRow>
+                  <DetailRow icon={Phone} label="Phone">
+                    <a
+                      href={`tel:+${PHONE_RAW}`}
+                      className="hover:text-brand-600 font-semibold transition-colors"
+                    >
+                      {restaurantInfo.phoneDisplay}
+                    </a>
+                  </DetailRow>
+                  <DetailRow icon={Mail} label="Email">
+                    <a
+                      href={`mailto:${restaurantInfo.email}`}
+                      className="hover:text-brand-600 font-semibold break-all transition-colors"
+                    >
+                      {restaurantInfo.email}
+                    </a>
+                  </DetailRow>
+                  <DetailRow icon={Clock} label="Open">
+                    Every day · {restaurantInfo.openingDisplay}
+                  </DetailRow>
+                </ul>
+              </section>
+
+              {/* ── Map ──────────────────────────────────────────────── */}
+              <section className="border-hair-1 shadow-store overflow-hidden rounded-2xl border bg-white">
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3806.267578789453!2d78.4189!3d17.4159!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTfCsDI0JzU3LjIiTiA3OMKwMjUnMDQuMCJF!5e0!3m2!1sen!2sin!4v1626000000000!5m2!1sen!2sin"
+                  width="100%"
+                  height="260"
+                  style={{ border: 0 }}
+                  allowFullScreen={false}
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="block w-full"
+                  title="Pala Pitta Ruchulu location"
+                />
+                <div className="border-hair-2 flex items-center justify-between border-t px-4 py-3">
+                  <span className="text-ink-2 text-[13px] font-semibold">Madhapur, Hyderabad</span>
                   <a
-                    href={`tel:+${PHONE_RAW}`}
-                    className="hover:text-brand-600 font-semibold transition-colors"
+                    href={MAPS_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-brand-700 inline-flex items-center gap-1.5 text-[13px] font-extrabold hover:underline"
                   >
-                    {restaurantInfo.phoneDisplay}
+                    Open in Maps
+                    <ExternalLink className="size-3.5" />
                   </a>
-                </DetailRow>
-                <DetailRow icon={Mail} label="Email">
-                  <a
-                    href={`mailto:${restaurantInfo.email}`}
-                    className="hover:text-brand-600 font-semibold break-all transition-colors"
-                  >
-                    {restaurantInfo.email}
-                  </a>
-                </DetailRow>
-                <DetailRow icon={Clock} label="Open">
-                  Every day · {restaurantInfo.openingDisplay}
-                </DetailRow>
-              </ul>
-            </section>
+                </div>
+              </section>
+            </div>
 
-            {/* ── Map ────────────────────────────────────────────────── */}
-            <section className="border-hair-1 shadow-store overflow-hidden rounded-2xl border bg-white">
-              <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3806.267578789453!2d78.4189!3d17.4159!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTfCsDI0JzU3LjIiTiA3OMKwMjUnMDQuMCJF!5e0!3m2!1sen!2sin!4v1626000000000!5m2!1sen!2sin"
-                width="100%"
-                height="260"
-                style={{ border: 0 }}
-                allowFullScreen={false}
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                className="block w-full"
-                title="Pala Pitta Ruchulu location"
-              />
-              <div className="border-hair-2 flex items-center justify-between border-t px-4 py-3">
-                <span className="text-ink-2 text-[13px] font-semibold">Madhapur, Hyderabad</span>
-                <a
-                  href={MAPS_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-brand-700 inline-flex items-center gap-1.5 text-[13px] font-extrabold hover:underline"
-                >
-                  Open in Maps
-                  <ExternalLink className="size-3.5" />
-                </a>
-              </div>
-            </section>
-
-            {/* ── Message form ───────────────────────────────────────── */}
+            {/* ── Message form ─────────────────────────────────────────── */}
             <section className="border-hair-1 shadow-store rounded-2xl border bg-white p-5 sm:p-6">
               <h2 className="text-ink-1 text-[16px] font-extrabold">Send a message</h2>
               <p className="text-ink-4 mt-0.5 text-[12.5px]">
@@ -164,7 +171,7 @@ export default function ContactPage() {
                   aria-label="Message"
                   required
                   rows={4}
-                  className={cn(fieldClass, 'h-auto resize-none py-3 leading-relaxed')}
+                  className={cn(fieldClass, 'h-auto resize-none py-3 leading-relaxed lg:min-h-[180px]')}
                 />
                 <button
                   type="submit"

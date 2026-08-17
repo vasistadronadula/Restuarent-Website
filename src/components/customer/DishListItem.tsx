@@ -75,7 +75,11 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
         )}
 
         {item.description && (
-          <p className="text-ink-3 mt-2 line-clamp-2 text-[13px] leading-[1.45]">
+          // Capped measure: on a wide desktop column a 2-line-clamped
+          // description stretching edge to edge reads as an unfinished
+          // sentence rather than a short blurb, since the eye expects a line
+          // this short to wrap well before it does.
+          <p className="text-ink-3 mt-2 line-clamp-2 max-w-[62ch] text-[13px] leading-[1.45]">
             {item.description}
           </p>
         )}

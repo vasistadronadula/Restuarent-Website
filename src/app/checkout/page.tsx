@@ -579,7 +579,7 @@ function CheckoutForm() {
       <Navbar />
 
       <main className="flex-1 py-5 sm:py-7">
-        <Container className="max-w-[1060px]">
+        <Container className="max-w-[1320px]">
           <header className="mb-4">
             <h1 className="text-ink-1 font-display text-[22px] font-black tracking-tight sm:text-[26px]">
               Checkout
@@ -590,7 +590,7 @@ function CheckoutForm() {
             </p>
           </header>
 
-          <div className="grid items-start gap-5 lg:grid-cols-[1fr_23rem]">
+          <div className="grid items-start gap-5 lg:grid-cols-[1fr_25rem]">
             <div className="grid gap-5">
               {/* ── Your details ───────────────────────────────────────── */}
               <section className="border-hair-1 shadow-store rounded-2xl border bg-white p-5 sm:p-6">
@@ -599,7 +599,7 @@ function CheckoutForm() {
                   The kitchen calls this number when the order is ready.
                 </p>
 
-                <div className="mt-5 grid gap-4">
+                <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <Field
                     id="checkout-name"
                     label="Full name"

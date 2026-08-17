@@ -125,12 +125,12 @@ export default function CartPage() {
       <Navbar />
 
       <main className="flex-1 py-5 sm:py-7">
-        <Container className="max-w-[1060px]">
+        <Container className="max-w-[1320px]">
           <h1 className="text-ink-1 font-display mb-4 text-[22px] font-black tracking-tight sm:text-[26px]">
             Your order
           </h1>
 
-          <div className="grid items-start gap-5 lg:grid-cols-[1fr_23rem]">
+          <div className="grid items-start gap-5 lg:grid-cols-[1fr_25rem]">
             {/* ── Items ─────────────────────────────────────────────── */}
             <section className="border-hair-1 shadow-store overflow-hidden rounded-2xl border bg-white">
               <header className="border-hair-2 flex items-center gap-3 border-b px-4 py-3.5 sm:px-5">

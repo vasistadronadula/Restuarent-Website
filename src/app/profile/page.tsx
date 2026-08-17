@@ -183,7 +183,7 @@ export default function CustomerProfilePage() {
   return (
     <PageFrame>
       <main className="flex-1 py-5 sm:py-7">
-        <Container className="max-w-[960px]">
+        <Container className="max-w-[1200px]">
           {/* ── Identity ─────────────────────────────────────────────── */}
           <section className="border-hair-1 shadow-store flex items-center gap-4 rounded-2xl border bg-white p-5 sm:p-6">
             <span className="bg-brand grid size-14 shrink-0 place-items-center rounded-full text-[22px] font-black text-white sm:size-16 sm:text-[26px]">
@@ -204,7 +204,7 @@ export default function CustomerProfilePage() {
             </div>
           </section>
 
-          <div className="mt-5 grid items-start gap-5 lg:grid-cols-[1fr_20rem]">
+          <div className="mt-5 grid items-start gap-5 lg:grid-cols-[1fr_22rem]">
             {/* ── Details form ───────────────────────────────────────── */}
             <section className="border-hair-1 shadow-store rounded-2xl border bg-white p-5 sm:p-6">
               <h2 className="text-ink-1 text-[16px] font-extrabold">Personal information</h2>

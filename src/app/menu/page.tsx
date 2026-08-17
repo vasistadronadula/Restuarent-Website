@@ -287,7 +287,7 @@ function MenuBrowser() {
           The context a diner wants before they start ordering: is this the
           right place, is it any good, and when does it close. */}
       <section className="border-hair-2 border-b bg-white">
-        <Container className="max-w-[1180px] py-5 sm:py-6">
+        <Container className="max-w-[1600px] py-5 sm:py-6">
           <h1 className="text-ink-1 font-display text-[24px] leading-tight font-black tracking-tight sm:text-[30px]">
             {restaurantInfo.name}
           </h1>
@@ -331,7 +331,7 @@ function MenuBrowser() {
         className="border-hair-1 bg-store/92 sticky z-30 border-b backdrop-blur-md"
         style={{ top: 'var(--store-header-h)' }}
       >
-        <Container className="max-w-[1180px] py-2.5 md:py-3.5">
+        <Container className="max-w-[1600px] py-2.5 md:py-3.5">
           <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
             {/* Search */}
             <div className="relative h-11 w-full md:max-w-[340px]">
@@ -423,7 +423,7 @@ function MenuBrowser() {
       </div>
 
       <main className="flex-1">
-        <Container className="max-w-[1180px] py-6 sm:py-8">
+        <Container className="max-w-[1600px] py-6 sm:py-8">
           {/* ── Category rail ──────────────────────────────────────── */}
           {!isLoadingDB && railCategories.length > 1 && (
             <section aria-label="Browse by category" className="mb-8">
@@ -436,11 +436,11 @@ function MenuBrowser() {
             </section>
           )}
 
-          <div className="flex items-start gap-10">
+          <div className="flex items-start gap-10 xl:gap-14">
             {/* ── Desktop category sidebar ─────────────────────────── */}
             {railCategories.length > 1 && (
               <aside
-                className="scrollbar-none hidden w-[212px] shrink-0 self-start overflow-y-auto lg:block"
+                className="scrollbar-none hidden w-[212px] shrink-0 self-start overflow-y-auto lg:block xl:w-[240px]"
                 style={{
                   position: 'sticky',
                   top: 'calc(var(--store-header-h) + var(--store-filters-h) + 1.5rem)',
@@ -582,7 +582,7 @@ function MenuBrowser() {
 function DishCollection({ items, layout }: { items: MenuItem[]; layout: 'list' | 'grid' }) {
   if (layout === 'grid') {
     return (
-      <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5">
         {items.map((item) => (
           <MenuCard key={item.id} item={item} />
         ))}

@@ -269,7 +269,7 @@ export default function OrderHistoryPage() {
           className="border-hair-1 bg-store/92 sticky z-30 border-b backdrop-blur-md"
           style={{ top: 'var(--store-header-h)' }}
         >
-          <Container className="max-w-[900px] py-2.5 md:py-3.5">
+          <Container className="max-w-[1280px] py-2.5 md:py-3.5">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
               <div className="relative h-11 w-full md:max-w-[300px]">
                 <Search className="text-ink-4 pointer-events-none absolute top-1/2 left-4 size-[18px] -translate-y-1/2" />
@@ -322,7 +322,7 @@ export default function OrderHistoryPage() {
           </Container>
         </div>
 
-        <Container className="max-w-[900px] py-6 sm:py-8">
+        <Container className="max-w-[1280px] py-6 sm:py-8">
           <header className="mb-6">
             <h1 className="text-ink-1 font-display text-[22px] font-black tracking-tight sm:text-[26px]">
               My orders
