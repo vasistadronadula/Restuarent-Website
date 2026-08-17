@@ -311,7 +311,7 @@ export default function MenuManagementPage() {
         <Pill
           on={row.original.isAvailable}
           onLabel="On menu"
-          offLabel="86'd"
+          offLabel="Out of stock"
           onClick={() => toggleMenuItemAvailability(row.original.id)}
         />
       ),
@@ -356,7 +356,7 @@ export default function MenuManagementPage() {
           <Pill
             on={item.isAvailable}
             onLabel="On menu"
-            offLabel="86'd"
+            offLabel="Out of stock"
             onClick={() => toggleMenuItemAvailability(item.id)}
           />
           <div className="flex items-center gap-1.5">

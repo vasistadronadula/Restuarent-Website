@@ -57,12 +57,14 @@ interface BaseFieldProps<T extends FieldValues> {
 // ─── Text ─────────────────────────────────────────────────────────────────────
 
 export function TextField<T extends FieldValues>({
-  control, name, label, hint, className, placeholder, type = 'text', autoFocus, disabled,
+  control, name, label, hint, className, placeholder, type = 'text', autoFocus, disabled, prefix, suffix,
 }: BaseFieldProps<T> & {
   placeholder?: string;
   type?: 'text' | 'email' | 'password' | 'tel' | 'url';
   autoFocus?: boolean;
   disabled?: boolean;
+  prefix?: string;
+  suffix?: string;
 }) {
   return (
     <FormField
@@ -71,20 +73,30 @@ export function TextField<T extends FieldValues>({
       render={({ field, fieldState }) => (
         <FormItem className={cn('gap-1.5', className)}>
           <FormLabel className={labelClass}>{label}</FormLabel>
-          <FormControl>
-            <Input
-              {...field}
-              value={field.value ?? ''}
-              type={type}
-              placeholder={placeholder}
-              autoFocus={autoFocus}
-              disabled={disabled}
-              // Autofill on a staff password field offers the manager's own
-              // saved credentials, which is never what a new-hire form wants.
-              autoComplete={type === 'password' ? 'new-password' : undefined}
-              className={controlClass}
-            />
-          </FormControl>
+          <div className="relative">
+            {prefix && (
+              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-semibold text-ad-muted select-none">
+                {prefix}
+              </span>
+            )}
+            <FormControl>
+              <Input
+                {...field}
+                value={field.value ?? ''}
+                type={type}
+                placeholder={placeholder}
+                autoFocus={autoFocus}
+                disabled={disabled}
+                autoComplete={type === 'password' ? 'new-password' : undefined}
+                className={cn(controlClass, prefix && '!pl-8', suffix && '!pr-12')}
+              />
+            </FormControl>
+            {suffix && (
+              <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-ad-muted select-none">
+                {suffix}
+              </span>
+            )}
+          </div>
           {hint && !fieldState.error && <FormDescription>{hint}</FormDescription>}
           <FormMessage />
         </FormItem>
@@ -124,7 +136,7 @@ export function NumberField<T extends FieldValues>({
           <FormLabel className={labelClass}>{label}</FormLabel>
           <div className="relative">
             {prefix && (
-              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-semibold text-ad-muted">
+              <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-sm font-semibold text-ad-muted select-none">
                 {prefix}
               </span>
             )}
@@ -139,11 +151,11 @@ export function NumberField<T extends FieldValues>({
                 step={step}
                 placeholder={placeholder}
                 disabled={disabled}
-                className={cn(controlClass, 'tabular-nums', prefix && 'pl-7', suffix && 'pr-10')}
+                className={cn(controlClass, 'tabular-nums', prefix && '!pl-8', suffix && '!pr-12')}
               />
             </FormControl>
             {suffix && (
-              <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-ad-muted">
+              <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 text-xs font-semibold text-ad-muted select-none">
                 {suffix}
               </span>
             )}

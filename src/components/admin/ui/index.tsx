@@ -161,7 +161,7 @@ export function Tabs<T extends string>({
   );
 }
 
-/** Two-state toggle rendered as a bordered pill (on-menu / 86'd, live / paused). */
+/** Two-state toggle rendered as a bordered pill (on-menu / out-of-stock, live / paused). */
 export function Pill({
   on, onLabel, offLabel, onClick,
 }: { on: boolean; onLabel: string; offLabel: string; onClick?: () => void }) {
