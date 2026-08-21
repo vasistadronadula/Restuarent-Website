@@ -4,11 +4,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock, XCircle } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import type { PersistedOrderItem, OrderStatus } from '@/types';
+import type { OrderType, PersistedOrderItem, OrderStatus } from '@/types';
 import {
   classifyOrderCategory,
   getOrderStages,
   type OrderCategoryType,
+  type StageDefinition,
 } from '@/lib/orderCategory';
 
 export const ORDER_STAGES = getOrderStages('food');
@@ -22,6 +23,35 @@ export function getStageIndex(status: OrderStatus): number {
     case 'cancelled': return -1;
     default:          return 0;
   }
+}
+
+/**
+ * `getOrderStages` already varies "ready"/"preparing" copy by dish category
+ * (food/dessert/beverage) — this layers fulfillment type on top for the two
+ * stages where it actually changes what the guest should do next. Dine-in
+ * hasn't had a self-serve ordering flow yet, so this is unreachable today,
+ * but a table order carries `tableNumber` the moment one exists and this
+ * keeps the tracker correct rather than telling a seated guest to "collect
+ * at the counter". Takeaway/counter keep `getOrderStages`' own copy — it
+ * was already written for a pickup counter.
+ */
+function applyFulfillmentCopy(
+  stages: readonly StageDefinition[],
+  orderType?: OrderType,
+  tableNumber?: number
+): readonly StageDefinition[] {
+  if (orderType !== 'dine-in') return stages;
+
+  const table = tableNumber ? `Table ${tableNumber}` : 'your table';
+  return stages.map((stage) => {
+    if (stage.key === 'ready') {
+      return { ...stage, label: 'On its way to you', desc: `Your food is on its way to ${table}` };
+    }
+    if (stage.key === 'delivered') {
+      return { ...stage, label: 'Served', desc: `Served at ${table} — enjoy!` };
+    }
+    return stage;
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -92,6 +122,8 @@ interface OrderTrackerProps {
   estimatedMinutes?: number;
   items?: PersistedOrderItem[];
   categoryType?: OrderCategoryType;
+  orderType?: OrderType;
+  tableNumber?: number;
 }
 
 export default function OrderTracker({
@@ -99,6 +131,8 @@ export default function OrderTracker({
   estimatedMinutes,
   items,
   categoryType: explicitCategory,
+  orderType,
+  tableNumber,
 }: OrderTrackerProps) {
   // Both hooks run on every render, cancelled order or not — a hook can never
   // sit after an early return, since a later render that takes the other
@@ -111,7 +145,10 @@ export default function OrderTracker({
     () => explicitCategory || classifyOrderCategory(items),
     [explicitCategory, items]
   );
-  const stages = useMemo(() => getOrderStages(categoryType), [categoryType]);
+  const stages = useMemo(
+    () => applyFulfillmentCopy(getOrderStages(categoryType), orderType, tableNumber),
+    [categoryType, orderType, tableNumber]
+  );
 
   if (status === 'cancelled') {
     return (
@@ -170,7 +207,7 @@ export default function OrderTracker({
           <EtaRing minutes={estimatedMinutes} />
         ) : status === 'ready' ? (
           <span className="text-veg shrink-0 rounded-lg bg-white px-3 py-2 text-[12px] font-extrabold">
-            Collect now
+            {orderType === 'dine-in' ? 'On its way' : 'Collect now'}
           </span>
         ) : status === 'pending' ? (
           <span className="text-ink-4 flex shrink-0 items-center gap-1.5 text-[12px] font-bold">

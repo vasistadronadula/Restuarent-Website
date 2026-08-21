@@ -632,7 +632,13 @@ function ActiveOrderCard({
           </p>
         )}
 
-        <OrderTracker status={order.status} estimatedMinutes={estimatedMinutes} items={order.items} />
+        <OrderTracker
+          status={order.status}
+          estimatedMinutes={estimatedMinutes}
+          items={order.items}
+          orderType={order.orderType}
+          tableNumber={order.tableNumber}
+        />
 
         <div className="border-hair-1 divide-hair-2 max-h-52 divide-y overflow-y-auto rounded-xl border px-3.5">
           {order.items.map((item, idx) => (
