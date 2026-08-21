@@ -57,7 +57,7 @@
 ### Next.js
 - **Version:** 16.2.11
 - **Build Tool:** Turbopack (configured with root pinning)
-- **React Strict Mode:** Disabled (prevents double-renders in dev)
+- **React Strict Mode:** Enabled (see `reactStrictMode` in `next.config.ts`)
 - **Key Features:**
   - App Router (src/app directory)
   - API Routes (src/app/api)
@@ -117,7 +117,7 @@
 - **Version:** @supabase/supabase-js ^2.110.7
 - **Type:** PostgreSQL database + Backend-as-a-Service
 - **Database Configuration:** `src/lib/supabase.ts`, `src/lib/supabaseAdmin.ts`
-- **Schema:** `supabase_schema.sql`
+- **Schema:** `supabase/migrations/20260808000000_baseline_schema.sql` (see `supabase/README.md`)
 - **Features:**
   - Real-time subscriptions
   - PostgreSQL queries
@@ -462,7 +462,7 @@ src/
 
 ### Database
 - `supabase/` - Supabase migrations and schema
-- `supabase_schema.sql` - Database schema definition
+- `supabase/migrations/20260808000000_baseline_schema.sql` - Baseline database schema (migrations tracked in `supabase/migrations/`)
 
 ### Scripts
 - `scripts/seedDatabase.mjs` - Database seeding script

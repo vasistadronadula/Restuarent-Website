@@ -23,7 +23,7 @@ export type { UserRole };
 // Owner-account bootstrap: these emails are always forced to 'admin' even if
 // their `profiles.role` row says otherwise. Mirrors the same whitelist used
 // in the one-time `UPDATE profiles SET role = 'admin' WHERE email IN (...)`
-// at the bottom of supabase_schema.sql.
+// at the bottom of the baseline migration in supabase/migrations.
 const ADMIN_EMAILS = [
   'vasistadronadula@gmail.com',
   'pathaniroshini@gmail.com',

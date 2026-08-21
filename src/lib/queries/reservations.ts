@@ -9,7 +9,7 @@ import { queryKeys } from './keys';
 import { mapReservation } from './mappers';
 import { patchList, rollbackList } from './optimistic';
 
-export function useReservations() {
+export function useReservations(enabled = true) {
   return useQuery({
     queryKey: queryKeys.reservations,
     queryFn: async (): Promise<Reservation[]> => {
@@ -21,6 +21,9 @@ export function useReservations() {
       return (data || []).map(mapReservation);
     },
     staleTime: 60_000,
+    // Staff-only listing — no customer page reads this list (booking a table
+    // only ever calls useCreateReservation), see useInventory.
+    enabled,
   });
 }
 

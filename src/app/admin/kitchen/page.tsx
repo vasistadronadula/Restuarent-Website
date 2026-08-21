@@ -23,6 +23,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { postAuthedJson } from '@/lib/authedFetch';
+import { orderItemId } from '@/lib/orderItems';
 
 /* ================================================================== */
 /*  Web Audio API Synthesis — Multi-Tone Crystal Clear Chimes         */
@@ -88,7 +90,7 @@ function playKitchenChime(type: 'new_order' | 'ready' | 'alert' = 'new_order') {
 /*  Helpers & Time Calculations                                       */
 /* ================================================================== */
 
-const getOrderStatus = (o: Order): OrderStatus => o.orderStatus || o.status || 'pending';
+const getOrderStatus = (o: Order): OrderStatus => o.status || 'pending';
 
 function parseOrderTimestamp(order: Order): number {
   if (order.createdAt) {
@@ -123,7 +125,7 @@ function parseOrderTimestamp(order: Order): number {
 }
 
 function getTargetPrepMinutes(order: Order, prepTimeMap: Map<string, number>): number {
-  const prepTimes = (order.items || []).map((item) => prepTimeMap.get(item.menuItemId) ?? 15);
+  const prepTimes = (order.items || []).map((item) => prepTimeMap.get(orderItemId(item)) ?? 15);
   const basePrep = Math.max(...prepTimes, 12);
   return basePrep + (order.delayMinutes || 0);
 }
@@ -619,15 +621,11 @@ export default function KitchenDisplayPage() {
         { description: delayReason ? `Reason: ${delayReason}` : undefined }
       );
       // Fire-and-forget: notify customer via WhatsApp about the delay
-      fetch('/api/whatsapp/send-delay-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: selectedOrderForDelay.id,
-          extraMinutes: customDelayMins,
-          reason: delayReason || undefined,
-        }),
-      }).catch(() => {/* non-critical */});
+      void postAuthedJson('/api/whatsapp/send-delay-notification', {
+        orderId: selectedOrderForDelay.id,
+        extraMinutes: customDelayMins,
+        reason: delayReason || undefined,
+      });
       setDelayDialogOpen(false);
     } catch {
       toast.error('Failed to update prep delay');

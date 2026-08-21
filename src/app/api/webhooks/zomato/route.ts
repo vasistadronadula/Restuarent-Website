@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { createOrderInDB } from '@/lib/db';
 import { sendNewOrderPushNotification } from '@/lib/pushNotify';
 import { getErrorMessage } from '@/lib/errors';
+import { orderStamps } from '@/lib/orderTime';
+import { log } from '@/lib/logger';
+import { safeCompare } from '@/lib/webhookAuth';
+import { computeBillTotals } from '@/lib/billing';
 import type { VegStatus } from '@/types';
 
 interface ZomatoWebhookItem {
@@ -27,21 +31,15 @@ interface ZomatoWebhookBody {
 
 /**
  * Zomato Partner Webhook API Endpoint
- * URL: https://palapittaruchulu.vercel.app/api/webhooks/zomato
+ * URL: <site origin>/api/webhooks/zomato
  *
  * Receives incoming orders pushed by Zomato's Partner API once integrated.
+ * POST only — the former GET status probe was removed: it served no
+ * caller and confirmed the endpoint (plus the restaurant name and exact
+ * URL) to anyone scanning for it.
+ *
  * Requires the `x-webhook-secret` header to match ZOMATO_WEBHOOK_SECRET.
  */
-
-export async function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    service: 'Zomato Merchant Webhook API',
-    restaurant: 'Pala Pitta Ruchulu',
-    webhookUrl: 'https://palapittaruchulu.vercel.app/api/webhooks/zomato',
-    timestamp: new Date().toISOString(),
-  });
-}
 
 export async function POST(request: Request) {
   // Not yet integrated with Zomato's real Partner API. Until ZOMATO_WEBHOOK_SECRET
@@ -55,7 +53,8 @@ export async function POST(request: Request) {
       { status: 503 }
     );
   }
-  if (request.headers.get('x-webhook-secret') !== configuredSecret) {
+  const providedSecret = request.headers.get('x-webhook-secret') || '';
+  if (!safeCompare(providedSecret, configuredSecret)) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -76,10 +75,10 @@ export async function POST(request: Request) {
     }));
 
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0) || 480;
-    const cgst = parseFloat((subtotal * 0.025).toFixed(2));
-    const sgst = parseFloat((subtotal * 0.025).toFixed(2));
-    const grandTotal = Math.round(subtotal + cgst + sgst);
-    const now = new Date();
+    // Shared with the POS/storefront bill math — see the identical fix in
+    // the Swiggy webhook for why this can't be inline multipliers.
+    const { cgst, sgst, grandTotal } = computeBillTotals(subtotal);
+    const { orderDate, orderTime } = orderStamps();
 
     const orderPayload = {
       id: zomatoOrderId,
@@ -101,8 +100,8 @@ export async function POST(request: Request) {
       status: 'pending' as const,
       paymentMode: 'online' as const,
       paymentStatus: 'paid' as const,
-      orderDate: now.toISOString().split('T')[0],
-      orderTime: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      orderDate,
+      orderTime,
       orderSource: 'zomato' as const,
     };
 
@@ -115,7 +114,7 @@ export async function POST(request: Request) {
       orderId: zomatoOrderId,
     });
   } catch (error) {
-    console.error('Zomato Webhook Error:', error);
+    log.error('webhook_ingest_failed', { source: 'zomato', error });
     return NextResponse.json({ success: false, error: getErrorMessage(error) }, { status: 400 });
   }
 }

@@ -14,16 +14,7 @@ import { CouponField } from '@/components/customer/CouponField';
 import { restaurantInfo } from '@/data/restaurantInfo';
 import { useCoupons } from '@/lib/queries';
 import { useAuth } from '@/context/AuthContext';
-import {
-  useCartStore,
-  getCartTotalItems,
-  getCartSubtotal,
-  getCartDiscountAmount,
-  getCartTaxableAmount,
-  getCartCgst,
-  getCartSgst,
-  getCartGrandTotal,
-} from '@/store/useCartStore';
+import { useCartStore, getCartBillTotals } from '@/store/useCartStore';
 
 export default function CartPage() {
   const items = useCartStore((s) => s.items);
@@ -32,22 +23,12 @@ export default function CartPage() {
   const { data: coupons = [] } = useCoupons();
   const { user } = useAuth();
 
-  const totals = useMemo(() => {
-    const subtotal = getCartSubtotal(items);
-    const discountAmount = getCartDiscountAmount(subtotal, couponDiscount, couponMaxDiscount);
-    const taxable = getCartTaxableAmount(subtotal, discountAmount);
-    const cgst = getCartCgst(taxable);
-    const sgst = getCartSgst(taxable);
-    return {
-      subtotal,
-      discountAmount,
-      cgst,
-      sgst,
-      grandTotal: getCartGrandTotal(taxable, cgst, sgst),
-    };
-  }, [items, couponDiscount, couponMaxDiscount]);
+  const totals = useMemo(
+    () => getCartBillTotals(items, couponDiscount, couponMaxDiscount),
+    [items, couponDiscount, couponMaxDiscount]
+  );
 
-  const itemCount = getCartTotalItems(items);
+  const itemCount = totals.totalItems;
 
   /* ── Empty ──────────────────────────────────────────────────────────── */
   if (items.length === 0) {
@@ -209,7 +190,7 @@ export default function CartPage() {
                 </p>
                 <p className="flex items-center gap-2">
                   <ShieldCheck className="text-veg size-4 shrink-0" />
-                  Collect from our Madhapur counter — no delivery charge
+                  Collect from our {restaurantInfo.locality} counter — no delivery charge
                 </p>
               </div>
             </aside>

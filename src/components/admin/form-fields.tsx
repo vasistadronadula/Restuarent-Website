@@ -25,6 +25,7 @@ import { Loader2, UploadCloud } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -352,6 +353,9 @@ export function FormDialog<T extends FieldValues>({
 
 // ─── Image Upload ─────────────────────────────────────────────────────────────
 
+/** Formats both the client check and /api/upload accept. */
+const UPLOADABLE_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/avif', 'image/gif'];
+
 async function compressImageFile(
   file: File,
   maxWidth = 1200,
@@ -438,8 +442,12 @@ export function ImageUploadField<T extends FieldValues>({
         const imageVal: string = typeof rawValue === 'string' ? rawValue : '';
 
         const handleFile = async (file: File) => {
-          if (!file.type.startsWith('image/')) {
-            toast.error('Please select an image file (PNG, JPG, WEBP, AVIF)');
+          // Mirrors the allow-list /api/upload enforces, so an unsupported
+          // file is refused here with a clear message instead of round-
+          // tripping to a 400. SVG is excluded on both sides deliberately:
+          // it executes script when served from our own origin.
+          if (!UPLOADABLE_IMAGE_TYPES.includes(file.type)) {
+            toast.error('Please select a PNG, JPG, WEBP or AVIF image');
             return;
           }
           if (file.size > 10 * 1024 * 1024) {
@@ -459,8 +467,19 @@ export function ImageUploadField<T extends FieldValues>({
             formData.append('file', optimized);
             formData.append('folder', folder);
 
+            // /api/upload is staff-gated — it holds the service-role key and
+            // writes to a public bucket, so it verifies the caller's role
+            // server-side rather than trusting AdminGuard to have kept
+            // non-staff off this screen.
+            const { data: sessionData } = await supabase.auth.getSession();
+            const accessToken = sessionData.session?.access_token;
+            if (!accessToken) {
+              throw new Error('Your session has expired — sign in again to upload.');
+            }
+
             const res = await fetch('/api/upload', {
               method: 'POST',
+              headers: { Authorization: `Bearer ${accessToken}` },
               body: formData,
             });
 

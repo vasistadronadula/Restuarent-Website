@@ -30,8 +30,14 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files — every one of these holds live secrets (Supabase service-role
+# key, Razorpay secret, WhatsApp token, VAPID private key). Named explicitly
+# as well as by glob: a single-purpose line is what shows up in a review when
+# someone reaches for `git add -f`, and the glob alone silently covers
+# `.env.example` too, which is meant to be committed.
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel

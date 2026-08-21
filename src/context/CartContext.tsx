@@ -9,16 +9,7 @@
  */
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
 import { MenuItem, CartItem } from '@/types';
-import {
-  useCartStore,
-  getCartTotalItems,
-  getCartSubtotal,
-  getCartDiscountAmount,
-  getCartTaxableAmount,
-  getCartCgst,
-  getCartSgst,
-  getCartGrandTotal,
-} from '@/store/useCartStore';
+import { useCartStore, getCartBillTotals } from '@/store/useCartStore';
 
 interface CartState {
   items: CartItem[];
@@ -57,21 +48,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const couponDiscount = useCartStore((s) => s.couponDiscount);
   const couponMaxDiscount = useCartStore((s) => s.couponMaxDiscount);
 
-  const totals = useMemo(() => {
-    const subtotal = getCartSubtotal(items);
-    const discountAmount = getCartDiscountAmount(subtotal, couponDiscount, couponMaxDiscount);
-    const taxable = getCartTaxableAmount(subtotal, discountAmount);
-    const cgst = getCartCgst(taxable);
-    const sgst = getCartSgst(taxable);
-    return {
-      totalItems: getCartTotalItems(items),
-      subtotal,
-      discountAmount,
-      cgst,
-      sgst,
-      grandTotal: getCartGrandTotal(taxable, cgst, sgst),
-    };
-  }, [items, couponDiscount, couponMaxDiscount]);
+  const totals = useMemo(
+    () => getCartBillTotals(items, couponDiscount, couponMaxDiscount),
+    [items, couponDiscount, couponMaxDiscount]
+  );
 
   // Actions are read off the store at call time rather than subscribed to.
   // Zustand action identities are stable, so this keeps the context value from

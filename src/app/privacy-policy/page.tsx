@@ -1,6 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 import { LegalPage } from "@/components/customer/LegalPage";
 import { Separator } from "@/components/ui/separator";
+import { restaurantInfo } from "@/data/restaurantInfo";
 
 export default function PrivacyPolicyPage() {
   return (
@@ -112,9 +113,22 @@ export default function PrivacyPolicyPage() {
           <p>Pala Pitta Ruchulu (Royal Spice)</p>
           <p>📍 Location: Madhapur, Hyderabad, Telangana – 500081</p>
           <p>
-            📞 Phone: +91 70326 82089 | ✉️ Email: palapittaruchulu@gmail.com
+            📞 Phone: {restaurantInfo.phoneDisplay} | ✉️ Email: {restaurantInfo.email}
           </p>
-          <p>📜 GSTIN: 36AAACR1234F1Z5 | FSSAI License No: 10020011003457</p>
+          {/* Registration numbers come from data/restaurantInfo (env-backed)
+              and the line is omitted while they're blank. The values that
+              used to be typed here — GSTIN 36AAACR1234F1Z5, FSSAI
+              10020011003457 — were placeholders, and a made-up FSSAI licence
+              number published on a privacy policy is a compliance statement
+              the restaurant can't stand behind. */}
+          {(restaurantInfo.gstin || restaurantInfo.fssai) && (
+            <p>
+              📜
+              {restaurantInfo.gstin ? ` GSTIN: ${restaurantInfo.gstin}` : ''}
+              {restaurantInfo.gstin && restaurantInfo.fssai ? ' |' : ''}
+              {restaurantInfo.fssai ? ` FSSAI License No: ${restaurantInfo.fssai}` : ''}
+            </p>
+          )}
         </section>
       </section>
     </LegalPage>

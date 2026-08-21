@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { createOrderInDB } from '@/lib/db';
 import { sendNewOrderPushNotification } from '@/lib/pushNotify';
 import { getErrorMessage } from '@/lib/errors';
+import { orderStamps } from '@/lib/orderTime';
+import { log } from '@/lib/logger';
+import { safeCompare } from '@/lib/webhookAuth';
+import { computeBillTotals } from '@/lib/billing';
 import type { VegStatus } from '@/types';
 
 interface SwiggyWebhookItem {
@@ -26,21 +30,15 @@ interface SwiggyWebhookBody {
 
 /**
  * Swiggy Partner Webhook API Endpoint
- * URL: https://palapittaruchulu.vercel.app/api/webhooks/swiggy
+ * URL: <site origin>/api/webhooks/swiggy
  *
  * Receives incoming orders pushed by Swiggy's Partner API once integrated.
+ * POST only — the former GET status probe was removed: it served no
+ * caller and confirmed the endpoint (plus the restaurant name and exact
+ * URL) to anyone scanning for it.
+ *
  * Requires the `x-webhook-secret` header to match SWIGGY_WEBHOOK_SECRET.
  */
-
-export async function GET() {
-  return NextResponse.json({
-    status: 'ok',
-    service: 'Swiggy Merchant Webhook API',
-    restaurant: 'Pala Pitta Ruchulu',
-    webhookUrl: 'https://palapittaruchulu.vercel.app/api/webhooks/swiggy',
-    timestamp: new Date().toISOString(),
-  });
-}
 
 export async function POST(request: Request) {
   // Not yet integrated with Swiggy's real Partner API. Until SWIGGY_WEBHOOK_SECRET
@@ -54,7 +52,8 @@ export async function POST(request: Request) {
       { status: 503 }
     );
   }
-  if (request.headers.get('x-webhook-secret') !== configuredSecret) {
+  const providedSecret = request.headers.get('x-webhook-secret') || '';
+  if (!safeCompare(providedSecret, configuredSecret)) {
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -75,10 +74,11 @@ export async function POST(request: Request) {
     }));
 
     const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0) || 450;
-    const cgst = parseFloat((subtotal * 0.025).toFixed(2));
-    const sgst = parseFloat((subtotal * 0.025).toFixed(2));
-    const grandTotal = Math.round(subtotal + cgst + sgst);
-    const now = new Date();
+    // Shared with the POS/storefront bill math — inline GST multipliers here
+    // would silently desync from billing.ts the next time the rate or
+    // rounding rule changes there.
+    const { cgst, sgst, grandTotal } = computeBillTotals(subtotal);
+    const { orderDate, orderTime } = orderStamps();
 
     const orderPayload = {
       id: swiggyOrderId,
@@ -100,8 +100,8 @@ export async function POST(request: Request) {
       status: 'pending' as const,
       paymentMode: 'online' as const,
       paymentStatus: 'paid' as const,
-      orderDate: now.toISOString().split('T')[0],
-      orderTime: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      orderDate,
+      orderTime,
       orderSource: 'swiggy' as const,
     };
 
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
       orderId: swiggyOrderId,
     });
   } catch (error) {
-    console.error('Swiggy Webhook Error:', error);
+    log.error('webhook_ingest_failed', { source: 'swiggy', error });
     return NextResponse.json({ success: false, error: getErrorMessage(error) }, { status: 400 });
   }
 }

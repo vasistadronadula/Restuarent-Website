@@ -246,17 +246,27 @@ export default function PosPage() {
         paymentMode,
         paymentStatus: 'paid',
         status: 'pending',
-        orderStatus: 'pending',
         items: lines.map((l) => ({
-          id: l.menuItemId,
+          // menuItemId, not id — the storefront and aggregator webhooks both
+          // write menuItemId, and reports that group revenue by dish used to
+          // have to check `item.menuItemId || item.id` because the POS was
+          // the one writer using a different name for the same value.
+          menuItemId: l.menuItemId,
           name: l.name,
           price: l.unitPrice,
           quantity: l.quantity,
           portion: l.portion,
           notes: l.notes,
+          category: l.category,
         })),
         subtotal: totals.subtotal,
-        discountAmount: totals.discountAmount,
+        // `discount`, not `discountAmount` — Order has no `discountAmount`
+        // field (only billing.ts's own BillTotals return shape does, which
+        // is what `totals` here is). Writing `discountAmount` meant this
+        // never reached the `discount` column useCreateOrder/mappers.ts
+        // actually read, so every POS discount was saved and printed as ₹0
+        // and the receipt's "Round Off" line came out wildly wrong.
+        discount: totals.discountAmount,
         deliveryCharge: totals.packagingCharge,
         cgst: totals.cgst,
         sgst: totals.sgst,

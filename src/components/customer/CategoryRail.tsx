@@ -71,7 +71,6 @@ export default function CategoryRail({
       track.removeEventListener('scroll', onScroll);
       observer.disconnect();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categories.length]);
 
   const nudge = (direction: -1 | 1) => {

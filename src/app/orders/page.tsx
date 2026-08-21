@@ -10,9 +10,8 @@ import {
   Hourglass, Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
 
-import { cn, formatCurrency, FALLBACK_DISH_IMAGE, displayNameWithoutPortion } from '@/lib/utils';
+import { cn, formatCurrency, displayNameWithoutPortion } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import OrderTracker from '@/components/customer/OrderTracker';
@@ -20,12 +19,13 @@ import ViewBillDialog from '@/components/bill/ViewBillDialog';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { useCartStore } from '@/store/useCartStore';
-import { useGuestOrders } from '@/lib/queries';
-import { queryKeys } from '@/lib/queries/keys';
-import { supabase } from '@/lib/supabase';
+import { useOrderEventStore } from '@/store/useOrderEventStore';
+import { useGuestOrders, useMyOrders } from '@/lib/queries';
 import { playOrderChimeSound } from '@/lib/audio';
-import type { Order, OrderItem, OrderStatus } from '@/types';
+import type { Order, PersistedOrderItem, OrderStatus } from '@/types';
+import { orderItemId } from '@/lib/orderItems';
 import { classifyOrderCategory, getStatusBadgeMeta } from '@/lib/orderCategory';
+import { buildPrepTimeMap, estimateOrderMinutes } from '@/lib/orderEstimate';
 
 import { Container } from '@/components/customer/Container';
 import { FilterPill, VegMark } from '@/components/customer/store-ui';
@@ -42,22 +42,6 @@ const STATUS_FILTERS = [
   { value: 'cancelled', label: 'Cancelled' },
 ] as const;
 
-/**
- * Three tones, not five. Orange means "something is still happening", green
- * means "finished cleanly", red means "did not happen" — which is the only
- * distinction a customer scanning their history actually acts on.
- */
-const STATUS_META: Record<
-  string,
-  { label: string; icon: React.ComponentType<{ className?: string }>; colors: string }
-> = {
-  pending:    { label: 'Confirmed',       icon: Clock,        colors: 'text-brand-800 bg-brand-50 border-brand-200' },
-  preparing:  { label: 'Cooking',         icon: Flame,        colors: 'text-brand-800 bg-brand-50 border-brand-200' },
-  ready:      { label: 'Ready to collect', icon: CookingPot,  colors: 'text-brand-800 bg-brand-50 border-brand-200' },
-  delivered:  { label: 'Completed',       icon: CheckCircle2, colors: 'text-veg bg-veg/8 border-veg/25' },
-  cancelled:  { label: 'Cancelled',       icon: AlertCircle,  colors: 'text-nonveg bg-nonveg/8 border-nonveg/25' },
-};
-
 function isActiveStatus(status: string): boolean {
   return ['pending', 'preparing', 'ready'].includes(status);
 }
@@ -67,101 +51,107 @@ function isActiveStatus(status: string): boolean {
 /* ------------------------------------------------------------------ */
 
 export default function OrderHistoryPage() {
-  const { orders: allOrders, menuItems, isLoadingDB: adminLoading } = useAdmin();
+  const { menuItems } = useAdmin();
   const { user } = useAuth();
   const router = useRouter();
-  const queryClient = useQueryClient();
+  // Scoped server-side by user_id — not the entire `orders` table filtered
+  // down in the browser (see useMyOrders' own comment for why that mattered).
+  const { data: myOrdersData = [], isLoading: myOrdersLoading, isError: myOrdersErrored, refetch: refetchMyOrders } = useMyOrders(user?.id ?? null);
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [guestOrderIds, setGuestOrderIds] = useState<string[]>([]);
+  // Read synchronously on mount (guarded for SSR, where `window` doesn't
+  // exist) rather than via a deferred setTimeout(…, 0). The deferral meant
+  // guestOrderIds was always `[]` for the very first client render, so a
+  // returning guest briefly saw "No orders yet" before the real list
+  // snapped in a tick later.
+  const [guestOrderIds, setGuestOrderIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(window.localStorage.getItem('ppr:guestOrderIds') || '[]');
+    } catch {
+      return [];
+    }
+  });
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
 
   const previousStatusMapRef = useRef<Map<string, OrderStatus>>(new Map());
   const previousDelayMapRef  = useRef<Map<string, number>>(new Map());
 
+  // Re-syncs when auth resolves: a logged-in user has no use for guest IDs,
+  // and a guest who places another order elsewhere in the same session picks
+  // up the new ID the next time this effect re-runs.
   useEffect(() => {
-    // Reading localStorage is the external-system sync an effect is for;
-    // the setState that reports the result back is deferred a tick so it
-    // isn't called directly (synchronously) within the effect body.
-    const id = setTimeout(() => {
-      if (!user) {
-        try {
-          const ids = JSON.parse(localStorage.getItem('ppr:guestOrderIds') || '[]');
-          setGuestOrderIds(ids);
-        } catch {
-          setGuestOrderIds([]);
-        }
-      } else {
-        setGuestOrderIds([]);
-      }
-    }, 0);
-    return () => clearTimeout(id);
+    if (user) {
+      setGuestOrderIds([]);
+      return;
+    }
+    try {
+      const ids = JSON.parse(localStorage.getItem('ppr:guestOrderIds') || '[]');
+      setGuestOrderIds(ids);
+    } catch {
+      setGuestOrderIds([]);
+    }
   }, [user]);
 
-  const { data: guestOrders = [], isLoading: guestLoading } = useGuestOrders(guestOrderIds);
+  const { data: guestOrders = [], isLoading: guestLoading, isError: guestOrdersErrored, refetch: refetchGuestOrders } = useGuestOrders(guestOrderIds);
 
-  const orders     = user ? allOrders : guestOrders;
-  const isLoadingDB = user ? adminLoading : guestLoading;
+  const orders     = user ? myOrdersData : guestOrders;
+  const isLoadingDB = user ? myOrdersLoading : guestLoading;
+  // A failed fetch used to settle into the same "No orders yet" empty state
+  // as an actually-empty list once retries exhausted — indistinguishable from
+  // "you have no orders" when the real story was "we couldn't reach the
+  // server," which is exactly the case a customer most needs to be told about.
+  const hasLoadError = user ? myOrdersErrored : guestOrdersErrored;
+  const retryLoadOrders = () => { void (user ? refetchMyOrders() : refetchGuestOrders()); };
 
-  // Real-time listener
+  // "Kitchen updated your order" toast/chime — reacts to the single shared
+  // `orders` subscription RealtimeProvider already holds (via
+  // useOrderEventStore) instead of opening a second, identical channel to
+  // the same table just to get the same payloads.
+  const lastOrderEvent = useOrderEventStore((s) => s.lastEvent);
   useEffect(() => {
-    const channel = supabase
-      .channel('orders_page_realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.orders });
-        queryClient.invalidateQueries({ queryKey: ['guest-orders'] });
+    if (!lastOrderEvent || lastOrderEvent.eventType !== 'UPDATE') return;
 
-        if (payload.eventType === 'UPDATE' && payload.new) {
-          const updatedOrder = payload.new;
-          const orderId  = updatedOrder.id as string;
-          const newStatus = updatedOrder.status as OrderStatus;
-          const newDelay  = Number(updatedOrder.delay_minutes) || 0;
+    const { orderId, userId, status: newStatus, delayMinutes: newDelay } = lastOrderEvent;
+    const isRelevant = user ? userId === user.id : guestOrderIds.includes(orderId);
+    if (!isRelevant) return;
 
-          const isRelevant = user
-            ? updatedOrder.user_id === user.id
-            : guestOrderIds.includes(orderId);
+    const oldStatus = previousStatusMapRef.current.get(orderId);
+    const oldDelay  = previousDelayMapRef.current.get(orderId) || 0;
 
-          if (isRelevant) {
-            const oldStatus = previousStatusMapRef.current.get(orderId);
-            const oldDelay  = previousDelayMapRef.current.get(orderId) || 0;
+    if (oldStatus && oldStatus !== newStatus) {
+      playOrderChimeSound();
+      if (newStatus === 'preparing') {
+        toast.success(`🔥 Kitchen Update: Order #${orderId}`, {
+          description: 'Your dish is now cooking fresh on the stove!',
+          duration: 6000,
+        });
+      } else if (newStatus === 'ready') {
+        toast.success(`🍲 Order Ready: #${orderId}`, {
+          description: 'Your food is hot & packed — come pick up!',
+          duration: 7000,
+        });
+      } else if (newStatus === 'delivered') {
+        toast.success(`✓ Order Completed: #${orderId}`, {
+          description: 'Thank you for dining with Pala Pitta Ruchulu!',
+          duration: 6000,
+        });
+      }
+    }
 
-            if (oldStatus && oldStatus !== newStatus) {
-              playOrderChimeSound();
-              if (newStatus === 'preparing') {
-                toast.success(`🔥 Kitchen Update: Order #${orderId}`, {
-                  description: 'Your dish is now cooking fresh on the stove!',
-                  duration: 6000,
-                });
-              } else if (newStatus === 'ready') {
-                toast.success(`🍲 Order Ready: #${orderId}`, {
-                  description: 'Your food is hot & packed — come pick up!',
-                  duration: 7000,
-                });
-              } else if (newStatus === 'delivered') {
-                toast.success(`✓ Order Completed: #${orderId}`, {
-                  description: 'Thank you for dining with Pala Pitta Ruchulu!',
-                  duration: 6000,
-                });
-              }
-            }
+    if (newDelay > oldDelay) {
+      playOrderChimeSound();
+      toast.info(`🕒 Kitchen update for #${orderId}`, {
+        description: `Prep time extended by +${newDelay - oldDelay} mins for fresh simmering & quality.`,
+        duration: 7000,
+      });
+    }
 
-            if (newDelay > oldDelay) {
-              playOrderChimeSound();
-              toast.info(`🕒 Kitchen update for #${orderId}`, {
-                description: `Prep time extended by +${newDelay - oldDelay} mins for fresh simmering & quality.`,
-                duration: 7000,
-              });
-            }
-
-            previousStatusMapRef.current.set(orderId, newStatus);
-            previousDelayMapRef.current.set(orderId, newDelay);
-          }
-        }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [queryClient, user, guestOrderIds]);
+    previousStatusMapRef.current.set(orderId, newStatus);
+    previousDelayMapRef.current.set(orderId, newDelay);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastOrderEvent]);
 
   useEffect(() => {
     orders.forEach((o) => {
@@ -170,23 +160,8 @@ export default function OrderHistoryPage() {
     });
   }, [orders]);
 
-  const prepTimeMap = useMemo(() => {
-    const map = new Map<string, number>();
-    menuItems.forEach((mi) => { if (mi.prepTime) map.set(mi.id, mi.prepTime); });
-    return map;
-  }, [menuItems]);
-
-  const getEstimatedMinutes = (order: Order): number | undefined => {
-    if (order.status === 'delivered' || order.status === 'cancelled') return undefined;
-    const categoryType = classifyOrderCategory(order.items);
-    const defaultPrep = categoryType === 'beverage' ? 5 : categoryType === 'dessert' ? 8 : 15;
-    const prepTimes = order.items.map((item) => prepTimeMap.get(item.menuItemId) ?? defaultPrep);
-    const basePrep  = Math.max(...prepTimes, defaultPrep);
-    const totalPrep = basePrep + (order.delayMinutes || 0);
-    if (order.status === 'preparing') return Math.max(3, totalPrep - 4);
-    if (order.status === 'ready') return 0;
-    return totalPrep;
-  };
+  const prepTimeMap = useMemo(() => buildPrepTimeMap(menuItems), [menuItems]);
+  const getEstimatedMinutes = (order: Order) => estimateOrderMinutes(order, prepTimeMap);
 
   const myOrders = useMemo(() => {
     return orders.filter((o) => user ? o.userId === user.id : guestOrderIds.includes(o.id));
@@ -230,30 +205,40 @@ export default function OrderHistoryPage() {
     setTimeout(() => setCopiedOrderId(null), 2000);
   };
 
-  const handleReorder = (items: OrderItem[]) => {
-    let addedCount = 0;
+  // Looks each line up against the live menu instead of fabricating a
+  // MenuItem from order history — a fabricated item carried a fake rating,
+  // a hardcoded 'starters' category, and `isAvailable: true` regardless of
+  // whether the dish was later delisted or sold out, so a reorder could
+  // silently re-add something the kitchen can no longer make. Lines whose
+  // dish is gone are skipped and called out, rather than added anyway.
+  const handleReorder = (items: PersistedOrderItem[]) => {
     const addItem = useCartStore.getState().addItem;
+    let addedCount = 0;
+    let unavailableCount = 0;
+
     items.forEach((item) => {
-      addItem({
-        id: item.menuItemId,
-        name: item.name,
-        category: 'starters',
-        price: item.price,
-        image: FALLBACK_DISH_IMAGE,
-        vegStatus: item.vegStatus || 'non-veg',
-        rating: 4.8,
-        reviewCount: 50,
-        isPopular: true,
-        isSpecial: false,
-        isAvailable: true,
-        description: item.name,
-        prepTime: 20,
-        tags: [],
-      });
-      addedCount += item.quantity || 1;
+      const menuItem = menuItems.find((m) => m.id === orderItemId(item));
+      if (!menuItem || menuItem.isAvailable === false) {
+        unavailableCount += 1;
+        return;
+      }
+      const qty = Math.max(1, item.quantity || 1);
+      const portion = item.selectedPortion;
+      const selectedPrice = portion ? menuItem.portionPrices?.[portion] ?? menuItem.price : menuItem.price;
+
+      addItem({ ...menuItem, selectedPortion: portion, selectedPrice }, qty);
+      addedCount += qty;
     });
-    toast.success(`${addedCount} item${addedCount === 1 ? '' : 's'} added to cart`);
-    router.push('/checkout');
+
+    if (addedCount > 0) {
+      toast.success(`${addedCount} item${addedCount === 1 ? '' : 's'} added to cart`);
+    }
+    if (unavailableCount > 0) {
+      toast.error(
+        `${unavailableCount} item${unavailableCount === 1 ? '' : 's'} no longer available and ${unavailableCount === 1 ? "wasn't" : "weren't"} added`
+      );
+    }
+    if (addedCount > 0) router.push('/checkout');
   };
 
   const liveCount      = myOrders.filter((o) => isActiveStatus(o.status)).length;
@@ -351,6 +336,23 @@ export default function OrderHistoryPage() {
               {Array.from({ length: 3 }).map((_, i) => (
                 <Skeleton key={i} className="h-56 w-full rounded-2xl" />
               ))}
+            </div>
+          ) : hasLoadError ? (
+            <div className="border-hair-1 grid place-items-center rounded-2xl border border-dashed bg-white px-6 py-16 text-center">
+              <span className="bg-nonveg/10 text-nonveg mb-4 grid size-16 place-items-center rounded-full">
+                <ReceiptText className="size-8" />
+              </span>
+              <h2 className="text-ink-1 text-[17px] font-extrabold">Couldn&apos;t load your orders</h2>
+              <p className="text-ink-3 mt-1.5 max-w-sm text-[13.5px] leading-relaxed">
+                Something went wrong reaching the server. Your orders are safe — try again in a moment.
+              </p>
+              <button
+                type="button"
+                onClick={retryLoadOrders}
+                className="bg-brand hover:bg-brand-600 mt-5 h-11 rounded-xl px-6 text-[14px] font-extrabold text-white transition-colors"
+              >
+                Try again
+              </button>
             </div>
           ) : filteredOrders.length === 0 ? (
             <div className="border-hair-1 grid place-items-center rounded-2xl border border-dashed bg-white px-6 py-16 text-center">
@@ -488,7 +490,7 @@ function Stat({
 /*  Shared bits                                                         */
 /* ------------------------------------------------------------------ */
 
-function StatusChip({ status, items }: { status: OrderStatus; items?: OrderItem[] }) {
+function StatusChip({ status, items }: { status: OrderStatus; items?: PersistedOrderItem[] }) {
   const categoryType = classifyOrderCategory(items);
   const meta = getStatusBadgeMeta(status, categoryType);
   const Icon = meta.icon;
@@ -532,7 +534,7 @@ function OrderIdLine({
   );
 }
 
-function ItemLine({ item }: { item: OrderItem }) {
+function ItemLine({ item }: { item: PersistedOrderItem }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2">
       <span className="flex min-w-0 items-center gap-2">
@@ -561,8 +563,8 @@ function ReorderButton({
   onReorder,
   compact = false,
 }: {
-  items: OrderItem[];
-  onReorder: (items: OrderItem[]) => void;
+  items: PersistedOrderItem[];
+  onReorder: (items: PersistedOrderItem[]) => void;
   compact?: boolean;
 }) {
   return (
@@ -593,7 +595,7 @@ function ActiveOrderCard({
 }: {
   order: Order;
   estimatedMinutes?: number;
-  onReorder: (items: OrderItem[]) => void;
+  onReorder: (items: PersistedOrderItem[]) => void;
   onCopyId: (id: string) => void;
   isCopied: boolean;
 }) {
@@ -677,7 +679,7 @@ function HistoryOrderRow({
   isCopied,
 }: {
   order: Order;
-  onReorder: (items: OrderItem[]) => void;
+  onReorder: (items: PersistedOrderItem[]) => void;
   onCopyId: (id: string) => void;
   isCopied: boolean;
 }) {

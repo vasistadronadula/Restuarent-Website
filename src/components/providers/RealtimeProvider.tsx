@@ -6,9 +6,11 @@ import { toast } from 'sonner';
 
 import { supabase } from '@/lib/supabase';
 import { playOrderChimeSound } from '@/lib/audio';
-import { receivesOrderNotifications, receivesReservationNotifications } from '@/lib/roleAccess';
+import { receivesOrderNotifications, receivesReservationNotifications, isStaffRole } from '@/lib/roleAccess';
 import { queryKeys } from '@/lib/queries/keys';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useOrderEventStore } from '@/store/useOrderEventStore';
+import type { OrderStatus } from '@/types';
 
 /**
  * Supabase Realtime → TanStack Query cache invalidation.
@@ -25,11 +27,18 @@ import { useAuthStore } from '@/store/useAuthStore';
  */
 export function RealtimeProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient();
+  // Coarse (staff vs. not) rather than the raw role, so this only flips —
+  // and only re-subscribes the two staff-only channels below — on an actual
+  // sign-in/sign-out, not on every role-shaped state change.
+  const isStaff = useAuthStore((s) => isStaffRole(s.userRole));
 
+  // Orders, menu items/categories and coupons matter to every visitor —
+  // a guest browsing the menu still needs live prices/availability, and
+  // anyone with an order in flight needs its status. These stay unconditional.
   useEffect(() => {
     // Read the role from the store at event time rather than closing over it.
-    // Subscribing to `userRole` here would tear down and rebuild all three
-    // channels on every sign-in, and the resubscribe races the first event.
+    // Subscribing to `userRole` here would tear down and rebuild the channel
+    // on every sign-in, and the resubscribe races the first event.
     const currentRole = () => useAuthStore.getState().userRole;
 
     const ordersChannel = supabase
@@ -42,26 +51,25 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
             duration: 6000,
           });
         }
+        // ['orders'] invalidates ['orders','mine',userId] too — TanStack Query
+        // matches by key prefix, and useMyOrders()'s key starts with 'orders'.
         queryClient.invalidateQueries({ queryKey: queryKeys.orders });
         queryClient.invalidateQueries({ queryKey: ['guest-orders'] });
-      })
-      .subscribe();
 
-    const reservationsChannel = supabase
-      .channel('rq_realtime_reservations')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, (payload) => {
-        if (payload.eventType === 'INSERT' && receivesReservationNotifications(currentRole())) {
-          playOrderChimeSound();
-          toast.success('New reservation', {
-            description: `${payload.new?.name || 'A diner'} booked a table`,
-            duration: 6000,
+        // Fan out the raw event for anything that reacts per-order rather
+        // than by re-reading the list — the customer /orders page's own
+        // "kitchen updated your order" toast, specifically — instead of that
+        // page opening a second subscription to this same table.
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          const row = payload.new;
+          useOrderEventStore.getState().publish({
+            eventType: payload.eventType,
+            orderId: row?.id as string,
+            userId: (row?.user_id as string | null) ?? null,
+            status: (row?.status as OrderStatus) || 'pending',
+            delayMinutes: Number(row?.delay_minutes) || 0,
           });
         }
-        queryClient.invalidateQueries({ queryKey: queryKeys.reservations });
-        // A booking also consumes a table slot, so the availability grid on the
-        // reservation page has to be re-read — it used to keep offering a slot
-        // that had just been taken.
-        queryClient.invalidateQueries({ queryKey: queryKeys.allTableSlots });
       })
       .subscribe();
 
@@ -79,6 +87,47 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       })
       .subscribe();
 
+    const couponsChannel = supabase
+      .channel('rq_realtime_coupons')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'coupons' }, () => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.coupons });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(ordersChannel);
+      supabase.removeChannel(menuChannel);
+      supabase.removeChannel(categoriesChannel);
+      supabase.removeChannel(couponsChannel);
+    };
+  }, [queryClient]);
+
+  // Reservations and the table grid are staff-only concerns today — no
+  // customer page reads or creates a reservation (see useCreateReservation's
+  // only caller, AdminContext, which admin/tables uses on a walk-in's
+  // behalf). A guest browsing the menu gained nothing from these two
+  // sockets but a permanently-open, permanently-idle connection.
+  useEffect(() => {
+    if (!isStaff) return;
+
+    const reservationsChannel = supabase
+      .channel('rq_realtime_reservations')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, (payload) => {
+        if (payload.eventType === 'INSERT' && receivesReservationNotifications(useAuthStore.getState().userRole)) {
+          playOrderChimeSound();
+          toast.success('New reservation', {
+            description: `${payload.new?.name || 'A diner'} booked a table`,
+            duration: 6000,
+          });
+        }
+        queryClient.invalidateQueries({ queryKey: queryKeys.reservations });
+        // A booking also consumes a table slot, so the availability grid on the
+        // reservation page has to be re-read — it used to keep offering a slot
+        // that had just been taken.
+        queryClient.invalidateQueries({ queryKey: queryKeys.allTableSlots });
+      })
+      .subscribe();
+
     const tablesChannel = supabase
       .channel('rq_realtime_tables')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurant_tables' }, () => {
@@ -89,22 +138,11 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       })
       .subscribe();
 
-    const couponsChannel = supabase
-      .channel('rq_realtime_coupons')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'coupons' }, () => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.coupons });
-      })
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(ordersChannel);
       supabase.removeChannel(reservationsChannel);
-      supabase.removeChannel(menuChannel);
-      supabase.removeChannel(categoriesChannel);
       supabase.removeChannel(tablesChannel);
-      supabase.removeChannel(couponsChannel);
     };
-  }, [queryClient]);
+  }, [queryClient, isStaff]);
 
   return <>{children}</>;
 }

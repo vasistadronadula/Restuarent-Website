@@ -25,17 +25,24 @@ export type { ConfirmationResult };
  * project, they don't authorize anything, and they ship in the client bundle of
  * every Firebase site. What actually protects the project is the reCAPTCHA
  * challenge, the authorized-domains list in the Firebase console, and the
- * server-side token check. They live in env vars anyway so a deployment can be
- * pointed at a staging project without a code change.
+ * server-side token check.
+ *
+ * They come from env vars with no hardcoded fallback. The fallbacks that used
+ * to be here pinned every build — including a staging one — to the single
+ * production Firebase project, since a value that is always truthy can never
+ * be overridden by an env var. Public or not, a credential belongs in
+ * configuration, not in source. If the vars are missing, `isFirebaseConfigured`
+ * below reports false and the OTP screens degrade to email sign-in rather than
+ * failing at the point the customer taps "Send code".
  */
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyCOb5OWVP_ZGoEI1KpFvivj7rf2KfKOuDo",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "palapitta-8b18f.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "palapitta-8b18f",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "palapitta-8b18f.firebasestorage.app",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "14392240197",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:14392240197:web:5d90be8c702818e9009b2c",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
 export const isFirebaseConfigured = Boolean(

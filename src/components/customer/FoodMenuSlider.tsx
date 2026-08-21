@@ -196,9 +196,12 @@ export default function FoodMenuSlider() {
                   <div key={dish.id} className="min-w-full w-full flex-shrink-0 p-1 sm:p-2 box-border">
                     <div className="bg-white dark:bg-stone-900 rounded-2xl overflow-hidden border border-stone-200/80 dark:border-stone-800 shadow-md flex flex-col md:flex-row items-stretch transition-shadow hover:shadow-xl">
                       <div className="w-full md:w-1/2 relative aspect-[16/11] md:aspect-auto md:min-h-[340px] overflow-hidden group">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- dish photos come from admin-pasted URLs on arbitrary hosts, see DishRail/MenuCard */}
                         <img
                           src={dish.image || FALLBACK_IMAGE}
                           alt={dish.name}
+                          loading={idx === 0 ? 'eager' : 'lazy'}
+                          decoding="async"
                           className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                           onError={(e) => {
                             (e.target as HTMLImageElement).src = FALLBACK_IMAGE;

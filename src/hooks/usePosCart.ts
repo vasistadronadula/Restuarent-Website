@@ -32,6 +32,9 @@ export interface PosLine {
   portion?: Portion;
   image?: string;
   notes?: string;
+  /** Read by Reports to group revenue by category — without it, every POS
+   *  sale fell into the "GENERAL" bucket regardless of what was rung up. */
+  category?: string;
 }
 
 type Action =
@@ -199,6 +202,7 @@ export function usePosCart() {
         vegStatus: item.vegStatus,
         portion: chosen?.portion,
         image: item.image,
+        category: item.category,
       },
     });
     return { ok: true };

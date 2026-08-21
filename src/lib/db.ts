@@ -1,6 +1,8 @@
-import { supabase } from './supabase';
+import 'server-only';
+import { getSupabaseAdmin } from './supabaseAdmin';
 import { Order } from '@/types';
 import { generateOrderId } from './idGenerator';
+import { orderStamps } from './orderTime';
 
 /**
  * db.ts — server-only order ingestion for the Swiggy/Zomato webhook routes.
@@ -14,11 +16,23 @@ import { generateOrderId } from './idGenerator';
  * conflict to swallow the duplicate. It has been trimmed down to the one
  * thing only a server route needs: inserting an aggregator order that
  * arrived outside any user's browser session.
+ *
+ * That write goes through the service-role client, not the browser one this
+ * used to import. A Swiggy/Zomato push carries no Supabase session — there
+ * is no browser and no signed-in user — so the anon client sent the insert
+ * as an anonymous role and left it at the mercy of whatever RLS policy
+ * happens to cover `orders`. `import 'server-only'` now makes an accidental
+ * client-side import of this module a build error rather than a runtime
+ * surprise.
  */
 export async function createOrderInDB(orderData: Partial<Order>): Promise<Order> {
+  const admin = getSupabaseAdmin();
+  if (!admin) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured — cannot ingest aggregator orders.');
+  }
+
   const orderId = orderData.id || generateOrderId();
-  const now = new Date();
-  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const { orderDate, orderTime: timeStr } = orderStamps();
 
   const newOrderObj: Order = {
     id: orderId,
@@ -40,13 +54,13 @@ export async function createOrderInDB(orderData: Partial<Order>): Promise<Order>
     // and never assume money was taken.
     paymentMode: orderData.paymentMode || 'online',
     paymentStatus: orderData.paymentStatus || 'unpaid',
-    orderDate: now.toISOString().split('T')[0],
+    orderDate,
     orderTime: timeStr,
     couponCode: orderData.couponCode,
     orderSource: orderData.orderSource || 'direct',
   };
 
-  const { error } = await supabase.from('orders').insert([
+  const { error } = await admin.from('orders').insert([
     {
       id: orderId,
       customer_name: newOrderObj.customerName,

@@ -8,13 +8,14 @@ import { useAuth } from '@/context/AuthContext';
 import { useAdminBadges } from '@/components/admin/useAdminBadges';
 import { HairlineGrid, StatCell, StatusChip, Bar, EmptyState } from '@/components/admin/ui';
 import type { Order, OrderItem } from '@/types';
+import { orderDateStamp } from '@/lib/orderTime';
+import { canAccess } from '@/lib/roleAccess';
 
-const dayKey = (d: Date) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
+// IST-pinned, matching how mapOrder() stamps `orderDate` — the browser's own
+// local timezone must not decide "today" here. An admin opening the
+// dashboard from outside India would otherwise compare against a day
+// boundary that doesn't match the one every order was actually filed under.
+const dayKey = (d: Date) => orderDateStamp(d);
 
 const money = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
@@ -44,8 +45,13 @@ const orderItemsLabel = (o: Order) => {
 
 export default function AdminDashboard() {
   const { orders, menuItems } = useAdmin();
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const badges = useAdminBadges();
+  // Chef/waiter can land here (the dashboard is shared by every staff role)
+  // but can't reach POS, and waiter can't reach menu-management — the quick
+  // links below used to point there regardless, so clicking one bounced the
+  // visitor straight back out via AdminGuard's redirect.
+  const canOpenPos = canAccess(userRole, '/admin/pos');
 
   // Dates are resolved after mount so the server pass and the first client
   // render agree — "today" on the server is not always today for the browser.
@@ -53,8 +59,25 @@ export default function AdminDashboard() {
   useEffect(() => {
     const tick = () => setNowTs(Date.now());
     tick();
-    const t = setInterval(tick, 60_000);
-    return () => clearInterval(t);
+    // Backgrounded tabs still ticked every 60s, recomputing stats/liveOrders/
+    // topSellers/alerts for a dashboard nobody was looking at. Pausing on
+    // `visibilitychange` and refreshing once on return keeps "today" from
+    // ever going stale while it's actually on screen.
+    let t: ReturnType<typeof setInterval> | null = null;
+    const start = () => { if (!t) t = setInterval(tick, 60_000); };
+    const stop = () => { if (t) { clearInterval(t); t = null; } };
+    const onVisibility = () => {
+      if (document.hidden) stop();
+      else { tick(); start(); }
+    };
+
+    if (document.hidden) stop(); else start();
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      stop();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, []);
 
   const stats = useMemo(() => {
@@ -97,13 +120,14 @@ export default function AdminDashboard() {
   }, [orders, menuItems, nowTs]);
 
   /** Everything still on the floor — newest first, capped at what fits. */
-  const liveOrders = useMemo(
-    () =>
-      orders
-        .filter((o) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready')
-        .slice(0, 8),
+  const allLiveOrders = useMemo(
+    () => orders.filter((o) => o.status === 'pending' || o.status === 'preparing' || o.status === 'ready'),
     [orders],
   );
+  const liveOrders = useMemo(() => allLiveOrders.slice(0, 8), [allLiveOrders]);
+  // During a rush, orders past the 8 that fit on the dashboard used to just
+  // vanish — the "All orders" link was the only hint anything was hidden.
+  const hiddenLiveCount = allLiveOrders.length - liveOrders.length;
 
   const topSellers = useMemo(() => {
     if (!nowTs) return [] as { name: string; count: number }[];
@@ -146,8 +170,8 @@ export default function AdminDashboard() {
     if (off > 0) {
       out.push({ text: `${off} dish${off > 1 ? 'es' : ''} marked unavailable`, href: '/admin/menu-management' });
     }
-    return out;
-  }, [badges, menuItems]);
+    return out.filter((a) => canAccess(userRole, a.href));
+  }, [badges, menuItems, userRole]);
 
   const firstName =
     user?.user_metadata?.full_name?.split(' ')[0] ||
@@ -162,9 +186,11 @@ export default function AdminDashboard() {
           <p className="text-[13px] ad-muted m-0">
             Welcome back, {firstName}. Here is the floor right now.
           </p>
-          <Link href="/admin/pos" className="ad-btn ad-btn-primary self-start sm:self-auto">
-            Open cashier POS
-          </Link>
+          {canOpenPos && (
+            <Link href="/admin/pos" className="ad-btn ad-btn-primary self-start sm:self-auto">
+              Open cashier POS
+            </Link>
+          )}
         </div>
 
         {/* ── Tonight's numbers ────────────────────────────────────── */}
@@ -185,9 +211,9 @@ export default function AdminDashboard() {
           <section className="min-w-0">
             <div className="ad-section-head">
               <h3 className="ad-h text-[17px]">Live orders</h3>
-              <span className="text-[12px] ad-muted">{liveOrders.length} on the floor</span>
+              <span className="text-[12px] ad-muted">{allLiveOrders.length} on the floor</span>
               <Link href="/admin/orders" className="ml-auto text-[12px] text-ad-accent font-semibold no-underline">
-                All orders
+                {hiddenLiveCount > 0 ? `+${hiddenLiveCount} more` : 'All orders'}
               </Link>
             </div>
 
@@ -195,7 +221,7 @@ export default function AdminDashboard() {
               <EmptyState
                 title="Nothing open"
                 subtitle="Every order has been served or settled."
-                action={<Link href="/admin/pos" className="ad-btn ad-btn-secondary">Start an order</Link>}
+                action={canOpenPos ? <Link href="/admin/pos" className="ad-btn ad-btn-secondary">Start an order</Link> : undefined}
               />
             ) : (
               <div className="ad-table-wrap">

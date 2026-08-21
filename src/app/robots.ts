@@ -1,8 +1,7 @@
 import { MetadataRoute } from "next";
+import { siteUrl } from "@/data/restaurantInfo";
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = "https://palapittaruchulu.vercel.app";
-
   return {
     rules: {
       userAgent: "*",
@@ -14,10 +13,13 @@ export default function robots(): MetadataRoute.Robots {
         "/cart",
         "/checkout",
         "/orders",
+        "/profile",
         "/login",
         "/signup",
+        "/reset-password",
+        "/cashier",
       ],
     },
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: `${siteUrl}/sitemap.xml`,
   };
-}
+}

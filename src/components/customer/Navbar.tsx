@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -28,8 +27,6 @@ import {
 import {
   Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
 } from '@/components/ui/sheet';
-
-const CartDrawer = dynamic(() => import('./CartDrawer'), { ssr: false });
 
 const NAV_LINKS = [
   { label: 'Menu', href: '/menu', icon: UtensilsCrossed },
@@ -60,12 +57,10 @@ const PHONE_HREF = `tel:${restaurantInfo.phone.replace(/\s/g, '')}`;
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [cartEverOpened, setCartEverOpened] = useState(false);
   const pathname = usePathname();
   const [lastPath, setLastPath] = useState(pathname);
 
   const totalItems = useCartStore((s) => getCartTotalItems(s.items));
-  const cartIsOpen = useCartStore((s) => s.isOpen);
   const user = useAuthStore((s) => s.user);
   const userRole = useAuthStore((s) => s.userRole);
   const { signOutUser } = useAuth();
@@ -79,8 +74,6 @@ export default function Navbar() {
     if (isStaff) return ACCOUNT_LINKS.filter((link) => link.href !== '/profile');
     return ACCOUNT_LINKS;
   }, [isStaff]);
-
-  if (cartIsOpen && !cartEverOpened) setCartEverOpened(true);
 
   if (pathname !== lastPath) {
     setLastPath(pathname);
@@ -119,13 +112,12 @@ export default function Navbar() {
   );
 
   return (
-    <>
-      <header
-        className={cn(
-          'sticky top-0 z-40 w-full border-b bg-white transition-shadow duration-200',
-          scrolled ? 'border-hair-1 shadow-[0_2px_12px_rgba(2,6,12,0.07)]' : 'border-hair-2'
-        )}
-      >
+    <header
+      className={cn(
+        'sticky top-0 z-40 w-full border-b bg-white transition-shadow duration-200',
+        scrolled ? 'border-hair-1 shadow-[0_2px_12px_rgba(2,6,12,0.07)]' : 'border-hair-2'
+      )}
+    >
         <Container className="flex h-[var(--store-header-h)] items-center justify-between gap-3">
           <Link
             href="/menu"
@@ -357,11 +349,8 @@ export default function Navbar() {
               </SheetContent>
             </Sheet>
           </div>
-        </Container>
-      </header>
-
-      {cartEverOpened && <CartDrawer />}
-    </>
+      </Container>
+    </header>
   );
 }
 

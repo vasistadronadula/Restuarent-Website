@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendNewOrderPushNotification } from '@/lib/pushNotify';
-import { getErrorMessage } from '@/lib/errors';
+import { log } from '@/lib/logger';
 
 /**
  * Triggered by the browser right after an order is created (checkout, POS)
@@ -17,7 +17,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+      return NextResponse.json({ success: false, error: 'Server not configured' }, { status: 500 });
+    }
+
+    const { data: userData, error: userError } = await admin.auth.getUser(token);
     if (userError || !userData?.user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
@@ -30,7 +35,7 @@ export async function POST(request: Request) {
     await sendNewOrderPushNotification(orderId);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('notify-new-order error:', error);
-    return NextResponse.json({ success: false, error: getErrorMessage(error) }, { status: 500 });
+    log.error('push_new_order_failed', { error });
+    return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });
   }
 }

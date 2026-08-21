@@ -46,7 +46,7 @@ Three ways in, all landing on a Supabase session:
 Roles (`admin`, `manager`, `chef`, `cashier`, `waiter`, `customer`) come from
 `profiles.role` and nowhere else — never from `user_metadata`, which any signed-in
 user can write to. `lib/roleAccess.ts` maps roles to the pages and notifications
-they get; the enforcing boundary is the RLS policy set in `supabase_schema.sql`.
+they get; the enforcing boundary is the RLS policy set in `supabase/migrations/`.
 
 ### How phone sign-in works
 
@@ -87,6 +87,6 @@ src/components/   customer/, admin/, pos/, bill/
 src/context/      Auth, Cart, Admin providers
 src/store/        Redux Toolkit slices + RTK Query (supabaseApi)
 src/lib/          supabase clients, auth verification, billing, printing, push
-supabase_schema.sql        tables, RLS policies, role guards, RPCs
+supabase/migrations/       tables, RLS policies, role guards, RPCs
 scripts/seedDatabase.mjs   seeds the menu from src/data/menuItems.json
 ```

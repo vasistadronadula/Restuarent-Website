@@ -3,23 +3,63 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/lib/supabase';
+import { orderStamps } from '@/lib/orderTime';
 import { generateOrderId } from '@/lib/idGenerator';
 import type { Order, OrderStatus } from '@/types';
 import { queryKeys } from './keys';
 import { mapOrder } from './mappers';
 import { patchList, rollbackList } from './optimistic';
 
-export function useOrders() {
+export function useOrders(enabled = true) {
   return useQuery({
     queryKey: queryKeys.orders,
     queryFn: async (): Promise<Order[]> => {
       const { data, error } = await supabase
         .from('orders')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        // Staff-facing dashboards are the only consumer of the unfiltered
+        // table; a 1,000-row cap keeps a growing restaurant's history out
+        // of every admin session's initial payload without breaking any UI
+        // (every table this feeds already virtualizes rows) — real
+        // pagination for browsing older history is future work.
+        .limit(1000);
       if (error) throw new Error(error.message);
       return (data || []).map(mapOrder);
     },
+    staleTime: 5_000,
+    refetchInterval: (query) => {
+      const orders = query.state.data;
+      const hasActive = orders?.some((o) => ['pending', 'preparing', 'ready'].includes(o.status));
+      return hasActive ? 3000 : false;
+    },
+    refetchOnWindowFocus: true,
+    // Staff-only — see useMyOrders() for the customer-scoped equivalent
+    // that /orders now uses instead of filtering this unfiltered table
+    // client-side.
+    enabled,
+  });
+}
+
+/** A signed-in customer's own orders — scoped server-side by `user_id`, not
+ * filtered out of the entire table client-side (that used to mean every
+ * customer's browser downloaded every order ever placed, staff and
+ * strangers' included, just to find their own). */
+export function useMyOrders(userId: string | null) {
+  return useQuery({
+    queryKey: ['orders', 'mine', userId],
+    queryFn: async (): Promise<Order[]> => {
+      if (!userId) return [];
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw new Error(error.message);
+      return (data || []).map(mapOrder);
+    },
+    enabled: !!userId,
     staleTime: 5_000,
     refetchInterval: (query) => {
       const orders = query.state.data;
@@ -68,7 +108,7 @@ export function useUpdateOrderStatus() {
     // "Preparing" must not watch the chip sit on the old value.
     onMutate: ({ id, status }) =>
       patchList<Order>(queryClient, queryKeys.orders, (draft) =>
-        draft.map((o) => (o.id === id ? { ...o, status, orderStatus: status } : o))
+        draft.map((o) => (o.id === id ? { ...o, status } : o))
       ),
     onError: (_err, _vars, context) => rollbackList(queryClient, context),
     onSettled: () => {
@@ -120,12 +160,9 @@ export function useCreateOrder() {
     mutationFn: async (orderData: Partial<Order>): Promise<Order> => {
       // Always use the date-stamped ID format.
       const orderId = orderData.id || generateOrderId();
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      });
+      // IST-pinned and locale-independent — see lib/orderTime for why an
+      // order's own stamps cannot come from toLocaleTimeString/toISOString.
+      const { orderDate, orderTime: timeStr } = orderStamps();
 
       const newOrder: Order = {
         id: orderId,
@@ -139,10 +176,13 @@ export function useCreateOrder() {
         cgst: orderData.cgst || 0,
         sgst: orderData.sgst || 0,
         discount: orderData.discount || 0,
-        deliveryCharge: 0, // Always 0 — takeaway only
+        // Checkout (storefront) always sends 0 here itself — takeaway has no
+        // delivery leg. This used to hardcode 0 unconditionally though, which
+        // also discarded the POS's packaging charge (`totals.packagingCharge`)
+        // on every counter order, silently under-billing whenever one was added.
+        deliveryCharge: orderData.deliveryCharge || 0,
         grandTotal: orderData.grandTotal || 0,
         status: 'pending',
-        orderStatus: 'pending',
         paymentMode: orderData.paymentMode || 'cash',
         // Trust the caller's payment status. This used to be derived from
         // "is it COD?", which — now that every order is prepaid or taken at
@@ -150,7 +190,7 @@ export function useCreateOrder() {
         // where a Razorpay charge could not be verified server-side and is
         // deliberately saved as 'unpaid' for manual reconciliation.
         paymentStatus: orderData.paymentStatus || 'unpaid',
-        orderDate: now.toISOString().split('T')[0],
+        orderDate,
         orderTime: timeStr,
         couponCode: orderData.couponCode,
         orderSource: orderData.orderSource || 'direct',
@@ -171,7 +211,7 @@ export function useCreateOrder() {
         subtotal: newOrder.subtotal,
         cgst: newOrder.cgst,
         sgst: newOrder.sgst,
-        delivery_charge: 0,
+        delivery_charge: newOrder.deliveryCharge,
         discount: newOrder.discount,
         grand_total: newOrder.grandTotal,
         status: 'pending',
@@ -188,13 +228,13 @@ export function useCreateOrder() {
         .insert([{ ...row, table_number: newOrder.tableNumber ?? null }]);
 
       // 42703 = undefined_column. orders.table_number arrives with the schema
-      // update in supabase_schema.sql section 13; until that has been run,
+      // update in the baseline migration, section 13; until that has been run,
       // saving the order matters far more than recording which table it came
       // from, so retry without it rather than losing the sale. Once the column
       // exists this branch never runs.
       if (error?.code === '42703') {
         console.warn(
-          'orders.table_number missing — run supabase_schema.sql to store dine-in table numbers'
+          'orders.table_number missing — apply supabase/migrations to store dine-in table numbers'
         );
         ({ error } = await supabase.from('orders').insert([row]));
       }

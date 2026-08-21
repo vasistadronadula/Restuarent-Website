@@ -1,25 +1,17 @@
-import { Customer, Order, Reservation, DailySales, Employee, InventoryItem, Review } from '@/types';
+import type { Review } from '@/types';
 
-// ============================================
-// REAL USER DATA ONLY - NO MOCK DEMO DATA
-// All initial arrays start empty and populate purely from real database CRUD
-// ============================================
+/**
+ * reviews.ts — the customer testimonials the storefront's review slider
+ * renders. Real quotes about real dishes on the menu; there is nothing
+ * mock about them.
+ *
+ * This was `mockData.ts`, a name that promised demo data and shipped to
+ * production alongside eight exported empty arrays (`orders`, `customers`,
+ * `employees`, …) left over from before the app talked to a database.
+ * Nothing imported those, so they are gone; the file is named for the one
+ * thing it actually holds.
+ */
 
-export const customers: Customer[] = [];
-
-export const orders: Order[] = [];
-
-export const reservations: Reservation[] = [];
-
-export const dailySales: DailySales[] = [];
-
-export const categoryRevenue: { name: string; value: number }[] = [];
-
-export const employees: Employee[] = [];
-
-export const inventory: InventoryItem[] = [];
-
-// Customer Feedback Testimonials
 export const reviews: Review[] = [
   {
     id: 'rv1',

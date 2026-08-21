@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ADMIN_NAV, ADMIN_NAV_GROUPS, navItemForPath } from './adminNav';
 import { useAdminBadges } from './useAdminBadges';
+import { canAccess } from '@/lib/roleAccess';
+import { useAuthStore } from '@/store/useAuthStore';
 import { X } from 'lucide-react';
 
 interface Props {
@@ -29,6 +31,12 @@ export default function AdminSidebar({ open, onClose, wide = false }: Props) {
   const pathname = usePathname();
   const badges = useAdminBadges();
   const active = navItemForPath(pathname);
+  const userRole = useAuthStore((s) => s.userRole);
+  // A restricted role (chef/cashier/waiter) used to see every link in the
+  // rail and only find out a page wasn't theirs when AdminGuard bounced them
+  // back out after the click — the rail should only ever offer what the
+  // role can actually open.
+  const visibleNav = ADMIN_NAV.filter((item) => canAccess(userRole, item.href));
 
   const rail = (
     <>
@@ -51,7 +59,7 @@ export default function AdminSidebar({ open, onClose, wide = false }: Props) {
 
       <nav className="flex-1 overflow-y-auto py-2 px-3">
         {ADMIN_NAV_GROUPS.map((group) => {
-          const items = ADMIN_NAV.filter((i) => i.group === group);
+          const items = visibleNav.filter((i) => i.group === group);
           if (!items.length) return null;
           return (
             <div key={group}>

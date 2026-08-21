@@ -22,16 +22,7 @@ import { restaurantInfo } from '@/data/restaurantInfo';
 import type { MenuItem, VegStatus } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import {
-  useCartStore,
-  getCartTotalItems,
-  getCartSubtotal,
-  getCartDiscountAmount,
-  getCartTaxableAmount,
-  getCartCgst,
-  getCartSgst,
-  getCartGrandTotal,
-} from '@/store/useCartStore';
+import { useCartStore, getCartBillTotals } from '@/store/useCartStore';
 
 const ALL = 'all';
 
@@ -91,13 +82,10 @@ function MenuBrowser() {
   const couponDiscount = useCartStore((s) => s.couponDiscount);
   const couponMaxDiscount = useCartStore((s) => s.couponMaxDiscount);
 
-  const cartTotals = useMemo(() => {
-    const subtotal = getCartSubtotal(cartItems);
-    const discountAmount = getCartDiscountAmount(subtotal, couponDiscount, couponMaxDiscount);
-    const taxable = getCartTaxableAmount(subtotal, discountAmount);
-    const grandTotal = getCartGrandTotal(taxable, getCartCgst(taxable), getCartSgst(taxable));
-    return { totalItems: getCartTotalItems(cartItems), grandTotal };
-  }, [cartItems, couponDiscount, couponMaxDiscount]);
+  const cartTotals = useMemo(
+    () => getCartBillTotals(cartItems, couponDiscount, couponMaxDiscount),
+    [cartItems, couponDiscount, couponMaxDiscount]
+  );
 
   /* ── Derived catalogue data ─────────────────────────────────────── */
 

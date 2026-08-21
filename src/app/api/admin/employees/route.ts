@@ -8,7 +8,7 @@ import { getErrorMessage } from '@/lib/errors';
 /**
  * Creates a staff login and its employee/profile rows in one call.
  *
- * `auth.admin.createUser` and `admin_upsert_staff` (see supabase_schema.sql)
+ * `auth.admin.createUser` and `admin_upsert_staff` (see the baseline migration in supabase/migrations)
  * are two separate calls against two different systems (GoTrue, then
  * Postgres) — if the second one fails, the freshly created login is deleted
  * so a bad employee ID or role doesn't leave a working account nobody can see

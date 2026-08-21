@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import crypto from 'crypto';
+import { verifyRazorpaySignature } from '@/lib/razorpayServer';
 
 // Razorpay's JS `handler` callback relies on postMessage/iframe communication
 // back to this tab, which does not reliably fire for UPI/QR and some
@@ -25,22 +25,18 @@ export async function POST(request: Request) {
     // Malformed body — fall through to the failure redirect below.
   }
 
-  const key_secret = process.env.RAZORPAY_KEY_SECRET;
-
-  if (razorpay_order_id && razorpay_payment_id && razorpay_signature && key_secret) {
-    const expectedSignature = crypto
-      .createHmac('sha256', key_secret)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest('hex');
-
-    if (expectedSignature === razorpay_signature) {
-      const params = new URLSearchParams({
-        payment: 'success',
-        rp_order_id: razorpay_order_id,
-        rp_payment_id: razorpay_payment_id,
-      });
-      return NextResponse.redirect(`${origin}/checkout?${params.toString()}`, 303);
-    }
+  if (
+    razorpay_order_id &&
+    razorpay_payment_id &&
+    razorpay_signature &&
+    verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)
+  ) {
+    const params = new URLSearchParams({
+      payment: 'success',
+      rp_order_id: razorpay_order_id,
+      rp_payment_id: razorpay_payment_id,
+    });
+    return NextResponse.redirect(`${origin}/checkout?${params.toString()}`, 303);
   }
 
   const failParams = new URLSearchParams({ payment: 'failed' });

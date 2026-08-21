@@ -19,12 +19,16 @@ import { VegMark } from '@/components/customer/store-ui';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
+import { useCartStore } from '@/store/useCartStore';
+import { orderStamps } from '@/lib/orderTime';
 import { generateOrderId } from '@/lib/idGenerator';
 import { supabase } from '@/lib/supabase';
 import { normalizePhone } from '@/lib/validation';
 import { accountDisplayName, isInternalPhoneEmail } from '@/lib/phoneIdentity';
 import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
+import { Skeleton } from '@/components/ui/skeleton';
 import { restaurantInfo } from '@/data/restaurantInfo';
+import { buildPrepTimeMap, estimateOrderMinutes } from '@/lib/orderEstimate';
 import type { Order, PaymentMode, PaymentStatus } from '@/types';
 
 interface RazorpayResponse {
@@ -84,9 +88,9 @@ const loadRazorpayScript = (): Promise<boolean> => {
 function CheckoutForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { state, subtotal, cgst, sgst, discountAmount, clearCart } = useCart();
+  const { state, subtotal, cgst, sgst, discountAmount, grandTotal, clearCart } = useCart();
   const { user, loading: authLoading } = useAuth();
-  const { addOrderLocallyAndDB } = useAdmin();
+  const { addOrderLocallyAndDB, menuItems } = useAdmin();
 
   const [form, setForm] = useState({ name: '', phone: '' });
   const [paymentChoice, setPaymentChoice] = useState<'online' | 'counter'>('online');
@@ -141,8 +145,11 @@ function CheckoutForm() {
   const effectiveName = form.name || autofillName;
   const effectivePhone = form.phone || autofillPhone;
 
-  const grandTotal = subtotal + cgst + sgst - discountAmount;
-
+  // grandTotal comes from useCart() above — computeBillTotals()'s whole-rupee
+  // rounding, the same math the POS bill and printed receipt use. This used
+  // to be a fourth, unrounded (subtotal + cgst + sgst - discount) formula
+  // computed locally, which could disagree with what's displayed/printed by
+  // up to ₹0.99 and is also the amount actually sent to Razorpay.
   const validateDetails = () => {
     const e: Record<string, string> = {};
     if (!effectiveName.trim()) e.name = 'Full name required';
@@ -173,6 +180,10 @@ function CheckoutForm() {
       quantity: i.quantity,
       vegStatus: i.vegStatus,
       selectedPortion: i.selectedPortion,
+      // Read by Reports to group revenue by category — without it every
+      // storefront order fell into the "GENERAL" bucket regardless of what
+      // was actually ordered.
+      category: i.category,
     }));
 
     const newOrderObj: Order = {
@@ -187,7 +198,7 @@ function CheckoutForm() {
       customerId: accountEmail || customer.phone || 'GUEST',
       customerName: customer.name,
       customerPhone: customer.phone,
-      customerAddress: 'Takeaway — Collect from Madhapur Restaurant',
+      customerAddress: `Takeaway — Collect from ${restaurantInfo.locality} Restaurant`,
       items: orderItemPayload,
       subtotal,
       cgst,
@@ -198,8 +209,7 @@ function CheckoutForm() {
       status: 'pending' as const,
       paymentMode: mode,
       paymentStatus: status,
-      orderDate: new Date().toISOString().split('T')[0],
-      orderTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      ...orderStamps(),
       couponCode: state.couponCode,
       userId: user?.id || null,
       razorpayOrderId: razorpayIds?.razorpayOrderId,
@@ -286,6 +296,36 @@ function CheckoutForm() {
 
   const handleProceedToPayment = async () => {
     if (!validateDetails()) return;
+
+    // CartMenuSync reconciles the cart against the menu app-wide, but that
+    // runs in an effect and a fast click here could beat it to the punch —
+    // finalizeOrder builds its payload straight from `state.items`, so a
+    // stale, unreconciled cart line would otherwise get charged and printed
+    // at a delisted/sold-out dish's old price. Re-checking synchronously
+    // right before submit closes that race; if anything changed, the totals
+    // above already reflect it and the customer reviews before trying again.
+    if (menuItems.length > 0) {
+      const { removed, repriced } = useCartStore.getState().reconcileWithMenu(menuItems);
+      if (removed.length > 0) {
+        toast.warning(
+          removed.length === 1
+            ? `${removed[0]} is no longer available and was removed from your cart — please review before paying.`
+            : `${removed.length} items are no longer available and were removed from your cart — please review before paying.`,
+          { duration: 7000 }
+        );
+        return;
+      }
+      if (repriced.length > 0) {
+        toast.info(
+          repriced.length === 1
+            ? `${repriced[0]} was repriced — please review your total before paying.`
+            : `${repriced.length} items were repriced — please review your total before paying.`,
+          { duration: 7000 }
+        );
+        return;
+      }
+    }
+
     setLoading(true);
 
     const activeOrderId = generateOrderId();
@@ -369,6 +409,11 @@ function CheckoutForm() {
         // also fires `ondismiss` — mark this payment handled so that
         // fallback check doesn't re-run against the same order.
         paymentHandledRef.current = true;
+        // This path finalizes the order in-page, so the redirect return-trip
+        // effect further up will never run for it — clear the key now
+        // rather than leaving it in sessionStorage until some later
+        // `?payment=` URL (or never, outside a redirect flow) reads it.
+        try { sessionStorage.removeItem(PENDING_CHECKOUT_KEY); } catch { /* storage disabled */ }
         toast.loading('Confirming your payment…', { id: 'verify-toast' });
         const razorpayIds = {
           razorpayOrderId: response.razorpay_order_id as string,
@@ -427,6 +472,7 @@ function CheckoutForm() {
 
             if (statusRes.ok && statusData.paid) {
               paymentHandledRef.current = true;
+              try { sessionStorage.removeItem(PENDING_CHECKOUT_KEY); } catch { /* storage disabled */ }
               toast.success('Payment received successfully', { id: 'verify-toast' });
               await finalizeOrder(activeOrderId, 'razorpay', 'paid', {
                 razorpayOrderId: orderId,
@@ -487,6 +533,11 @@ function CheckoutForm() {
   // ─── Order placed ───────────────────────────────────────────────────────
   if (placed && completedOrder) {
     const isPaid = completedOrder.paymentStatus === 'paid';
+    // A fresh order is always 'pending', so this is the same prep-time
+    // estimate the /orders tracker shows a moment later — not the flat
+    // "about 25 minutes" every order used to get regardless of what (or how
+    // much) was actually ordered.
+    const estimatedMinutes = estimateOrderMinutes(completedOrder, buildPrepTimeMap(menuItems));
 
     return (
       <div className="bg-store flex min-h-screen flex-col">
@@ -504,7 +555,10 @@ function CheckoutForm() {
                   Order confirmed
                 </h1>
                 <p className="mt-1.5 text-[13px] leading-relaxed text-white/85">
-                  It&apos;s with the kitchen now. Ready for pickup at Madhapur in about 25 minutes.
+                  It&apos;s with the kitchen now. Ready for pickup at {restaurantInfo.locality}
+                  {typeof estimatedMinutes === 'number'
+                    ? ` in about ${estimatedMinutes} minute${estimatedMinutes === 1 ? '' : 's'}.`
+                    : ' shortly.'}
                 </p>
               </div>
 
@@ -584,7 +638,7 @@ function CheckoutForm() {
             </h1>
             <p className="text-ink-3 mt-1 flex items-center gap-1.5 text-[13px] font-medium">
               <Store className="text-brand size-4" />
-              Takeaway — collect from our Madhapur counter
+              Takeaway — collect from our {restaurantInfo.locality} counter
             </p>
           </header>
 
@@ -755,9 +809,34 @@ function CheckoutForm() {
   );
 }
 
+// `useSearchParams` suspends until the URL is readable, which is near-instant
+// — but a `null` fallback meant that instant still painted a blank page
+// where the checkout form was about to appear. A shaped skeleton keeps the
+// layout from popping in from nothing.
+function CheckoutFormSkeleton() {
+  return (
+    <div className="bg-store flex min-h-screen flex-col">
+      <Navbar />
+      <main className="flex-1 py-5 sm:py-7">
+        <Container className="max-w-[1320px]">
+          <Skeleton className="mb-4 h-8 w-40 rounded-lg" />
+          <div className="grid items-start gap-5 lg:grid-cols-[1fr_25rem]">
+            <div className="grid gap-5">
+              <Skeleton className="h-48 rounded-2xl" />
+              <Skeleton className="h-32 rounded-2xl" />
+            </div>
+            <Skeleton className="h-80 rounded-2xl" />
+          </div>
+        </Container>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
 export default function CheckoutPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<CheckoutFormSkeleton />}>
       <CheckoutForm />
     </Suspense>
   );

@@ -8,7 +8,7 @@ import { queryKeys } from './keys';
 import { mapInventory } from './mappers';
 import { patchList, rollbackList } from './optimistic';
 
-export function useInventory() {
+export function useInventory(enabled = true) {
   return useQuery({
     queryKey: queryKeys.inventory,
     queryFn: async (): Promise<InventoryItem[]> => {
@@ -23,6 +23,10 @@ export function useInventory() {
       return (data || []).map(mapInventory);
     },
     staleTime: 120_000,
+    // Staff-only table — a customer session has nothing to gain from it and
+    // RLS rejects the read anyway, which used to fire and retry (3x by
+    // default) on every customer page load.
+    enabled,
   });
 }
 
@@ -36,10 +40,10 @@ export function useAddInventoryItem() {
           id: item.id,
           name: item.name,
           category: item.category,
-          quantity: item.quantity ?? item.currentStock ?? 0,
+          quantity: item.currentStock ?? 0,
           unit: item.unit,
-          min_quantity: item.minQuantity ?? item.minStockThreshold ?? 5,
-          unit_cost: item.costPerUnit ?? item.unitCost ?? 0,
+          min_quantity: item.minStockThreshold ?? 5,
+          unit_cost: item.unitCost ?? 0,
           // The column has always existed and the form has always collected
           // it, but nothing wrote it — so every supplier name typed into the
           // dialog was discarded on save and read back as blank.
@@ -71,10 +75,10 @@ export function useUpdateInventoryItem() {
         .update({
           name: item.name,
           category: item.category,
-          quantity: item.quantity ?? item.currentStock ?? 0,
+          quantity: item.currentStock ?? 0,
           unit: item.unit,
-          min_quantity: item.minQuantity ?? item.minStockThreshold ?? 5,
-          unit_cost: item.costPerUnit ?? item.unitCost ?? 0,
+          min_quantity: item.minStockThreshold ?? 5,
+          unit_cost: item.unitCost ?? 0,
           supplier: item.supplier ?? '',
           // Whatever the caller decided, not "today" unconditionally. Every
           // edit used to stamp a restock date — including the minus button,

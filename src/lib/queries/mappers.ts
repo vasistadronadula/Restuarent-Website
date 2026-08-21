@@ -8,6 +8,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Order, Reservation, MenuItem, InventoryItem, Employee, MenuCategory } from '@/types';
+import { orderDateStamp } from '@/lib/orderTime';
 
 // ─── Restaurant table types ───────────────────────────────────────────────────
 
@@ -54,10 +55,16 @@ export function mapOrder(o: any): Order {
   return {
     id: o.id,
     orderId: o.id,
-    customerId: o.customer_email || 'GUEST',
-    customerName: o.customer_name || 'Guest',
+    // The guest order-tracking route deliberately doesn't return the
+    // customer columns (see api/guest/orders — order ids are enumerable, so
+    // that endpoint must not hand out names and phone numbers). A column
+    // that is *absent* is different from one that is null: only the latter
+    // earns the placeholder the admin tables expect, so an absent one stays
+    // empty and every consumer's `customerName ? … : ''` guard hides it.
+    customerId: o.customer_email || ('customer_email' in o ? 'GUEST' : ''),
+    customerName: o.customer_name || ('customer_name' in o ? 'Guest' : ''),
     customerPhone: o.customer_phone || '',
-    customerAddress: o.delivery_address || 'Hyderabad',
+    customerAddress: o.delivery_address || ('delivery_address' in o ? 'Hyderabad' : ''),
     items: typeof o.items === 'string' ? (() => { try { return JSON.parse(o.items); } catch { return []; } })() : o.items || [],
     subtotal: Number(o.subtotal) || 0,
     cgst: Number(o.cgst) || 0,
@@ -66,14 +73,14 @@ export function mapOrder(o: any): Order {
     deliveryCharge: Number(o.delivery_charge) || 0,
     grandTotal: Number(o.grand_total) || 0,
     status: statusVal,
-    orderStatus: statusVal,
     paymentMode: o.payment_mode || 'cash',
     // 'unpaid', not 'pending' — 'pending' was never one of the app's
     // PaymentStatus values, so it rendered as an unknown state downstream.
     paymentStatus: o.payment_status || 'unpaid',
-    orderDate: o.created_at
-      ? new Date(o.created_at).toISOString().split('T')[0]
-      : new Date().toISOString().split('T')[0],
+    // IST, not UTC: a 9 PM Hyderabad order has a `created_at` that already
+    // rolled over to the next UTC day, which filed most of dinner service
+    // under tomorrow's date on every report that groups by this field.
+    orderDate: orderDateStamp(o.created_at ? new Date(o.created_at) : new Date()),
     orderTime: o.order_time || '00:00',
     couponCode: o.coupon_code,
     orderSource: o.order_source || 'direct',
@@ -135,22 +142,16 @@ export function mapMenuItem(m: any): MenuItem {
 }
 
 export function mapInventory(i: any): InventoryItem {
-  const qty = Number(i.quantity) || 0;
-  const minQty = Number(i.min_quantity) || 5;
-  const cost = Number(i.unit_cost) || 0;
   return {
     id: i.id,
     name: i.name,
     category: i.category,
-    quantity: qty,
-    currentStock: qty,
+    currentStock: Number(i.quantity) || 0,
     unit: i.unit,
-    minQuantity: minQty,
-    minStockThreshold: minQty,
+    minStockThreshold: Number(i.min_quantity) || 5,
     lastUpdated: i.last_restocked || 'Today',
     lastRestocked: i.last_restocked || 'Today',
-    costPerUnit: cost,
-    unitCost: cost,
+    unitCost: Number(i.unit_cost) || 0,
     supplier: i.supplier || '',
   };
 }

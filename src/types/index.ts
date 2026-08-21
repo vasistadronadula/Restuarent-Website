@@ -92,6 +92,40 @@ export interface OrderItem {
   selectedPortion?: 'single' | 'full' | 'large';
 }
 
+/**
+ * What actually ends up in the `orders.items` JSON column.
+ *
+ * Three producers write it and they don't fully agree on a shape: the
+ * storefront checkout and the POS both now write `menuItemId`, `category`
+ * and (for the storefront) `vegStatus`, but the aggregator webhooks still
+ * emit neither `portion` nor `category`, and historical orders placed before
+ * the POS wrote `menuItemId` only have the legacy `id` field. This is the
+ * honest union of all of that — name, price and quantity are the only
+ * fields every writer supplies and every reader can rely on.
+ *
+ * It replaces the `any[]` that used to sit on `Order.items`, which made all
+ * of those mismatches invisible.
+ */
+export interface PersistedOrderItem {
+  name: string;
+  price: number;
+  quantity: number;
+  /** Storefront, webhooks, and the POS (since it was taught to). */
+  menuItemId?: string;
+  /** Legacy — orders placed by the POS before it wrote `menuItemId`. */
+  id?: string;
+  vegStatus?: VegStatus;
+  /** Storefront portion selection. */
+  selectedPortion?: 'single' | 'full' | 'large';
+  /** POS portion selection. */
+  portion?: string;
+  /** Read by Reports to group revenue; only present when the writer had it
+   *  — aggregator webhooks still don't. */
+  category?: string;
+  /** Per-line kitchen note, POS only. */
+  notes?: string;
+}
+
 export type OrderSource = 'direct' | 'swiggy' | 'zomato';
 export type OrderType = 'takeaway' | 'dine-in' | 'counter';
 
@@ -102,22 +136,16 @@ export interface Order {
   customerName: string;
   customerPhone?: string;
   customerAddress?: string;
-  // Not just `OrderItem[]`: the POS constructs items missing menuItemId and
-  // vegStatus at order-creation time, and Reports reads a `category` field
-  // this shape doesn't declare. Tightening this to plain OrderItem[] surfaces
-  // both — real shape mismatches, not just a lint nit — so narrowing it
-  // belongs to a follow-up that reconciles those call sites, not this pass.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  items: OrderItem[] | any[];
+  // See PersistedOrderItem: the union of what the storefront, the POS and the
+  // aggregator webhooks each write here. `OrderItem[]` assigns to it cleanly.
+  items: PersistedOrderItem[];
   subtotal: number;
   cgst: number;
   sgst: number;
   discount?: number;
-  discountAmount?: number;
   deliveryCharge?: number;
   grandTotal: number;
   status: OrderStatus;
-  orderStatus?: OrderStatus;
   paymentMode: PaymentMode;
   paymentStatus: PaymentStatus;
   orderDate?: string;
@@ -167,15 +195,12 @@ export interface Employee {
 export interface InventoryItem {
   id: string;
   name: string;
-  quantity: number;
   currentStock: number;
   unit: string;
-  minQuantity: number;
   minStockThreshold: number;
   lastUpdated: string;
   lastRestocked?: string;
   category: string;
-  costPerUnit: number;
   unitCost: number;
   supplier?: string;
 }

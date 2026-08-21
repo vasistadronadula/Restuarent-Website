@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendPrepDelayNotification } from '@/lib/whatsapp';
+import { requireStaff, authErrorResponse } from '@/lib/auth/apiAuth';
+import { log } from '@/lib/logger';
 
 /**
  * POST /api/whatsapp/send-delay-notification
@@ -9,8 +11,18 @@ import { sendPrepDelayNotification } from '@/lib/whatsapp';
  * Sends a courteous "a few more minutes" WhatsApp message to the customer.
  *
  * Body: { orderId: string, extraMinutes: number, reason?: string }
+ *
+ * Staff-gated — its only caller is the KDS delay dialog, and messages from
+ * the business number are not something an anonymous caller gets to send.
  */
 export async function POST(req: NextRequest) {
+  try {
+    await requireStaff(req);
+  } catch (err) {
+    const { body, status } = authErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   try {
     const { orderId, extraMinutes, reason } = await req.json();
     if (!orderId || !extraMinutes) {
@@ -19,7 +31,7 @@ export async function POST(req: NextRequest) {
 
     const supabase = getSupabaseAdmin();
     if (!supabase) {
-      console.warn('[WhatsApp] Supabase admin not configured — skipping delay notification');
+      log.warn('whatsapp_skipped_no_supabase_admin', { route: 'send-delay-notification' });
       return NextResponse.json({ ok: false, reason: 'supabase not configured' });
     }
 
@@ -30,7 +42,7 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error || !data) {
-      console.warn(`[WhatsApp] Order ${orderId} not found for delay notification:`, error?.message);
+      log.warn('whatsapp_order_not_found', { orderId, error: error?.message });
       return NextResponse.json({ ok: false, reason: 'order not found' });
     }
 
@@ -44,7 +56,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: sent });
   } catch (err) {
-    console.error('[WhatsApp] send-delay-notification error:', err);
+    log.error('whatsapp_delay_notification_failed', { error: err });
     return NextResponse.json({ ok: false, reason: 'internal error' }, { status: 500 });
   }
 }

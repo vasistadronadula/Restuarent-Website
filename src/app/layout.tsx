@@ -25,10 +25,12 @@ const fraunces = Fraunces({
 // Admin console only — the Modernist design system leans on Archivo's 800 for
 // every heading, stat and uppercase label. `preload: false` keeps diners off
 // the hook for it: the @font-face ships in the shared stylesheet, but the file
+// itself is only ever requested by a browser that actually renders `/admin`.
 const archivo = Archivo({
   variable: "--font-archivo",
   subsets: ["latin"],
   display: "swap",
+  preload: false,
 });
 
 import { Providers } from "./providers";
@@ -54,13 +56,18 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
     title: "Pala Pitta Admin",
   },
+  // Purpose-built square icons, not the wide wordmark. `/logo.png` was
+  // being served as the favicon, the shortcut icon and the Apple touch icon
+  // at once — an 803KB 1364x828 image squeezed into a 16px tab slot on every
+  // page load. It stays the on-page wordmark; these are the icon set.
   icons: {
     icon: [
-      { url: "/icon.png?v=2", type: "image/png" },
-      { url: "/logo.png?v=2", type: "image/png" },
+      { url: "/favicon.ico", sizes: "16x16 32x32 48x48", type: "image/x-icon" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
-    shortcut: "/logo.png?v=2",
-    apple: "/logo.png?v=2",
+    shortcut: "/favicon.ico",
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
   },
 };
 

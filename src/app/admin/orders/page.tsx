@@ -22,7 +22,7 @@ const nextStatus: Record<OrderStatus, OrderStatus | null> = {
   cancelled: null,
 };
 
-const statusOf = (o: Order): OrderStatus => o.status || o.orderStatus || 'pending';
+const statusOf = (o: Order): OrderStatus => o.status || 'pending';
 
 /**
  * Minutes an order has been waiting. Ten is when a table starts noticing.

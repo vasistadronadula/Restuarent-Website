@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendPrepDelayPushNotification } from '@/lib/pushNotify';
-import { getErrorMessage } from '@/lib/errors';
+import { requireStaff, authErrorResponse } from '@/lib/auth/apiAuth';
+import { log } from '@/lib/logger';
 
 /**
  * POST /api/push/notify-delay
@@ -10,8 +11,18 @@ import { getErrorMessage } from '@/lib/errors';
  * can proactively manage customer expectations.
  *
  * Body: { orderId: string, extraMinutes: number, reason?: string }
+ *
+ * Staff-gated — its only caller is the KDS, and an open version is a way for
+ * anyone to buzz every staff device during service.
  */
 export async function POST(req: NextRequest) {
+  try {
+    await requireStaff(req);
+  } catch (err) {
+    const { body, status } = authErrorResponse(err);
+    return NextResponse.json(body, { status });
+  }
+
   try {
     const { orderId, extraMinutes, reason } = await req.json();
     if (!orderId || !extraMinutes) {
@@ -21,7 +32,7 @@ export async function POST(req: NextRequest) {
     await sendPrepDelayPushNotification(orderId, Number(extraMinutes), reason);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error('[Push] notify-delay error:', err);
-    return NextResponse.json({ ok: false, error: getErrorMessage(err) }, { status: 500 });
+    log.error('push_notify_delay_failed', { error: err });
+    return NextResponse.json({ ok: false, error: 'Internal error' }, { status: 500 });
   }
 }

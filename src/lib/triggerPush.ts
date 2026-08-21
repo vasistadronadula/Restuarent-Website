@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { postAuthedJson } from './authedFetch';
 
 /**
  * Fire-and-forget push triggers, called from the browser right after a write
@@ -12,19 +13,7 @@ import { supabase } from './supabase';
  * or a signed-in cashier (POS), so the request carries their access token.
  */
 export async function triggerNewOrderPush(orderId: string): Promise<void> {
-  try {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-    if (!token) return;
-
-    await fetch('/api/push/notify-new-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ orderId }),
-    });
-  } catch {
-    // Non-critical — silently ignore.
-  }
+  await postAuthedJson('/api/push/notify-new-order', { orderId });
 }
 
 /**

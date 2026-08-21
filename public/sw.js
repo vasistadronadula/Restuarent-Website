@@ -7,7 +7,7 @@
 
 // Bumped when the shell list or push handling changes — activating a new
 // version wipes the previous cache.
-const CACHE_VERSION = 'ppr-admin-v5';
+const CACHE_VERSION = 'ppr-admin-v6';
 
 // Each role's app starts on its own page, so all are pre-cached so a chef
 // opening Kitchen offline doesn't land on the dashboard shell.
@@ -18,7 +18,7 @@ const APP_SHELL = [
   '/admin/pos',
   '/admin/reservations',
   '/admin/customers',
-  '/logo.png',
+  '/icon-192.png',
   '/favicon.ico',
 ];
 
@@ -135,8 +135,11 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title || 'Pala Pitta Ruchulu 🌶️', {
       body:             payload.body || '',
-      icon:             '/logo.png',
-      badge:            '/logo.png',
+      // Square icons, not the wide wordmark: Android crops a notification
+      // icon to a square and a badge to a monochrome silhouette, so the
+      // 1364x828 logo arrived as a sliver of its own middle.
+      icon:             '/icon-192.png',
+      badge:            '/icon-192.png',
       image:            payload.image || undefined,
       data:             { url: payload.url || '/admin', type },
       tag:              payload.tag || `ppr-${type}`,

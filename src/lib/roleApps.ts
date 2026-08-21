@@ -131,10 +131,14 @@ export function buildManifest(app: RoleApp) {
     orientation: 'portrait-primary',
     background_color: '#FBF8F5',
     theme_color: app.themeColor,
+    // Real files at the sizes they claim, and a separate maskable cut.
+    // These all used to point at /logo.png — one 1364x828 wordmark declared
+    // as both a 192px and a 512px square, and as maskable, which left
+    // Android to crop the name off it for the home screen.
     icons: [
-      { src: '/logo.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-      { src: '/logo.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: '/logo.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   };
 }

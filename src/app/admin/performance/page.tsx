@@ -11,18 +11,18 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { PageHeader, HairlineGrid, StatCell, SectionCard, EmptyState } from '@/components/admin/ui';
 import { ArrowLeft } from 'lucide-react';
+import { orderDateStamp } from '@/lib/orderTime';
 
 /* Chart chrome, matching the console: one accent line over neutral rules. */
 const ACCENT = '#e6543e';
 const AXIS = '#9c928f';
 const GRID = '#ddd6d4';
 
-const dayKey = (d: Date) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
+// IST-pinned, matching how mapOrder() stamps `orderDate` — see the identical
+// fix on admin/page.tsx for why the browser's own timezone can't decide
+// "today" here without disagreeing with the day boundary orders were
+// actually filed under.
+const dayKey = (d: Date) => orderDateStamp(d);
 
 const money = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 

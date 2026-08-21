@@ -8,7 +8,7 @@ import { queryKeys } from './keys';
 import { mapEmployee } from './mappers';
 import { patchList, rollbackList } from './optimistic';
 
-export function useEmployees() {
+export function useEmployees(enabled = true) {
   return useQuery({
     queryKey: queryKeys.employees,
     queryFn: async (): Promise<Employee[]> => {
@@ -22,6 +22,9 @@ export function useEmployees() {
       return (data || []).map(mapEmployee);
     },
     staleTime: 300_000,
+    // Staff-only table — see useInventory for why customer sessions must not
+    // fire (and retry) this query.
+    enabled,
   });
 }
 

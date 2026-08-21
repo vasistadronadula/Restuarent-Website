@@ -1,7 +1,6 @@
 -- ============================================================
 -- MENU CATEGORIES TABLE — Admin-managed, DB-driven categories
--- Run this in your Supabase SQL Editor
--- Safe & Idempotent (can be executed multiple times)
+-- Applied by `supabase db push`. Idempotent, so re-running is harmless.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS menu_categories (

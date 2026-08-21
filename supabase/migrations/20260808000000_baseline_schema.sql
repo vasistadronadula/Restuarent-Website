@@ -1,7 +1,15 @@
 -- ============================================================
--- PALA PITTA RUCHULU (ROYAL SPICE) - PRODUCTION DATABASE SCHEMA
--- Run this in your Supabase SQL Editor to initialize/upgrade all tables
--- Safe & Idempotent script (Can be executed multiple times without errors)
+-- BASELINE — PALA PITTA RUCHULU PRODUCTION DATABASE SCHEMA
+--
+-- This is the starting point of the migration history, not a file to keep
+-- editing. It is the whole schema as it stood when migration tracking was
+-- introduced: tables, indexes, RLS policies and functions, all written
+-- idempotently, so applying it to an already-provisioned project is a no-op.
+--
+-- NEW CHANGES GO IN A NEW FILE. Run `supabase migration new <name>`, which
+-- creates a timestamped file next to this one, and Supabase records what has
+-- been applied — the thing a folder of hand-run .sql files could never tell
+-- you. See supabase/README.md.
 -- ============================================================
 
 -- 1. ORDERS TABLE

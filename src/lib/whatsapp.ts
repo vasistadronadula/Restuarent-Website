@@ -11,7 +11,17 @@ import 'server-only';
  * checkout or KDS status-update flow.
  */
 
+import { absoluteUrl } from '@/data/restaurantInfo';
+
 const GRAPH_API_VERSION = 'v25.0';
+
+/**
+ * The link every customer message points at. Built from the canonical origin
+ * in data/restaurantInfo rather than typed inline — these three messages used
+ * a hostname (`pala-pitta-ruchulu.vercel.app`) that the deployment does not
+ * answer on, so every "track your order" link a customer tapped 404'd.
+ */
+const ORDER_TRACKING_URL = absoluteUrl('/orders');
 
 function getConfig() {
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -240,7 +250,7 @@ export async function sendOrderConfirmation(order: OrderForWhatsApp): Promise<bo
     `📍 Collect from our counter when ready`,
     ``,
     `Track your order live:`,
-    `👉 https://pala-pitta-ruchulu.vercel.app/orders`,
+    `👉 ${ORDER_TRACKING_URL}`,
     ``,
     `┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄`,
     `🌶️ *Pala Pitta Ruchulu* — Authentic Telugu & South Indian Cuisine`,
@@ -366,7 +376,7 @@ export async function sendOrderStatusUpdate(
     cfg.eta ? `⏳ *ETA:* ${cfg.eta}` : null,
     cfg.cta ? cfg.cta : null,
     ``,
-    `Track live: 👉 https://pala-pitta-ruchulu.vercel.app/orders`,
+    `Track live: 👉 ${ORDER_TRACKING_URL}`,
     ``,
     `┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄`,
     `🌶️ *Pala Pitta Ruchulu* — Authentic South Indian Cuisine`,
@@ -412,7 +422,7 @@ export async function sendPrepDelayNotification(
     `Great food takes a little extra love — and yours deserves it! 🙏`,
     `We apologise for the short wait and promise it'll be worth it.`,
     ``,
-    `Track live: 👉 https://pala-pitta-ruchulu.vercel.app/orders`,
+    `Track live: 👉 ${ORDER_TRACKING_URL}`,
     ``,
     `🌶️ *Pala Pitta Ruchulu* — Authentic South Indian Cuisine`,
   ].join('\n');

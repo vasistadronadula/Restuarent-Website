@@ -9,6 +9,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { AdminProvider } from '@/context/AdminContext';
 import { CartProvider } from '@/context/CartContext';
 import MobileBottomNav from '@/components/customer/MobileBottomNav';
+import CartMenuSync from '@/components/customer/CartMenuSync';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -57,6 +58,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             <CartProvider>
               <TooltipProvider>
                 <SessionScopedCart />
+                <CartMenuSync />
                 {children}
                 <AuthModalHost />
                 {/* No floating cart bar. The cart is reachable from the

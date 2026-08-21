@@ -13,6 +13,8 @@ import React, { createContext, useContext, ReactNode, useMemo } from 'react';
 import { toast } from 'sonner';
 
 import { useAdminStore } from '@/store/useAdminStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { isStaffRole } from '@/lib/roleAccess';
 import {
   useOrders, useReservations, useMenuItems, useInventory, useEmployees,
   useUpdateOrderStatus, useUpdateOrderPrepTime, useUpdateReservationStatus,
@@ -22,6 +24,7 @@ import {
   useCategories, useAddCategory, useUpdateCategory, useDeleteCategory,
 } from '@/lib/queries';
 import { Order, Reservation, MenuItem, InventoryItem, Employee, Customer, MenuCategory } from '@/types';
+import { postAuthedJson } from '@/lib/authedFetch';
 
 interface AdminContextType {
   orders: Order[];
@@ -65,12 +68,23 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   const setActiveRole = useAdminStore((s) => s.setActiveRole);
   const notificationState = useAdminStore((s) => s.notification);
 
+  // AdminProvider wraps the whole app (customer pages need `orders`,
+  // `menuItems` and `categories` too — see checkout/menu/orders pages), but
+  // inventory, employees, and the reservations *list* are staff-only tables
+  // that no customer page reads. Gating them by role stops every customer
+  // session from firing (and RLS-retrying) three queries it has no use for.
+  const userRole = useAuthStore((s) => s.userRole);
+  const isStaff = isStaffRole(userRole);
+
   // Server data — cached, deduplicated, and kept fresh by RealtimeProvider.
-  const { data: orders = [], isLoading: ordersLoading } = useOrders();
-  const { data: reservations = [], isLoading: resLoading } = useReservations();
+  // The unfiltered `orders` table is staff-only — a customer's own orders
+  // come from useMyOrders()/useGuestOrders() on the /orders page instead of
+  // filtering this list down client-side (see orders/page.tsx).
+  const { data: orders = [], isLoading: ordersLoading } = useOrders(isStaff);
+  const { data: reservations = [], isLoading: resLoading } = useReservations(isStaff);
   const { data: menuItems = [], isLoading: menuLoading } = useMenuItems();
-  const { data: inventory = [], isLoading: invLoading } = useInventory();
-  const { data: employees = [], isLoading: empLoading } = useEmployees();
+  const { data: inventory = [], isLoading: invLoading } = useInventory(isStaff);
+  const { data: employees = [], isLoading: empLoading } = useEmployees(isStaff);
   const { data: categories = [], isLoading: catLoading } = useCategories();
 
   const isLoadingDB = ordersLoading || resLoading || menuLoading || invLoading || empLoading || catLoading;
@@ -103,7 +117,11 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
           : name.slice(0, 2).toUpperCase();
         customerMap[key] = {
           id: key, name, phone: o.customerPhone || '',
-          email: (o.customerId && o.customerId.includes('@')) ? o.customerId : `${key.replace(/\D/g, '') || 'guest'}@palapitta.com`,
+          // Empty, not a fabricated `@palapitta.com` address — a made-up
+          // email reads as real and risks being used for actual
+          // communication (WhatsApp/email templates) if this ever gets
+          // wired to one. Only a genuine address earns this field.
+          email: (o.customerId && o.customerId.includes('@')) ? o.customerId : '',
           address: o.customerAddress || 'Hyderabad', city: 'Hyderabad',
           totalOrders: 0, totalSpent: 0, loyaltyPoints: 0,
           joinDate: o.orderDate || '2026-07-01', lastVisit: o.orderDate || '2026-07-22',
@@ -122,9 +140,13 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
   const notify = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     useAdminStore.getState().showNotification(message, type);
+    // Errors get longer on screen — 2.5s was tuned for a short "Order
+    // updated" success line, not for a longer failure message someone
+    // actually needs to read and act on.
+    const displayMs = type === 'error' ? 4500 : 2500;
     setTimeout(() => {
       useAdminStore.getState().clearNotification();
-    }, 2500);
+    }, displayMs);
   };
 
   // ─── Adapter methods ──────────────────────────────────────────────────────
@@ -167,18 +189,12 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
 
     // Fire-and-forget: notify customer via WhatsApp
     if (['preparing', 'ready', 'delivered'].includes(status)) {
-      fetch('/api/whatsapp/send-status-update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: id, newStatus: status }),
-      }).catch(() => {/* non-critical */});
+      // Both routes are staff-gated, so the caller's access token goes with
+      // the request (see lib/authedFetch). Neither can reject.
+      void postAuthedJson('/api/whatsapp/send-status-update', { orderId: id, newStatus: status });
 
       // Push notification to subscribed staff devices
-      fetch('/api/push/notify-status-update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: id, newStatus: status }),
-      }).catch(() => {/* non-critical */});
+      void postAuthedJson('/api/push/notify-status-update', { orderId: id, newStatus: status });
     }
 
     return true;
@@ -194,11 +210,11 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     notify(`Added +${delayMinutes}m delay to order ${id}`);
 
     // Fire-and-forget: alert front-of-house staff via push
-    fetch('/api/push/notify-delay', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId: id, extraMinutes: delayMinutes, reason: notes }),
-    }).catch(() => {/* non-critical */});
+    void postAuthedJson('/api/push/notify-delay', {
+      orderId: id,
+      extraMinutes: delayMinutes,
+      reason: notes,
+    });
 
     return true;
   };
@@ -256,14 +272,9 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   const adjustInventoryQuantity = async (id: string, delta: number) => {
     const target = inventory.find((i) => i.id === id);
     if (!target) return;
-    const newQty = Math.max(0, target.quantity + delta);
+    const newQty = Math.max(0, target.currentStock + delta);
     const updated = {
       ...target,
-      quantity: newQty,
-      // `currentStock` is the alias the inventory table actually renders. Only
-      // `quantity` used to be patched, so the optimistic cache update changed
-      // a field nothing displayed and the number on screen sat still until the
-      // refetch landed — which is what made the +/- buttons feel broken.
       currentStock: newQty,
       lastUpdated: new Date().toISOString().split('T')[0],
     };

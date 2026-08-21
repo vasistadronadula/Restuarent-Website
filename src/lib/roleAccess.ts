@@ -1,9 +1,10 @@
 /**
  * roleAccess.ts — single source of truth for "who can see what" in /admin.
  *
- * AdminGuard (the redirect gate) and the dashboard's LAUNCHPAD_PAGES tile
- * filter both import from here instead of each hardcoding their own copy of
- * the role → page mapping, so the two can never drift out of sync.
+ * AdminGuard (the redirect gate) and AdminSidebar (the nav rail, filtering
+ * adminNav.ts's ADMIN_NAV) both import from here instead of each hardcoding
+ * their own copy of the role → page mapping, so the two can never drift out
+ * of sync — a role that can't reach a page never sees a link to it either.
  */
 
 import type { StaffRole, UserRole } from '@/types';
@@ -19,17 +20,26 @@ export const ROLE_HOME: Record<UserRole, string> = {
   customer: '/',
 };
 
+// Every non-admin/manager role used to resolve to 'all' here — a rich role
+// system (chef/cashier/waiter) existed in the type, in ROLE_HOME, in the
+// assignable-roles list, everywhere except here, where it did nothing: any
+// signed-in staff account could reach every /admin page regardless of role.
+// These lists are the actual scope for each restricted role; '/admin' (the
+// dashboard) and '/admin/profile' are available to every staff role via
+// SHARED_STAFF_PREFIXES below, so they're not repeated in each array.
 export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[] | 'all'> = {
   admin: 'all',
   manager: 'all',
-  chef: 'all',
-  cashier: 'all',
-  waiter: 'all',
+  chef: ['/admin/kitchen', '/admin/orders', '/admin/menu-management'],
+  cashier: ['/admin/pos', '/admin/bills', '/admin/orders', '/admin/tables', '/admin/coupons'],
+  waiter: ['/admin/orders', '/admin/tables'],
   customer: [],
 };
 
 export const ROLE_DENIED_PREFIXES: Partial<Record<UserRole, string[]>> = {};
 
+// Reachable by every staff role regardless of ROLE_ALLOWED_PREFIXES: the
+// dashboard overview and a staff member's own profile page.
 const SHARED_STAFF_PREFIXES = ['/admin/profile'];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
@@ -43,10 +53,10 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 
 export const ROLE_ACCESS_SUMMARY: Record<UserRole, string> = {
   admin: 'Full management access — all tools, POS, menu, inventory, reports',
-  manager: 'Full management access',
-  chef: 'Full management access',
-  cashier: 'Full management access',
-  waiter: 'Full management access',
+  manager: 'Full management access — same as Admin',
+  chef: 'Kitchen display, live orders, and menu management',
+  cashier: 'POS, bills, live orders, tables, and coupons',
+  waiter: 'Live orders and table management',
   customer: 'No admin access',
 };
 
@@ -86,14 +96,31 @@ export function canManageStaffRole(callerRole: UserRole | null | undefined): boo
   return isStaffRole(callerRole);
 }
 
-export function canAccess(role: UserRole | null | undefined, _pathname: string): boolean {
+function isUnderOrEqual(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+export function canAccess(role: UserRole | null | undefined, pathname: string): boolean {
   if (!role || role === 'customer') return false;
-  return true;
+
+  const denied = ROLE_DENIED_PREFIXES[role];
+  if (denied?.some((p) => isUnderOrEqual(pathname, p))) return false;
+
+  const allowed = ROLE_ALLOWED_PREFIXES[role];
+  if (allowed === 'all') return true;
+
+  // The dashboard itself is an exact match, not a prefix — '/admin' would
+  // otherwise prefix-match every other /admin/* route and defeat the point
+  // of restricting them.
+  if (pathname === '/admin') return true;
+  if (SHARED_STAFF_PREFIXES.some((p) => isUnderOrEqual(pathname, p))) return true;
+
+  return allowed.some((p) => isUnderOrEqual(pathname, p));
 }
 
 export function getRoleHome(role: UserRole | null | undefined): string {
-  if (!role || role === 'customer') return '/';
-  return '/admin';
+  if (!role) return '/';
+  return ROLE_HOME[role];
 }
 
 export function isStaffRole(role: UserRole | null | undefined): boolean {

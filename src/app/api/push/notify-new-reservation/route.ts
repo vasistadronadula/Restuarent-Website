@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendNewReservationPushNotification } from '@/lib/pushNotify';
-import { getErrorMessage } from '@/lib/errors';
+import { log } from '@/lib/logger';
 
 // A reservation is only "new" for a short window after it's written. Past
 // that, this endpoint refuses to re-announce it.
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     await sendNewReservationPushNotification(reservationId);
     return NextResponse.json({ success: true, notified: true });
   } catch (error) {
-    console.error('notify-new-reservation error:', error);
-    return NextResponse.json({ success: false, error: getErrorMessage(error) }, { status: 500 });
+    log.error('push_new_reservation_failed', { error });
+    return NextResponse.json({ success: false, error: 'Internal error' }, { status: 500 });
   }
 }

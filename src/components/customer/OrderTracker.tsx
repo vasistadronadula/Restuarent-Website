@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Clock, XCircle } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import type { OrderItem, OrderStatus } from '@/types';
+import type { PersistedOrderItem, OrderStatus } from '@/types';
 import {
   classifyOrderCategory,
   getOrderStages,
@@ -90,7 +90,7 @@ function EtaRing({ minutes }: { minutes: number }) {
 interface OrderTrackerProps {
   status: OrderStatus;
   estimatedMinutes?: number;
-  items?: OrderItem[];
+  items?: PersistedOrderItem[];
   categoryType?: OrderCategoryType;
 }
 
