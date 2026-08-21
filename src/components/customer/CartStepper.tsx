@@ -139,7 +139,7 @@ export function AddButton({
       disabled={disabled}
       aria-label={`Add ${label} to cart`}
       className={cn(
-        'border-veg text-veg shadow-add relative rounded-[10px] border bg-white font-extrabold tracking-[0.06em] uppercase select-none touch-manipulation cursor-pointer',
+        'border-veg text-veg shadow-add relative inline-flex items-center justify-center rounded-[10px] border bg-white font-extrabold tracking-[0.06em] uppercase select-none touch-manipulation cursor-pointer',
         'transition-[transform,background-color,color] outline-none active:scale-[0.97]',
         'hover:bg-veg hover:text-white focus-visible:ring-[3px] focus-visible:ring-veg/30',
         'disabled:border-hair-1 disabled:text-ink-4 disabled:bg-hair-2 disabled:shadow-none disabled:hover:bg-hair-2 disabled:hover:text-ink-4 disabled:active:scale-100 disabled:cursor-not-allowed',
@@ -148,11 +148,6 @@ export function AddButton({
       )}
     >
       {disabled ? 'Sold out' : 'Add'}
-      {!disabled && (
-        <span className="absolute top-1 right-2 text-[11px] leading-none font-bold" aria-hidden="true">
-          +
-        </span>
-      )}
     </button>
   );
 }

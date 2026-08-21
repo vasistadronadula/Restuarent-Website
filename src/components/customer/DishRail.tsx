@@ -9,7 +9,7 @@ import type { MenuItem } from '@/types';
 import { useDishPortion } from '@/hooks/useDishPortion';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
-import CartStepper from './CartStepper';
+import CartStepper, { AddButton } from './CartStepper';
 
 /* ─── One card ──────────────────────────────────────────────────────────── */
 
@@ -66,21 +66,7 @@ function RailCard({ item }: { item: MenuItem }) {
               label={item.name}
             />
           ) : (
-            <button
-              type="button"
-              onClick={add}
-              disabled={unavailable}
-              aria-label={`Add ${item.name} to cart`}
-              className={cn(
-                'h-8 min-w-23 rounded-xl border-[1.5px] px-4 text-[13px] font-black tracking-wide transition-all outline-none',
-                'focus-visible:ring-ring/40 focus-visible:ring-[3px]',
-                'border-success bg-card text-success shadow-[0_4px_14px_rgba(46,125,50,0.2)]',
-                'hover:bg-success hover:text-white',
-                'disabled:border-transparent disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none'
-              )}
-            >
-              ADD
-            </button>
+            <AddButton onClick={add} disabled={unavailable} label={item.name} size="small" />
           )}
         </div>
       </div>
