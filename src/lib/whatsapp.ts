@@ -129,6 +129,60 @@ export async function sendTextMessage(
   }
 }
 
+/**
+ * Send a document / Thermal Bill PDF directly to a WhatsApp number.
+ */
+export async function sendDocumentMessage(
+  to: string,
+  documentUrl: string,
+  filename: string,
+  caption?: string
+): Promise<string | null> {
+  const config = getConfig();
+  if (!config) {
+    console.warn('[WhatsApp Document] Not configured');
+    return null;
+  }
+
+  const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${config.phoneNumberId}/messages`;
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${config.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'document',
+        document: {
+          link: documentUrl,
+          filename,
+          caption: caption || undefined,
+        },
+      }),
+    });
+
+    const data: WhatsAppApiResponse = await res.json();
+
+    if (!res.ok || data.error) {
+      console.error('[WhatsApp Document] API error:', data.error?.message || res.statusText);
+      return null;
+    }
+
+    const messageId = data.messages?.[0]?.id || null;
+    if (messageId) {
+      console.log(`[WhatsApp Document] PDF sent to ${to}: ${messageId}`);
+    }
+    return messageId;
+  } catch (err) {
+    console.error('[WhatsApp Document] Network error:', (err as Error).message);
+    return null;
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  Formatting helpers                                                  */
 /* ------------------------------------------------------------------ */
@@ -260,6 +314,16 @@ export async function sendOrderConfirmation(order: OrderForWhatsApp): Promise<bo
   ].filter((l) => l !== null).join('\n');
 
   const result = await sendTextMessage(phone, message);
+
+  // Also send the 80mm Thermal Bill PDF attachment
+  try {
+    const pdfUrl = absoluteUrl(`/api/bill/${order.id}/pdf`);
+    const filename = `Thermal-Bill-${tokenNum}.pdf`;
+    await sendDocumentMessage(phone, pdfUrl, filename, `🧾 Pala Pitta Ruchulu — Thermal Receipt #${tokenNum}`);
+  } catch (err) {
+    console.warn('[WhatsApp] Thermal PDF send error:', err);
+  }
+
   return result !== null;
 }
 
