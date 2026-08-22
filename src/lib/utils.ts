@@ -6,6 +6,21 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Smooth-scrolls a field into view before focusing it — used after a form
+ * validation failure to take the customer straight to the problem field
+ * instead of leaving them to scroll and hunt for the red-outlined box.
+ *
+ * `preventScroll` on the focus call is deliberate: `scrollIntoView`'s smooth
+ * animation and a focus-triggered jump-scroll fighting each other is what
+ * made the first attempt at this feel like a glitch rather than a nicety.
+ */
+export function scrollToAndFocus(el: HTMLElement | null | undefined): void {
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  window.setTimeout(() => el.focus({ preventScroll: true }), 300);
+}
+
+/**
  * Rupee formatting, in one place.
  *
  * `en-IN` grouping matters here — ₹1,25,000 is what an Indian customer expects

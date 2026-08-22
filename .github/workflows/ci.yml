@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A second push to the same branch/PR cancels whatever CI run is still in
+# flight for it — otherwise every "fix typo" commit queues its own full
+# lint+build+test pass behind the one before it.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-build-test:
+    runs-on: ubuntu-latest
+    env:
+      # next build imports src/lib/supabase.ts (even from client components,
+      # which Next server-renders once for the initial HTML) and that module
+      # throws at import time if these two are missing — so the build needs
+      # *some* well-formed value here, not real credentials. Nothing in this
+      # job talks to an actual Supabase project.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build

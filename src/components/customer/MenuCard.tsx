@@ -32,6 +32,7 @@ const MenuCard = memo(function MenuCard({ item }: Props) {
     setSelectedPortion,
     activePrice,
     cartItem,
+    atMax,
     add,
     increase,
     decrease,
@@ -105,6 +106,7 @@ const MenuCard = memo(function MenuCard({ item }: Props) {
               onDecrease={decrease}
               size="small"
               label={item.name}
+              atMax={atMax}
             />
           ) : (
             <AddButton onClick={add} disabled={unavailable} label={item.name} size="small" />

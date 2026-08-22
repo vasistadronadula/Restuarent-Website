@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useAuth, landAfterLogin } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { getErrorMessage } from '@/lib/errors';
+import { scrollToAndFocus } from '@/lib/utils';
 import { validateEmail, validatePassword, safeRedirect } from '@/lib/validation';
 import { useRedirectIfSignedIn } from '@/hooks/useRedirectIfSignedIn';
 import AuthShell from '@/components/customer/AuthShell';
@@ -57,7 +58,11 @@ function LoginForm() {
       if (passwordProblem) next.password = passwordProblem;
     }
     setErrors(next);
-    return Object.keys(next).length === 0;
+    return next;
+  };
+
+  const focusField = (field: Field) => {
+    scrollToAndFocus(field === 'email' ? emailRef.current : passwordRef.current);
   };
 
   const handleBlur = (field: Field) => {
@@ -70,7 +75,9 @@ function LoginForm() {
     setFormError(null);
 
     setTouched({ email: true, password: true });
-    if (!runValidation()) return;
+    const found = runValidation();
+    const firstBad = (['email', 'password'] as Field[]).find((f) => found[f]);
+    if (firstBad) { focusField(firstBad); return; }
 
     setLoading(true);
     try {
@@ -94,6 +101,7 @@ function LoginForm() {
     const emailProblem = validateEmail(email);
     if (emailProblem) {
       setErrors({ email: emailProblem });
+      focusField('email');
       return;
     }
 
@@ -372,13 +380,16 @@ function LoginForm() {
   );
 }
 
+import { BrandScreen } from '@/components/customer/BrandScreen';
+
 export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen w-full flex items-center justify-center bg-background">
-          <Loader2 className="size-8 animate-spin text-primary" />
-        </div>
+        <BrandScreen title="Setting your table…" message="One moment while we prepare sign in.">
+          <span aria-hidden className="bg-brand/70 size-2.5 animate-ping rounded-full" />
+          <span className="sr-only" role="status">Loading</span>
+        </BrandScreen>
       }
     >
       <LoginForm />

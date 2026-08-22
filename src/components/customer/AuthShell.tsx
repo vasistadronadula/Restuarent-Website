@@ -29,29 +29,36 @@ export default function AuthShell({
       <header className="relative z-10 flex items-center justify-between gap-4 px-6 py-5">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-xs font-black text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-black text-stone-600 hover:text-stone-950 dark:text-stone-400 dark:hover:text-stone-100 transition-colors"
         >
           <ArrowLeft className="size-4 text-amber-600" />
-          Back to site
+          <span>Back to site</span>
+        </Link>
+
+        <Link href="/" className="hidden sm:inline-block transition-transform hover:scale-[1.02]">
+          <PalaPittaLogo size="small" />
         </Link>
 
         <a
           href={`tel:${restaurantInfo.phone.replace(/\s/g, '')}`}
-          className="inline-flex items-center gap-1.5 text-xs font-black text-stone-500 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-black text-stone-600 hover:text-stone-950 dark:text-stone-400 dark:hover:text-stone-100 transition-colors"
         >
           <Headset className="size-4 text-amber-600" />
-          Support
+          <span>Support</span>
         </a>
       </header>
 
       {/* ── Main Container (Centered Card) ──────────────────────────────── */}
       <main className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-8 py-8 w-full">
-        <div className="w-full max-w-[430px] rounded-3xl border border-stone-200/60 dark:border-stone-850 bg-white/70 dark:bg-stone-900/65 backdrop-blur-xl shadow-2xl p-6 sm:p-8 space-y-6">
+        <div className="w-full max-w-[440px] rounded-3xl border border-stone-200/60 dark:border-stone-850 bg-white/80 dark:bg-stone-900/75 backdrop-blur-xl shadow-2xl p-6 sm:p-8 space-y-6">
           
           {/* Logo & Intro */}
           <div className="flex flex-col items-center text-center space-y-3">
+            <Link href="/" className="inline-block transition-transform hover:scale-[1.03]">
+              <PalaPittaLogo size="large" priority />
+            </Link>
             {icon && (
-              <div className="w-12 h-12 bg-stone-100/80 dark:bg-stone-950/60 border border-stone-250 dark:border-stone-800 rounded-2xl flex items-center justify-center shadow-xs mb-1">
+              <div className="w-12 h-12 bg-stone-100/80 dark:bg-stone-950/60 border border-stone-250 dark:border-stone-800 rounded-2xl flex items-center justify-center shadow-xs">
                 {icon}
               </div>
             )}

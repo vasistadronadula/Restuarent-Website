@@ -9,6 +9,8 @@ import { canAccess } from '@/lib/roleAccess';
 import { useAuthStore } from '@/store/useAuthStore';
 import { X } from 'lucide-react';
 
+import Image from 'next/image';
+
 interface Props {
   /** Drawer state. Above the pinned breakpoint the rail is always visible. */
   open: boolean;
@@ -40,17 +42,23 @@ export default function AdminSidebar({ open, onClose, wide = false }: Props) {
 
   const rail = (
     <>
-      <div className="px-5 pt-5 pb-4 border-b-2 border-[rgba(255,255,255,0.3)] flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="ad-num text-[20px] leading-none truncate">PALA PITTA</div>
-          <div className="text-[10px] tracking-[0.18em] uppercase opacity-70 mt-1.5">
-            Restaurant
+      <div className="px-4 pt-4 pb-3.5 border-b border-white/10 flex items-center justify-between gap-2">
+        <Link href="/admin" className="flex items-center gap-2 min-w-0 transition-opacity hover:opacity-90">
+          <div className="bg-white rounded-xl px-2.5 py-1.5 shadow-sm shrink-0">
+            <Image
+              src="/logo.png"
+              alt="Pala Pitta Ruchulu"
+              width={115}
+              height={34}
+              className="h-6 w-auto object-contain"
+              priority
+            />
           </div>
-        </div>
+        </Link>
         <button
           type="button"
           onClick={onClose}
-          className={`${wide ? 'xl:hidden' : 'lg:hidden'} -mr-1 -mt-1 p-1.5 text-[rgba(255,255,255,0.75)] hover:text-white`}
+          className={`${wide ? 'xl:hidden' : 'lg:hidden'} -mr-1 p-1.5 text-white/75 hover:text-white`}
           aria-label="Close navigation"
         >
           <X className="w-4 h-4" />

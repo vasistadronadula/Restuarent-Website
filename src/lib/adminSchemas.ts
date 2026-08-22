@@ -115,6 +115,14 @@ export const menuItemSchema = z
       .int('Prep time must be whole minutes')
       .min(1, 'Prep time must be at least 1 minute')
       .max(240, 'Prep time cannot exceed 4 hours'),
+    // Blank means uncapped — most dishes don't need a per-order limit.
+    maxQuantity: z
+      .union([z.literal(''), z.coerce.number()])
+      .optional()
+      .transform((v) => (v === '' || v === undefined ? undefined : Number(v)))
+      .refine((v) => v === undefined || Number.isInteger(v), 'Max quantity must be a whole number')
+      .refine((v) => v === undefined || v >= 1, 'Max quantity must be at least 1')
+      .refine((v) => v === undefined || v <= 100, 'Max quantity looks too large'),
     image: optionalImage,
     description: z.string().trim().max(500, 'Keep the description under 500 characters'),
     isAvailable: z.boolean(),

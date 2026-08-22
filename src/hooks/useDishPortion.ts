@@ -60,6 +60,12 @@ export function useDishPortion(item: MenuItem) {
    */
   const add = (event?: MouseEvent<HTMLElement>) => {
     const name = hasPortions ? `${item.name} (${selectedPortion.toUpperCase()})` : item.name;
+
+    if (item.maxQuantity && cartItem && cartItem.quantity >= item.maxQuantity) {
+      toast.error(`You can add up to ${item.maxQuantity} of ${name} per order`);
+      return;
+    }
+
     useCartStore.getState().addItem({
       ...item,
       price: activePrice,
@@ -77,11 +83,17 @@ export function useDishPortion(item: MenuItem) {
   };
 
   const increase = () => {
+    if (item.maxQuantity && cartItem && cartItem.quantity >= item.maxQuantity) {
+      toast.error(`You can add up to ${item.maxQuantity} of ${item.name} per order`);
+      return;
+    }
     useCartStore.getState().increaseQty(item.id, hasPortions ? selectedPortion : undefined);
   };
   const decrease = () => {
     useCartStore.getState().decreaseQty(item.id, hasPortions ? selectedPortion : undefined);
   };
+
+  const atMax = Boolean(item.maxQuantity && cartItem && cartItem.quantity >= item.maxQuantity);
 
   return {
     availablePortions,
@@ -90,6 +102,7 @@ export function useDishPortion(item: MenuItem) {
     setSelectedPortion,
     activePrice,
     cartItem,
+    atMax,
     add,
     increase,
     decrease,

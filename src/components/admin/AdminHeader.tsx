@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
@@ -191,10 +192,23 @@ export default function AdminHeader({ title, onOpenNav, wideNav = false }: Props
         {/* The admin nav rail never renders on POS/KDS (see AdminLayout), so
             this is the only way back to the rest of the console from either. */}
         {isNavlessPage && (
-          <Link href="/admin" className="ad-btn ad-btn-secondary ad-btn-sm shrink-0">
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </Link>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href="/admin" className="hidden sm:inline-block transition-opacity hover:opacity-90">
+              <div className="bg-white rounded-lg px-2 py-1 shadow-xs border border-ad-line">
+                <Image
+                  src="/logo.png"
+                  alt="Pala Pitta Ruchulu"
+                  width={90}
+                  height={27}
+                  className="h-5 w-auto object-contain"
+                />
+              </div>
+            </Link>
+            <Link href="/admin" className="ad-btn ad-btn-secondary ad-btn-sm shrink-0">
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </Link>
+          </div>
         )}
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">

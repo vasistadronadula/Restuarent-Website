@@ -80,12 +80,14 @@ export default function AuthModal() {
           <div className="pointer-events-none absolute -right-10 -top-20 size-48 rounded-full bg-amber-500/20 blur-2xl" />
           
           <div className="relative z-10 pr-10">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logo.png"
-              alt="Pala Pitta Ruchulu"
-              className="mb-3 h-8 w-auto block"
-            />
+            <div className="mb-3 inline-flex items-center rounded-xl bg-white/95 px-3 py-1.5 shadow-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="Pala Pitta Ruchulu"
+                className="h-7 w-auto block object-contain"
+              />
+            </div>
             <DialogTitle className="text-xl font-extrabold tracking-tight text-white">
               {isLogin ? 'Welcome back' : 'Create your account'}
             </DialogTitle>
@@ -137,6 +139,7 @@ export default function AuthModal() {
                           autoComplete="name"
                           placeholder="e.g. Rahul Sharma"
                           maxLength={80}
+                          autoFocus
                           className="pl-9"
                         />
                       </div>
@@ -173,6 +176,11 @@ export default function AuthModal() {
                       onChange={(e) => setEmail(e.target.value)}
                       autoComplete="email"
                       placeholder="rahul@example.com"
+                      // Only the login form's first field — signup's name
+                      // field above already claims it, and two competing
+                      // autoFocus elements in the same tree is undefined
+                      // which-one-wins behaviour.
+                      autoFocus={isLogin}
                       className="pl-9"
                     />
                   </div>

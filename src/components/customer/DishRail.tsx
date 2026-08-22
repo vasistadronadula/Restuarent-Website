@@ -14,7 +14,7 @@ import CartStepper, { AddButton } from './CartStepper';
 /* ─── One card ──────────────────────────────────────────────────────────── */
 
 function RailCard({ item }: { item: MenuItem }) {
-  const { activePrice, hasPortions, cartItem, add, increase, decrease } = useDishPortion(item);
+  const { activePrice, hasPortions, cartItem, atMax, add, increase, decrease } = useDishPortion(item);
   const unavailable = !item.isAvailable;
 
   return (
@@ -64,6 +64,7 @@ function RailCard({ item }: { item: MenuItem }) {
               onDecrease={decrease}
               size="small"
               label={item.name}
+              atMax={atMax}
             />
           ) : (
             <AddButton onClick={add} disabled={unavailable} label={item.name} size="small" />

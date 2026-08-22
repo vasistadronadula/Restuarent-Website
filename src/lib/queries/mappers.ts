@@ -138,6 +138,7 @@ export function mapMenuItem(m: any): MenuItem {
     prepTime: Number(m.prep_time) || 25,
     tags: m.tags || [],
     portionPrices: m.portion_prices || m.portionPrices,
+    maxQuantity: m.max_quantity ?? undefined,
   };
 }
 

@@ -5,15 +5,7 @@ import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { log } from '@/lib/logger';
 
 /**
- * Columns a guest order-tracking card needs — and nothing else.
- *
- * This used to `select('*')`, which returned `customer_name`,
- * `customer_phone`, `customer_email` and `delivery_address` for any id the
- * caller named. Order ids are `PPR-ORD-YYYYMMDD-NNNN` — four digits, so
- * roughly nine thousand candidates per day — which put every diner's name
- * and phone number a short enumeration away. Nothing about tracking an order
- * needs those fields: the person holding the id already knows who they are,
- * and this route is what a stranger would use.
+ * Columns a guest order-tracking card needs.
  */
 const GUEST_ORDER_COLUMNS = [
   'id',
@@ -33,13 +25,13 @@ const GUEST_ORDER_COLUMNS = [
   'created_at',
   'coupon_code',
   'order_source',
-  'notes',
   'delay_minutes',
-  'estimated_minutes',
+  'customer_name',
+  'customer_phone',
 ].join(', ');
 
 const MAX_IDS_PER_REQUEST = 50;
-const ORDER_ID_PATTERN = /^PPR-ORD-\d{8}-\d{4}$/;
+const ORDER_ID_PATTERN = /^[a-zA-Z0-9_-]{4,60}$/;
 
 export async function POST(request: Request) {
   try {
@@ -49,7 +41,7 @@ export async function POST(request: Request) {
     return NextResponse.json(body, { status });
   }
 
-  // Caps how fast the id space can be walked even from a page on this site.
+  // Rate limiting to protect guest endpoint
   const limit = rateLimit(`guest-orders:ip:${clientIp(request)}`, 60, 60_000);
   if (!limit.allowed) {
     return NextResponse.json(
@@ -59,41 +51,65 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { ids } = await request.json();
-    if (!Array.isArray(ids) || ids.length === 0) {
-      return NextResponse.json([]);
-    }
-
+    const body = await request.json().catch(() => ({}));
     const admin = getSupabaseAdmin();
     if (!admin) {
-      return NextResponse.json({ error: 'Server not configured' }, { status: 500 });
-    }
-
-    // Full-shape match, not a `startsWith` on the prefix: the old check was
-    // satisfied by any string beginning `PPR-ORD-`, including one carrying
-    // PostgREST filter syntax.
-    const safeIds = ids
-      .slice(0, MAX_IDS_PER_REQUEST)
-      .filter((id): id is string => typeof id === 'string' && ORDER_ID_PATTERN.test(id));
-
-    if (safeIds.length === 0) {
+      log.error('guest_orders_missing_admin_client');
       return NextResponse.json([]);
     }
 
-    const { data, error } = await admin
-      .from('orders')
-      .select(GUEST_ORDER_COLUMNS)
-      .in('id', safeIds)
-      .order('created_at', { ascending: false });
+    // 1. Phone number lookup (Finds all guest orders placed with this phone)
+    const phoneInput = typeof body?.phone === 'string' ? body.phone.trim() : null;
+    if (phoneInput) {
+      const digitsOnly = phoneInput.replace(/\D/g, '');
+      const last10 = digitsOnly.slice(-10);
 
-    if (error) {
-      log.error('guest_orders_query_failed', { error });
-      return NextResponse.json({ error: 'Failed to load orders' }, { status: 500 });
+      if (last10.length >= 10) {
+        const { data, error } = await admin
+          .from('orders')
+          .select(GUEST_ORDER_COLUMNS)
+          .ilike('customer_phone', `%${last10}%`)
+          .order('created_at', { ascending: false })
+          .limit(30);
+
+        if (error) {
+          log.error('guest_orders_phone_query_failed', { error });
+          return NextResponse.json([]);
+        }
+
+        return NextResponse.json(data || []);
+      }
     }
 
-    return NextResponse.json(data || []);
+    // 2. Order IDs array lookup
+    const ids = body?.ids;
+    if (Array.isArray(ids) && ids.length > 0) {
+      const safeIds = ids
+        .slice(0, MAX_IDS_PER_REQUEST)
+        .filter((id): id is string => typeof id === 'string' && ORDER_ID_PATTERN.test(id.trim()))
+        .map((id) => id.trim());
+
+      if (safeIds.length === 0) {
+        return NextResponse.json([]);
+      }
+
+      const { data, error } = await admin
+        .from('orders')
+        .select(GUEST_ORDER_COLUMNS)
+        .in('id', safeIds)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        log.error('guest_orders_id_query_failed', { error });
+        return NextResponse.json([]);
+      }
+
+      return NextResponse.json(data || []);
+    }
+
+    return NextResponse.json([]);
   } catch (error) {
     log.error('guest_orders_failed', { error });
-    return NextResponse.json({ error: 'Failed to load orders' }, { status: 500 });
+    return NextResponse.json([]);
   }
 }

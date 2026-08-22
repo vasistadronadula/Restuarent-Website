@@ -29,6 +29,7 @@ export function CartLineItem({
 }) {
   const unitPrice = item.selectedPrice ?? item.price;
   const lineTotal = unitPrice * item.quantity;
+  const atMax = Boolean(item.maxQuantity && item.quantity >= item.maxQuantity);
 
   return (
     <li className={cn('flex items-start gap-3 py-3.5', className)}>
@@ -82,6 +83,7 @@ export function CartLineItem({
           label={item.name}
           onIncrease={() => useCartStore.getState().increaseQty(item.id, item.selectedPortion)}
           onDecrease={() => useCartStore.getState().decreaseQty(item.id, item.selectedPortion)}
+          atMax={atMax}
         />
       </div>
     </li>

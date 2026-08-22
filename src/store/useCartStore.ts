@@ -49,18 +49,20 @@ export const useCartStore = create<CartState>()(
       addItem: (incoming, quantity = 1) =>
         set((state) => {
           const addQty = Math.max(1, Math.floor(quantity));
+          const cap = incoming.maxQuantity;
           const existingIndex = state.items.findIndex(
             (i) => i.id === incoming.id && (i.selectedPortion || 'full') === (incoming.selectedPortion || 'full')
           );
           if (existingIndex > -1) {
             const updated = [...state.items];
+            const nextQty = updated[existingIndex].quantity + addQty;
             updated[existingIndex] = {
               ...updated[existingIndex],
-              quantity: updated[existingIndex].quantity + addQty,
+              quantity: cap ? Math.min(nextQty, cap) : nextQty,
             };
             return { items: updated };
           }
-          return { items: [...state.items, { ...incoming, quantity: addQty }] };
+          return { items: [...state.items, { ...incoming, quantity: cap ? Math.min(addQty, cap) : addQty }] };
         }),
 
       removeItem: (id, portion) =>
@@ -81,6 +83,8 @@ export const useCartStore = create<CartState>()(
               : i.id === id
           );
           if (targetIndex === -1) return state;
+          const current = state.items[targetIndex];
+          if (current.maxQuantity && current.quantity >= current.maxQuantity) return state;
           const updated = [...state.items];
           updated[targetIndex] = {
             ...updated[targetIndex],

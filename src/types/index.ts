@@ -58,6 +58,7 @@ export interface MenuItem {
   spiceLevel?: 1 | 2 | 3;
   prepTime?: number; // in minutes
   portionPrices?: PortionPrices; // S, F, L prices
+  maxQuantity?: number; // max units a customer can add to cart per order
 }
 
 export interface CartItem extends MenuItem {

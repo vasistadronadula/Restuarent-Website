@@ -59,6 +59,7 @@ export function useAddMenuItem() {
           prep_time: item.prepTime,
           tags: item.tags,
           portion_prices: item.portionPrices,
+          max_quantity: item.maxQuantity ?? null,
         },
       ]);
       if (error) throw new Error(error.message);
@@ -95,6 +96,7 @@ export function useUpdateMenuItem() {
           prep_time: item.prepTime,
           tags: item.tags,
           portion_prices: item.portionPrices,
+          max_quantity: item.maxQuantity ?? null,
         })
         .eq('id', item.id);
       if (error) throw new Error(error.message);

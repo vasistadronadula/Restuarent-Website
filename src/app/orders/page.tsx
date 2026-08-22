@@ -28,6 +28,7 @@ import { classifyOrderCategory, getStatusBadgeMeta } from '@/lib/orderCategory';
 import { buildPrepTimeMap, estimateOrderMinutes } from '@/lib/orderEstimate';
 
 import { Container } from '@/components/customer/Container';
+import { CouponTeaser } from '@/components/customer/CouponTeaser';
 import { FilterPill, VegMark } from '@/components/customer/store-ui';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -78,9 +79,7 @@ export default function OrderHistoryPage() {
   const previousStatusMapRef = useRef<Map<string, OrderStatus>>(new Map());
   const previousDelayMapRef  = useRef<Map<string, number>>(new Map());
 
-  // Re-syncs when auth resolves: a logged-in user has no use for guest IDs,
-  // and a guest who places another order elsewhere in the same session picks
-  // up the new ID the next time this effect re-runs.
+  // Automatically load guest orders directly from local storage
   useEffect(() => {
     if (user) {
       setGuestOrderIds([]);
@@ -88,7 +87,7 @@ export default function OrderHistoryPage() {
     }
     try {
       const ids = JSON.parse(localStorage.getItem('ppr:guestOrderIds') || '[]');
-      setGuestOrderIds(ids);
+      setGuestOrderIds(Array.isArray(ids) ? ids : []);
     } catch {
       setGuestOrderIds([]);
     }
@@ -320,6 +319,8 @@ export default function OrderHistoryPage() {
             </p>
           </header>
 
+          <CouponTeaser className="mb-6" />
+
           {/* Summary strip. Only once there is something to summarise — four
               zeroes above an empty list is noise pretending to be a dashboard. */}
           {!isLoadingDB && myOrders.length > 0 && (
@@ -355,26 +356,30 @@ export default function OrderHistoryPage() {
               </button>
             </div>
           ) : filteredOrders.length === 0 ? (
-            <div className="border-hair-1 grid place-items-center rounded-2xl border border-dashed bg-white px-6 py-16 text-center">
-              <span className="bg-brand-50 text-brand-500 mb-4 grid size-16 place-items-center rounded-full">
+            <div className="border-hair-1 rounded-2xl border bg-white p-6 sm:p-10 text-center shadow-store max-w-xl mx-auto">
+              <span className="bg-brand-50 text-brand-500 mb-4 inline-grid size-16 place-items-center rounded-full">
                 <ReceiptText className="size-8" />
               </span>
-              <h2 className="text-ink-1 text-[17px] font-extrabold">
+              <h2 className="text-ink-1 text-[18px] font-extrabold">
                 {myOrders.length === 0 ? 'No orders yet' : 'Nothing matches that'}
               </h2>
-              <p className="text-ink-3 mt-1.5 max-w-sm text-[13.5px] leading-relaxed">
+              <p className="text-ink-3 mt-1.5 text-[13.5px] leading-relaxed">
                 {myOrders.length === 0
-                  ? 'Once you place an order it will show up here, with live kitchen tracking while it cooks.'
+                  ? 'When you place an order, its live preparation countdown and bill will appear here.'
                   : 'Try a different search, or switch back to All.'}
               </p>
+
               {myOrders.length === 0 ? (
-                <Link
-                  href="/menu"
-                  className="bg-brand hover:bg-brand-600 mt-5 inline-flex h-11 items-center gap-2 rounded-xl px-6 text-[14px] font-extrabold text-white transition-colors"
-                >
-                  Explore the menu
-                  <ArrowRight className="size-[18px]" />
-                </Link>
+                <div className="mt-6 border-hair-2 border-t pt-5">
+                  <p className="text-ink-4 text-[12.5px] mb-3">Looking to order fresh Telugu dishes?</p>
+                  <Link
+                    href="/menu"
+                    className="bg-brand hover:bg-brand-600 inline-flex h-11 items-center justify-center gap-2 rounded-xl px-6 text-[14px] font-bold text-white transition-colors w-full sm:w-auto shadow-sm"
+                  >
+                    Explore the menu
+                    <ArrowRight className="size-4" />
+                  </Link>
+                </div>
               ) : (
                 <button
                   type="button"

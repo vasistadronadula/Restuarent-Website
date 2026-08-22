@@ -50,6 +50,7 @@ const BLANK_ITEM_FORM: MenuItemFormValues = {
   portionFull: '',
   portionLarge: '',
   prepTime: 20,
+  maxQuantity: '',
   image: '',
   description: '',
   isAvailable: true,
@@ -162,6 +163,7 @@ export default function MenuManagementPage() {
       portionFull: item.portionPrices?.full ?? '',
       portionLarge: item.portionPrices?.large ?? '',
       prepTime: item.prepTime ?? 20,
+      maxQuantity: item.maxQuantity ?? '',
       image: item.image ?? '',
       description: item.description ?? '',
       isAvailable: item.isAvailable,
@@ -181,6 +183,7 @@ export default function MenuManagementPage() {
       price: values.price,
       portionPrices: toPortionPrices(values),
       prepTime: values.prepTime,
+      maxQuantity: values.maxQuantity,
       image: values.image || FALLBACK_DISH_IMAGE,
       description: values.description,
       isAvailable: values.isAvailable,
@@ -745,6 +748,7 @@ export default function MenuManagementPage() {
           <NumberField control={itemForm.control} name="price" label="Base Price" prefix="₹" placeholder="0" hint="Charged when no portion is chosen" />
           <NumberField control={itemForm.control} name="prepTime" label="Prep Time" suffix="min" placeholder="20" />
         </div>
+        <NumberField control={itemForm.control} name="maxQuantity" label="Max Quantity Per Order" placeholder="No limit" hint="Leave blank for no limit — customers can't add more than this per order" />
         <div className="border border-ad-hairline bg-ad-surface p-3">
           <p className="ad-kicker m-0">Portion pricing</p>
           <p className="text-[12px] ad-muted mt-1 mb-3">Leave blank for single-size dishes.</p>

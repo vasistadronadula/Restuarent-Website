@@ -358,7 +358,7 @@ function ProfileField({
   verified?: boolean;
 } & Omit<React.ComponentProps<'input'>, 'id' | 'value' | 'onChange'>) {
   return (
-    <div className="grid gap-1.5">
+    <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-ink-2 text-[13px] font-bold">
         {label}
       </label>

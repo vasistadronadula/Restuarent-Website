@@ -8,12 +8,50 @@ import { PageHeader, RoleBadge } from '@/components/admin/ui';
 import { ROLE_ACCESS_SUMMARY } from '@/lib/roleAccess';
 import { toast } from 'sonner';
 
+import { Camera, FolderOpen, Loader2, Trash2 } from 'lucide-react';
+import { CameraCaptureModal } from '@/components/common/CameraCaptureModal';
+
 export default function ProfilePage() {
   const { user, userRole } = useAuth();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [saving, setSaving] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleAvatarFile = async (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image must be less than 10MB');
+      return;
+    }
+    setUploadingAvatar(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) throw new Error('Session expired');
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('folder', 'general');
+
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || 'Upload failed');
+
+      setAvatarUrl(data.url);
+      toast.success('Avatar updated! Click Save changes to persist.');
+    } catch (err: any) {
+      toast.error(err.message || 'Could not upload photo');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -78,11 +116,70 @@ export default function ProfilePage() {
       <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-6 items-start">
 
         <section className="border-2 border-ad-line p-5">
-          <div
-            className="w-22 h-22 grid place-items-center bg-ad-accent text-ad-bg ad-num text-[30px] overflow-hidden"
-            style={avatarUrl ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}
-          >
-            {avatarUrl ? '' : initials}
+          <div className="relative group w-24 h-24 mx-auto sm:mx-0">
+            <div
+              className="w-24 h-24 rounded-2xl grid place-items-center bg-ad-accent text-ad-bg ad-num text-[30px] overflow-hidden border border-ad-line shadow-sm"
+              style={avatarUrl ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}
+            >
+              {avatarUrl ? '' : initials}
+            </div>
+
+            {uploadingAvatar && (
+              <div className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center">
+                <Loader2 className="w-6 h-6 text-white animate-spin" />
+              </div>
+            )}
+          </div>
+
+          {/* Hidden file input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/png,image/jpeg,image/jpg,image/webp,image/avif"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleAvatarFile(file);
+            }}
+          />
+
+          <CameraCaptureModal
+            open={cameraOpen}
+            onOpenChange={setCameraOpen}
+            onCapture={handleAvatarFile}
+            title="Take Profile Photo"
+          />
+
+          <div className="flex items-center gap-2 mt-3.5 flex-wrap">
+            <button
+              type="button"
+              disabled={uploadingAvatar}
+              onClick={() => setCameraOpen(true)}
+              className="ad-btn ad-btn-primary ad-btn-sm text-xs flex items-center gap-1.5"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              Camera
+            </button>
+            <button
+              type="button"
+              disabled={uploadingAvatar}
+              onClick={() => fileInputRef.current?.click()}
+              className="ad-btn ad-btn-secondary ad-btn-sm text-xs flex items-center gap-1.5"
+            >
+              <FolderOpen className="w-3.5 h-3.5" />
+              Browse
+            </button>
+            {avatarUrl && (
+              <button
+                type="button"
+                disabled={uploadingAvatar}
+                onClick={() => setAvatarUrl('')}
+                className="ad-btn ad-btn-sm text-xs text-red-600 hover:text-red-700"
+                title="Remove photo"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <div className="ad-num text-[22px] mt-4 wrap-break-word">{fullName || 'Staff user'}</div>

@@ -13,6 +13,8 @@ interface Props {
   size?: 'small' | 'medium';
   fullWidth?: boolean;
   label: string;
+  /** Item hit its per-order max quantity — grey out the + button rather than let it silently no-op. */
+  atMax?: boolean;
 }
 
 /** Kept in one place so ADD and the stepper cannot drift apart. */
@@ -46,6 +48,7 @@ export default function CartStepper({
   size = 'medium',
   fullWidth = false,
   label,
+  atMax = false,
 }: Props) {
   const compact = size === 'small';
   const isOne = quantity === 1;
@@ -99,10 +102,16 @@ export default function CartStepper({
         type="button"
         onClick={(e) => {
           e.stopPropagation();
-          onIncrease();
+          if (!atMax) onIncrease();
         }}
-        aria-label={`Add one more ${label}`}
-        className="text-veg hover:bg-veg/8 focus-visible:bg-veg/12 active:bg-veg/16 grid h-full flex-1 place-items-center transition-colors outline-none cursor-pointer"
+        disabled={atMax}
+        aria-label={atMax ? `${label} order limit reached` : `Add one more ${label}`}
+        className={cn(
+          'grid h-full flex-1 place-items-center transition-colors outline-none',
+          atMax
+            ? 'text-ink-4 cursor-not-allowed'
+            : 'text-veg hover:bg-veg/8 focus-visible:bg-veg/12 active:bg-veg/16 cursor-pointer'
+        )}
       >
         <Plus className={compact ? 'size-4' : 'size-[17px]'} strokeWidth={3} />
       </button>

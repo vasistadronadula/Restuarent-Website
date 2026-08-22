@@ -4,7 +4,7 @@ Restaurant web app and POS for Pala Pitta Ruchulu — Telangana, Andhra and Hyde
 food, ordering and table booking for customers, and a full admin/POS workspace for
 staff (orders, kitchen display, billing, inventory, reservations, reports).
 
-Next.js App Router · React 19 · MUI · Redux Toolkit · Supabase · Razorpay.
+Next.js App Router · React 19 · Radix UI + Tailwind CSS · Zustand + TanStack Query · Supabase · Razorpay.
 
 ## Running it
 
@@ -84,8 +84,9 @@ password on such accounts is random, never derived and never used, and
 ```
 src/app/          routes — public site, /admin workspace, /api route handlers
 src/components/   customer/, admin/, pos/, bill/
-src/context/      Auth, Cart, Admin providers
-src/store/        Redux Toolkit slices + RTK Query (supabaseApi)
+src/context/      Auth, Cart, Admin providers — thin adapters over the stores below
+src/store/        Zustand stores (auth, cart, admin UI state)
+src/lib/queries/  TanStack Query hooks — all server data (orders, menu, inventory, …)
 src/lib/          supabase clients, auth verification, billing, printing, push
 supabase/migrations/       tables, RLS policies, role guards, RPCs
 scripts/seedDatabase.mjs   seeds the menu from src/data/menuItems.json

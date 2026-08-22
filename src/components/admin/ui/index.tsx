@@ -9,7 +9,7 @@
  *   • One accent (hot red) for primary actions and things that need attention.
  *     Everything else is ink and neutrals — a page with four accent colours is
  *     a page with none.
- *   • Labels are 10–11px, uppercase, wide-tracked. Values are Archivo 800.
+ *   • Labels are 10–11px, uppercase, wide-tracked. Values are Manrope 800.
  *
  * Existing pages import these by the same names and props they always did, so
  * a page that hasn't been rewritten still lands in the new system.

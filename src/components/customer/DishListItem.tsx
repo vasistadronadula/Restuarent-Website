@@ -37,7 +37,7 @@ interface Props {
 const DishListItem = memo(function DishListItem({ item, divider = true }: Props) {
   const {
     availablePortions, hasPortions, selectedPortion, setSelectedPortion,
-    activePrice, cartItem, add, increase, decrease,
+    activePrice, cartItem, atMax, add, increase, decrease,
   } = useDishPortion(item);
 
   const unavailable = !item.isAvailable;
@@ -154,6 +154,7 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
               onDecrease={decrease}
               size="small"
               label={item.name}
+              atMax={atMax}
             />
           ) : (
             <AddButton onClick={add} disabled={unavailable} label={item.name} size="small" />

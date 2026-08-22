@@ -1,12 +1,12 @@
 {
-  "name": "Pala Pitta Admin - Restaurant Dashboard",
-  "short_name": "PalaPitta Admin",
-  "description": "Mobile Admin & POS Management System for Pala Pitta Ruchulu Restaurant",
-  "start_url": "/admin",
-  "scope": "/admin",
+  "name": "Pala Pitta Ruchulu",
+  "short_name": "Pala Pitta",
+  "description": "Order authentic Telangana, Andhra and Hyderabadi food for takeaway — browse the menu, track your order, and book a table.",
+  "start_url": "/menu",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#0F172A",
-  "theme_color": "#0F172A",
+  "background_color": "#FFF8F2",
+  "theme_color": "#FC8019",
   "orientation": "portrait-primary",
   "icons": [
     {

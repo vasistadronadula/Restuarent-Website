@@ -69,17 +69,21 @@ function playKitchenChime(type: 'new_order' | 'ready' | 'alert' = 'new_order') {
       playNote(880.00, 0, 0.2);       // A5
       playNote(1174.66, 0.15, 0.35);  // D6
     } else {
-      // Alert chime
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(440, ctx.currentTime);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.3);
+      // Alert chime — double warning pulse for overdue / time exceeded
+      const playPulse = (freq: number, startDelay: number) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + startDelay);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime + startDelay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startDelay + 0.18);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + startDelay);
+        osc.stop(ctx.currentTime + startDelay + 0.18);
+      };
+      playPulse(587.33, 0);       // D5
+      playPulse(783.99, 0.15);    // G5
     }
   } catch {
     /* AudioContext blocked by browser policy */
@@ -422,6 +426,64 @@ export default function KitchenDisplayPage() {
         return parseOrderTimestamp(a) - parseOrderTimestamp(b); // Standard FIFO
       });
   }, [orders, typeFilter, sortMode]);
+
+  /* Overdue / Time Exceeded Notification Tracker */
+  const overdueNotifiedRef = useRef<Map<string, number>>(new Map());
+
+  // Check for cooking orders whose preparation time has exceeded target time
+  useEffect(() => {
+    if (isLoadingDB || activeOrders.length === 0) return;
+
+    activeOrders.forEach((order) => {
+      const status = getOrderStatus(order);
+      // Only alert on tickets currently waiting or cooking
+      if (status !== 'pending' && status !== 'preparing') return;
+
+      const targetMins = getTargetPrepMinutes(order, prepTimeMap);
+      const elapsedMins = Math.floor((now - parseOrderTimestamp(order)) / 60000);
+
+      if (elapsedMins >= targetMins) {
+        const lastNotified = overdueNotifiedRef.current.get(order.id) || 0;
+        // Notify immediately upon exceeding target time, and re-alert every 3 minutes if still in kitchen
+        if (now - lastNotified > 3 * 60 * 1000) {
+          overdueNotifiedRef.current.set(order.id, now);
+
+          if (soundEnabled) {
+            playKitchenChime('alert');
+          }
+
+          const token = order.id.slice(-4);
+          const dishSummary = order.items?.map((i) => i.name).slice(0, 2).join(', ') || 'Dishes';
+          const tableLabel = order.tableNumber ? ` · Table ${order.tableNumber}` : '';
+
+          toast.error(`⚠️ Prep Time Exceeded: Ticket #${token}`, {
+            description: `${dishSummary}${tableLabel} exceeded target time of ${targetMins}m (${elapsedMins}m in kitchen).`,
+            duration: 9000,
+            action: {
+              label: '+ Add Delay',
+              onClick: () => {
+                setSelectedOrderForDelay(order);
+                setCustomDelayMins(10);
+                setDelayReason('');
+                setDelayDialogOpen(true);
+              },
+            },
+          });
+
+          // Browser native system notification if permitted
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification(`⚠️ Prep Time Exceeded: Ticket #${token}`, {
+                body: `${dishSummary}${tableLabel} exceeded target time (${elapsedMins}m / ${targetMins}m).`,
+                icon: '/icon-192.png',
+                tag: `overdue-${order.id}`,
+              });
+            } catch {}
+          }
+        }
+      }
+    });
+  }, [activeOrders, prepTimeMap, now, isLoadingDB, soundEnabled]);
 
   /* Lanes grouping */
   const laneOrders = useMemo(() => {

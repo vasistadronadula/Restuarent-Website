@@ -71,7 +71,7 @@
   --ad-critical: #b91c1c;
   --ad-critical-bg: #fbe4e4;
 
-  --ad-font: var(--font-archivo), "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --ad-font: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
   --ad-sidebar-w: 236px;
   --ad-header-h: 68px;
 

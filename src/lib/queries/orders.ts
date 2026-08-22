@@ -75,14 +75,19 @@ export function useGuestOrders(ids: string[]) {
     queryKey: ['guest-orders', ids],
     queryFn: async (): Promise<Order[]> => {
       if (!ids || ids.length === 0) return [];
-      const res = await fetch('/api/guest/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids }),
-      });
-      if (!res.ok) throw new Error('Failed to fetch guest orders');
-      const data = await res.json();
-      return (data || []).map(mapOrder);
+      try {
+        const res = await fetch('/api/guest/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids }),
+        });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data.map(mapOrder) : [];
+      } catch (err) {
+        console.warn('Guest orders fetch warning:', err);
+        return [];
+      }
     },
     enabled: ids.length > 0,
     staleTime: 3_000,

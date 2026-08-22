@@ -71,13 +71,16 @@ export const ROLE_ICONS: Record<UserRole, string> = {
 
 export const STAFF_ROLES = ['admin', 'manager', 'chef', 'cashier', 'waiter'] as const;
 
-export const ORDER_NOTIFICATION_ROLES: readonly UserRole[] = ['admin', 'manager', 'cashier', 'chef', 'waiter'] as const;
+// Only the two roles that actually act on a new/changed order — cashier
+// (billing/POS) and chef (KDS) — get pushed. Manager/admin/waiter watch the
+// dashboard instead of a phone, and used to be spammed on every order event.
+export const ORDER_NOTIFICATION_ROLES: readonly UserRole[] = ['cashier', 'chef'] as const;
 export const RESERVATION_NOTIFICATION_ROLES: readonly UserRole[] = [] as const;
 
 export const NOTIFICATION_ROLES: readonly UserRole[] = ORDER_NOTIFICATION_ROLES;
 
 export function receivesOrderNotifications(role: UserRole | null | undefined): boolean {
-  return isStaffRole(role);
+  return !!role && (ORDER_NOTIFICATION_ROLES as readonly string[]).includes(role);
 }
 
 export function receivesReservationNotifications(_role: UserRole | null | undefined): boolean {
@@ -85,7 +88,7 @@ export function receivesReservationNotifications(_role: UserRole | null | undefi
 }
 
 export function receivesNotifications(role: UserRole | null | undefined): boolean {
-  return isStaffRole(role);
+  return receivesOrderNotifications(role);
 }
 
 export function assignableRoles(callerRole: UserRole | null | undefined): readonly StaffRole[] {

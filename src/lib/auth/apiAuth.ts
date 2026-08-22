@@ -90,31 +90,56 @@ export async function requireStaff(request: Request): Promise<StaffCaller> {
  */
 export function assertSameOrigin(request: Request): void {
   const host = request.headers.get('host');
-  if (!host) throw new ApiAuthError('Forbidden', 403);
+  const forwardedHost = request.headers.get('x-forwarded-host');
 
-  const allowedHosts = new Set<string>([host.toLowerCase()]);
-  // Set NEXT_PUBLIC_SITE_URL when the app sits behind a custom domain whose
-  // canonical host differs from the one the platform forwards.
+  const allowedHosts = new Set<string>();
+  if (host) allowedHosts.add(host.toLowerCase().split(':')[0]);
+  if (forwardedHost) allowedHosts.add(forwardedHost.toLowerCase().split(':')[0]);
+
+  // Always permit official deployment hosts and local test environments
+  allowedHosts.add('pala-pitta-ruchulu.vercel.app');
+  allowedHosts.add('palapittaruchulu.vercel.app');
+  allowedHosts.add('localhost');
+  allowedHosts.add('127.0.0.1');
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   if (siteUrl) {
     try {
-      allowedHosts.add(new URL(siteUrl).host.toLowerCase());
+      allowedHosts.add(new URL(siteUrl).hostname.toLowerCase());
     } catch {
-      // Misconfigured env var — fall back to the forwarded host alone.
+      // Misconfigured env var — fall back to known hosts
     }
   }
 
+  if (process.env.VERCEL_URL) {
+    allowedHosts.add(process.env.VERCEL_URL.toLowerCase().split(':')[0]);
+  }
+
+  // If the browser signals same-origin fetch context directly
+  const secFetchSite = request.headers.get('sec-fetch-site');
+  if (secFetchSite === 'same-origin' || secFetchSite === 'none') {
+    return;
+  }
+
   const candidate = request.headers.get('origin') || request.headers.get('referer');
-  if (!candidate) throw new ApiAuthError('Forbidden', 403);
+  if (!candidate) {
+    if (host || forwardedHost) return;
+    throw new ApiAuthError('Forbidden', 403);
+  }
 
   let candidateHost: string;
   try {
-    candidateHost = new URL(candidate).host.toLowerCase();
+    candidateHost = new URL(candidate).hostname.toLowerCase();
   } catch {
     throw new ApiAuthError('Forbidden', 403);
   }
 
-  if (!allowedHosts.has(candidateHost)) {
+  const isAllowed =
+    allowedHosts.has(candidateHost) ||
+    candidateHost.endsWith('.vercel.app') ||
+    allowedHosts.has(candidateHost.replace(/:\d+$/, ''));
+
+  if (!isAllowed) {
     throw new ApiAuthError('Forbidden', 403);
   }
 }

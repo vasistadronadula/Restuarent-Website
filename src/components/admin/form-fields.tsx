@@ -21,11 +21,12 @@
 
 import * as React from 'react';
 import type { Control, FieldPath, FieldValues, UseFormReturn } from 'react-hook-form';
-import { Loader2, UploadCloud } from 'lucide-react';
+import { Camera, FolderOpen, Loader2, UploadCloud } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { CameraCaptureModal } from '@/components/common/CameraCaptureModal';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -428,6 +429,8 @@ export function ImageUploadField<T extends FieldValues>({
   folder = 'dishes',
 }: BaseFieldProps<T> & { folder?: 'dishes' | 'categories' | 'general' }) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const nativeCameraInputRef = React.useRef<HTMLInputElement>(null);
+  const [cameraOpen, setCameraOpen] = React.useState(false);
   const [uploading, setUploading] = React.useState(false);
   const [uploadProgress, setUploadProgress] = React.useState<string>('');
   const [showUrlInput, setShowUrlInput] = React.useState(false);
@@ -442,10 +445,6 @@ export function ImageUploadField<T extends FieldValues>({
         const imageVal: string = typeof rawValue === 'string' ? rawValue : '';
 
         const handleFile = async (file: File) => {
-          // Mirrors the allow-list /api/upload enforces, so an unsupported
-          // file is refused here with a clear message instead of round-
-          // tripping to a 400. SVG is excluded on both sides deliberately:
-          // it executes script when served from our own origin.
           if (!UPLOADABLE_IMAGE_TYPES.includes(file.type)) {
             toast.error('Please select a PNG, JPG, WEBP or AVIF image');
             return;
@@ -467,10 +466,6 @@ export function ImageUploadField<T extends FieldValues>({
             formData.append('file', optimized);
             formData.append('folder', folder);
 
-            // /api/upload is staff-gated — it holds the service-role key and
-            // writes to a public bucket, so it verifies the caller's role
-            // server-side rather than trusting AdminGuard to have kept
-            // non-staff off this screen.
             const { data: sessionData } = await supabase.auth.getSession();
             const accessToken = sessionData.session?.access_token;
             if (!accessToken) {
@@ -493,7 +488,6 @@ export function ImageUploadField<T extends FieldValues>({
             toast.success('Photo uploaded successfully');
           } catch (err) {
             console.error('Upload error:', err);
-            // Local fallback so user can still proceed
             const reader = new FileReader();
             reader.onload = () => {
               if (typeof reader.result === 'string') {
@@ -506,9 +500,8 @@ export function ImageUploadField<T extends FieldValues>({
           } finally {
             setUploading(false);
             setUploadProgress('');
-            if (fileInputRef.current) {
-              fileInputRef.current.value = '';
-            }
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            if (nativeCameraInputRef.current) nativeCameraInputRef.current.value = '';
           }
         };
 
@@ -524,12 +517,13 @@ export function ImageUploadField<T extends FieldValues>({
                 }}
                 className="text-[11px] font-medium text-ad-muted hover:text-ad-ink transition-colors cursor-pointer"
               >
-                {showUrlInput ? 'Switch to Upload' : 'Enter URL instead'}
+                {showUrlInput ? 'Switch to Upload / Camera' : 'Enter URL instead'}
               </button>
             </div>
 
             <FormControl>
               <div>
+                {/* Standard file picker */}
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -539,6 +533,27 @@ export function ImageUploadField<T extends FieldValues>({
                     const file = e.target.files?.[0];
                     if (file) handleFile(file);
                   }}
+                />
+
+                {/* Mobile camera direct trigger */}
+                <input
+                  type="file"
+                  ref={nativeCameraInputRef}
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleFile(file);
+                  }}
+                />
+
+                {/* Interactive live Camera Modal */}
+                <CameraCaptureModal
+                  open={cameraOpen}
+                  onOpenChange={setCameraOpen}
+                  onCapture={handleFile}
+                  title={`Take Photo for ${label || 'Dish'}`}
                 />
 
                 {showUrlInput ? (
@@ -581,7 +596,17 @@ export function ImageUploadField<T extends FieldValues>({
                         {String(imageVal).startsWith('http') ? 'Cloud storage' : 'Uploaded file'}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                      <button
+                        type="button"
+                        disabled={uploading}
+                        className="ad-btn ad-btn-secondary ad-btn-sm"
+                        onClick={() => setCameraOpen(true)}
+                        title="Take photo with camera"
+                      >
+                        <Camera className="w-3.5 h-3.5 mr-1" />
+                        Camera
+                      </button>
                       <button
                         type="button"
                         disabled={uploading}
@@ -606,7 +631,6 @@ export function ImageUploadField<T extends FieldValues>({
                   </div>
                 ) : (
                   <div
-                    onClick={() => !uploading && fileInputRef.current?.click()}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
                       e.preventDefault();
@@ -615,22 +639,45 @@ export function ImageUploadField<T extends FieldValues>({
                       if (file) handleFile(file);
                     }}
                     className={cn(
-                      'border-2 border-dashed border-ad-line hover:border-ad-accent p-5 text-center cursor-pointer transition-colors bg-ad-surface',
+                      'border-2 border-dashed border-ad-line hover:border-ad-accent p-5 text-center transition-colors bg-ad-surface rounded-xl',
                       uploading && 'opacity-70 pointer-events-none cursor-wait'
                     )}
                   >
                     {uploading ? (
-                      <div className="py-2">
-                        <Loader2 className="w-6 h-6 mx-auto mb-2 text-ad-accent animate-spin" />
+                      <div className="py-3">
+                        <Loader2 className="w-7 h-7 mx-auto mb-2 text-ad-accent animate-spin" />
                         <p className="text-[13px] font-semibold m-0">{uploadProgress || 'Uploading photo…'}</p>
                         <p className="ad-kicker mt-1">Please wait</p>
                       </div>
                     ) : (
-                      <>
-                        <UploadCloud className="w-6 h-6 mx-auto mb-2 text-ad-accent" />
-                        <p className="text-[13px] font-semibold m-0">Click or drag dish photo here</p>
-                        <p className="ad-kicker mt-1">PNG, JPG, WEBP · up to 10MB · No link needed</p>
-                      </>
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <UploadCloud className="w-5 h-5 text-ad-accent" />
+                          <p className="text-[13px] font-bold text-ad-ink m-0">Upload or Take Photo</p>
+                        </div>
+                        <p className="ad-kicker text-[11px] max-w-xs m-0">
+                          PNG, JPG, WEBP · up to 10MB
+                        </p>
+
+                        <div className="flex items-center gap-2 mt-1 w-full justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setCameraOpen(true)}
+                            className="ad-btn ad-btn-primary text-xs font-bold px-4 py-2 flex items-center gap-1.5 shadow-sm"
+                          >
+                            <Camera className="w-4 h-4" />
+                            Take Photo with Camera
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="ad-btn ad-btn-secondary text-xs font-bold px-4 py-2 flex items-center gap-1.5"
+                          >
+                            <FolderOpen className="w-4 h-4" />
+                            Browse Files
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </div>
                 )}

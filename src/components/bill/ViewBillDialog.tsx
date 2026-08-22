@@ -10,8 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from '@/components/ui/dialog';
-import InvoiceA4 from './InvoiceA4';
+import ThermalBill from './ThermalBill';
+import PrintBillPortal from './PrintBillPortal';
 import type { Order } from '@/types';
 import { generateInvoiceNo } from '@/lib/idGenerator';
 
@@ -30,14 +32,6 @@ export default function ViewBillDialog({
   const invoiceNo = generateInvoiceNo(order.id);
 
   const handlePrint = () => {
-    // Open print window directly
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    // We can print the current page, but to print just the bill we can use window.print() on the parent.
-    // However, the cleanest way in this codebase is to temporarily mount a printing portal or call window.print()
-    // which has a print media stylesheet hiding everything except the print-root.
-    // Let's trigger window.print() directly!
     window.print();
   };
 
@@ -53,36 +47,41 @@ export default function ViewBillDialog({
         {triggerLabel}
       </Button>
 
+      {open && <PrintBillPortal order={order} invoiceNo={invoiceNo} />}
+
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-4xl w-[calc(100%-2rem)] p-4 sm:p-6 rounded-2xl bg-white text-stone-900 border border-stone-200">
-          <DialogHeader className="flex flex-row items-center justify-between gap-4 border-b border-stone-100 pb-3">
-            <div>
-              <DialogTitle className="text-lg font-bold text-stone-900 flex items-center gap-2">
-                <FileText className="text-amber-600 size-5" />
-                Tax Invoice
-              </DialogTitle>
-              <DialogDescription className="text-xs text-stone-500 mt-0.5">
-                Order ID: {order.orderId}
-              </DialogDescription>
+        <DialogContent className="max-w-sm sm:max-w-md p-0 overflow-hidden rounded-3xl bg-white text-stone-900 border border-stone-200">
+          <DialogHeader className="bg-gradient-to-r from-stone-900 via-stone-850 to-amber-950 text-white p-5 sm:p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/10 text-amber-400 grid place-items-center rounded-xl">
+                <FileText className="size-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-white font-black text-base sm:text-lg">
+                  Tax Invoice
+                </DialogTitle>
+                <DialogDescription className="text-xs text-stone-300 font-medium mt-0.5">
+                  Order ID: {order.orderId}
+                </DialogDescription>
+              </div>
             </div>
-            
-            <Button
-              size="sm"
-              variant="brand"
-              onClick={handlePrint}
-              className="mr-6 rounded-lg font-semibold text-xs h-8 px-3"
-            >
-              <Printer className="size-3.5 mr-1.5" />
-              Print / Save PDF
-            </Button>
           </DialogHeader>
 
-          {/* PDF Viewer Container */}
-          <div className="mt-4 overflow-x-auto w-full rounded-xl border border-stone-200 bg-stone-100 p-2 sm:p-4 max-h-[70vh] overflow-y-auto">
-            <div className="min-w-[210mm] mx-auto bg-white shadow-sm border border-stone-300 rounded-md">
-              <InvoiceA4 order={order} invoiceNo={invoiceNo} />
+          <div className="p-5 sm:p-6 bg-stone-50">
+            <div className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm overflow-x-auto max-h-96">
+              <ThermalBill order={order} invoiceNo={invoiceNo} />
             </div>
           </div>
+
+          <DialogFooter className="p-4 sm:p-5 bg-stone-100/80 border-t border-stone-200 flex flex-row gap-3">
+            <Button variant="outline" onClick={() => setOpen(false)} className="flex-1 font-bold text-xs h-11 rounded-2xl">
+              Close
+            </Button>
+            <Button variant="brand" onClick={handlePrint} className="flex-1 font-bold text-xs h-11 rounded-2xl">
+              <Printer className="size-4 mr-2" />
+              Print / Save PDF
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

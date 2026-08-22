@@ -112,19 +112,30 @@ export default function Navbar() {
   );
 
   return (
-    <header
-      className={cn(
-        'sticky top-0 z-40 w-full border-b bg-white transition-shadow duration-200',
-        scrolled ? 'border-hair-1 shadow-[0_2px_12px_rgba(2,6,12,0.07)]' : 'border-hair-2'
-      )}
-    >
-        <Container className="flex h-[var(--store-header-h)] items-center justify-between gap-3">
+    <header className="sticky top-0 z-40 w-full px-2 pt-2 md:px-3 md:pt-3">
+      <div
+        className={cn(
+          'bg-brand relative overflow-hidden rounded-full transition-shadow duration-200',
+          scrolled
+            ? 'shadow-[0_10px_28px_rgba(148,67,11,0.38)]'
+            : 'shadow-[0_4px_16px_rgba(148,67,11,0.22)]'
+        )}
+      >
+        {/* Glass sheen — a soft highlight across the top half, like light
+            glancing off a curved glossy surface. Purely decorative, so it
+            sits behind the interactive content and never intercepts clicks. */}
+        <div
+          aria-hidden
+          className="from-white/30 pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b to-transparent"
+        />
+
+        <Container className="relative flex h-[60px] items-center justify-between gap-3 md:h-[68px]">
           <Link
             href="/menu"
             aria-label={`${restaurantInfo.name} — Menu`}
             className="flex shrink-0 items-center"
           >
-            <PalaPittaLogo variant="light" size="small" priority />
+            <PalaPittaLogo variant="dark" size="small" priority />
           </Link>
 
           {/* ── Desktop navigation ─────────────────────────────────────── */}
@@ -139,10 +150,10 @@ export default function Navbar() {
                   aria-current={active ? 'page' : undefined}
                   className={cn(
                     'flex items-center gap-2 rounded-lg px-3.5 py-2 text-[14px] font-semibold transition-colors outline-none',
-                    active ? 'text-brand-700' : 'text-ink-2 hover:text-brand-600'
+                    active ? 'bg-white/15 text-white' : 'text-white/85 hover:bg-white/10 hover:text-white'
                   )}
                 >
-                  <Icon className={cn('size-[17px]', active && 'text-brand')} />
+                  <Icon className="size-[17px]" />
                   {label}
                 </Link>
               );
@@ -153,7 +164,7 @@ export default function Navbar() {
           <div className="flex items-center gap-1.5 sm:gap-2">
             <a
               href={PHONE_HREF}
-              className="text-ink-2 hover:text-brand-600 hidden items-center gap-2 rounded-lg px-3 py-2 text-[14px] font-semibold transition-colors lg:flex"
+              className="text-white/85 hover:bg-white/10 hover:text-white hidden items-center gap-2 rounded-lg px-3 py-2 text-[14px] font-semibold transition-colors lg:flex"
             >
               <Phone className="size-[17px]" />
               {restaurantInfo.phoneDisplay}
@@ -161,7 +172,9 @@ export default function Navbar() {
 
             {/* Cart. The count lives inside the pill rather than as a floating
                 badge so it can't collide with the header's bottom edge on a
-                short viewport. */}
+                short viewport. A solid white pill is what pops against the
+                brand-orange bar — the old brand-on-white treatment would
+                vanish into the header now that the header itself is brand. */}
             <Link
               href="/cart"
               prefetch
@@ -170,14 +183,14 @@ export default function Navbar() {
               className={cn(
                 'inline-flex h-10 items-center gap-2 rounded-full px-3 text-[14px] font-bold transition-colors outline-none sm:px-4',
                 totalItems > 0
-                  ? 'bg-brand text-white hover:bg-brand-600'
-                  : 'text-ink-2 hover:bg-hair-2'
+                  ? 'bg-white text-brand-700 hover:bg-white/90'
+                  : 'text-white/85 hover:bg-white/10 hover:text-white'
               )}
             >
               <ShoppingCart className="size-[18px]" />
               <span className="hidden sm:inline">Cart</span>
               {totalItems > 0 && (
-                <span className="grid h-5 min-w-5 place-items-center rounded-full bg-white/25 px-1.5 text-[11px] font-extrabold tabular-nums">
+                <span className="bg-brand grid h-5 min-w-5 place-items-center rounded-full px-1.5 text-[11px] font-extrabold text-white tabular-nums">
                   {totalItems > 99 ? '99+' : totalItems}
                 </span>
               )}
@@ -186,7 +199,7 @@ export default function Navbar() {
             {isStaff && (
               <Link
                 href={getRoleHome(userRole)}
-                className="border-hair-1 text-ink-2 hover:border-ink-4/60 hidden h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-bold transition-colors md:inline-flex"
+                className="hidden h-10 items-center gap-2 rounded-full border border-white/30 px-4 text-[13px] font-bold text-white transition-colors hover:bg-white/10 md:inline-flex"
               >
                 <LayoutDashboard className="size-4" />
                 Dashboard
@@ -197,7 +210,7 @@ export default function Navbar() {
               <Link
                 href={authHref.login}
                 prefetch
-                className="border-brand-200 bg-brand-50 text-brand-700 hover:bg-brand-100 hidden h-10 items-center gap-2 rounded-full border px-4 text-[13px] font-bold transition-colors sm:inline-flex"
+                className="text-brand-700 hidden h-10 items-center gap-2 rounded-full bg-white px-4 text-[13px] font-bold transition-colors hover:bg-white/90 sm:inline-flex"
               >
                 <LogIn className="size-4" />
                 Sign in
@@ -208,17 +221,17 @@ export default function Navbar() {
                   <button
                     type="button"
                     aria-label="Account menu"
-                    className="text-ink-2 hover:bg-hair-2 hidden h-10 items-center gap-2 rounded-full pr-2.5 pl-1.5 transition-colors outline-none sm:inline-flex"
+                    className="hidden h-10 items-center gap-2 rounded-full pr-2.5 pl-1.5 text-white transition-colors outline-none hover:bg-white/10 sm:inline-flex"
                   >
                     <Avatar className="size-7">
-                      <AvatarFallback className="bg-brand text-[12px] font-extrabold text-white">
+                      <AvatarFallback className="bg-white text-brand-700 text-[12px] font-extrabold">
                         {(userName || accountLabel || 'U').charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <span className="hidden max-w-[92px] truncate text-[14px] font-semibold md:block">
                       {userName?.split(' ')[0] || 'Account'}
                     </span>
-                    <ChevronDown className="text-ink-4 size-4" />
+                    <ChevronDown className="size-4 text-white/70" />
                   </button>
                 </DropdownMenuTrigger>
 
@@ -272,7 +285,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   aria-label="Open menu"
-                  className="text-ink-2 hover:bg-hair-2 grid size-10 place-items-center rounded-full transition-colors outline-none md:hidden"
+                  className="grid size-10 place-items-center rounded-full text-white transition-colors outline-none hover:bg-white/10 md:hidden"
                 >
                   <MenuIcon className="size-[22px]" />
                 </button>
@@ -349,7 +362,8 @@ export default function Navbar() {
               </SheetContent>
             </Sheet>
           </div>
-      </Container>
+        </Container>
+      </div>
     </header>
   );
 }

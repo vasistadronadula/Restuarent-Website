@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { getErrorMessage } from '@/lib/errors';
 import { validatePassword, getPasswordStrength, MIN_PASSWORD_LENGTH } from '@/lib/validation';
 import AuthShell from '@/components/customer/AuthShell';
+import { BrandScreen } from '@/components/customer/BrandScreen';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -93,10 +94,10 @@ export default function ResetPasswordPage() {
   /* ── Waiting on the token exchange ────────────────────────────────────── */
   if (stage === 'checking') {
     return (
-      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-background gap-3">
-        <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-xs text-muted-foreground">Checking your reset link…</p>
-      </div>
+      <BrandScreen title="Setting your table…" message="Checking your reset link…">
+        <span aria-hidden className="bg-brand/70 size-2.5 animate-ping rounded-full" />
+        <span className="sr-only" role="status">Loading</span>
+      </BrandScreen>
     );
   }
 

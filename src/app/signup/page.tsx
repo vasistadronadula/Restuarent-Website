@@ -11,6 +11,7 @@ import {
   normalizePhone, getPasswordStrength, safeRedirect, MIN_PASSWORD_LENGTH,
 } from '@/lib/validation';
 import { useRedirectIfSignedIn } from '@/hooks/useRedirectIfSignedIn';
+import { scrollToAndFocus } from '@/lib/utils';
 import AuthShell from '@/components/customer/AuthShell';
 import GoogleIcon from '@/components/customer/GoogleIcon';
 import PhoneOtpAuth from '@/components/customer/PhoneOtpAuth';
@@ -65,7 +66,7 @@ function SignupForm() {
         : field === 'phone' ? phoneRef
           : field === 'email' ? emailRef
             : passwordRef;
-    target.current?.focus();
+    scrollToAndFocus(target.current);
   };
 
   const strength = useMemo(() => getPasswordStrength(values.password), [values.password]);
@@ -373,13 +374,16 @@ function SignupForm() {
   );
 }
 
+import { BrandScreen } from '@/components/customer/BrandScreen';
+
 export default function SignupPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen w-full flex items-center justify-center bg-background">
-          <Loader2 className="size-8 animate-spin text-primary" />
-        </div>
+        <BrandScreen title="Setting your table…" message="One moment while we prepare account creation.">
+          <span aria-hidden className="bg-brand/70 size-2.5 animate-ping rounded-full" />
+          <span className="sr-only" role="status">Loading</span>
+        </BrandScreen>
       }
     >
       <SignupForm />

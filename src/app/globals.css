@@ -150,8 +150,11 @@ body[data-scroll-locked] {
 
   /* Chrome heights, published so sticky offsets are computed rather than
      guessed. Every `top-[56px]` in the old storefront was a guess, and they
-     disagreed with each other by up to 8px depending on the page. */
-  --store-header-h: 60px;
+     disagreed with each other by up to 8px depending on the page.
+     The header is a floating pill now, inset from the viewport edge by its
+     own top padding — this is that padding plus the pill's own height, i.e.
+     the full space the sticky header actually occupies, not just the bar. */
+  --store-header-h: 68px;
   /* The menu's sticky filter bar. Two stacked rows on a phone (search, then
      the chip scroller) and one row from `md` up, which is why it halves.
      Kept in sync with the `py-*`/`h-*` on that bar in app/menu/page.tsx —
@@ -163,7 +166,7 @@ body[data-scroll-locked] {
 
 @media (min-width: 768px) {
   :root {
-    --store-header-h: 68px;
+    --store-header-h: 80px;
     --store-filters-h: 72px;
   }
 }
@@ -241,8 +244,8 @@ body[data-scroll-locked] {
   --color-store: var(--store-ground);
   --color-store-surface: var(--store-surface);
 
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-manrope), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* Admin console (Modernist) — the values live in app/admin/admin-theme.css,
      which only the /admin and /cashier routes load. Bridged here so the console

@@ -73,6 +73,17 @@ export default function CategoryRail({
     };
   }, [categories.length]);
 
+  // Keeps the active chip visible in the strip, not just active in state — a
+  // deep link like /menu?category=desserts otherwise lands on a rail that's
+  // still scrolled to its default left edge, with the highlighted chip
+  // sitting off-screen to the right until the customer happens to swipe.
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const activeButton = track.querySelector<HTMLButtonElement>('[aria-pressed="true"]');
+    activeButton?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, [activeId]);
+
   const nudge = (direction: -1 | 1) => {
     const track = trackRef.current;
     if (!track) return;

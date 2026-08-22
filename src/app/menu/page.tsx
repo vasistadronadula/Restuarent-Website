@@ -14,6 +14,7 @@ import { Container } from '@/components/customer/Container';
 import MenuCard from '@/components/customer/MenuCard';
 import DishListItem from '@/components/customer/DishListItem';
 import CategoryRail, { type RailCategory } from '@/components/customer/CategoryRail';
+import { CouponTeaser } from '@/components/customer/CouponTeaser';
 import MenuNavSheet from '@/components/customer/MenuNavSheet';
 import StoreCartBar from '@/components/customer/StoreCartBar';
 import { FilterPill, SectionHeading, VegMark } from '@/components/customer/store-ui';
@@ -74,7 +75,7 @@ function MenuBrowser() {
   const [bestsellerOnly, setBestsellerOnly] = useState(false);
   const [topRatedOnly, setTopRatedOnly] = useState(false);
   const [sort, setSort] = useState<SortMode>('default');
-  const [layout, setLayout] = useState<'list' | 'grid'>('list');
+  const [layout, setLayout] = useState<'list' | 'grid'>('grid');
 
   /* ── Cart ───────────────────────────────────────────────────────── */
 
@@ -415,6 +416,8 @@ function MenuBrowser() {
 
       <main className="flex-1">
         <Container className="max-w-[1600px] py-6 sm:py-8">
+          <CouponTeaser className="mb-6" />
+
           {/* ── Category rail ──────────────────────────────────────── */}
           {!isLoadingDB && railCategories.length > 1 && (
             <section aria-label="Browse by category" className="mb-8">

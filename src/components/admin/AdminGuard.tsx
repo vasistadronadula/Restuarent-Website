@@ -50,13 +50,21 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   return <>{children}</>;
 }
 
+import PalaPittaLogo from '@/components/customer/PalaPittaLogo';
+
 function LoadingScreen({ message }: { message: string }) {
-  // Styled in the console's system rather than the customer site's: this is the
-  // first frame of /admin, and it should not flash a different application.
   return (
-    <div className="ad-shell min-h-screen flex flex-col items-center justify-center gap-4">
-      <Loader2 className="w-8 h-8 animate-spin text-ad-accent" />
-      <p className="ad-kicker">{message}</p>
+    <div className="min-h-screen bg-[var(--brand-50)] grid place-items-center px-6 py-16">
+      <div className="w-full max-w-md text-center">
+        <PalaPittaLogo size="large" priority className="mx-auto" />
+        <h1 className="text-ink-1 mt-8 font-[family-name:var(--font-manrope)] text-2xl font-extrabold sm:text-3xl">
+          {message}
+        </h1>
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <span aria-hidden className="bg-brand/70 size-3 animate-ping rounded-full" />
+          <span className="sr-only" role="status">Loading</span>
+        </div>
+      </div>
     </div>
   );
 }

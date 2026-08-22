@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, scrollToAndFocus } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import { Container } from '@/components/customer/Container';
@@ -159,6 +159,14 @@ function CheckoutForm() {
       e.phone = 'Enter valid 10-digit mobile number';
     }
     setErrors(e);
+
+    // Field order matches the form's left-to-right layout, so whichever
+    // comes first on screen is the one that gets the scroll+focus.
+    const firstBad = (['name', 'phone'] as const).find((f) => e[f]);
+    if (firstBad) {
+      scrollToAndFocus(document.getElementById(`checkout-${firstBad}`) as HTMLElement | null);
+    }
+
     return Object.keys(e).length === 0;
   };
 
@@ -221,9 +229,10 @@ function CheckoutForm() {
       if (!user) {
         try {
           const guestOrders = JSON.parse(localStorage.getItem('ppr:guestOrderIds') || '[]');
-          if (!guestOrders.includes(id)) {
-            guestOrders.push(id);
-            localStorage.setItem('ppr:guestOrderIds', JSON.stringify(guestOrders));
+          const updated = [id, ...guestOrders.filter((oid: string) => oid !== id)];
+          localStorage.setItem('ppr:guestOrderIds', JSON.stringify(updated));
+          if (customer.phone) {
+            localStorage.setItem('ppr:guestPhone', customer.phone.trim());
           }
         } catch (e) {
           console.error('Failed to save guest order ID locally', e);
@@ -651,7 +660,7 @@ function CheckoutForm() {
                   The kitchen calls this number when the order is ready.
                 </p>
 
-                <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <div className="mt-5 grid items-start gap-4 sm:grid-cols-2">
                   <Field
                     id="checkout-name"
                     label="Full name"
@@ -910,7 +919,7 @@ function Field({
   hint?: string;
 } & Omit<React.ComponentProps<'input'>, 'id' | 'value' | 'onChange'>) {
   return (
-    <div className="grid gap-1.5">
+    <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-ink-2 text-[13px] font-bold">
         {label}
       </label>
