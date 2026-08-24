@@ -26,7 +26,8 @@ function DishCard({ item, inBill, quantityByPortion, onAdd, onDecrement }: Props
   const hasPortionChoice = portions.length > 1;
   const unitPrice = portions.length === 1 ? portions[0].price : item.price;
 
-  const handleCardClick = () => {
+  const handleCardClick = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
     if (!hasPortionChoice) {
       onAdd(item);
     }

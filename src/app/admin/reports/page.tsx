@@ -18,7 +18,7 @@ import { toast } from 'sonner';
  * brand colours read as seven unrelated apps on a page whose entire design is
  * one accent over neutrals.
  */
-const COLORS = ['#e6543e', '#221c1a', '#ff9683', '#5e5654', '#bd3f2c', '#ddd6d4', '#8a2d1f'];
+const COLORS = ['#fc8019', '#221c1a', '#ffb877', '#5e5654', '#c25708', '#ddd6d4', '#94430b'];
 
 /* Chart chrome — axes and gridlines sit under the data, never beside it. */
 const AXIS = '#9c928f';

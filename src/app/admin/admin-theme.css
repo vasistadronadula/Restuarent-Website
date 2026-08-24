@@ -25,12 +25,13 @@
    ========================================================================= */
 
 :root {
-  /* Coral + white. White carries the ground and panels; coral is the one hot
-     accent (buttons, active states, the sidebar rail) and appears nowhere else. */
+  /* Warm orange + white, matching the customer storefront palette.
+     White carries the ground and panels; #fc8019 is the hot accent
+     (buttons, active states, the sidebar rail). */
   --ad-bg: #ffffff;
-  --ad-surface: #fff4f1;
+  --ad-surface: #fff8f2;
   --ad-ink: #221c1a;
-  --ad-accent: #e6543e;
+  --ad-accent: #fc8019;
 
   /* 40% ink. Strong on purpose — at 2px this is the system's main structural
      line, not a whisper-thin hairline. */
@@ -47,15 +48,15 @@
   --ad-n800: #423b3a;
   --ad-n900: #2a2422;
 
-  --ad-a100: #fff1ee;
-  --ad-a200: #ffe0d9;
-  --ad-a300: #ffc3b7;
-  --ad-a400: #ff9683;
-  --ad-a500: #ff6f59;
-  --ad-a600: #e6543e;
-  --ad-a700: #bd3f2c;
-  --ad-a800: #8a2d1f;
-  --ad-a900: #591e14;
+  --ad-a100: #fff6ee;
+  --ad-a200: #ffead6;
+  --ad-a300: #ffd4ac;
+  --ad-a400: #ffb877;
+  --ad-a500: #fe9c45;
+  --ad-a600: #fc8019;
+  --ad-a700: #ec6d06;
+  --ad-a800: #c25708;
+  --ad-a900: #94430b;
 
   /* Semantic hues, pulled to the same flat register as the accent so a green
      "paid" chip doesn't look like it came from a different application. */

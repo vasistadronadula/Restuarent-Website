@@ -14,7 +14,7 @@ import { ArrowLeft } from 'lucide-react';
 import { orderDateStamp } from '@/lib/orderTime';
 
 /* Chart chrome, matching the console: one accent line over neutral rules. */
-const ACCENT = '#e6543e';
+const ACCENT = '#fc8019';
 const AXIS = '#9c928f';
 const GRID = '#ddd6d4';
 
