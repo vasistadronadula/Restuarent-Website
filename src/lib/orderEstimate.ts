@@ -27,7 +27,9 @@ export function estimateOrderMinutes(
   const categoryType = classifyOrderCategory(order.items);
   const defaultPrep = categoryType === 'beverage' ? 5 : categoryType === 'dessert' ? 8 : 15;
   const prepTimes = order.items.map((item) => prepTimeMap.get(orderItemId(item)) ?? defaultPrep);
-  const basePrep = Math.max(...prepTimes, defaultPrep);
+  // A reduce, not Math.max(...prepTimes), so a very large order can't blow
+  // the call stack via spread.
+  const basePrep = prepTimes.reduce((max, t) => Math.max(max, t), defaultPrep);
   const totalPrep = basePrep + (order.delayMinutes || 0);
 
   if (order.status === 'preparing') return Math.max(3, totalPrep - 4);

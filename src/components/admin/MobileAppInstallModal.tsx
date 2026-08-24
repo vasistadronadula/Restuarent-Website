@@ -300,7 +300,7 @@ export default function MobileAppInstallModal({ open, onClose }: Props) {
       <DialogContent className="max-w-sm p-0 overflow-hidden rounded-3xl bg-white dark:bg-stone-900 border-none shadow-2xl">
         <DialogHeader className="p-6 pb-2 text-center flex flex-col items-center">
           <Avatar className="w-16 h-16 mb-2 border-2 border-ad-accent shadow-lg bg-white p-1">
-            <AvatarImage src="/pala-pitta-mark.png" alt={app.name} className="object-contain" />
+            <AvatarImage src="/icon-512.png" alt={app.name} className="object-contain" />
             <AvatarFallback className="bg-ad-accent text-white font-black text-xl">PP</AvatarFallback>
           </Avatar>
           <DialogTitle className="text-xl font-black text-stone-900 dark:text-stone-100">

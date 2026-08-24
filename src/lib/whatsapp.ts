@@ -12,6 +12,7 @@ import 'server-only';
  */
 
 import { absoluteUrl } from '@/data/restaurantInfo';
+import { log } from '@/lib/logger';
 
 const GRAPH_API_VERSION = 'v25.0';
 
@@ -120,7 +121,7 @@ export async function sendTextMessage(
 
     const messageId = data.messages?.[0]?.id || null;
     if (messageId) {
-      console.log(`[WhatsApp] Message sent to ${to}: ${messageId}`);
+      log.info('whatsapp_message_sent', { to, messageId });
     }
     return messageId;
   } catch (err) {
@@ -174,7 +175,7 @@ export async function sendDocumentMessage(
 
     const messageId = data.messages?.[0]?.id || null;
     if (messageId) {
-      console.log(`[WhatsApp Document] PDF sent to ${to}: ${messageId}`);
+      log.info('whatsapp_document_sent', { to, messageId });
     }
     return messageId;
   } catch (err) {

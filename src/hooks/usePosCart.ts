@@ -2,18 +2,18 @@
 
 import { useCallback, useMemo, useReducer, useEffect, useRef } from 'react';
 import type { MenuItem, PortionPrices, VegStatus } from '@/types';
+import { PORTION_LABELS, type Portion } from '@/lib/portionLabels';
 
 /**
  * usePosCart — counter bill line items state machine with localStorage persistence.
  */
 
-export type Portion = 'single' | 'full' | 'large';
+export type { Portion };
 
-export const PORTION_LABEL: Record<Portion, string> = {
-  single: 'Half',
-  full: 'Full',
-  large: 'Large',
-};
+// Kept as a re-export under its old name — every POS component already
+// imports `PORTION_LABEL` from here. The canonical map now lives in
+// lib/portionLabels.ts, shared with the storefront's useDishPortion.ts.
+export const PORTION_LABEL = PORTION_LABELS;
 
 /** Max items on a single line */
 export const MAX_LINE_QTY = 99;
@@ -127,6 +127,10 @@ export interface AddResult {
 export function usePosCart() {
   const [lines, dispatch] = useReducer(reducer, [] as PosLine[]);
   const hasHydrated = useRef(false);
+  const linesRef = useRef(lines);
+  useEffect(() => {
+    linesRef.current = lines;
+  }, [lines]);
 
   // Restore cart on mount from localStorage
   useEffect(() => {
@@ -167,7 +171,7 @@ export function usePosCart() {
     // If no portion specified, check if there's already a line for this dish in cart
     let targetPortion = portion;
     if (!targetPortion && portions.length > 0) {
-      const existingLine = lines.find((l) => l.menuItemId === item.id);
+      const existingLine = linesRef.current.find((l) => l.menuItemId === item.id);
       if (existingLine && existingLine.portion) {
         targetPortion = existingLine.portion;
       } else {
@@ -206,7 +210,7 @@ export function usePosCart() {
       },
     });
     return { ok: true };
-  }, [lines]);
+  }, []);
 
   const increment = useCallback((key: string) => dispatch({ type: 'increment', key }), []);
   const decrement = useCallback((key: string) => dispatch({ type: 'decrement', key }), []);

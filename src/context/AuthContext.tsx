@@ -24,6 +24,11 @@ export type { UserRole };
 // their `profiles.role` row says otherwise. Mirrors the same whitelist used
 // in the one-time `UPDATE profiles SET role = 'admin' WHERE email IN (...)`
 // at the bottom of the baseline migration in supabase/migrations.
+//
+// WARNING: this list bypasses the database role entirely. If any of these
+// accounts is ever compromised, admin access CANNOT be revoked without a code
+// change and a redeploy — there is no DB row to flip. Keep it as short as
+// possible, and treat editing it as security-sensitive.
 const ADMIN_EMAILS = [
   'vasistadronadula@gmail.com',
   'pathaniroshini@gmail.com',

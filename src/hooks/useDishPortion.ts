@@ -6,17 +6,12 @@ import { toast } from 'sonner';
 import type { MenuItem } from '@/types';
 import { useCartStore } from '@/store/useCartStore';
 import { flyToCart } from '@/lib/flyToCart';
+import { PORTION_LABELS, type Portion } from '@/lib/portionLabels';
 
-export type Portion = 'single' | 'full' | 'large';
+export type { Portion };
+export { PORTION_LABELS };
 
 const PORTION_ORDER: Portion[] = ['single', 'full', 'large'];
-
-/** Short labels for the portion pills — the full words don't fit a phone. */
-export const PORTION_LABELS: Record<Portion, string> = {
-  single: 'Single',
-  full: 'Full',
-  large: 'Large',
-};
 
 /**
  * Everything a dish card needs to put a dish in the cart.
@@ -59,7 +54,7 @@ export function useDishPortion(item: MenuItem) {
    * flight.
    */
   const add = (event?: MouseEvent<HTMLElement>) => {
-    const name = hasPortions ? `${item.name} (${selectedPortion.toUpperCase()})` : item.name;
+    const name = hasPortions ? `${item.name} (${PORTION_LABELS[selectedPortion]})` : item.name;
 
     if (item.maxQuantity && cartItem && cartItem.quantity >= item.maxQuantity) {
       toast.error(`You can add up to ${item.maxQuantity} of ${name} per order`);

@@ -33,7 +33,9 @@ export function CameraCaptureModal({
       streamRef.current.getTracks().forEach((track) => {
         try {
           track.stop();
-        } catch {}
+        } catch {
+          // Stopping an already-ended track throws in some browsers; nothing to recover.
+        }
       });
       streamRef.current = null;
     }
@@ -88,14 +90,21 @@ export function CameraCaptureModal({
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter((d) => d.kind === 'videoinput');
         setHasMultipleCameras(videoDevices.length > 1);
-      } catch {}
+      } catch (err) {
+        // Non-fatal: just means the "Flip" camera control stays hidden.
+        console.error('Camera enumeration failed:', err);
+      }
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = async () => {
           try {
             await videoRef.current?.play();
-          } catch {}
+          } catch (err) {
+            // Autoplay can be blocked by browser policy; the video element
+            // still renders once the stream is attached, so this is non-fatal.
+            console.error('Video playback failed to start:', err);
+          }
           setCameraLoading(false);
         };
       } else {

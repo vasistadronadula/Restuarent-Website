@@ -478,7 +478,10 @@ export default function KitchenDisplayPage() {
                 icon: '/icon-192.png',
                 tag: `overdue-${order.id}`,
               });
-            } catch {}
+            } catch (err) {
+              // Non-fatal: the in-app KDS alert above already fired.
+              console.error('System notification failed:', err);
+            }
           }
         }
       }

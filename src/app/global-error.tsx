@@ -38,6 +38,10 @@ export default function GlobalError({
           <p style={{ margin: '0.75rem 0 0', fontSize: '0.9375rem', lineHeight: 1.6, color: '#7e808c' }}>
             Something failed before the page could start. Reloading usually
             clears it — call us on +91 70326 82089 if it doesn&apos;t.
+            {/* Hardcoded, not `restaurantInfo.phone` — this page renders before
+                any app code (including data modules) can be assumed to have
+                loaded. Manual-sync point: keep this in step with
+                data/restaurantInfo.ts `phoneDisplay` by hand. */}
           </p>
           {error.digest ? (
             <p style={{ margin: '0.75rem 0 0', fontSize: '0.75rem', color: '#93959f' }}>

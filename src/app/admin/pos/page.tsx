@@ -221,7 +221,7 @@ export default function PosPage() {
   }, [lines, decrementLine]);
 
   /* Complete Checkout & Place Order */
-  const handlePlaceOrder = async () => {
+  const handlePlaceOrder = useCallback(async () => {
     if (lines.length === 0) {
       toast.error('Cart is empty! Add items before checkout.');
       return;
@@ -235,7 +235,7 @@ export default function PosPage() {
     setPlacing(true);
     try {
       const orderId = generateOrderId();
-      const invoiceNo = generateInvoiceNo();
+      const invoiceNo = generateInvoiceNo(orderId);
 
       const newOrder: Order = {
         id: orderId,
@@ -286,7 +286,10 @@ export default function PosPage() {
 
       clearCart();
       setSpecialInstructions('');
-      setPackagingCharge(0);
+      // Back to this order type's own default, not always 0 — otherwise
+      // every counter/takeaway order after the first started with no
+      // packaging charge until the cashier noticed and re-entered it.
+      setPackagingCharge(orderType === 'dine-in' ? 0 : 20);
       setTableNumber('');
       setCartOpen(false);
       toast.success('Order settled & printed in sub-10s! ⚡');
@@ -295,18 +298,13 @@ export default function PosPage() {
     } finally {
       setPlacing(false);
     }
-  };
-
-  /* Send to Kitchen KOT Only */
-  const handleSendToKitchen = async () => {
-    await handlePlaceOrder();
-  };
+  }, [lines, orderType, tableNumber, paymentMode, totals, specialInstructions, createOrderContext, clearCart]);
 
   /* Refs for keyboard shortcuts */
   const handlePlaceOrderRef = useRef(handlePlaceOrder);
   useEffect(() => {
     handlePlaceOrderRef.current = handlePlaceOrder;
-  });
+  }, [handlePlaceOrder]);
 
   /* Keyboard Shortcuts */
   useEffect(() => {
@@ -350,7 +348,6 @@ export default function PosPage() {
     onRemove: removeLine,
     onClear: clearCart,
     onPlace: handlePlaceOrder,
-    onSendToKitchen: handleSendToKitchen,
     onOpenTableMap: () => setTableMapOpen(true),
     isPlacing: placing,
   };

@@ -6,6 +6,12 @@ import { log } from '@/lib/logger';
 
 /**
  * Columns a guest order-tracking card needs.
+ *
+ * No `customer_phone`: this route is reachable with nothing but an order ID
+ * (the `ids` lookup mode below) or the phone number itself (the `phone`
+ * lookup mode, which needs it only as a filter, not in the response) — so
+ * returning the phone number here would hand it to anyone who learns/guesses
+ * one order ID, not just the customer who placed it.
  */
 const GUEST_ORDER_COLUMNS = [
   'id',
@@ -27,7 +33,6 @@ const GUEST_ORDER_COLUMNS = [
   'order_source',
   'delay_minutes',
   'customer_name',
-  'customer_phone',
 ].join(', ');
 
 const MAX_IDS_PER_REQUEST = 50;

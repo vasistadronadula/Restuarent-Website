@@ -70,6 +70,8 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       applyCoupon: (code, discount, maxDiscount) =>
         useCartStore.getState().applyCoupon({ code, discount, maxDiscount }),
       removeCoupon: () => useCartStore.getState().removeCoupon(),
+      // Takeaway/dine-in only today, so delivery is always free. If delivery
+      // orders are introduced, source this from config instead of hardcoding.
       deliveryCharge: 0,
       ...totals,
     }),

@@ -60,7 +60,9 @@ function PlacedDialog({
     }
     
     // Call window.print() completely synchronously to avoid iOS/Safari/Chrome popup blocks
+    setBrowserPrinting(true);
     window.print();
+    setBrowserPrinting(false);
   };
 
   const status = (() => {

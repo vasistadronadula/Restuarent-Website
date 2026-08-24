@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import {
   Plus, Minus, Trash2, Banknote, QrCode, CreditCard,
-  X, Send, Package, MessageSquarePlus, Utensils,
+  X, Package, MessageSquarePlus, Utensils,
 } from 'lucide-react';
 import { type PosLine } from '@/hooks/usePosCart';
 import type { BillTotals } from '@/lib/billing';
@@ -58,7 +58,6 @@ export interface BillPanelProps {
   onClear: () => void;
 
   onPlace: () => void;
-  onSendToKitchen?: () => void;
   onOpenTableMap?: () => void;
 
   isPlacing: boolean;
@@ -86,7 +85,6 @@ export default function BillPanel({
   onRemove,
   onClear,
   onPlace,
-  onSendToKitchen,
   onOpenTableMap,
   isPlacing,
   onClose,
@@ -561,29 +559,17 @@ export default function BillPanel({
               )}
             </button>
 
-            {/* Secondary Actions: Send KOT & Clear */}
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                disabled={empty || isPlacing}
-                onClick={onSendToKitchen || onPlace}
-                className="ad-btn ad-btn-secondary h-9 text-[13px]"
-              >
-                <Send className="size-3.5" />
-                <span>Send KOT</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={empty || isPlacing}
-                onClick={onClear}
-                className="ad-btn ad-btn-secondary h-9 text-[13px]"
-                style={{ color: 'var(--ad-accent)' }}
-              >
-                <Trash2 className="size-3.5" />
-                <span>Clear</span>
-              </button>
-            </div>
+            {/* Secondary Action: Clear */}
+            <button
+              type="button"
+              disabled={empty || isPlacing}
+              onClick={onClear}
+              className="ad-btn ad-btn-secondary w-full h-9 text-[13px]"
+              style={{ color: 'var(--ad-accent)' }}
+            >
+              <Trash2 className="size-3.5" />
+              <span>Clear</span>
+            </button>
           </div>
 
         </div>

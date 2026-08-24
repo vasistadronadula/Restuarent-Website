@@ -38,7 +38,10 @@ async function buildAllBrandAssets() {
     .png()
     .toBuffer();
 
-  fs.writeFileSync('public/pala-pitta-mark.png', birdBuffer);
+  // No separate public/pala-pitta-mark.png — at 512x512 it was byte-identical
+  // to icon-512.png below (same source, same size, resize({fit:'contain'})
+  // on an already-512x512 buffer is a no-op). Everything that used to point
+  // at pala-pitta-mark.png now uses icon-512.png instead.
 
   // 2. High-visibility circular badge icon for browser tabs (makes it crystal clear on dark and light browser tab bars)
   const createTabIcon = async (size) => {

@@ -44,10 +44,10 @@ const SHARED_STAFF_PREFIXES = ['/admin/profile'];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Admin',
-  manager: 'Admin',
-  chef: 'Admin',
-  cashier: 'Admin',
-  waiter: 'Admin',
+  manager: 'Manager',
+  chef: 'Chef',
+  cashier: 'Cashier',
+  waiter: 'Waiter',
   customer: 'Customer',
 };
 

@@ -75,6 +75,11 @@ export default function Navbar() {
     return ACCOUNT_LINKS;
   }, [isStaff]);
 
+  // Adjusting state in response to a changed prop/value during render, not
+  // syncing with an external system — the pattern React's own docs recommend
+  // over a useEffect for "reset this local state when X changes" (see the
+  // `react-hooks/set-state-in-effect` exceptions documented in carousel.tsx
+  // and checkout/page.tsx for the other case, subscribing to externals).
   if (pathname !== lastPath) {
     setLastPath(pathname);
     setMobileOpen(false);

@@ -163,6 +163,13 @@ export function useCreateOrder() {
 
   return useMutation({
     mutationFn: async (orderData: Partial<Order>): Promise<Order> => {
+      // Every caller (checkout, POS) already checks this before calling in —
+      // this is the last line of defense against a ₹0 order with no items
+      // silently reaching the database, not a substitute for those checks.
+      if (!orderData.items || orderData.items.length === 0) {
+        throw new Error('Cannot create an order with no items');
+      }
+
       // Always use the date-stamped ID format.
       const orderId = orderData.id || generateOrderId();
       // IST-pinned and locale-independent — see lib/orderTime for why an

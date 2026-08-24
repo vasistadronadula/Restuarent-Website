@@ -775,10 +775,12 @@ function CheckoutForm() {
                 </span>
               </button>
 
-              <p className="text-ink-4 mt-3 flex items-center justify-center gap-1.5 text-[11.5px] font-medium">
-                <Lock className="size-3.5" />
-                Payments are processed securely by Razorpay
-              </p>
+              {paymentChoice === 'online' && (
+                <p className="text-ink-4 mt-3 flex items-center justify-center gap-1.5 text-[11.5px] font-medium">
+                  <Lock className="size-3.5" />
+                  Payments are processed securely by Razorpay
+                </p>
+              )}
             </aside>
           </div>
         </Container>

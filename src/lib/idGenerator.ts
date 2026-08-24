@@ -18,8 +18,17 @@ const getDateStamp = (): string => {
   return `${y}${m}${d}`;
 };
 
-const rand4 = (): string =>
-  String(Math.floor(1000 + Math.random() * 9000));
+/**
+ * 6-digit suffix combining millisecond-precision time with a random tail, so
+ * two IDs generated in the same millisecond only collide if they also draw
+ * the same 2-digit random number (1-in-100), versus 1-in-9000 for a plain
+ * 4-digit random suffix.
+ */
+const rand4 = (): string => {
+  const ms = String(Date.now() % 10000).padStart(4, '0');
+  const rand = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+  return `${ms}${rand}`;
+};
 
 /** Generates a unique Order ID — PPR-ORD-20260725-4821 */
 export const generateOrderId = (): string =>

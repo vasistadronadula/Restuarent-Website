@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { toast } from 'sonner';
 import { canAccess, getRoleHome, isStaffRole } from '@/lib/roleAccess';
-import { Loader2 } from 'lucide-react';
+import PalaPittaLogo from '@/components/customer/PalaPittaLogo';
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
   const user       = useAuthStore((s) => s.user);
@@ -49,8 +49,6 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
 
   return <>{children}</>;
 }
-
-import PalaPittaLogo from '@/components/customer/PalaPittaLogo';
 
 function LoadingScreen({ message }: { message: string }) {
   return (
