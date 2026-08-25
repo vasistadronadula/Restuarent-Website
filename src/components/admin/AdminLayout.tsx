@@ -56,7 +56,7 @@ export default function AdminLayout({ children, title }: Props) {
   // and while it is open it covers the only other way to leave the page.
 
   return (
-    <div className="ad-shell flex min-h-screen w-full">
+    <div className="ad-shell flex min-h-dvh w-full">
       {/* POS and KDS get no admin nav rail at all — both are till/kitchen
           hardware running one screen all shift, and the console nav would
           just be a permanent column of chrome nobody taps. The header's
@@ -71,9 +71,9 @@ export default function AdminLayout({ children, title }: Props) {
         <main
           className={
             isPosPage
-              ? 'flex-1 w-full h-[calc(100vh-var(--ad-header-h))] overflow-hidden'
+              ? 'flex-1 w-full h-[calc(100dvh-var(--ad-header-h))] overflow-hidden'
               : isKitchenPage
-              ? 'flex-1 w-full min-h-[calc(100vh-var(--ad-header-h))]'
+              ? 'flex-1 w-full min-h-[calc(100dvh-var(--ad-header-h))]'
               : 'flex-1 w-full box-border overflow-x-hidden px-4 sm:px-6 py-6'
           }
         >

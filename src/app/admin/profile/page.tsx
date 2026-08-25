@@ -46,8 +46,8 @@ export default function ProfilePage() {
 
       setAvatarUrl(data.url);
       toast.success('Avatar updated! Click Save changes to persist.');
-    } catch (err: any) {
-      toast.error(err.message || 'Could not upload photo');
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : 'Could not upload photo');
     } finally {
       setUploadingAvatar(false);
     }

@@ -5,7 +5,7 @@
 export type VegStatus = 'veg' | 'non-veg' | 'egg';
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 // 'cash' | 'upi' | 'card' are collected at the POS till, 'razorpay' online by
-// the customer, 'online' by an aggregator (Swiggy/Zomato). 'cod' is retained
+// the customer. 'cod' is retained
 // only so historical orders placed before Cash on Delivery was withdrawn
 // still type-check when read back — nothing writes it any more.
 export type PaymentMode = 'cash' | 'upi' | 'card' | 'cod' | 'razorpay' | 'online';
@@ -98,7 +98,7 @@ export interface OrderItem {
  *
  * Three producers write it and they don't fully agree on a shape: the
  * storefront checkout and the POS both now write `menuItemId`, `category`
- * and (for the storefront) `vegStatus`, but the aggregator webhooks still
+ * and (for the storefront) `vegStatus`, but historical imports may still
  * emit neither `portion` nor `category`, and historical orders placed before
  * the POS wrote `menuItemId` only have the legacy `id` field. This is the
  * honest union of all of that — name, price and quantity are the only
@@ -111,7 +111,7 @@ export interface PersistedOrderItem {
   name: string;
   price: number;
   quantity: number;
-  /** Storefront, webhooks, and the POS (since it was taught to). */
+  /** Storefront and the POS (since it was taught to). */
   menuItemId?: string;
   /** Legacy — orders placed by the POS before it wrote `menuItemId`. */
   id?: string;
@@ -127,7 +127,7 @@ export interface PersistedOrderItem {
   notes?: string;
 }
 
-export type OrderSource = 'direct' | 'swiggy' | 'zomato';
+export type OrderSource = 'direct';
 export type OrderType = 'takeaway' | 'dine-in' | 'counter';
 
 export interface Order {
@@ -138,7 +138,7 @@ export interface Order {
   customerPhone?: string;
   customerAddress?: string;
   // See PersistedOrderItem: the union of what the storefront, the POS and the
-  // aggregator webhooks each write here. `OrderItem[]` assigns to it cleanly.
+  // POS/storefront write here. `OrderItem[]` assigns to it cleanly.
   items: PersistedOrderItem[];
   subtotal: number;
   cgst: number;

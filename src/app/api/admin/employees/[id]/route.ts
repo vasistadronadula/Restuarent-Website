@@ -63,12 +63,16 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     }
 
     if (existing.auth_user_id) {
-      if (role !== undefined) {
-        const { error: profileErr } = await admin
-          .from('profiles')
-          .update({ role })
-          .eq('id', existing.auth_user_id);
-        if (profileErr) return NextResponse.json({ error: profileErr.message }, { status: 400 });
+      if (role !== undefined || status !== undefined) {
+        const normalizedStatus = typeof status === 'string' ? status.toLowerCase() : '';
+        const nextRole = normalizedStatus === 'inactive' ? 'customer' : role;
+        if (nextRole !== undefined) {
+          const { error: profileErr } = await admin
+            .from('profiles')
+            .update({ role: nextRole })
+            .eq('id', existing.auth_user_id);
+          if (profileErr) return NextResponse.json({ error: profileErr.message }, { status: 400 });
+        }
       }
       if (name !== undefined || phone !== undefined) {
         await admin.auth.admin.updateUserById(existing.auth_user_id, {
@@ -114,12 +118,13 @@ export async function DELETE(request: Request, { params }: RouteContext) {
       .maybeSingle();
     if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 });
 
+    if (existing?.auth_user_id) {
+      const { error: authDeleteErr } = await admin.auth.admin.deleteUser(existing.auth_user_id);
+      if (authDeleteErr) return NextResponse.json({ error: authDeleteErr.message }, { status: 400 });
+    }
+
     const { error: deleteErr } = await admin.from('employees').delete().eq('id', id);
     if (deleteErr) return NextResponse.json({ error: deleteErr.message }, { status: 400 });
-
-    if (existing?.auth_user_id) {
-      await admin.auth.admin.deleteUser(existing.auth_user_id).catch(() => {});
-    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -12,6 +12,7 @@ export interface TableItem {
   tableNumber: number;
   capacity: number;
   description?: string;
+  isActive?: boolean;
 }
 
 interface Props {
@@ -33,6 +34,8 @@ export default function TableFloorMapModal({
 }: Props) {
   const now = useNow(30_000);
 
+  const activeTables = React.useMemo(() => tables.filter((table) => table.isActive !== false), [tables]);
+
   // Compute occupancy status for each table from active orders
   const tableStatusMap = React.useMemo(() => {
     const map = new Map<number, {
@@ -44,7 +47,7 @@ export default function TableFloorMapModal({
     }>();
 
     // Default all tables to available
-    tables.forEach((t) => {
+    activeTables.forEach((t) => {
       map.set(t.tableNumber, { status: 'available' });
     });
 
@@ -66,22 +69,22 @@ export default function TableFloorMapModal({
     });
 
     return map;
-  }, [tables, activeOrders, now]);
+  }, [activeTables, activeOrders, now]);
 
   const stats = React.useMemo(() => {
     let available = 0;
     let occupied = 0;
     let waitingPayment = 0;
 
-    tables.forEach((t) => {
+    activeTables.forEach((t) => {
       const info = tableStatusMap.get(t.tableNumber);
       if (info?.status === 'waiting_payment') waitingPayment++;
       else if (info?.status === 'ordered') occupied++;
       else available++;
     });
 
-    return { available, occupied, waitingPayment, total: tables.length };
-  }, [tables, tableStatusMap]);
+    return { available, occupied, waitingPayment, total: activeTables.length };
+  }, [activeTables, tableStatusMap]);
 
   return (
     <Dialog open={open} onOpenChange={(val) => { if (!val) onClose(); }}>
@@ -103,15 +106,15 @@ export default function TableFloorMapModal({
         </div>
 
         {/* Floor Map Visual Grid */}
-        <div className="p-5 max-h-[68vh] overflow-y-auto">
-          {tables.length === 0 ? (
+        <div className="p-3 sm:p-5 max-h-[68dvh] overflow-y-auto">
+          {activeTables.length === 0 ? (
             <div className="py-20 text-center">
               <p className="ad-h text-[16px]">No tables configured</p>
               <p className="text-[13px] ad-muted mt-1.5">Add dining tables to use the floor plan.</p>
             </div>
           ) : (
             <div className="ad-grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
-              {tables.map((table) => {
+              {activeTables.map((table) => {
                 const info = tableStatusMap.get(table.tableNumber);
                 const status = info?.status || 'available';
                 const isSelected = selectedTable === table.tableNumber;
@@ -128,7 +131,7 @@ export default function TableFloorMapModal({
                       onSelectTable(table.tableNumber);
                       onClose();
                     }}
-                    className="p-4 text-left flex flex-col justify-between select-none relative ad-hover min-h-32"
+                    className="p-3 sm:p-4 text-left flex flex-col justify-between select-none relative ad-hover min-h-32"
                     style={
                       isSelected
                         ? { background: 'var(--ad-ink)', color: 'var(--ad-bg)' }

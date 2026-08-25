@@ -63,30 +63,9 @@ export async function POST(request: Request) {
       return NextResponse.json([]);
     }
 
-    // 1. Phone number lookup (Finds all guest orders placed with this phone)
-    const phoneInput = typeof body?.phone === 'string' ? body.phone.trim() : null;
-    if (phoneInput) {
-      const digitsOnly = phoneInput.replace(/\D/g, '');
-      const last10 = digitsOnly.slice(-10);
+    // Phone-number lookup is intentionally not supported: a phone number is not proof of ownership.
 
-      if (last10.length >= 10) {
-        const { data, error } = await admin
-          .from('orders')
-          .select(GUEST_ORDER_COLUMNS)
-          .ilike('customer_phone', `%${last10}%`)
-          .order('created_at', { ascending: false })
-          .limit(30);
-
-        if (error) {
-          log.error('guest_orders_phone_query_failed', { error });
-          return NextResponse.json([]);
-        }
-
-        return NextResponse.json(data || []);
-      }
-    }
-
-    // 2. Order IDs array lookup
+    // Order IDs saved in this browser's localStorage are enough to show tracking cards.
     const ids = body?.ids;
     if (Array.isArray(ids) && ids.length > 0) {
       const safeIds = ids

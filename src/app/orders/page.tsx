@@ -82,6 +82,7 @@ export default function OrderHistoryPage() {
   // Automatically load guest orders directly from local storage
   useEffect(() => {
     if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGuestOrderIds([]);
       return;
     }

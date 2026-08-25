@@ -40,7 +40,7 @@ export interface BillPanelProps {
 
   orderType: PosOrderType;
   onOrderType: (t: PosOrderType) => void;
-  tables: { id: string; tableNumber: number; capacity: number; description?: string }[];
+  tables: { id: string; tableNumber: number; capacity: number; description?: string; isActive?: boolean }[];
   tableNumber: number | '';
   onTableNumber: (n: number | '') => void;
 
@@ -93,6 +93,7 @@ export default function BillPanel({
   const empty = lines.length === 0;
   const needsTable = orderType === 'dine-in' && tableNumber === '';
   const blocked = empty || needsTable;
+  const activeTables = React.useMemo(() => tables.filter((table) => table.isActive !== false), [tables]);
 
   /* Editing note key state */
   const [editingNoteKey, setEditingNoteKey] = useState<string | null>(null);
@@ -191,8 +192,8 @@ export default function BillPanel({
                   <SelectValue placeholder="Select table (Required)" />
                 </SelectTrigger>
                 <SelectContent>
-                  {tables.length === 0 && <SelectItem value="" disabled>No tables configured</SelectItem>}
-                  {tables.map((t) => (
+                  {activeTables.length === 0 && <SelectItem value="" disabled>No active tables</SelectItem>}
+                  {activeTables.map((t) => (
                     <SelectItem key={t.id} value={String(t.tableNumber)}>
                       Table {t.tableNumber} ({t.capacity} seats)
                     </SelectItem>
@@ -213,7 +214,7 @@ export default function BillPanel({
         </div>
 
         {/* Scrollable Cart Items Container */}
-        <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2 bg-ad-bg/40">
+        <div className="flex-1 min-h-0 overflow-y-auto p-2.5 sm:p-3 space-y-2 bg-ad-bg/40">
           {empty ? (
             <div className="h-full min-h-[220px] flex flex-col items-center justify-center text-center p-6 text-ad-muted">
               <Utensils className="size-10 mb-2 opacity-30 stroke-[1.5]" />
@@ -228,7 +229,7 @@ export default function BillPanel({
                 key={line.key}
                 className="p-3 bg-ad-surface border border-ad-hairline rounded-sm shadow-xs transition-colors hover:border-ad-line space-y-2"
               >
-                <div className="flex items-start justify-between gap-2.5">
+                <div className="grid grid-cols-[1fr_auto] sm:flex sm:items-start sm:justify-between gap-2.5">
                   {/* Dish name, portion, and unit rate */}
                   <div className="min-w-0 flex-1">
                     <h4 className="text-[14px] font-semibold text-ad-ink leading-snug m-0 line-clamp-2">
@@ -270,7 +271,7 @@ export default function BillPanel({
                   </div>
 
                   {/* Line Total Price */}
-                  <div className="w-16 text-right shrink-0">
+                  <div className="w-auto sm:w-16 text-right shrink-0 col-start-2">
                     <span className="ad-num text-[15px] font-bold text-ad-ink">
                       ₹{line.unitPrice * line.quantity}
                     </span>
@@ -445,8 +446,8 @@ export default function BillPanel({
                         <SelectValue placeholder="Select table" />
                       </SelectTrigger>
                       <SelectContent>
-                        {tables.length === 0 && <SelectItem value="" disabled>No tables configured</SelectItem>}
-                        {tables.map((t) => (
+                        {activeTables.length === 0 && <SelectItem value="" disabled>No active tables</SelectItem>}
+                        {activeTables.map((t) => (
                           <SelectItem key={t.id} value={String(t.tableNumber)}>
                             Table {t.tableNumber} · {t.capacity} seats
                           </SelectItem>

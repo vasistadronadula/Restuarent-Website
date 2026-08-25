@@ -111,7 +111,7 @@ const nextConfig: NextConfig = {
           // No feature on this site uses any of these; denying them means a
           // script that does get injected can't quietly reach the camera or
           // location either.
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },
+          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(), geolocation=(), interest-cohort=()' },
           { key: cspHeaderKey, value: csp },
         ],
       },

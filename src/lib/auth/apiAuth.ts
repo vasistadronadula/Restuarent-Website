@@ -123,7 +123,6 @@ export function assertSameOrigin(request: Request): void {
 
   const candidate = request.headers.get('origin') || request.headers.get('referer');
   if (!candidate) {
-    if (host || forwardedHost) return;
     throw new ApiAuthError('Forbidden', 403);
   }
 
@@ -136,7 +135,6 @@ export function assertSameOrigin(request: Request): void {
 
   const isAllowed =
     allowedHosts.has(candidateHost) ||
-    candidateHost.endsWith('.vercel.app') ||
     allowedHosts.has(candidateHost.replace(/:\d+$/, ''));
 
   if (!isAllowed) {

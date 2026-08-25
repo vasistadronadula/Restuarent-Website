@@ -19,7 +19,7 @@ function AlertDialogOverlay({
       data-slot="alert-dialog-overlay"
       className={cn(
         'fixed inset-0 z-50 bg-black/60 backdrop-blur-md',
-        'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         className
       )}
       {...props}
@@ -37,7 +37,8 @@ function AlertDialogContent({
       <AlertDialogPrimitive.Content
         data-slot="alert-dialog-content"
         className={cn(
-          'bg-card fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border p-6 shadow-2xl duration-200',
+          'bg-card fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border p-6 shadow-2xl duration-200',
+          'max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-h-[calc(100dvh-2.5rem)]',
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
           className
         )}

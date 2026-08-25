@@ -1,3 +1,4 @@
+import { createBillToken } from './billToken';
 import 'server-only';
 
 /**
@@ -318,7 +319,7 @@ export async function sendOrderConfirmation(order: OrderForWhatsApp): Promise<bo
 
   // Also send the 80mm Thermal Bill PDF attachment
   try {
-    const pdfUrl = absoluteUrl(`/api/bill/${order.id}/pdf`);
+    const pdfUrl = absoluteUrl(`/api/bill/${order.id}/pdf?token=${createBillToken(order.id)}`);
     const filename = `Thermal-Bill-${tokenNum}.pdf`;
     await sendDocumentMessage(phone, pdfUrl, filename, `🧾 Pala Pitta Ruchulu — Thermal Receipt #${tokenNum}`);
   } catch (err) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { mapOrder } from '@/lib/queries/mappers';
 import { generateThermalBillPdf } from '@/lib/pdf/generateThermalBillPdf';
+import { verifyBillToken } from '@/lib/billToken';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,9 @@ export async function GET(
     const { id } = await context.params;
     if (!id) {
       return new NextResponse('Order ID is required', { status: 400 });
+    }
+    if (!verifyBillToken(id, req.nextUrl.searchParams.get('token'))) {
+      return new NextResponse('Forbidden', { status: 403 });
     }
 
     const supabase = getSupabaseAdmin();
@@ -38,7 +42,7 @@ export async function GET(
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `inline; filename="Thermal-Bill-${id.slice(-4)}.pdf"`,
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'private, no-store',
       },
     });
   } catch (err) {

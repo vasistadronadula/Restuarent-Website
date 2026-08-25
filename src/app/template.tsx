@@ -27,6 +27,7 @@ export default function Template({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>('idle');
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPhase('start');
 
     const advance = setTimeout(() => setPhase('finish'), ADVANCE_MS);

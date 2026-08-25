@@ -53,6 +53,7 @@ export default function PosPage() {
   const { data: queryCategories = [] } = useCategories();
   const { data: menuItems = [] } = useMenuItems();
   const { data: tables = [] } = useTables();
+  const activeTables = React.useMemo(() => tables.filter((table) => table.isActive !== false), [tables]);
 
   /* State */
   const [specialInstructions, setSpecialInstructions] = useState('');
@@ -334,7 +335,7 @@ export default function PosPage() {
     totalUnits,
     orderType,
     onOrderType: handleOrderTypeChange,
-    tables,
+    tables: activeTables,
     tableNumber,
     onTableNumber: setTableNumber,
     paymentMode,
@@ -626,7 +627,7 @@ export default function PosPage() {
               <div className="bg-ad-surface border-b border-ad-hairline px-3 sm:px-4 py-2 flex items-center justify-between gap-2 shrink-0">
                 <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
                   <span className="ad-kicker shrink-0">Tables</span>
-                  {tables.map((t) => {
+                  {activeTables.map((t) => {
                     const isOccupied = occupiedTableNumbers.has(t.tableNumber);
                     return (
                       <button
@@ -676,7 +677,7 @@ export default function PosPage() {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-3.5 mb-8">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] sm:grid-cols-[repeat(auto-fill,minmax(10.5rem,1fr))] gap-3 sm:gap-3.5 mb-8">
                   {filteredDishes.map((item) => (
                     <DishCard
                       key={item.id}
@@ -696,11 +697,11 @@ export default function PosPage() {
 
         {/* ── Cart Floating Overlay: Pinned to bottom-right of the screen ── */}
         {lines.length > 0 && (
-          <div className="fixed right-3.5 sm:right-6 bottom-4 sm:bottom-6 z-40 animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <div className="fixed inset-x-3.5 sm:inset-x-auto sm:right-6 bottom-4 sm:bottom-6 z-40 animate-in fade-in slide-in-from-bottom-3 duration-200">
             <button
               type="button"
               onClick={() => setCartOpen(true)}
-              className="ad-btn ad-btn-primary h-13 sm:h-14 px-4 sm:px-5 gap-3 text-[14px] shadow-2xl shadow-ad-accent/40 hover:brightness-105 active:scale-[0.98] transition-all rounded-[var(--ad-radius)] border-2 border-white/25 flex items-center justify-between min-w-[200px] sm:min-w-[250px]"
+              className="ad-btn ad-btn-primary h-13 sm:h-14 px-4 sm:px-5 gap-3 text-[14px] shadow-2xl shadow-ad-accent/40 hover:brightness-105 active:scale-[0.98] transition-all rounded-[var(--ad-radius)] border-2 border-white/25 flex items-center justify-between w-full sm:w-auto sm:min-w-[250px]"
             >
               <div className="flex items-center gap-2.5">
                 <span className="size-7 grid place-items-center bg-white text-ad-accent ad-num text-[12.5px] font-black rounded-[calc(var(--ad-radius)-2px)] shrink-0 shadow-xs">
@@ -748,7 +749,7 @@ export default function PosPage() {
         <TableFloorMapModal
           open={tableMapOpen}
           onClose={() => setTableMapOpen(false)}
-          tables={tables}
+          tables={activeTables}
           activeOrders={orders}
           selectedTable={tableNumber}
           onSelectTable={(tNum) => {

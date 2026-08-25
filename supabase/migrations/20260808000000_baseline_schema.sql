@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS orders (
   status TEXT DEFAULT 'pending', -- 'pending', 'preparing', 'ready', 'delivered', 'cancelled'
   order_time TEXT,
   coupon_code TEXT,
-  order_source TEXT DEFAULT 'direct', -- 'direct', 'swiggy', 'zomato'
+  order_source TEXT DEFAULT 'direct', -- direct orders only
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

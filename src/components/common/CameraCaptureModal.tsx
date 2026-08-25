@@ -110,23 +110,26 @@ export function CameraCaptureModal({
       } else {
         setCameraLoading(false);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Camera access error:', err);
       setCameraLoading(false);
-      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      const errorName = err instanceof DOMException || err instanceof Error ? err.name : '';
+      const errorMessage = err instanceof Error ? err.message : 'Unable to access camera.';
+      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
         setError('Camera permission was denied. If you enabled it in site settings, click "Try Again" below.');
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
         setError('No camera device found on this system.');
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+      } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
         setError('Camera is currently in use by another application or tab.');
       } else {
-        setError(err.message || 'Unable to access camera.');
+        setError(errorMessage);
       }
     }
   };
 
   useEffect(() => {
     if (open) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       startCamera(facingMode);
     } else {
       stopStream();

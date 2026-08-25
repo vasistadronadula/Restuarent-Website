@@ -9,7 +9,7 @@
  *     db.ts and both aggregator webhooks (server). Its output depends on the
  *     runtime's ICU build and default locale, so the same instant could be
  *     rendered differently by a diner's phone and by the Vercel function that
- *     handled a Swiggy push.
+ *     handled an external push.
  *  2. `new Date().toISOString().split('T')[0]` is a *UTC* date. For a
  *     Hyderabad restaurant open until 11 PM, every order placed after 5:30 PM
  *     IST was filed under the previous day — which is the window that carries
