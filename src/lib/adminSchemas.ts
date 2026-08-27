@@ -204,7 +204,7 @@ export type CouponFormOutput = z.output<typeof couponSchema>;
 
 // ─── Employee ─────────────────────────────────────────────────────────────────
 
-export const STAFF_ROLE_VALUES = ['admin', 'manager', 'chef', 'cashier', 'waiter'] as const;
+export const STAFF_ROLE_VALUES = ['admin', 'manager', 'chef', 'cashier'] as const;
 export const SHIFT_VALUES = ['morning', 'evening', 'night'] as const;
 
 /** Supabase Auth's own floor. Checking here saves a failed round-trip. */

@@ -139,6 +139,17 @@ export default function OrdersPage() {
       ),
     },
     {
+      accessorKey: 'tableNumber',
+      header: 'Table',
+      cell: ({ row }) => row.original.orderType === 'dine-in' ? (
+        <span className="ad-tag ad-tag-solid">
+          {row.original.tableNumber ? `Table ${row.original.tableNumber}` : 'Dine-in · unassigned'}
+        </span>
+      ) : (
+        <span className="ad-muted">—</span>
+      ),
+    },
+    {
       accessorKey: 'items',
       header: 'Items',
       cell: ({ row }) => (

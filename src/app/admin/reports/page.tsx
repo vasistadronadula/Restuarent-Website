@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useMemo } from 'react';
 import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  BarChart, Bar, PieChart, Pie, Cell,
   ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -35,21 +35,29 @@ export default function ReportsPage() {
     avgOrderValue,
     dailySales,
     categoryRevenue,
+    paymentMix,
+    statusMix,
   } = useMemo(() => {
     let revSum = 0;
-    const dateMap: Record<string, { date: string; revenue: number; orders: number }> = {};
+    const dateMap: Record<string, { key: string; date: string; revenue: number; orders: number }> = {};
     const catMap: Record<string, number> = {};
+    const paymentMap: Record<string, number> = {};
+    const statusMap: Record<string, number> = {};
 
     orders.forEach((o) => {
-      const grandTotal = o.grandTotal || o.subtotal || 0;
+      const grandTotal = o.status === 'cancelled' ? 0 : (o.grandTotal || o.subtotal || 0);
       revSum += grandTotal;
 
-      const dateStr = o.createdAt ? new Date(o.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) : 'Today';
-      if (!dateMap[dateStr]) {
-        dateMap[dateStr] = { date: dateStr, revenue: 0, orders: 0 };
+      const date = o.createdAt ? new Date(o.createdAt) : new Date();
+      const dateKey = Number.isNaN(date.getTime()) ? 'unknown' : date.toISOString().slice(0, 10);
+      const dateStr = Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      if (!dateMap[dateKey]) {
+        dateMap[dateKey] = { key: dateKey, date: dateStr, revenue: 0, orders: 0 };
       }
-      dateMap[dateStr].revenue += grandTotal;
-      dateMap[dateStr].orders += 1;
+      dateMap[dateKey].revenue += grandTotal;
+      dateMap[dateKey].orders += 1;
+      paymentMap[o.paymentMode || 'unknown'] = (paymentMap[o.paymentMode || 'unknown'] || 0) + 1;
+      statusMap[o.status || 'unknown'] = (statusMap[o.status || 'unknown'] || 0) + 1;
 
       if (o.items) {
         o.items.forEach((item) => {
@@ -59,7 +67,7 @@ export default function ReportsPage() {
       }
     });
 
-    const dailySalesArr = Object.values(dateMap).reverse();
+    const dailySalesArr = Object.values(dateMap).sort((a, b) => a.key.localeCompare(b.key));
     const daysCount = Math.max(1, dailySalesArr.length);
     const orderCount = orders.length;
 
@@ -74,9 +82,37 @@ export default function ReportsPage() {
       totalOrderCount: orderCount,
       avgOrderValue: orderCount > 0 ? Math.round(revSum / orderCount) : 0,
       dailySales: dailySalesArr,
-      categoryRevenue: categoryRevenueArr,
+      categoryRevenue: categoryRevenueArr.sort((a, b) => b.value - a.value),
+      paymentMix: Object.entries(paymentMap).map(([name, value]) => ({ name: name.toUpperCase(), value })),
+      statusMix: Object.entries(statusMap).map(([name, orders]) => ({ name: name.toUpperCase(), orders })),
     };
   }, [orders]);
+
+  const periodSales = useMemo(() => {
+    if (tab === 'daily' || tab === 'categories') return dailySales.slice(-14);
+    const buckets = new Map<string, { period: string; revenue: number; orders: number }>();
+    for (const order of orders) {
+      const date = order.createdAt ? new Date(order.createdAt) : new Date();
+      if (Number.isNaN(date.getTime())) continue;
+      let key: string;
+      let label: string;
+      if (tab === 'monthly') {
+        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        label = date.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+      } else {
+        const monday = new Date(date);
+        const day = (monday.getDay() + 6) % 7;
+        monday.setDate(monday.getDate() - day);
+        key = monday.toISOString().slice(0, 10);
+        label = `Wk ${monday.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`;
+      }
+      const bucket = buckets.get(key) || { period: label, revenue: 0, orders: 0 };
+      bucket.orders += 1;
+      if (order.status !== 'cancelled') bucket.revenue += order.grandTotal || order.subtotal || 0;
+      buckets.set(key, bucket);
+    }
+    return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-12).map(([, value]) => value);
+  }, [dailySales, orders, tab]);
 
   const handleExportCSV = () => {
     const csvContent = 'data:text/csv;charset=utf-8,' +
@@ -133,51 +169,60 @@ export default function ReportsPage() {
             <div className="w-full h-72">
               <ResponsiveContainer width="100%" height="100%">
                 {tab === 'categories' ? (
-                  <PieChart>
-                    <Pie
-                      data={categoryRevenue}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={95}
-                      paddingAngle={4}
-                      dataKey="value"
-                      label={({ name, percent }: { name?: string; percent?: number }) => `${name || ''} ${(Number(percent || 0) * 100).toFixed(0)}%`}
-                    >
-                      {categoryRevenue.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(val: any) => [`₹${Number(val || 0).toLocaleString('en-IN')}`, 'Revenue']} />
-                    <Legend />
-                  </PieChart>
-                ) : tab === 'weekly' ? (
-                  <BarChart data={dailySales}>
+                  <BarChart data={categoryRevenue.slice(0, 10)} layout="vertical" margin={{ left: 18 }}>
                     <CartesianGrid vertical={false} stroke={GRID} />
-                    <XAxis dataKey="date" stroke={AXIS} fontSize={11} tickLine={false} />
-                    <YAxis stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
+                    <XAxis type="number" stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis type="category" dataKey="name" width={105} stroke={AXIS} fontSize={10} tickLine={false} axisLine={false} />
                     <Tooltip formatter={(val: any) => [`₹${Number(val || 0).toLocaleString('en-IN')}`, 'Revenue']} />
-                    <Bar dataKey="revenue" fill={COLORS[0]} />
+                    <Bar dataKey="value" name="Revenue" fill={COLORS[0]} radius={[0, 3, 3, 0]} />
                   </BarChart>
                 ) : (
-                  <AreaChart data={dailySales}>
-                    <defs>
-                      <linearGradient id="areaColor" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor={COLORS[0]} stopOpacity={0.22} />
-                        <stop offset="95%" stopColor={COLORS[0]} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
+                  <BarChart data={periodSales as any[]} margin={{ top: 8, right: 12, left: 4 }}>
                     <CartesianGrid vertical={false} stroke={GRID} />
-                    <XAxis dataKey="date" stroke={AXIS} fontSize={11} tickLine={false} />
-                    <YAxis stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
-                    <Tooltip formatter={(val: any) => [`₹${Number(val || 0).toLocaleString('en-IN')}`, 'Revenue']} />
-                    <Area type="monotone" dataKey="revenue" stroke={COLORS[0]} strokeWidth={2} fill="url(#areaColor)" />
-                  </AreaChart>
+                    <XAxis dataKey={tab === 'daily' ? 'date' : 'period'} stroke={AXIS} fontSize={11} tickLine={false} />
+                    <YAxis yAxisId="money" stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
+                    <YAxis yAxisId="orders" orientation="right" stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip formatter={(val: any, name: any) => [name === 'Revenue' ? `₹${Number(val || 0).toLocaleString('en-IN')}` : val, name || '']} />
+                    <Legend />
+                    <Bar yAxisId="money" dataKey="revenue" name="Revenue" fill={COLORS[0]} radius={[3, 3, 0, 0]} />
+                    <Bar yAxisId="orders" dataKey="orders" name="Orders" fill={COLORS[1]} radius={[3, 3, 0, 0]} />
+                  </BarChart>
                 )}
               </ResponsiveContainer>
             </div>
           )}
         </SectionCard>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <SectionCard>
+            <div className="ad-section-head"><h3 className="ad-h text-[17px]">Orders by status</h3></div>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={statusMix} layout="vertical" margin={{ left: 18 }}>
+                  <CartesianGrid horizontal={false} stroke={GRID} />
+                  <XAxis type="number" allowDecimals={false} stroke={AXIS} fontSize={11} />
+                  <YAxis type="category" dataKey="name" width={90} stroke={AXIS} fontSize={10} />
+                  <Tooltip />
+                  <Bar dataKey="orders" name="Orders" fill={COLORS[1]} radius={[0, 3, 3, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </SectionCard>
+          <SectionCard>
+            <div className="ad-section-head"><h3 className="ad-h text-[17px]">Payment mix</h3></div>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={paymentMix} dataKey="value" nameKey="name" innerRadius={48} outerRadius={82} paddingAngle={3}>
+                    {paymentMix.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </SectionCard>
+        </div>
 
         {/* Side breakdowns */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

@@ -217,8 +217,8 @@ export default function PerformancePage() {
             <SectionCard className="h-full flex flex-col">
               <div className="ad-section-head">
                 <h3 className="ad-h text-[17px]">Recent orders</h3>
-                <Link href="/admin/orders" className="ml-auto text-[12px] text-ad-accent font-semibold no-underline">
-                  View all
+                <Link href="/admin/bills" className="ml-auto text-[12px] text-ad-accent font-semibold no-underline">
+                  View all bills
                 </Link>
               </div>
 
@@ -229,7 +229,7 @@ export default function PerformancePage() {
                   recentOrders.map((o) => (
                     <Link
                       key={o.id}
-                      href="/admin/orders"
+                      href="/admin/bills"
                       className="flex items-center justify-between gap-3 px-3 py-2.5 bg-ad-surface ad-hover no-underline text-ad-ink"
                     >
                       <div className="min-w-0">

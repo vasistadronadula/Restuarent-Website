@@ -11,12 +11,12 @@ import {
 } from './idGenerator';
 
 describe('idGenerator', () => {
-  it('generates date-stamped, 6-digit-suffixed ids for every entity type', () => {
-    expect(generateOrderId()).toMatch(/^PPR-ORD-\d{8}-\d{6}$/);
-    expect(generateReservationId()).toMatch(/^PPR-RES-\d{8}-\d{6}$/);
-    expect(generateEmployeeId()).toMatch(/^PPR-EMP-\d{8}-\d{6}$/);
-    expect(generateInventoryId()).toMatch(/^PPR-STK-\d{8}-\d{6}$/);
-    expect(generateMenuItemId()).toMatch(/^PPR-DSH-\d{8}-\d{6}$/);
+  it('generates date-stamped ids with an 80-bit random suffix', () => {
+    expect(generateOrderId()).toMatch(/^PPR-ORD-\d{8}-[a-f0-9]{20}$/);
+    expect(generateReservationId()).toMatch(/^PPR-RES-\d{8}-[a-f0-9]{20}$/);
+    expect(generateEmployeeId()).toMatch(/^PPR-EMP-\d{8}-[a-f0-9]{20}$/);
+    expect(generateInventoryId()).toMatch(/^PPR-STK-\d{8}-[a-f0-9]{20}$/);
+    expect(generateMenuItemId()).toMatch(/^PPR-DSH-\d{8}-[a-f0-9]{20}$/);
   });
 
   it('does not repeat the same id on back-to-back calls (collision floor)', () => {
@@ -36,7 +36,7 @@ describe('idGenerator', () => {
   });
 
   it('generates a fresh invoice number when no order id is given', () => {
-    expect(generateInvoiceNo()).toMatch(/^PPR-INV-\d{8}-\d{6}$/);
+    expect(generateInvoiceNo()).toMatch(/^PPR-INV-\d{8}-[a-f0-9]{20}$/);
   });
 
   it('pads a table id to three digits', () => {
@@ -46,6 +46,6 @@ describe('idGenerator', () => {
 
   it('derives a category id from its slug, or generates one without a slug', () => {
     expect(generateCategoryId('biryani')).toBe('CAT-biryani');
-    expect(generateCategoryId()).toMatch(/^CAT-\d{8}-\d{6}$/);
+    expect(generateCategoryId()).toMatch(/^CAT-\d{8}-[a-f0-9]{20}$/);
   });
 });

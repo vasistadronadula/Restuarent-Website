@@ -5,6 +5,8 @@ import { requireAdmin, RequireAdminError } from '@/lib/auth/requireAdmin';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { getErrorMessage } from '@/lib/errors';
 
+const EMPLOYEE_ROLES = new Set(['admin', 'manager', 'chef', 'cashier']);
+
 type RouteContext = { params: Promise<{ id: string }> };
 
 async function authorize(request: Request) {
@@ -40,6 +42,9 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const { id } = await params;
     const body = await request.json();
     const { name, phone, role, shift, salary, status, password } = body || {};
+    if (role !== undefined && !EMPLOYEE_ROLES.has(role)) {
+      return NextResponse.json({ error: 'Unsupported employee role' }, { status: 400 });
+    }
 
     const { data: existing, error: fetchErr } = await admin
       .from('employees')

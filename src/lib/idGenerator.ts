@@ -24,19 +24,27 @@ const getDateStamp = (): string => {
  * the same 2-digit random number (1-in-100), versus 1-in-9000 for a plain
  * 4-digit random suffix.
  */
-const rand4 = (): string => {
-  const ms = String(Date.now() % 10000).padStart(4, '0');
-  const rand = String(Math.floor(Math.random() * 100)).padStart(2, '0');
-  return `${ms}${rand}`;
+/**
+ * High-entropy suffix. Order IDs double as guest tracking credentials, so a
+ * timestamp plus two random digits is not sufficient: it makes another
+ * customer's order practical to enumerate. Web Crypto exists in supported
+ * browsers and in the Node runtime used by tests/builds.
+ */
+const randomSuffix = (): string => {
+  // Ten bytes (80 bits) keeps the complete ID below Razorpay's 40-character
+  // receipt limit while remaining infeasible to enumerate.
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 };
 
 /** Generates a unique Order ID — PPR-ORD-20260725-4821 */
 export const generateOrderId = (): string =>
-  `PPR-ORD-${getDateStamp()}-${rand4()}`;
+  `PPR-ORD-${getDateStamp()}-${randomSuffix()}`;
 
 /** Generates a unique Reservation ID — PPR-RES-20260725-3914 */
 export const generateReservationId = (): string =>
-  `PPR-RES-${getDateStamp()}-${rand4()}`;
+  `PPR-RES-${getDateStamp()}-${randomSuffix()}`;
 
 /**
  * Derives an Invoice number from an Order ID.
@@ -50,9 +58,9 @@ export const generateInvoiceNo = (orderId?: string): string => {
   // Legacy IDs or manual bills
   if (orderId) {
     const stripped = orderId.replace(/^(PPR-ORD-|ORD-|RES-)/, '');
-    return `PPR-INV-${getDateStamp()}-${stripped.slice(-4) || rand4()}`;
+    return `PPR-INV-${getDateStamp()}-${stripped.slice(-4) || randomSuffix()}`;
   }
-  return `PPR-INV-${getDateStamp()}-${rand4()}`;
+  return `PPR-INV-${getDateStamp()}-${randomSuffix()}`;
 };
 
 /** Generates a Table ID — T-001, T-002 ... */
@@ -61,7 +69,7 @@ export const generateTableId = (tableNumber: number): string =>
 
 /** Generates a unique Employee ID — PPR-EMP-20260725-4821 */
 export const generateEmployeeId = (): string =>
-  `PPR-EMP-${getDateStamp()}-${rand4()}`;
+  `PPR-EMP-${getDateStamp()}-${randomSuffix()}`;
 
 /**
  * Generates a Stock/Inventory ID — PPR-STK-20260725-4821
@@ -71,7 +79,7 @@ export const generateEmployeeId = (): string =>
  * session could collide on the primary key and the second insert would fail.
  */
 export const generateInventoryId = (): string =>
-  `PPR-STK-${getDateStamp()}-${rand4()}`;
+  `PPR-STK-${getDateStamp()}-${randomSuffix()}`;
 
 /**
  * Generates a Menu Item ID — PPR-DSH-20260725-4821
@@ -81,8 +89,8 @@ export const generateInventoryId = (): string =>
  * millisecond take the same primary key and the second insert fails.
  */
 export const generateMenuItemId = (): string =>
-  `PPR-DSH-${getDateStamp()}-${rand4()}`;
+  `PPR-DSH-${getDateStamp()}-${randomSuffix()}`;
 
 /** Generates a Category ID — CAT-biryani (from slug) or CAT-20260725-4821 */
 export const generateCategoryId = (slug?: string): string =>
-  slug ? `CAT-${slug}` : `CAT-${getDateStamp()}-${rand4()}`;
+  slug ? `CAT-${slug}` : `CAT-${getDateStamp()}-${randomSuffix()}`;

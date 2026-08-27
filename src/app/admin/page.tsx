@@ -212,8 +212,8 @@ export default function AdminDashboard() {
             <div className="ad-section-head">
               <h3 className="ad-h text-[17px]">Live orders</h3>
               <span className="text-[12px] ad-muted">{allLiveOrders.length} on the floor</span>
-              <Link href="/admin/orders" className="ml-auto text-[12px] text-ad-accent font-semibold no-underline">
-                {hiddenLiveCount > 0 ? `+${hiddenLiveCount} more` : 'All orders'}
+              <Link href="/admin/bills" className="ml-auto text-[12px] text-ad-accent font-semibold no-underline">
+                {hiddenLiveCount > 0 ? `View bills (+${hiddenLiveCount})` : 'View all bills'}
               </Link>
             </div>
 
@@ -239,7 +239,9 @@ export default function AdminDashboard() {
                     {liveOrders.map((o) => (
                       <tr key={o.id}>
                         <td className="font-semibold whitespace-nowrap">
-                          #{String(o.orderId || o.id).slice(-4)}
+                          <Link href="/admin/bills" className="text-ad-ink hover:text-ad-accent no-underline">
+                            #{String(o.orderId || o.id).slice(-4)}
+                          </Link>
                         </td>
                         <td className="whitespace-nowrap">{orderWhere(o)}</td>
                         <td className="ad-muted max-w-65 truncate">{orderItemsLabel(o)}</td>

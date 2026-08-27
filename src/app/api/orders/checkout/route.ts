@@ -4,7 +4,7 @@ import { assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { computeBillTotals } from '@/lib/billing';
 import { orderStamps } from '@/lib/orderTime';
-import { verifyRazorpaySignature } from '@/lib/razorpayServer';
+import { getRazorpayClient, verifyRazorpaySignature } from '@/lib/razorpayServer';
 import { log } from '@/lib/logger';
 import type { PaymentMode, PaymentStatus, VegStatus } from '@/types';
 
@@ -36,6 +36,16 @@ function text(value: unknown, max = 200): string {
 function safeQuantity(value: unknown, maxQuantity: number | null): number {
   const qty = Math.max(1, Math.floor(Number(value) || 1));
   return maxQuantity && maxQuantity > 0 ? Math.min(qty, maxQuantity) : qty;
+}
+
+async function authenticatedUserId(request: Request): Promise<string | null> {
+  const header = request.headers.get('authorization');
+  const token = header?.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : '';
+  if (!token) return null;
+  const admin = getSupabaseAdmin();
+  if (!admin) return null;
+  const { data, error } = await admin.auth.getUser(token);
+  return error ? null : data.user?.id || null;
 }
 
 export async function POST(request: Request) {
@@ -89,7 +99,24 @@ export async function POST(request: Request) {
     if (menuError) throw menuError;
 
     const menuById = new Map((menuRows as MenuRow[] | null || []).map((row) => [row.id, row]));
-    const items = lines.map((line) => {
+    // Consolidate duplicate product/portion lines before enforcing the product
+    // cap. Otherwise fifty copies of the same line each receive max_quantity.
+    const consolidated = new Map<string, CheckoutLine>();
+    for (const line of lines) {
+      const id = text(line.menuItemId || line.id, 80);
+      const portion = ['single', 'full', 'large'].includes(String(line.selectedPortion))
+        ? line.selectedPortion
+        : undefined;
+      const key = `${id}:${portion || 'default'}`;
+      const current = consolidated.get(key);
+      consolidated.set(key, {
+        menuItemId: id,
+        selectedPortion: portion,
+        quantity: (Number(current?.quantity) || 0) + Math.max(1, Math.floor(Number(line.quantity) || 1)),
+      });
+    }
+
+    const items = [...consolidated.values()].map((line) => {
       const id = text(line.menuItemId || line.id, 80);
       const menu = menuById.get(id);
       if (!menu || menu.is_available === false) return null;
@@ -148,8 +175,31 @@ export async function POST(request: Request) {
       if (!verifyRazorpaySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
         return NextResponse.json({ error: 'Payment could not be verified.' }, { status: 402 });
       }
+
+      const razorpay = getRazorpayClient();
+      if (!razorpay) {
+        return NextResponse.json({ error: 'Online payment is not configured.' }, { status: 503 });
+      }
+      const [gatewayOrder, gatewayPayment] = await Promise.all([
+        razorpay.orders.fetch(razorpayOrderId),
+        razorpay.payments.fetch(razorpayPaymentId),
+      ]);
+      const expectedPaise = Math.round(totals.grandTotal * 100);
+      if (
+        Number(gatewayOrder.amount) !== expectedPaise ||
+        gatewayOrder.currency !== 'INR' ||
+        gatewayOrder.receipt !== orderId ||
+        gatewayPayment.order_id !== razorpayOrderId ||
+        Number(gatewayPayment.amount) !== expectedPaise ||
+        gatewayPayment.currency !== 'INR' ||
+        gatewayPayment.status !== 'captured'
+      ) {
+        return NextResponse.json({ error: 'Payment does not match this order.' }, { status: 402 });
+      }
       paymentStatus = 'paid';
     }
+
+    const userId = await authenticatedUserId(request);
 
     const { orderTime } = orderStamps();
     const { error: insertError } = await admin.from('orders').insert([{
@@ -172,7 +222,7 @@ export async function POST(request: Request) {
       order_time: orderTime,
       coupon_code: couponCode || null,
       order_source: 'direct',
-      user_id: text(body?.userId, 80) || null,
+      user_id: userId,
       razorpay_order_id: razorpayOrderId,
       razorpay_payment_id: razorpayPaymentId,
     }]);

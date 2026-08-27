@@ -48,9 +48,7 @@ export async function POST(request: Request) {
 
     const { items } = await instance.orders.fetchPayments(razorpay_order_id);
 
-    const successfulPayment = items.find(
-      (p) => p.status === 'captured' || p.status === 'authorized'
-    );
+    const successfulPayment = items.find((p) => p.status === 'captured');
 
     if (successfulPayment) {
       return NextResponse.json({

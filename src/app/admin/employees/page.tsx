@@ -40,7 +40,7 @@ const SHIFT_LABELS: Record<(typeof SHIFT_VALUES)[number], string> = {
 const SHIFT_OPTIONS = SHIFT_VALUES.map((s) => ({ value: s, label: SHIFT_LABELS[s] }));
 
 const BLANK_NEW: NewEmployeeFormValues = {
-  name: '', role: 'waiter', shift: 'morning', phone: '', salary: 0, email: '', password: '',
+  name: '', role: 'cashier', shift: 'morning', phone: '', salary: 0, email: '', password: '',
 };
 
 export default function EmployeesPage() {
@@ -76,7 +76,7 @@ export default function EmployeesPage() {
     setEditing(e);
     editForm.reset({
       name: e.name,
-      role: e.role,
+      role: e.role === 'waiter' ? 'cashier' : e.role,
       shift: e.shift,
       phone: e.phone,
       salary: e.salary,

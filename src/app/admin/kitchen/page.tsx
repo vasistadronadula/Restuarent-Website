@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { postAuthedJson } from '@/lib/authedFetch';
 import { orderItemId } from '@/lib/orderItems';
+import { buildKitchenBatches } from '@/lib/kitchenBatch';
 
 /* ================================================================== */
 /*  Web Audio API Synthesis — Multi-Tone Crystal Clear Chimes         */
@@ -141,10 +142,6 @@ function getTargetPrepMinutes(order: Order, prepTimeMap: Map<string, number>): n
 function getOrderTypeBadge() {
   return 'ad-tag ad-tag-outline';
 }
-
-/** Same dish, two different orders, this close together — worth firing both
- *  pans at once instead of cooking them one after the other. */
-const DUPLICATE_WINDOW_MS = 2 * 60 * 1000;
 
 /* Keyboard commands, printed by the cheat-sheet dialog and bound in an effect. */
 const SHORTCUTS: readonly [string, string][] = [
@@ -520,48 +517,10 @@ export default function KitchenDisplayPage() {
    * whose timestamps land within a two-minute window of each other, so the
    * chef sees it the moment it's still useful to act on.
    */
-  const duplicateAlerts = useMemo(() => {
-    type Entry = { orderId: string; tokenNumber: string; timestamp: number; qty: number };
-    const byDish = new Map<string, Map<string, Entry>>();
-
-    for (const o of activeOrders) {
-      if (getOrderStatus(o) === 'ready') continue;
-      const timestamp = parseOrderTimestamp(o);
-      for (const item of o.items || []) {
-        const dish = `${item.name}${item.selectedPortion ? ` (${item.selectedPortion})` : ''}`;
-        const byOrder = byDish.get(dish) || new Map<string, Entry>();
-        const existing = byOrder.get(o.id);
-        if (existing) existing.qty += item.quantity || 1;
-        else byOrder.set(o.id, { orderId: o.id, tokenNumber: o.id.slice(-4), timestamp, qty: item.quantity || 1 });
-        byDish.set(dish, byOrder);
-      }
-    }
-
-    const alerts: { dish: string; totalQty: number; orders: Entry[] }[] = [];
-
-    byDish.forEach((byOrder, dish) => {
-      const sorted = Array.from(byOrder.values()).sort((a, b) => a.timestamp - b.timestamp);
-      if (sorted.length < 2) return;
-
-      let cluster: Entry[] = [sorted[0]];
-      const flush = () => {
-        if (cluster.length >= 2) {
-          alerts.push({ dish, totalQty: cluster.reduce((s, c) => s + c.qty, 0), orders: cluster });
-        }
-      };
-      for (let i = 1; i < sorted.length; i++) {
-        if (sorted[i].timestamp - cluster[cluster.length - 1].timestamp <= DUPLICATE_WINDOW_MS) {
-          cluster.push(sorted[i]);
-        } else {
-          flush();
-          cluster = [sorted[i]];
-        }
-      }
-      flush();
-    });
-
-    return alerts;
-  }, [activeOrders]);
+  const duplicateAlerts = useMemo(
+    () => buildKitchenBatches(orders, parseOrderTimestamp),
+    [orders]
+  );
 
   // Fans each alert back out to the orders it involves, so a ticket card can
   // show "batch this with #1234" without the card needing to know anything
@@ -572,7 +531,7 @@ export default function KitchenDisplayPage() {
       alert.orders.forEach((entry) => {
         const partners = alert.orders
           .filter((o) => o.orderId !== entry.orderId)
-          .map((o) => `#${o.tokenNumber}`);
+          .map((o) => `${o.source} #${o.token}`);
         const list = map.get(entry.orderId) || [];
         list.push({ dish: alert.dish, partners });
         map.set(entry.orderId, list);
@@ -784,22 +743,26 @@ export default function KitchenDisplayPage() {
                 <Layers className="size-4 shrink-0" />
                 <span className="ad-num text-[13px] tracking-widest uppercase">Cook these together</span>
                 <span className="text-[12px] font-medium opacity-80">
-                  Same dish, ordered within 2 minutes by different customers
+                  Dine-in and takeaway quantities received within the same 2-minute window
                 </span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {duplicateAlerts.map((alert) => (
                   <div
-                    key={alert.dish}
-                    className="flex items-center gap-2.5 px-3 py-1.5 bg-ad-bg border border-ad-hairline"
+                    key={alert.key}
+                    className="flex flex-col gap-1.5 px-3 py-2 bg-ad-bg border border-ad-hairline"
                   >
-                    <span className="text-[13px] font-semibold">{alert.dish}</span>
-                    <span className="ad-num text-[13px] px-2 text-white" style={{ background: 'var(--ad-info)' }}>
-                      ×{alert.totalQty}
-                    </span>
-                    <span className="ad-kicker">
-                      {alert.orders.map((o) => `#${o.tokenNumber}`).join(' + ')}
-                    </span>
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[13px] font-semibold">{alert.dish}</span>
+                      <span className="ad-num text-[13px] px-2 text-white" style={{ background: 'var(--ad-info)' }}>
+                        Cook ×{alert.totalQuantity}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 ad-kicker">
+                      {alert.orders.map((entry) => (
+                        <span key={entry.orderId}>{entry.source}: ×{entry.quantity} · #{entry.token}</span>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>

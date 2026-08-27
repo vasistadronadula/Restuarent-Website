@@ -31,8 +31,8 @@ export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[] | 'all'> = {
   admin: 'all',
   manager: 'all',
   chef: ['/admin/kitchen', '/admin/orders', '/admin/menu-management'],
-  cashier: ['/admin/pos', '/admin/bills', '/admin/orders', '/admin/tables', '/admin/coupons'],
-  waiter: ['/admin/orders', '/admin/tables'],
+  cashier: ['/admin/pos', '/admin/bills', '/admin/orders'],
+  waiter: ['/admin/tables'],
   customer: [],
 };
 
@@ -55,8 +55,8 @@ export const ROLE_ACCESS_SUMMARY: Record<UserRole, string> = {
   admin: 'Full management access — all tools, POS, menu, inventory, reports',
   manager: 'Full management access — same as Admin',
   chef: 'Kitchen display, live orders, and menu management',
-  cashier: 'POS, bills, live orders, tables, and coupons',
-  waiter: 'Live orders and table management',
+  cashier: 'POS, bills, and live orders',
+  waiter: 'Legacy table management access',
   customer: 'No admin access',
 };
 

@@ -36,7 +36,10 @@ const GUEST_ORDER_COLUMNS = [
 ].join(', ');
 
 const MAX_IDS_PER_REQUEST = 50;
-const ORDER_ID_PATTERN = /^[a-zA-Z0-9_-]{4,60}$/;
+// Guest IDs are bearer credentials. Only the cryptographically random format
+// is accepted; legacy timestamp/random-tail IDs were enumerable and therefore
+// cannot safely authorize disclosure of an order.
+const ORDER_ID_PATTERN = /^PPR-ORD-\d{8}-[a-f0-9]{20}$/i;
 
 export async function POST(request: Request) {
   try {

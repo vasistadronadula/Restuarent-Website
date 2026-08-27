@@ -189,9 +189,14 @@ function CheckoutForm() {
     };
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
       const res = await fetch('/api/orders/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({
           orderId: id,
           paymentMode: mode,
@@ -203,7 +208,6 @@ function CheckoutForm() {
           },
           items: orderItemPayload,
           couponCode: state.couponCode,
-          userId: user?.id || null,
           razorpay: razorpayResponse,
         }),
       });

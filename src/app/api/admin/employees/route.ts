@@ -5,6 +5,8 @@ import { requireAdmin, RequireAdminError } from '@/lib/auth/requireAdmin';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { getErrorMessage } from '@/lib/errors';
 
+const EMPLOYEE_ROLES = new Set(['admin', 'manager', 'chef', 'cashier']);
+
 /**
  * Creates a staff login and its employee/profile rows in one call.
  *
@@ -35,6 +37,9 @@ export async function POST(request: Request) {
 
     if (!id || !name || !email || !role || !password) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+    if (!EMPLOYEE_ROLES.has(role)) {
+      return NextResponse.json({ error: 'Unsupported employee role' }, { status: 400 });
     }
 
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
