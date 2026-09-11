@@ -8,6 +8,8 @@
  */
 export const queryKeys = {
   orders: ['orders'] as const,
+  orderHistory: ['orders', 'history'] as const,
+  floorOrders: ['orders', 'floor'] as const,
   reservations: ['reservations'] as const,
   menuItems: ['menu-items'] as const,
   inventory: ['inventory'] as const,

@@ -7,9 +7,10 @@ import {
   ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { useAdmin } from '@/context/AdminContext';
+import { useOrderHistory } from '@/lib/queries';
+import { orderDateStamp } from '@/lib/orderTime';
 import { PageHeader, HairlineGrid, StatCell, SectionCard } from '@/components/admin/ui';
-import { Download } from 'lucide-react';
+import { Download, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 /**
@@ -25,7 +26,10 @@ const AXIS = '#9c928f';
 const GRID = '#ddd6d4';
 
 export default function ReportsPage() {
-  const { orders } = useAdmin();
+  const today = orderDateStamp();
+  const [dateFrom, setDateFrom] = useState(`${today.slice(0, 8)}01`);
+  const [dateTo, setDateTo] = useState(today);
+  const { data: orders = [], error, refetch } = useOrderHistory(true, { from: dateFrom, to: dateTo });
   const [tab, setTab] = useState<'daily' | 'weekly' | 'monthly' | 'categories'>('daily');
 
   const {
@@ -48,9 +52,11 @@ export default function ReportsPage() {
       const grandTotal = o.status === 'cancelled' ? 0 : (o.grandTotal || o.subtotal || 0);
       revSum += grandTotal;
 
-      const date = o.createdAt ? new Date(o.createdAt) : new Date();
-      const dateKey = Number.isNaN(date.getTime()) ? 'unknown' : date.toISOString().slice(0, 10);
-      const dateStr = Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+      const date = o.createdAt ? new Date(o.createdAt) : null;
+      const validDate = !!date && !Number.isNaN(date.getTime());
+      const dateKey = validDate ? orderDateStamp(date) : (o.orderDate || 'unknown');
+      const displayDate = dateKey === 'unknown' ? null : new Date(`${dateKey}T00:00:00+05:30`);
+      const dateStr = displayDate ? displayDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' }) : 'Unknown';
       if (!dateMap[dateKey]) {
         dateMap[dateKey] = { key: dateKey, date: dateStr, revenue: 0, orders: 0 };
       }
@@ -59,7 +65,7 @@ export default function ReportsPage() {
       paymentMap[o.paymentMode || 'unknown'] = (paymentMap[o.paymentMode || 'unknown'] || 0) + 1;
       statusMap[o.status || 'unknown'] = (statusMap[o.status || 'unknown'] || 0) + 1;
 
-      if (o.items) {
+      if (o.status !== 'cancelled' && o.items) {
         o.items.forEach((item) => {
           const cat = item.category || 'General';
           catMap[cat] = (catMap[cat] || 0) + (item.price * item.quantity);
@@ -68,7 +74,8 @@ export default function ReportsPage() {
     });
 
     const dailySalesArr = Object.values(dateMap).sort((a, b) => a.key.localeCompare(b.key));
-    const daysCount = Math.max(1, dailySalesArr.length);
+    const daysCount = Math.max(1, Math.round((Date.parse(`${dateTo}T00:00:00Z`) - Date.parse(`${dateFrom}T00:00:00Z`)) / 86_400_000) + 1);
+    const completedOrders = orders.filter((order) => order.status !== 'cancelled');
     const orderCount = orders.length;
 
     const categoryRevenueArr = Object.entries(catMap).map(([name, value]) => ({
@@ -80,31 +87,32 @@ export default function ReportsPage() {
       totalRevenue: revSum,
       avgDailyRevenue: Math.round(revSum / daysCount),
       totalOrderCount: orderCount,
-      avgOrderValue: orderCount > 0 ? Math.round(revSum / orderCount) : 0,
+      avgOrderValue: completedOrders.length > 0 ? Math.round(revSum / completedOrders.length) : 0,
       dailySales: dailySalesArr,
       categoryRevenue: categoryRevenueArr.sort((a, b) => b.value - a.value),
       paymentMix: Object.entries(paymentMap).map(([name, value]) => ({ name: name.toUpperCase(), value })),
       statusMix: Object.entries(statusMap).map(([name, orders]) => ({ name: name.toUpperCase(), orders })),
     };
-  }, [orders]);
+  }, [orders, dateFrom, dateTo]);
 
   const periodSales = useMemo(() => {
     if (tab === 'daily' || tab === 'categories') return dailySales.slice(-14);
     const buckets = new Map<string, { period: string; revenue: number; orders: number }>();
     for (const order of orders) {
-      const date = order.createdAt ? new Date(order.createdAt) : new Date();
-      if (Number.isNaN(date.getTime())) continue;
+      const date = order.createdAt ? new Date(order.createdAt) : null;
+      if (!date || Number.isNaN(date.getTime())) continue;
+      const businessDate = orderDateStamp(date);
       let key: string;
       let label: string;
       if (tab === 'monthly') {
-        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-        label = date.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+        key = businessDate.slice(0, 7);
+        label = new Date(`${businessDate}T00:00:00+05:30`).toLocaleDateString('en-IN', { month: 'short', year: '2-digit', timeZone: 'Asia/Kolkata' });
       } else {
-        const monday = new Date(date);
-        const day = (monday.getDay() + 6) % 7;
-        monday.setDate(monday.getDate() - day);
+        const monday = new Date(`${businessDate}T00:00:00Z`);
+        const day = (monday.getUTCDay() + 6) % 7;
+        monday.setUTCDate(monday.getUTCDate() - day);
         key = monday.toISOString().slice(0, 10);
-        label = `Wk ${monday.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`;
+        label = `Wk ${monday.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'UTC' })}`;
       }
       const bucket = buckets.get(key) || { period: label, revenue: 0, orders: 0 };
       bucket.orders += 1;
@@ -115,13 +123,18 @@ export default function ReportsPage() {
   }, [dailySales, orders, tab]);
 
   const handleExportCSV = () => {
+    const csvCell = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`;
     const csvContent = 'data:text/csv;charset=utf-8,' +
-      'Date,Revenue,Orders\n' +
-      dailySales.map((e) => `${e.date},${e.revenue},${e.orders}`).join('\n');
+      'Order ID,Date,Customer,Payment Mode,Payment Status,Subtotal,Discount,CGST,SGST,Grand Total,Order Status\n' +
+      orders.map((order) => [
+        order.id, order.createdAt ? orderDateStamp(new Date(order.createdAt)) : order.orderDate,
+        order.customerName, order.paymentMode, order.paymentStatus, order.subtotal,
+        order.discount || 0, order.cgst, order.sgst, order.grandTotal, order.status,
+      ].map(csvCell).join(',')).join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `palapitta_sales_report_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `palapitta_sales_report_${orderDateStamp()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -141,6 +154,19 @@ export default function ReportsPage() {
             </button>
           }
         />
+
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end border border-ad-hairline bg-ad-surface p-3">
+          <label className="ad-label m-0">From<input className="ad-input mt-1" type="date" value={dateFrom} max={dateTo} onChange={(event) => setDateFrom(event.target.value)} /></label>
+          <label className="ad-label m-0">To<input className="ad-input mt-1" type="date" value={dateTo} min={dateFrom} max={today} onChange={(event) => setDateTo(event.target.value)} /></label>
+          <span className="ad-kicker pb-2">IST business dates</span>
+        </div>
+
+        {error && (
+          <div role="alert" className="border-2 border-ad-accent bg-ad-accent-soft p-4 flex items-center gap-3">
+            <AlertTriangle className="size-4" /><span className="text-sm">Could not load reports: {(error as Error).message}</span>
+            <button className="ad-btn ad-btn-secondary ml-auto" onClick={() => refetch()}><RefreshCw className="size-4" /> Retry</button>
+          </div>
+        )}
 
         {/* Stats */}
         <HairlineGrid cols="grid-cols-2 lg:grid-cols-4">
@@ -166,7 +192,7 @@ export default function ReportsPage() {
           {orders.length === 0 ? (
             <div className="py-14 text-center text-[13px] ad-muted">No sales data yet</div>
           ) : (
-            <div className="w-full h-72">
+            <div className="w-full h-72" role="img" aria-label={`${tab} sales chart for ${dateFrom} through ${dateTo}`}>
               <ResponsiveContainer width="100%" height="100%">
                 {tab === 'categories' ? (
                   <BarChart data={categoryRevenue.slice(0, 10)} layout="vertical" margin={{ left: 18 }}>
@@ -196,7 +222,8 @@ export default function ReportsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <SectionCard>
             <div className="ad-section-head"><h3 className="ad-h text-[17px]">Orders by status</h3></div>
-            <div className="h-64">
+            <p className="sr-only">{statusMix.map((item) => `${item.name}: ${item.orders}`).join(', ')}</p>
+            <div className="h-64" role="img" aria-label="Order totals grouped by status">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={statusMix} layout="vertical" margin={{ left: 18 }}>
                   <CartesianGrid horizontal={false} stroke={GRID} />
@@ -210,7 +237,8 @@ export default function ReportsPage() {
           </SectionCard>
           <SectionCard>
             <div className="ad-section-head"><h3 className="ad-h text-[17px]">Payment mix</h3></div>
-            <div className="h-64">
+            <p className="sr-only">{paymentMix.map((item) => `${item.name}: ${item.value}`).join(', ')}</p>
+            <div className="h-64" role="img" aria-label="Orders grouped by payment mode">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie data={paymentMix} dataKey="value" nameKey="name" innerRadius={48} outerRadius={82} paddingAngle={3}>

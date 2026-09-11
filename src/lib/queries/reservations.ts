@@ -8,6 +8,7 @@ import type { Reservation, ReservationStatus } from '@/types';
 import { queryKeys } from './keys';
 import { mapReservation } from './mappers';
 import { patchList, rollbackList } from './optimistic';
+import { getTenantContext } from '@/lib/tenantContext';
 
 export function useReservations(enabled = true) {
   return useQuery({
@@ -32,8 +33,9 @@ export function useUpdateReservationStatus() {
 
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: ReservationStatus }) => {
-      const { error } = await supabase.from('reservations').update({ status }).eq('id', id);
+      const { data, error } = await supabase.from('reservations').update({ status }).eq('id', id).select('id').maybeSingle();
       if (error) throw new Error(error.message);
+      if (!data) throw new Error('Reservation was not updated. Refresh and try again.');
       return true;
     },
     onMutate: ({ id, status }) =>
@@ -66,6 +68,8 @@ export function useCreateReservation() {
         createdAt: new Date().toISOString(),
       };
 
+      const tenant = await getTenantContext(supabase);
+
       const { error } = await supabase.from('reservations').insert([
         {
           id: resId, // PPR-RES-20260725-3914
@@ -80,6 +84,9 @@ export function useCreateReservation() {
           table_id: resData.tableId || null,
           table_number: resData.tableNumber || null,
           user_id: resData.userId || null,
+          tenant_id: tenant.tenant_id,
+          restaurant_id: tenant.restaurant_id,
+          branch_id: tenant.branch_id,
         },
       ]);
       if (error) throw new Error(error.message);

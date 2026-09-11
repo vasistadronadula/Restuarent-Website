@@ -12,7 +12,7 @@ import {
   useCoupons, useAddCoupon, useUpdateCoupon, useDeleteCoupon, type Coupon,
 } from '@/lib/queries';
 import { couponSchema, type CouponFormOutput, type CouponFormValues } from '@/lib/adminSchemas';
-import { Pill } from '@/components/admin/ui';
+import { AdminQueryError, Pill } from '@/components/admin/ui';
 import {
   ConfirmDeleteDialog, FormDialog, NumberField, SwitchField, TextField,
 } from '@/components/admin/form-fields';
@@ -30,7 +30,7 @@ const BLANK_FORM: CouponFormValues = {
 };
 
 export default function CouponsPage() {
-  const { data: coupons = [] } = useCoupons();
+  const { data: coupons = [], error, refetch } = useCoupons();
   const addCoupon = useAddCoupon();
   const updateCoupon = useUpdateCoupon();
   const deleteCoupon = useDeleteCoupon();
@@ -212,6 +212,7 @@ export default function CouponsPage() {
   return (
     <AdminLayout title="Coupons">
       <div className="w-full max-w-full space-y-4">
+        <AdminQueryError error={error} onRetry={() => { void refetch(); }} />
         <div className="ad-section-head">
           <h3 className="ad-h text-[17px]">Active campaigns</h3>
           <span className="text-[12px] ad-muted">{coupons.length} total · {activeCount} live</span>

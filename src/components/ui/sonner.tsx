@@ -1,30 +1,30 @@
 'use client';
 
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
+import { useMediaQuery } from '@/hooks/useMediaQuery';
 
 /**
  * Toaster — premium in-app notifications.
  *
- * Desktop (≥900 px): bottom-right, 28px from edge. Never covers any fixed
- * chrome — the admin sidebar is on the left, nothing is stuck to the right.
+ * Desktop (≥1024 px): bottom-right, 28px from the edge.
  *
- * Mobile (<900 px): top-center, 72px from top. That clears the admin sticky
- * header (58px) with 14px breathing room, and the position is nowhere near the
- * bottom nav (65px) so toasts never overlap interactive elements.
+ * Phones/tablets (<1024 px): top-center, 88px from top to clear the sticky header
+ * and keep notifications away from the bottom navigation and checkout bar.
  *
- * Both variants use `mobileOffset` / `offset` rather than a JS media query so
- * there is never a hydration mismatch between SSR and client.
+ * Position and offset both change: mobileOffset alone does not move a
+ * bottom-positioned toast to the top. The shared media hook is SSR-safe.
  */
 function Toaster(props: ToasterProps) {
+  const isCompactViewport = useMediaQuery('(max-width: 1023.95px)');
   return (
     <Sonner
       theme="light"
       className="toaster group"
-      position="bottom-right"
-      /* Desktop: 28px padding from each edge. */
-      offset={{ bottom: 28, right: 28 }}
+      position={isCompactViewport ? 'top-center' : 'bottom-right'}
+      /* Sonner applies mobileOffset only up to 600px; tablets need offset too. */
+      offset={isCompactViewport ? { top: 88, left: 12, right: 12 } : { bottom: 28, right: 28 }}
       /* Mobile: just below the sticky admin header with equal left/right gutters. */
-      mobileOffset={{ top: 72, left: 12, right: 12 }}
+      mobileOffset={{ top: 88, left: 12, right: 12 }}
       gap={10}
       duration={4500}
       richColors

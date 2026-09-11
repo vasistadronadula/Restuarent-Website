@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildKitchenBatches } from './kitchenBatch';
 import type { Order } from '@/types';
+import { kitchenItemKey } from './kitchen';
 
 const order = (id: string, minutes: number, type: Order['orderType'], tableNumber?: number): Order => ({
   id, orderId: id, customerName: 'Test', items: [{ name: 'Chicken Biryani', price: 200, quantity: 1 }],
@@ -9,6 +10,15 @@ const order = (id: string, minutes: number, type: Order['orderType'], tableNumbe
 });
 
 describe('buildKitchenBatches', () => {
+  it('never batches different modifiers or already-prepared lines together', () => {
+    const dine = order('DINE-0001', 0, 'dine-in', 4);
+    const take = order('TAKE-0002', 1, 'takeaway');
+    take.items[0].notes = 'No peanuts';
+    expect(buildKitchenBatches([dine, take], () => 0)).toEqual([]);
+    delete take.items[0].notes;
+    take.kitchenProgress = { [kitchenItemKey(take.items, 0)]: true };
+    expect(buildKitchenBatches([dine, take], () => 0)).toEqual([]);
+  });
   it('combines dine-in and takeaway quantities inside an anchored two-minute window', () => {
     const batches = buildKitchenBatches(
       [order('DINE-0001', 0, 'dine-in', 4), order('TAKE-0002', 1.5, 'takeaway')],

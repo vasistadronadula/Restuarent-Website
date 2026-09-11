@@ -68,7 +68,7 @@ const INDIAN_MOBILE = /^[6-9]\d{9}$/;
 const phone = z
   .string()
   .trim()
-  .transform((v) => v.replace(/[\s-]/g, '').replace(/^(\+?91|0)/, ''))
+  .transform((v) => v.replace(/[\s-]/g, '').replace(/^(?:\+?91|0)(?=[6-9]\d{9}$)/, ''))
   .pipe(z.string().regex(INDIAN_MOBILE, 'Enter a valid 10-digit mobile number'));
 
 /**

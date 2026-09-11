@@ -70,7 +70,7 @@ export function useUpdateInventoryItem() {
 
   return useMutation({
     mutationFn: async (item: InventoryItem) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('inventory_items')
         .update({
           name: item.name,
@@ -85,8 +85,11 @@ export function useUpdateInventoryItem() {
           // so drawing stock down marked the item as freshly restocked.
           last_restocked: item.lastRestocked || new Date().toISOString().split('T')[0],
         })
-        .eq('id', item.id);
+        .eq('id', item.id)
+        .select('id')
+        .maybeSingle();
       if (error) throw new Error(error.message);
+      if (!data) throw new Error('Inventory item was not updated. Refresh and try again.');
       return true;
     },
     onMutate: (item) =>
@@ -103,8 +106,9 @@ export function useDeleteInventoryItem() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('inventory_items').delete().eq('id', id);
+      const { data, error } = await supabase.from('inventory_items').delete().eq('id', id).select('id').maybeSingle();
       if (error) throw new Error(error.message);
+      if (!data) throw new Error('Inventory item was not deleted. Refresh and try again.');
       return true;
     },
     onMutate: (id) =>

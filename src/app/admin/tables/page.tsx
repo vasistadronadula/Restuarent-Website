@@ -15,9 +15,9 @@ import { diningTableSchema, type DiningTableFormOutput, type DiningTableFormValu
 import { generateTableId } from '@/lib/idGenerator';
 import { formatCurrency } from '@/lib/utils';
 import { useNow } from '@/hooks/useNow';
-import { Pill } from '@/components/admin/ui';
+import { AdminQueryError, Pill } from '@/components/admin/ui';
 import { ConfirmDeleteDialog, FormDialog, NumberField, SwitchField, TextField } from '@/components/admin/form-fields';
-import type { Order } from '@/types';
+import { buildTableOccupancy } from '@/lib/tableOccupancy';
 
 const BLANK_FORM: DiningTableFormValues = {
   tableNumber: 1,
@@ -26,16 +26,9 @@ const BLANK_FORM: DiningTableFormValues = {
   isActive: true,
 };
 
-type Occupancy = {
-  status: 'available' | 'ordered' | 'waiting_payment';
-  activeOrder?: Order;
-  runningBill?: number;
-  elapsedMinutes?: number;
-};
-
 export default function TablesPage() {
   const { orders } = useAdmin();
-  const { data: tables = [] } = useTables();
+  const { data: tables = [], error, refetch } = useTables();
   const addTable = useAddTable();
   const updateTable = useUpdateTable();
   const deleteTable = useDeleteTable();
@@ -55,27 +48,7 @@ export default function TablesPage() {
   // keeps current everywhere else — a table flips the moment POS/KDS
   // changes the order sitting on it, no separate polling.
   const occupancyMap = useMemo(() => {
-    const map = new Map<number, Occupancy>();
-    tables.forEach((t) => map.set(t.tableNumber, { status: 'available' }));
-
-    orders.forEach((o) => {
-      if (
-        typeof o.tableNumber === 'number' &&
-        o.status !== 'delivered' &&
-        o.status !== 'cancelled'
-      ) {
-        const orderTime = o.createdAt ? new Date(o.createdAt).getTime() : now;
-        const elapsedMinutes = Math.max(1, Math.floor((now - orderTime) / 60000));
-        map.set(o.tableNumber, {
-          status: o.paymentStatus === 'paid' ? 'ordered' : 'waiting_payment',
-          activeOrder: o,
-          runningBill: o.grandTotal,
-          elapsedMinutes,
-        });
-      }
-    });
-
-    return map;
+    return buildTableOccupancy(tables.map((table) => table.tableNumber), orders, now);
   }, [tables, orders, now]);
 
   const stats = useMemo(() => {
@@ -162,6 +135,7 @@ export default function TablesPage() {
   return (
     <AdminLayout title="Table management">
       <div className="w-full max-w-full space-y-4">
+        <AdminQueryError error={error} onRetry={() => { void refetch(); }} />
         <div className="ad-section-head">
           <h3 className="ad-h text-[17px]">Floor plan</h3>
           <span className="text-[12px] ad-muted">
@@ -215,7 +189,9 @@ export default function TablesPage() {
                     {info?.activeOrder ? (
                       <div>
                         <div className="flex items-center justify-between gap-2 text-[13px]">
-                          <span className="truncate">#{info.activeOrder.id.slice(-4)}</span>
+                          <span className="truncate">
+                            #{info.activeOrder.id.slice(-4)}{info.activeOrderCount > 1 ? ` +${info.activeOrderCount - 1}` : ''}
+                          </span>
                           <span className="ad-num text-[14px]">{formatCurrency(info.runningBill || 0)}</span>
                         </div>
                         <span className="ad-kicker flex items-center gap-1 mt-0.5">

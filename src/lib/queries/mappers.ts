@@ -55,6 +55,7 @@ export function mapOrder(o: any): Order {
   return {
     id: o.id,
     orderId: o.id,
+    orderNumber: o.order_number != null ? Number(o.order_number) : undefined,
     // The guest order-tracking route deliberately doesn't return the
     // customer columns (see api/guest/orders — order ids are enumerable, so
     // that endpoint must not hand out names and phone numbers). A column
@@ -77,6 +78,8 @@ export function mapOrder(o: any): Order {
     // 'unpaid', not 'pending' — 'pending' was never one of the app's
     // PaymentStatus values, so it rendered as an unknown state downstream.
     paymentStatus: o.payment_status || 'unpaid',
+    paymentReference: o.payment_reference || undefined,
+    cashTendered: o.cash_tendered == null ? undefined : Number(o.cash_tendered),
     // IST, not UTC: a 9 PM Hyderabad order has a `created_at` that already
     // rolled over to the next UTC day, which filed most of dinner service
     // under tomorrow's date on every report that groups by this field.
@@ -89,6 +92,12 @@ export function mapOrder(o: any): Order {
     userId: o.user_id || null,
     orderType: o.order_type || 'takeaway',
     createdAt: o.created_at || undefined,
+    preparingAt: o.preparing_at || undefined,
+    readyAt: o.ready_at || undefined,
+    deliveredAt: o.delivered_at || undefined,
+    kitchenProgress: (o.kitchen_progress !== undefined && o.kitchen_progress !== null && typeof o.kitchen_progress === 'object' && !Array.isArray(o.kitchen_progress))
+      ? o.kitchen_progress
+      : ('kitchen_progress' in o ? {} : undefined),
     notes: o.notes || undefined,
     delayMinutes: (() => {
       if (o.delay_minutes != null) return Number(o.delay_minutes) || 0;
@@ -129,7 +138,7 @@ export function mapMenuItem(m: any): MenuItem {
     price: Number(m.price) || 0,
     image: m.image,
     vegStatus: m.veg_status || 'non-veg',
-    rating: Number(m.rating) || 4.5,
+    rating: Number(m.rating) || 0,
     reviewCount: m.review_count == null ? 0 : Number(m.review_count) || 0,
     isPopular: m.is_popular ?? false,
     isSpecial: m.is_special ?? false,

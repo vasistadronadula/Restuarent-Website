@@ -130,6 +130,8 @@ export function getPasswordStrength(value: string): PasswordStrength {
  */
 export function safeRedirect(value: string | null | undefined, fallback: string): string {
   if (!value) return fallback;
+  // URL parsing strips these characters before resolving the host.
+  if (/[\t\r\n]/.test(value)) return fallback;
   if (!value.startsWith('/') || value.startsWith('//')) return fallback;
   // A backslash is normalised to a forward slash by some browsers, so `/\evil`
   // is another way of writing a protocol-relative URL.

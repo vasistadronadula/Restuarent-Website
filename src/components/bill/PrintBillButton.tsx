@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FileText, Printer } from 'lucide-react';
+import { Printer } from 'lucide-react';
 
 import { Button, type ButtonProps } from '@/components/ui/button';
 import PrintBillPortal, { type BillFormat } from './PrintBillPortal';

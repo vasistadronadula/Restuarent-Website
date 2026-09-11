@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Printer, X, CheckCircle2 } from 'lucide-react';
+import { Printer, CheckCircle2 } from 'lucide-react';
 import { Order } from '@/types';
 import ThermalBill from '@/components/bill/ThermalBill';
 import PrintBillPortal from '@/components/bill/PrintBillPortal';

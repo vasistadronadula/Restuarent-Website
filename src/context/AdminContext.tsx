@@ -14,9 +14,9 @@ import { toast } from 'sonner';
 
 import { useAdminStore } from '@/store/useAdminStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { isStaffRole } from '@/lib/roleAccess';
+import { canAccess } from '@/lib/roleAccess';
 import {
-  useOrders, useReservations, useMenuItems, useInventory, useEmployees,
+  useOrders, useFloorOrders, useReservations, useMenuItems, useInventory, useEmployees,
   useUpdateOrderStatus, useUpdateOrderPrepTime, useUpdateReservationStatus,
   useAddMenuItem, useUpdateMenuItem, useDeleteMenuItem,
   useAddInventoryItem, useUpdateInventoryItem, useDeleteInventoryItem,
@@ -59,6 +59,7 @@ interface AdminContextType {
   notification: { message: string; type: 'success' | 'error' | 'info' } | null;
   showNotification: (message: string, type?: 'success' | 'error' | 'info') => void;
   isLoadingDB: boolean;
+  dataError: string | null;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
@@ -74,20 +75,29 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   // that no customer page reads. Gating them by role stops every customer
   // session from firing (and RLS-retrying) three queries it has no use for.
   const userRole = useAuthStore((s) => s.userRole);
-  const isStaff = isStaffRole(userRole);
+  // Waiters need a read-only order feed to calculate live table occupancy;
+  // the database grants them SELECT through can_view_orders(), never UPDATE.
+  const canReadOrders = !!userRole && canAccess(userRole, '/admin/orders');
+  const canReadReservations = !!userRole && canAccess(userRole, '/admin/tables');
+  const canReadInventory = !!userRole && canAccess(userRole, '/admin/menu-management');
+  const canReadEmployees = userRole === 'admin';
 
   // Server data — cached, deduplicated, and kept fresh by RealtimeProvider.
   // The unfiltered `orders` table is staff-only — a customer's own orders
   // come from useMyOrders()/useGuestOrders() on the /orders page instead of
   // filtering this list down client-side (see orders/page.tsx).
-  const { data: orders = [], isLoading: ordersLoading } = useOrders(isStaff);
-  const { data: reservations = [], isLoading: resLoading } = useReservations(isStaff);
-  const { data: menuItems = [], isLoading: menuLoading } = useMenuItems();
-  const { data: inventory = [], isLoading: invLoading } = useInventory(isStaff);
-  const { data: employees = [], isLoading: empLoading } = useEmployees(isStaff);
-  const { data: categories = [], isLoading: catLoading } = useCategories();
+  const { data: staffOrders = [], isLoading: ordersLoading, error: ordersError } = useOrders(canReadOrders);
+  const { data: floorOrders = [], isLoading: floorOrdersLoading, error: floorOrdersError } = useFloorOrders(userRole === 'waiter');
+  const orders = userRole === 'waiter' ? floorOrders : staffOrders;
+  const { data: reservations = [], isLoading: resLoading, error: reservationsError } = useReservations(canReadReservations);
+  const { data: menuItems = [], isLoading: menuLoading, error: menuError } = useMenuItems(!userRole || userRole === 'customer');
+  const { data: inventory = [], isLoading: invLoading, error: inventoryError } = useInventory(canReadInventory);
+  const { data: employees = [], isLoading: empLoading, error: employeesError } = useEmployees(canReadEmployees);
+  const { data: categories = [], isLoading: catLoading, error: categoriesError } = useCategories(!userRole || userRole === 'customer');
 
-  const isLoadingDB = ordersLoading || resLoading || menuLoading || invLoading || empLoading || catLoading;
+  const isLoadingDB = ordersLoading || floorOrdersLoading || resLoading || menuLoading || invLoading || empLoading || catLoading;
+  const firstDataError = [ordersError, floorOrdersError, reservationsError, menuError, inventoryError, employeesError, categoriesError].find(Boolean);
+  const dataError = firstDataError instanceof Error ? firstDataError.message : firstDataError ? String(firstDataError) : null;
 
   const updateOrderStatusMutation = useUpdateOrderStatus();
   const updateOrderPrepTimeMutation = useUpdateOrderPrepTime();
@@ -180,9 +190,10 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   // whether the write landed, for callers that chain further work off it.
   const updateOrderStatus = async (id: string, status: Order['status']): Promise<boolean> => {
     try {
-      await updateOrderStatusMutation.mutateAsync({ id, status });
-    } catch {
-      notify(`Failed to update order ${id}`, 'error');
+      const expectedStatus = orders.find((order) => order.id === id)?.status;
+      await updateOrderStatusMutation.mutateAsync({ id, status, expectedStatus });
+    } catch (err) {
+      notify((err as Error).message || `Failed to update order ${id}`, 'error');
       return false;
     }
     notify(`Order ${id} updated to ${status}`);
@@ -314,9 +325,9 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     addInventoryItem, updateInventoryItem, deleteInventoryItem, adjustInventoryQuantity,
     addCategory, updateCategory, deleteCategory,
     activeRole, setActiveRole,
-    notification, showNotification: notify, isLoadingDB,
+    notification, showNotification: notify, isLoadingDB, dataError,
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [orders, reservations, customers, employees, menuItems, inventory, categories, activeRole, notification, isLoadingDB]);
+  }), [orders, reservations, customers, employees, menuItems, inventory, categories, activeRole, notification, isLoadingDB, dataError]);
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
 };

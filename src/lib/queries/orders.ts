@@ -9,8 +9,9 @@ import type { Order, OrderStatus } from '@/types';
 import { queryKeys } from './keys';
 import { mapOrder } from './mappers';
 import { patchList, rollbackList } from './optimistic';
+import { getTenantContext } from '@/lib/tenantContext';
 
-export function useOrders(enabled = true) {
+export function useOrders(enabled = true, keepPolling = false) {
   return useQuery({
     queryKey: queryKeys.orders,
     queryFn: async (): Promise<Order[]> => {
@@ -18,11 +19,8 @@ export function useOrders(enabled = true) {
         .from('orders')
         .select('*')
         .order('created_at', { ascending: false })
-        // Staff-facing dashboards are the only consumer of the unfiltered
-        // table; a 1,000-row cap keeps a growing restaurant's history out
-        // of every admin session's initial payload without breaking any UI
-        // (every table this feeds already virtualizes rows) — real
-        // pagination for browsing older history is future work.
+        // Operational screens only need the newest window. Bills and reports
+        // use useOrderHistory(), which walks every Supabase page explicitly.
         .limit(1000);
       if (error) throw new Error(error.message);
       return (data || []).map(mapOrder);
@@ -31,13 +29,80 @@ export function useOrders(enabled = true) {
     refetchInterval: (query) => {
       const orders = query.state.data;
       const hasActive = orders?.some((o) => ['pending', 'preparing', 'ready'].includes(o.status));
-      return hasActive ? 3000 : false;
+      return keepPolling || hasActive ? 3000 : false;
     },
     refetchOnWindowFocus: true,
+    refetchIntervalInBackground: keepPolling,
     // Staff-only — see useMyOrders() for the customer-scoped equivalent
     // that /orders now uses instead of filtering this unfiltered table
     // client-side.
     enabled,
+  });
+}
+
+/** Complete order history for ledger/reporting screens. Supabase projects
+ * commonly cap a single response at 1,000 rows, so fetch deterministic pages
+ * until the final partial page rather than silently truncating financials. */
+export function useOrderHistory(enabled = true, range?: { from?: string; to?: string }) {
+  return useQuery({
+    queryKey: [...queryKeys.orderHistory, range?.from || '', range?.to || ''],
+    queryFn: async (): Promise<Order[]> => {
+      const pageSize = 1000;
+      const rows: Record<string, unknown>[] = [];
+      for (let from = 0; ; from += pageSize) {
+        let request = supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (range?.from) request = request.gte('created_at', new Date(`${range.from}T00:00:00+05:30`).toISOString());
+        if (range?.to) {
+          const exclusiveEnd = new Date(`${range.to}T00:00:00+05:30`);
+          exclusiveEnd.setUTCDate(exclusiveEnd.getUTCDate() + 1);
+          request = request.lt('created_at', exclusiveEnd.toISOString());
+        }
+        const { data, error } = await request.range(from, from + pageSize - 1);
+        if (error) throw new Error(error.message);
+        const page = (data || []) as Record<string, unknown>[];
+        rows.push(...page);
+        if (page.length < pageSize) break;
+      }
+      return rows.map(mapOrder);
+    },
+    enabled,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
+/** Minimal table-session feed for waiters. The RPC intentionally omits all
+ * customer identity/contact fields and is read-only at the database boundary. */
+export function useFloorOrders(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.floorOrders,
+    queryFn: async (): Promise<Order[]> => {
+      const { data, error } = await supabase.rpc('get_floor_orders');
+      if (error) throw new Error(error.message);
+      return ((data || []) as Array<Record<string, unknown>>).map((row) => ({
+        id: String(row.id),
+        orderId: String(row.id),
+        customerName: `Table ${row.table_number}`,
+        items: [],
+        subtotal: Number(row.subtotal || 0),
+        cgst: 0,
+        sgst: 0,
+        grandTotal: Number(row.grand_total || 0),
+        status: String(row.status) as OrderStatus,
+        paymentMode: 'cash',
+        paymentStatus: String(row.payment_status || 'unpaid') as Order['paymentStatus'],
+        tableNumber: Number(row.table_number),
+        orderType: 'dine-in',
+        orderSource: 'direct',
+        createdAt: String(row.created_at),
+      }));
+    },
+    enabled,
+    staleTime: 3_000,
+    refetchInterval: enabled ? 3_000 : false,
   });
 }
 
@@ -104,17 +169,22 @@ export function useUpdateOrderStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: OrderStatus }) => {
-      const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+    networkMode: 'always', // Status changes must fail/retry explicitly, not queue offline.
+    mutationFn: async ({ id, status, expectedStatus }: { id: string; status: OrderStatus; expectedStatus?: OrderStatus; optimistic?: boolean }) => {
+      let query = supabase.from('orders').update({ status }).eq('id', id);
+      if (expectedStatus) query = query.eq('status', expectedStatus);
+      const { data, error } = await query.select('*').maybeSingle();
       if (error) throw new Error(error.message);
-      return true;
+      if (!data) throw new Error('Order changed on another screen. Refresh and try again.');
+      return mapOrder(data);
     },
     // Reflect the status change before the round trip — a cashier tapping
     // "Preparing" must not watch the chip sit on the old value.
-    onMutate: ({ id, status }) =>
-      patchList<Order>(queryClient, queryKeys.orders, (draft) =>
+    onMutate: ({ id, status, optimistic = true }) =>
+      optimistic ? patchList<Order>(queryClient, queryKeys.orders, (draft) =>
         draft.map((o) => (o.id === id ? { ...o, status } : o))
-      ),
+      ) : undefined,
+    onSuccess: (order) => queryClient.setQueryData<Order[]>(queryKeys.orders, old => old?.map(o => o.id === order.id ? order : o)),
     onError: (_err, _vars, context) => rollbackList(queryClient, context),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.orders });
@@ -127,29 +197,42 @@ export function useUpdateOrderPrepTime() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, delayMinutes, notes }: { id: string; delayMinutes: number; notes?: string }) => {
+    networkMode: 'always',
+    mutationFn: async ({ id, delayMinutes, notes, expected }: {
+      id: string; delayMinutes: number; notes?: string; optimistic?: boolean;
+      expected?: { status: OrderStatus; notes?: string; delayMinutes: number };
+    }) => {
       // First try updating delay_minutes and notes directly
-      let { error } = await supabase
+      let request = supabase
         .from('orders')
         .update({
           delay_minutes: delayMinutes,
           notes: notes !== undefined ? notes : undefined,
         })
         .eq('id', id);
+      if (expected) {
+        request = request.eq('status', expected.status);
+        request = expected.notes ? request.eq('notes', expected.notes) : request.or('notes.is.null,notes.eq.');
+        request = expected.delayMinutes === 0 ? request.or('delay_minutes.is.null,delay_minutes.eq.0') : request.eq('delay_minutes', expected.delayMinutes);
+      }
+      let { data, error } = await request.select('*').maybeSingle();
 
       // If column delay_minutes does not exist in schema (error 42703), store delay in notes string
       if (error?.code === '42703') {
+        if (expected) throw new Error('Kitchen details need the current database schema. No changes were saved.');
         const noteStr = `[DELAY:${delayMinutes}] ${notes || ''}`.trim();
-        ({ error } = await supabase.from('orders').update({ notes: noteStr }).eq('id', id));
+        ({ data, error } = await supabase.from('orders').update({ notes: noteStr }).eq('id', id).select('*').maybeSingle());
       }
 
       if (error) throw new Error(error.message);
-      return true;
+      if (!data) throw new Error('Order prep details changed on another screen. Refresh and try again.');
+      return mapOrder(data);
     },
-    onMutate: ({ id, delayMinutes, notes }) =>
-      patchList<Order>(queryClient, queryKeys.orders, (draft) =>
+    onMutate: ({ id, delayMinutes, notes, optimistic = true }) =>
+      optimistic ? patchList<Order>(queryClient, queryKeys.orders, (draft) =>
         draft.map((o) => (o.id === id ? { ...o, delayMinutes, notes: notes !== undefined ? notes : o.notes } : o))
-      ),
+      ) : undefined,
+    onSuccess: (order) => queryClient.setQueryData<Order[]>(queryKeys.orders, old => old?.map(o => o.id === order.id ? order : o)),
     onError: (_err, _vars, context) => rollbackList(queryClient, context),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.orders });
@@ -202,6 +285,8 @@ export function useCreateOrder() {
         // where a Razorpay charge could not be verified server-side and is
         // deliberately saved as 'unpaid' for manual reconciliation.
         paymentStatus: orderData.paymentStatus || 'unpaid',
+        paymentReference: orderData.paymentReference,
+        cashTendered: orderData.cashTendered,
         orderDate,
         orderTime: timeStr,
         couponCode: orderData.couponCode,
@@ -209,6 +294,8 @@ export function useCreateOrder() {
         orderType: orderData.orderType || 'takeaway',
         tableNumber: orderData.tableNumber,
       };
+
+      const tenant = await getTenantContext(supabase);
 
       const row = {
         id: orderId, // PPR-ORD-20260725-4821
@@ -219,6 +306,8 @@ export function useCreateOrder() {
         order_type: newOrder.orderType,
         payment_mode: newOrder.paymentMode,
         payment_status: newOrder.paymentStatus,
+        payment_reference: newOrder.paymentReference || null,
+        cash_tendered: newOrder.cashTendered ?? null,
         items: newOrder.items,
         subtotal: newOrder.subtotal,
         cgst: newOrder.cgst,
@@ -233,6 +322,9 @@ export function useCreateOrder() {
         user_id: orderData.userId || null,
         razorpay_order_id: orderData.razorpayOrderId || null,
         razorpay_payment_id: orderData.razorpayPaymentId || null,
+        tenant_id: tenant.tenant_id,
+        restaurant_id: tenant.restaurant_id,
+        branch_id: tenant.branch_id,
       };
 
       let { error } = await supabase

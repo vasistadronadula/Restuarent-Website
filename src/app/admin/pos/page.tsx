@@ -10,7 +10,7 @@ import TableFloorMapModal from '@/components/pos/TableFloorMapModal';
 
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
-import { useCategories, useMenuItems, useTables } from '@/lib/queries';
+import { useTables } from '@/lib/queries';
 import { usePosCart, type Portion } from '@/hooks/usePosCart';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { computeBillTotals } from '@/lib/billing';
@@ -19,11 +19,11 @@ import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/tri
 import { markPosOrderPrinted } from '@/lib/posOrderTracker';
 import type { MenuItem, Order } from '@/types';
 import { toast } from 'sonner';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import {
   Search, X, LayoutGrid, List,
   Utensils, Coffee, Flame, Cake, Soup, Sparkles,
-  Maximize2, Minimize2, ChevronRight, ShoppingBag,
+  Maximize2, Minimize2, ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -49,9 +49,7 @@ const CATEGORY_ICONS: Record<string, { icon: React.ComponentType<{ className?: s
 
 export default function PosPage() {
   const { user } = useAuth();
-  const { addOrderLocallyAndDB: createOrderContext, categories: dbCategories, orders } = useAdmin();
-  const { data: queryCategories = [] } = useCategories();
-  const { data: menuItems = [] } = useMenuItems();
+  const { addOrderLocallyAndDB: createOrderContext, categories: dbCategories, menuItems, orders } = useAdmin();
   const { data: tables = [] } = useTables();
   const activeTables = React.useMemo(() => tables.filter((table) => table.isActive !== false), [tables]);
 
@@ -90,8 +88,8 @@ export default function PosPage() {
 
   /* Categories */
   const activeCategories = useMemo(() => {
-    return dbCategories.length > 0 ? dbCategories : queryCategories;
-  }, [dbCategories, queryCategories]);
+    return dbCategories;
+  }, [dbCategories]);
 
   const categoriesList = useMemo(() => {
     return activeCategories
@@ -125,6 +123,31 @@ export default function PosPage() {
   const [orderType, setOrderType] = useState<PosOrderType>('counter');
   const [tableNumber, setTableNumber] = useState<number | ''>('');
   const [paymentMode, setPaymentMode] = useState<PosPaymentMode>('cash');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [cashTendered, setCashTendered] = useState('');
+  const ticketSettingsHydrated = useRef(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const saved = JSON.parse(localStorage.getItem('ppr:pos:ticket-settings') || 'null');
+        if (saved && typeof saved === 'object') {
+          if (saved.orderType === 'counter' || saved.orderType === 'dine-in') setOrderType(saved.orderType);
+          if (typeof saved.tableNumber === 'number') setTableNumber(saved.tableNumber);
+          if (saved.paymentMode === 'cash' || saved.paymentMode === 'upi' || saved.paymentMode === 'card') setPaymentMode(saved.paymentMode);
+          if (typeof saved.packagingCharge === 'number') setPackagingCharge(saved.packagingCharge);
+          if (typeof saved.specialInstructions === 'string') setSpecialInstructions(saved.specialInstructions);
+          if (typeof saved.paymentReference === 'string') setPaymentReference(saved.paymentReference);
+          if (typeof saved.cashTendered === 'string') setCashTendered(saved.cashTendered);
+        }
+      } catch {
+        localStorage.removeItem('ppr:pos:ticket-settings');
+      } finally {
+        ticketSettingsHydrated.current = true;
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   /* Handle Order Type Change */
   const handleOrderTypeChange = (type: PosOrderType) => {
@@ -151,6 +174,14 @@ export default function PosPage() {
     add: addDish,
     clear: clearCart,
   } = usePosCart();
+
+  useEffect(() => {
+    if (!ticketSettingsHydrated.current || lines.length === 0) return;
+    localStorage.setItem('ppr:pos:ticket-settings', JSON.stringify({
+      orderType, tableNumber, paymentMode, packagingCharge, specialInstructions,
+      paymentReference, cashTendered,
+    }));
+  }, [lines.length, orderType, tableNumber, paymentMode, packagingCharge, specialInstructions, paymentReference, cashTendered]);
 
   const quantityInBill = (itemId: string) => quantityByMenuItem[itemId] || 0;
 
@@ -235,6 +266,15 @@ export default function PosPage() {
 
     setPlacing(true);
     try {
+      const tendered = Number(cashTendered);
+      if (paymentMode === 'cash' && (!Number.isFinite(tendered) || tendered < totals.grandTotal)) {
+        toast.error('Enter enough cash received before settling.');
+        return;
+      }
+      if (paymentMode !== 'cash' && paymentReference.trim().length < 4) {
+        toast.error('Enter the payment transaction reference.');
+        return;
+      }
       const orderId = generateOrderId();
       const invoiceNo = generateInvoiceNo(orderId);
 
@@ -246,6 +286,8 @@ export default function PosPage() {
         orderType,
         paymentMode,
         paymentStatus: 'paid',
+        paymentReference: paymentMode === 'cash' ? undefined : paymentReference.trim(),
+        cashTendered: paymentMode === 'cash' ? tendered : undefined,
         status: 'pending',
         items: lines.map((l) => ({
           // menuItemId, not id — the storefront and aggregator webhooks both
@@ -286,7 +328,10 @@ export default function PosPage() {
       setConfirmOpen(true);
 
       clearCart();
+      localStorage.removeItem('ppr:pos:ticket-settings');
       setSpecialInstructions('');
+      setPaymentReference('');
+      setCashTendered('');
       // Back to this order type's own default, not always 0 — otherwise
       // every counter/takeaway order after the first started with no
       // packaging charge until the cashier noticed and re-entered it.
@@ -299,7 +344,7 @@ export default function PosPage() {
     } finally {
       setPlacing(false);
     }
-  }, [lines, orderType, tableNumber, paymentMode, totals, specialInstructions, createOrderContext, clearCart]);
+  }, [lines, orderType, tableNumber, paymentMode, paymentReference, cashTendered, totals, specialInstructions, createOrderContext, clearCart]);
 
   /* Refs for keyboard shortcuts */
   const handlePlaceOrderRef = useRef(handlePlaceOrder);
@@ -340,6 +385,10 @@ export default function PosPage() {
     onTableNumber: setTableNumber,
     paymentMode,
     onPaymentMode: setPaymentMode,
+    paymentReference,
+    onPaymentReference: setPaymentReference,
+    cashTendered,
+    onCashTendered: setCashTendered,
     packagingCharge,
     onPackagingCharge: setPackagingCharge,
     onIncrement: incrementLine,
@@ -725,6 +774,8 @@ export default function PosPage() {
             showCloseButton={false}
             className="p-0 h-[min(95dvh,800px)] md:max-w-4xl lg:max-w-5xl md:mx-auto bg-ad-surface overflow-hidden rounded-t-xl"
           >
+            <SheetTitle className="sr-only">Current bill</SheetTitle>
+            <SheetDescription className="sr-only">Review items and complete payment for this order.</SheetDescription>
             <BillPanel
               {...billPanelProps}
               compact={true}

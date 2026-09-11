@@ -118,7 +118,7 @@ export function FilterPill({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-semibold whitespace-nowrap',
+        'inline-flex min-h-11 sm:min-h-0 shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-2 text-[13px] font-semibold whitespace-nowrap',
         'transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-brand/30',
         active
           ? 'border-brand-300 bg-brand-50 text-brand-800 shadow-[inset_0_0_0_1px_var(--brand-200)]'

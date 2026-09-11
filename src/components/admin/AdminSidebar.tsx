@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ADMIN_NAV, ADMIN_NAV_GROUPS, navItemForPath } from './adminNav';
@@ -30,6 +30,8 @@ interface Props {
  * there is exactly one lit item on screen and it is always where you are.
  */
 export default function AdminSidebar({ open, onClose, wide = false }: Props) {
+  const drawerRef = useRef<HTMLElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
   const pathname = usePathname();
   const badges = useAdminBadges();
   const active = navItemForPath(pathname);
@@ -39,6 +41,32 @@ export default function AdminSidebar({ open, onClose, wide = false }: Props) {
   // back out after the click — the rail should only ever offer what the
   // role can actually open.
   const visibleNav = ADMIN_NAV.filter((item) => canAccess(userRole, item.href));
+
+  useEffect(() => {
+    if (!open) return;
+    restoreFocusRef.current = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const drawer = drawerRef.current;
+    const focusable = () => [...(drawer?.querySelectorAll<HTMLElement>('a[href],button:not([disabled])') || [])];
+    focusable()[0]?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); onClose(); return; }
+      if (event.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+      restoreFocusRef.current?.focus();
+    };
+  }, [open, onClose]);
 
   const rail = (
     <>
@@ -116,6 +144,10 @@ export default function AdminSidebar({ open, onClose, wide = false }: Props) {
             aria-hidden
           />
           <aside
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Admin navigation"
             className="relative flex flex-col w-[var(--ad-sidebar-w)] max-w-[80vw] h-full bg-ad-accent text-white"
             style={{ fontFamily: 'var(--ad-font)' }}
           >

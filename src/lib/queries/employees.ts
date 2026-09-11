@@ -39,7 +39,7 @@ export function useEmployees(enabled = true) {
 async function callEmployeeApi(
   path: string,
   init: { method: string; body?: unknown }
-): Promise<void> {
+): Promise<{ warning?: string }> {
   const {
     data: { session },
   } = await supabase.auth.getSession();
@@ -56,6 +56,7 @@ async function callEmployeeApi(
 
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.error || 'Employee request failed');
+  return { warning: typeof json.warning === 'string' ? json.warning : undefined };
 }
 
 export interface AddEmployeeInput {

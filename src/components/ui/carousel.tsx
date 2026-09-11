@@ -96,7 +96,6 @@ function Carousel({
     // render — hence the targeted exception.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setScrollSnaps(api.scrollSnapList());
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     onSelect(api);
     api.on('reInit', onSelect).on('select', onSelect);
     return () => {

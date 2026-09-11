@@ -19,6 +19,7 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { useCartStore } from '@/store/useCartStore';
+import { menuItems as fallbackMenuItems } from '@/data/menuData';
 import { orderStamps } from '@/lib/orderTime';
 import { generateOrderId } from '@/lib/idGenerator';
 import { supabase } from '@/lib/supabase';
@@ -235,8 +236,10 @@ function CheckoutForm() {
       setPlaced(true);
       clearCart();
       setLoading(false);
-    } catch {
-      toast.error('We could not save your order. Please try again or contact us.');
+    } catch (error) {
+      toast.error(mode === 'razorpay'
+        ? 'Your payment may have succeeded, but we could not save the order. Please contact us before paying again.'
+        : error instanceof Error ? error.message : 'We could not save your order. Please try again or contact us.');
       setLoading(false);
     }
   };
@@ -251,8 +254,12 @@ function CheckoutForm() {
     // at a delisted/sold-out dish's old price. Re-checking synchronously
     // right before submit closes that race; if anything changed, the totals
     // above already reflect it and the customer reviews before trying again.
-    if (menuItems.length > 0) {
-      const { removed, repriced } = useCartStore.getState().reconcileWithMenu(menuItems);
+    if (menuItems.length > 0 && menuItems !== fallbackMenuItems) {
+      const { removed, repriced, quantityAdjusted } = useCartStore.getState().reconcileWithMenu(menuItems);
+      if (quantityAdjusted.length > 0) {
+        toast.warning('Some quantities were reduced to the current order limit. Please review before paying.');
+        return;
+      }
       if (removed.length > 0) {
         toast.warning(
           removed.length === 1
@@ -292,12 +299,17 @@ function CheckoutForm() {
           amount: grandTotal,
           currency: 'INR',
           receipt: activeOrderId,
+          items: state.items.map((item) => ({
+            menuItemId: item.id, quantity: item.quantity, selectedPortion: item.selectedPortion,
+          })),
+          couponCode: state.couponCode,
           notes: { customerName: effectiveName, customerPhone: effectivePhone },
         }),
       });
-      orderData = await res.json();
+      const paymentResult = await res.json();
+      orderData = paymentResult;
       if (!res.ok || !orderData?.id) {
-        toast.error('Online payment service is momentarily busy. You can pay at counter or retry.');
+        toast.error(paymentResult?.error || 'Online payment service is momentarily busy. You can pay at counter or retry.');
         setLoading(false);
         return;
       }
@@ -569,6 +581,7 @@ function CheckoutForm() {
                 >
                   <PaymentOption
                     selected={paymentChoice === 'online'}
+                    disabled={loading}
                     onSelect={() => setPaymentChoice('online')}
                     icon={CreditCard}
                     title="Pay online"
@@ -576,6 +589,7 @@ function CheckoutForm() {
                   />
                   <PaymentOption
                     selected={paymentChoice === 'counter'}
+                    disabled={loading}
                     onSelect={() => setPaymentChoice('counter')}
                     icon={Banknote}
                     title="Pay at counter"
@@ -683,9 +697,7 @@ function CheckoutForm() {
         </button>
       </div>
 
-      <div aria-hidden="true" className="h-[76px] lg:hidden" />
-
-      <Footer />
+      <Footer mobileClearance={76} />
     </div>
   );
 }
@@ -721,37 +733,37 @@ export default function CheckoutPage() {
 
 function PaymentOption({
   selected,
+  disabled,
   onSelect,
   icon: Icon,
   title,
   description,
 }: {
   selected: boolean;
+  disabled: boolean;
   onSelect: () => void;
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   description: string;
 }) {
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onSelect}
+    <label
       className={cn(
-        'flex items-start gap-3 rounded-xl border p-4 text-left transition-colors outline-none',
-        'focus-visible:ring-brand/25 focus-visible:ring-[3px]',
+        'flex items-start gap-3 rounded-xl border p-4 text-left transition-colors cursor-pointer',
+        'has-[:focus-visible]:ring-brand/25 has-[:focus-visible]:ring-[3px]',
+        disabled && 'cursor-wait opacity-60',
         selected ? 'border-brand bg-brand-50' : 'border-hair-1 hover:border-ink-4/50 bg-white'
       )}
     >
-      <span
-        className={cn(
-          'mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full border-2',
-          selected ? 'border-brand' : 'border-ink-4/50'
-        )}
-      >
-        {selected && <span className="bg-brand size-2.5 rounded-full" />}
-      </span>
+      <input
+        type="radio"
+        name="payment-method"
+        value={title}
+        checked={selected}
+        disabled={disabled}
+        onChange={onSelect}
+        className="mt-0.5 size-[18px] shrink-0 accent-brand"
+      />
       <span className="min-w-0">
         <span className="text-ink-1 flex items-center gap-1.5 text-[14px] font-bold">
           <Icon className={cn('size-4', selected ? 'text-brand' : 'text-ink-4')} />
@@ -759,7 +771,7 @@ function PaymentOption({
         </span>
         <span className="text-ink-3 mt-1 block text-[12px] leading-snug">{description}</span>
       </span>
-    </button>
+    </label>
   );
 }
 
@@ -800,7 +812,7 @@ function Field({
           aria-invalid={!!error}
           aria-describedby={error || hint ? `${id}-note` : undefined}
           className={cn(
-            'text-ink-1 placeholder:text-ink-4 h-12 w-full rounded-xl border bg-white pr-4 pl-11 text-[14px] font-medium',
+            'text-ink-1 placeholder:text-ink-4 h-12 w-full rounded-xl border bg-white pr-4 pl-11 text-base sm:text-[14px] font-medium',
             'transition-colors outline-none focus:ring-[3px]',
             error
               ? 'border-nonveg focus:ring-nonveg/20'

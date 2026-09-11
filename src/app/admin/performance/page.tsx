@@ -173,7 +173,8 @@ export default function PerformancePage() {
                 </div>
               </div>
 
-              <div className="h-64 w-full">
+              <p className="sr-only">{chartData.map((day) => `${day.label}: ${day.orders} orders, ${money(day.revenue)}`).join('; ')}</p>
+              <div className="h-64 w-full" role="img" aria-label="Seven day sales trend">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={chartData} margin={{ left: -10, right: 10, top: 10, bottom: 0 }}>
                     <defs>
@@ -229,7 +230,7 @@ export default function PerformancePage() {
                   recentOrders.map((o) => (
                     <Link
                       key={o.id}
-                      href="/admin/bills"
+                      href={`/admin/bills?order=${encodeURIComponent(o.id)}`}
                       className="flex items-center justify-between gap-3 px-3 py-2.5 bg-ad-surface ad-hover no-underline text-ad-ink"
                     >
                       <div className="min-w-0">

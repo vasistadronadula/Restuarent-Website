@@ -127,8 +127,9 @@ export default function EmployeesPage() {
   const handleDelete = async () => {
     if (!deleting) return;
     try {
-      await deleteEmployee.mutateAsync(deleting.id);
-      toast.success(`${deleting.name} removed from the team`);
+      const result = await deleteEmployee.mutateAsync(deleting.id);
+      if (result.warning) toast.warning(result.warning);
+      else toast.success(`${deleting.name} removed from the team`);
       setDeleting(null);
     } catch (err) {
       toast.error((err as Error).message || 'Could not remove this employee');

@@ -6,6 +6,7 @@ import { Users, Clock } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Order } from '@/types';
 import { useNow } from '@/hooks/useNow';
+import { buildTableOccupancy } from '@/lib/tableOccupancy';
 
 export interface TableItem {
   id: string;
@@ -38,37 +39,7 @@ export default function TableFloorMapModal({
 
   // Compute occupancy status for each table from active orders
   const tableStatusMap = React.useMemo(() => {
-    const map = new Map<number, {
-      status: 'available' | 'ordered' | 'waiting_payment';
-      activeOrder?: Order;
-      runningBill?: number;
-      elapsedMinutes?: number;
-      guestCount?: number;
-    }>();
-
-    // Default all tables to available
-    activeTables.forEach((t) => {
-      map.set(t.tableNumber, { status: 'available' });
-    });
-
-    // Match with active orders
-    activeOrders.forEach((o) => {
-      if (o.tableNumber && o.status !== 'delivered' && o.status !== 'cancelled') {
-        const orderTime = o.createdAt ? new Date(o.createdAt).getTime() : now;
-        const elapsedMins = Math.floor((now - orderTime) / 60000);
-        const isPaid = o.paymentStatus === 'paid';
-
-        map.set(o.tableNumber, {
-          status: isPaid ? 'ordered' : 'waiting_payment',
-          activeOrder: o,
-          runningBill: o.grandTotal,
-          elapsedMinutes: Math.max(1, elapsedMins),
-          guestCount: 2,
-        });
-      }
-    });
-
-    return map;
+    return buildTableOccupancy(activeTables.map((table) => table.tableNumber), activeOrders, now);
   }, [activeTables, activeOrders, now]);
 
   const stats = React.useMemo(() => {
@@ -162,7 +133,9 @@ export default function TableFloorMapModal({
                       {info?.activeOrder ? (
                         <div>
                           <div className="flex items-center justify-between gap-2 text-[13px]">
-                            <span className="truncate">#{info.activeOrder.id.slice(-4)}</span>
+                            <span className="truncate">
+                              #{info.activeOrder.id.slice(-4)}{info.activeOrderCount > 1 ? ` +${info.activeOrderCount - 1}` : ''}
+                            </span>
                             <span className="ad-num text-[14px]">{formatCurrency(info.runningBill || 0)}</span>
                           </div>
                           <span className="ad-kicker flex items-center gap-1 mt-0.5" style={isSelected ? { color: 'inherit', opacity: 0.7 } : undefined}>

@@ -8,21 +8,8 @@
    inert CSS instead of failing the build. */
 @custom-variant dark (&:is(.never-dark *));
 
-/* Prevent Radix UI Dialog / Sheet / Popover scroll lock white gap on right edge */
-:root {
-  --removed-body-scroll-bar-width: 0px !important;
-}
-
-html {
-  overflow-y: scroll !important;
-  overflow-x: hidden !important;
-}
-
-body[data-scroll-locked] {
-  padding-right: 0px !important;
-  overflow: auto !important;
-  pointer-events: auto !important;
-}
+/* Dialogs own scroll locking and scrollbar compensation. Overriding those
+   styles lets the page move and receive clicks behind an open modal. */
 
 /* ============================================================ */
 /* Design tokens                                                */

@@ -40,11 +40,12 @@ export default function PalaPittaLogo({
       <Image
         src="/logo.png"
         alt="Pala Pitta Ruchulu"
-        width={w}
-        height={h}
+        width={1948}
+        height={579}
+        sizes={`${w}px`}
         priority={priority}
         className="block h-auto w-auto object-contain"
-        style={{ height: `${h}px` }}
+        style={{ height: `${h}px`, width: 'auto' }}
       />
     </span>
   );

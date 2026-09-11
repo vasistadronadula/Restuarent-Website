@@ -1,10 +1,10 @@
 'use client';
 
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BarChart3, Banknote, QrCode, CreditCard, ShoppingBag, TrendingUp, Clock, CheckCircle2 } from 'lucide-react';
+import { BarChart3, Banknote, QrCode, CreditCard, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Order } from '@/types';
 

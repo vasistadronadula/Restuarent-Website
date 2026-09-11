@@ -8,16 +8,17 @@ import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import {
   ROLE_LABELS, receivesOrderNotifications, receivesReservationNotifications,
-  isStaffRole,
+  isStaffRole, canAccess,
 } from '@/lib/roleAccess';
 import { roleAppFor } from '@/lib/roleApps';
 import { getPushState } from '@/lib/pushClient';
 import { isPrinterConnected } from '@/lib/thermalPrinter';
+import { useQueryClient } from '@tanstack/react-query';
 import MobileAppInstallModal from './MobileAppInstallModal';
 import PrinterSettingsPanel from './PrinterSettingsPanel';
 import { navItemForPath } from './adminNav';
 import {
-  Bell, RefreshCw, Globe, LogOut, Printer, User, Settings, Menu, LayoutGrid, Clock,
+  Bell, RefreshCw, LogOut, Printer, User, Settings, Menu, LayoutGrid, Clock,
 } from 'lucide-react';
 
 type Stamp = { date: string; time: string } | null;
@@ -70,6 +71,7 @@ interface Props {
 }
 
 export default function AdminHeader({ title, onOpenNav, wideNav = false }: Props) {
+  const queryClient = useQueryClient();
   const pathname = usePathname();
   const { orders, reservations } = useAdmin();
   const { user, userRole, signOutUser } = useAuth();
@@ -240,14 +242,14 @@ export default function AdminHeader({ title, onOpenNav, wideNav = false }: Props
                 {printerConnected ? 'Printer ready' : 'Connect printer'}
               </span>
             </button>
-          ) : (
+          ) : canAccess(userRole, '/admin/pos') ? (
             <Link href="/admin/pos" className="ad-btn ad-btn-primary hidden sm:inline-flex">
               New order
             </Link>
-          )}
+          ) : null}
 
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => queryClient.refetchQueries({ type: 'active' })}
             className={`hidden sm:block ${iconBtn}`}
             title="Refresh data"
           >
@@ -309,16 +311,6 @@ export default function AdminHeader({ title, onOpenNav, wideNav = false }: Props
               title="Account menu"
             >
               {avatarUrl ? '' : initials}
-            </button>
-
-            <button
-              type="button"
-              onClick={signOutUser}
-              className="p-2 text-ad-muted hover:text-ad-accent hover:bg-ad-surface transition-colors"
-              title="Sign out"
-              aria-label="Sign out"
-            >
-              <LogOut className="w-4 h-4" />
             </button>
 
             {profileOpen && (

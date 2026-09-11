@@ -1,8 +1,6 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { restaurantInfo } from '@/data/restaurantInfo';
 import type { Order } from '@/types';
 import {
-  billAmount,
   billCounts,
   billHeader,
   billItems,

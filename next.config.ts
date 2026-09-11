@@ -43,6 +43,11 @@ const imageRemotePatterns = [
  * needed in development for React Refresh, and is dropped in production.
  */
 const isDev = process.env.NODE_ENV === "development";
+const fastifyEnabled = process.env.NEXT_PUBLIC_FASTIFY_ENABLED !== 'false';
+const fastifyOrigin = (process.env.FASTIFY_INTERNAL_URL || 'http://127.0.0.1:3001').replace(/\/$/, '');
+const extraConnections = [process.env.NEXT_PUBLIC_FASTIFY_URL, process.env.NEXT_PUBLIC_FASTIFY_WS_URL]
+  .filter((value): value is string => Boolean(value))
+  .map(value => new URL(value).origin);
 
 const csp = [
   "default-src 'self'",
@@ -50,7 +55,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://images.unsplash.com https://*.razorpay.com",
   "font-src 'self' data:",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.supabase.in wss://*.supabase.in https://api.razorpay.com https://lumberjack.razorpay.com https://*.razorpay.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://graph.facebook.com",
+  `connect-src 'self' ${extraConnections.join(' ')} https://*.supabase.co wss://*.supabase.co https://*.supabase.in wss://*.supabase.in https://api.razorpay.com https://lumberjack.razorpay.com https://*.razorpay.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://graph.facebook.com`,
   // Razorpay checkout and Firebase's reCAPTCHA both render in iframes.
   "frame-src 'self' https://api.razorpay.com https://*.razorpay.com https://www.google.com https://*.firebaseapp.com",
   "worker-src 'self' blob:",
@@ -59,7 +64,7 @@ const csp = [
   "base-uri 'self'",
   "form-action 'self' https://*.razorpay.com",
   "frame-ancestors 'self'",
-  "upgrade-insecure-requests",
+  ...(isDev ? [] : ["upgrade-insecure-requests"]),
 ].join("; ");
 
 const cspHeaderKey =
@@ -68,6 +73,15 @@ const cspHeaderKey =
     : "Content-Security-Policy-Report-Only";
 
 const nextConfig: NextConfig = {
+  env: { NEXT_PUBLIC_FASTIFY_ENABLED: String(fastifyEnabled) },
+  async rewrites() {
+    return {
+      beforeFiles: fastifyEnabled ? [
+        { source: '/api/:path*', destination: `${fastifyOrigin}/api/:path*` },
+        { source: '/ws', destination: `${fastifyOrigin}/ws` },
+      ] : [],
+    };
+  },
   compress: true,
   poweredByHeader: false,
   // Strict Mode's extra render/effect pass runs in development only — it has
@@ -106,7 +120,6 @@ const nextConfig: NextConfig = {
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
-          { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           // No feature on this site uses any of these; denying them means a
           // script that does get injected can't quietly reach the camera or
@@ -116,10 +129,11 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Long-term cache for static assets
+        // Public filenames can be replaced during a deploy. Only Next's
+        // content-hashed /_next/static assets are immutable for a year.
         source: '/(.*)\\.(ico|png|jpg|jpeg|svg|webp|avif|woff2|woff|ttf)',
         headers: [
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'Cache-Control', value: 'public, max-age=3600, must-revalidate' },
         ],
       },
       {

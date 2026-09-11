@@ -9,7 +9,7 @@ import { queryKeys } from './keys';
 import { mapMenuItem } from './mappers';
 import { patchList, rollbackList } from './optimistic';
 
-export function useMenuItems() {
+export function useMenuItems(fallbackOnError = true) {
   return useQuery({
     queryKey: queryKeys.menuItems,
     queryFn: async (): Promise<MenuItem[]> => {
@@ -27,10 +27,14 @@ export function useMenuItems() {
         // used to fire on `data.length === 0` too, so deleting the last dish
         // repopulated the menu with demo items that the admin could then
         // neither edit nor delete.
-        if (error) return fallbackMenuItems;
+        if (error) {
+          if (fallbackOnError) return fallbackMenuItems;
+          throw new Error(error.message);
+        }
         return (data || []).map(mapMenuItem);
-      } catch {
-        return fallbackMenuItems;
+      } catch (error) {
+        if (fallbackOnError) return fallbackMenuItems;
+        throw error;
       }
     },
     staleTime: 60_000,
@@ -79,7 +83,7 @@ export function useUpdateMenuItem() {
 
   return useMutation({
     mutationFn: async (item: MenuItem) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('menu_items')
         .update({
           name: item.name,
@@ -98,8 +102,11 @@ export function useUpdateMenuItem() {
           portion_prices: item.portionPrices,
           max_quantity: item.maxQuantity ?? null,
         })
-        .eq('id', item.id);
+        .eq('id', item.id)
+        .select('id')
+        .maybeSingle();
       if (error) throw new Error(error.message);
+      if (!data) throw new Error('Dish was not updated. Refresh and try again.');
       return true;
     },
     onMutate: (item) =>
@@ -116,8 +123,9 @@ export function useDeleteMenuItem() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('menu_items').delete().eq('id', id);
+      const { data, error } = await supabase.from('menu_items').delete().eq('id', id).select('id').maybeSingle();
       if (error) throw new Error(error.message);
+      if (!data) throw new Error('Dish was not deleted. Refresh and try again.');
       return true;
     },
     onMutate: (id) =>

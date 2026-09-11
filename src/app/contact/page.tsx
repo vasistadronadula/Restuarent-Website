@@ -192,7 +192,7 @@ export default function ContactPage() {
 }
 
 const fieldClass =
-  'border-hair-1 text-ink-1 placeholder:text-ink-4 h-12 w-full rounded-xl border bg-white px-4 text-[14px] font-medium transition-colors outline-none focus:border-brand-300 focus:ring-[3px] focus:ring-brand/15';
+  'border-hair-1 text-ink-1 placeholder:text-ink-4 h-12 w-full rounded-xl border bg-white px-4 text-base sm:text-[14px] font-medium transition-colors outline-none focus:border-brand-300 focus:ring-[3px] focus:ring-brand/15';
 
 function QuickAction({
   href,

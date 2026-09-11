@@ -10,6 +10,8 @@ import RoleManifestLink from './RoleManifestLink';
 import { useAdmin } from '@/context/AdminContext';
 import { useAdminStore } from '@/store/useAdminStore';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
@@ -26,7 +28,8 @@ interface Props {
 export default function AdminLayout({ children, title }: Props) {
   const pathname = usePathname();
   const clearNotification = useAdminStore((s) => s.clearNotification);
-  const { notification } = useAdmin();
+  const { notification, dataError } = useAdmin();
+  const queryClient = useQueryClient();
   const [navOpen, setNavOpen] = useState(false);
 
   const isPosPage = pathname === '/admin/pos' || pathname === '/cashier';
@@ -56,7 +59,7 @@ export default function AdminLayout({ children, title }: Props) {
   // and while it is open it covers the only other way to leave the page.
 
   return (
-    <div className="ad-shell flex min-h-dvh w-full">
+    <div className={`ad-shell flex w-full ${isKitchenPage ? 'h-dvh overflow-hidden' : 'min-h-dvh'}`}>
       {/* POS and KDS get no admin nav rail at all — both are till/kitchen
           hardware running one screen all shift, and the console nav would
           just be a permanent column of chrome nobody taps. The header's
@@ -65,18 +68,29 @@ export default function AdminLayout({ children, title }: Props) {
         <AdminSidebar open={navOpen} onClose={() => setNavOpen(false)} wide={isFullBleed} />
       )}
 
-      <div className="flex-1 min-w-0 flex flex-col">
-        <AdminHeader title={title} onOpenNav={() => setNavOpen(true)} wideNav={isFullBleed} />
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col">
+        {!isKitchenPage && <AdminHeader title={title} onOpenNav={() => setNavOpen(true)} wideNav={isFullBleed} />}
 
         <main
           className={
             isPosPage
               ? 'flex-1 w-full h-[calc(100dvh-var(--ad-header-h))] overflow-hidden'
               : isKitchenPage
-              ? 'flex-1 w-full min-h-[calc(100dvh-var(--ad-header-h))]'
+              ? 'flex-1 min-h-0 w-full overflow-hidden flex flex-col'
               : 'flex-1 w-full box-border overflow-x-hidden px-4 sm:px-6 py-6'
           }
         >
+          {dataError && !isKitchenPage && (
+            <div role="alert" className="m-4 sm:m-6 mb-0 border-2 border-ad-accent bg-ad-accent-soft px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertTriangle className="size-4 mt-0.5 shrink-0" />
+                <div><strong>Live data could not be loaded.</strong><div className="text-[12px] mt-0.5">{dataError}</div></div>
+              </div>
+              <button type="button" className="ad-btn ad-btn-secondary sm:ml-auto" onClick={() => queryClient.refetchQueries({ type: 'active' })}>
+                <RefreshCw className="size-4" /> Retry
+              </button>
+            </div>
+          )}
           {isFullBleed ? children : <div className="max-w-[1600px] mx-auto w-full">{children}</div>}
         </main>
       </div>

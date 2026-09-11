@@ -19,7 +19,7 @@ import { ArrowUpDown, Search, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 
-interface DataTableProps<TData, TValue = any> {
+interface DataTableProps<TData> {
   columns: any[];
   data: TData[];
   searchKey?: string;
@@ -48,7 +48,7 @@ interface DataTableProps<TData, TValue = any> {
   getRowId?: (row: TData) => string;
 }
 
-export function DataTable<TData, TValue>({
+export function DataTable<TData>({
   columns,
   data,
   searchKey,
@@ -60,7 +60,7 @@ export function DataTable<TData, TValue>({
   headerExtra,
   renderMobileCard,
   getRowId,
-}: DataTableProps<TData, TValue>) {
+}: DataTableProps<TData>) {
   const isNarrow = useMediaQuery('(max-width: 639.95px)');
   const asCards = isNarrow && !!renderMobileCard;
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -83,6 +83,7 @@ export function DataTable<TData, TValue>({
   const { rows } = table.getRowModel();
   const parentRef = useRef<HTMLDivElement>(null);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual owns imperative scroll helpers; this component does not pass them into memoized children.
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => parentRef.current,
@@ -103,6 +104,7 @@ export function DataTable<TData, TValue>({
               <input
                 className="ad-input !pl-9"
                 placeholder={searchPlaceholder}
+                aria-label={searchPlaceholder}
                 value={globalFilter ?? ''}
                 onChange={(e) => setGlobalFilter(e.target.value)}
               />
@@ -140,7 +142,7 @@ export function DataTable<TData, TValue>({
         className="w-full overflow-auto border-2 border-ad-line"
         style={{ maxHeight: typeof height === 'number' ? `${height}px` : height }}
       >
-        <Table className="w-full text-left border-collapse">
+        <Table scrollContainer={false} className="w-full text-left border-collapse">
           <TableHeader className="sticky top-0 z-10 bg-ad-bg">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="border-b-2 border-ad-line hover:bg-transparent">
@@ -155,9 +157,13 @@ export function DataTable<TData, TValue>({
                         'py-3 px-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-ad-muted select-none',
                         canSort && 'cursor-pointer hover:text-ad-accent transition-colors'
                       )}
-                      onClick={header.column.getToggleSortingHandler()}
+                      aria-sort={canSort ? (isSorted === 'asc' ? 'ascending' : isSorted === 'desc' ? 'descending' : 'none') : undefined}
                     >
-                      <div className="flex items-center gap-1.5">
+                      {canSort ? <button
+                        type="button"
+                        onClick={header.column.getToggleSortingHandler()}
+                        className="flex min-h-8 w-full items-center gap-1.5 text-left uppercase tracking-[0.08em] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ad-accent disabled:cursor-default"
+                      >
                         {flexRender(header.column.columnDef.header, header.getContext())}
                         {canSort && (
                           <span className="text-ad-muted">
@@ -170,7 +176,7 @@ export function DataTable<TData, TValue>({
                             )}
                           </span>
                         )}
-                      </div>
+                      </button> : flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   );
                 })}

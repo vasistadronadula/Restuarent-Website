@@ -15,7 +15,7 @@ export const menuItems: MenuItem[] = (rawMenuItems as Array<Record<string, unkno
   price: item.price as number,
   category: item.category as string,
   vegStatus: item.vegStatus as MenuItem['vegStatus'],
-  rating: 4.5,
+  rating: 0,
   reviewCount: 0,
   image: item.image as string,
   isPopular: Boolean(item.isPopular),

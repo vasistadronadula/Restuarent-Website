@@ -7,6 +7,7 @@ import type { CartItem } from '@/types';
 import { useCartStore } from '@/store/useCartStore';
 import CartStepper from './CartStepper';
 import { VegMark } from './store-ui';
+import { PORTION_LABELS } from '@/lib/portionLabels';
 
 /**
  * One row of the cart. Used by the drawer and the cart page so a line item
@@ -29,10 +30,12 @@ export function CartLineItem({
 }) {
   const unitPrice = item.selectedPrice ?? item.price;
   const lineTotal = unitPrice * item.quantity;
-  const atMax = Boolean(item.maxQuantity && item.quantity >= item.maxQuantity);
+  const dishQuantity = useCartStore((s) => s.items.filter((line) => line.id === item.id)
+    .reduce((sum, line) => sum + line.quantity, 0));
+  const atMax = Boolean(item.maxQuantity && dishQuantity >= item.maxQuantity);
 
   return (
-    <li className={cn('flex items-start gap-3 py-3.5', className)}>
+    <li className={cn('grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 py-3.5 min-[400px]:flex', className)}>
       {/* eslint-disable-next-line @next/next/no-img-element -- see DishListItem */}
       <img
         src={item.image || FALLBACK_DISH_IMAGE}
@@ -54,7 +57,7 @@ export function CartLineItem({
           <VegMark status={item.vegStatus} size={13} />
           {item.selectedPortion && (
             <span className="text-ink-3 bg-hair-2 rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase">
-              {item.selectedPortion}
+              {PORTION_LABELS[item.selectedPortion]}
             </span>
           )}
         </div>
@@ -73,7 +76,7 @@ export function CartLineItem({
         </p>
       </div>
 
-      <div className="flex shrink-0 flex-col items-end gap-2">
+      <div className="col-span-2 flex items-center justify-between gap-2 min-[400px]:shrink-0 min-[400px]:flex-col min-[400px]:items-end">
         <span className="text-ink-1 text-[14px] font-extrabold tabular-nums">
           {formatCurrency(lineTotal)}
         </span>

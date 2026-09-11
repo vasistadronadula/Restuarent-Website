@@ -46,6 +46,10 @@ export interface BillPanelProps {
 
   paymentMode: PosPaymentMode;
   onPaymentMode: (m: PosPaymentMode) => void;
+  paymentReference: string;
+  onPaymentReference: (value: string) => void;
+  cashTendered: string;
+  onCashTendered: (value: string) => void;
 
   packagingCharge?: number;
   onPackagingCharge?: (fee: number) => void;
@@ -76,11 +80,14 @@ export default function BillPanel({
   onTableNumber,
   paymentMode,
   onPaymentMode,
+  paymentReference,
+  onPaymentReference,
+  cashTendered,
+  onCashTendered,
   packagingCharge = 0,
   onPackagingCharge,
   onIncrement,
   onDecrement,
-  onSetQuantity,
   onSetLineNotes,
   onRemove,
   onClear,
@@ -88,11 +95,14 @@ export default function BillPanel({
   onOpenTableMap,
   isPlacing,
   onClose,
-  compact = false,
 }: BillPanelProps) {
   const empty = lines.length === 0;
   const needsTable = orderType === 'dine-in' && tableNumber === '';
-  const blocked = empty || needsTable;
+  const tenderedAmount = Number(cashTendered);
+  const paymentConfirmed = paymentMode === 'cash'
+    ? Number.isFinite(tenderedAmount) && tenderedAmount >= totals.grandTotal
+    : paymentReference.trim().length >= 4;
+  const blocked = empty || needsTable || !paymentConfirmed;
   const activeTables = React.useMemo(() => tables.filter((table) => table.isActive !== false), [tables]);
 
   /* Editing note key state */
@@ -313,7 +323,7 @@ export default function BillPanel({
                             key={qn}
                             type="button"
                             onClick={() => {
-                              onSetLineNotes && onSetLineNotes(line.key, qn);
+                               onSetLineNotes?.(line.key, qn);
                               setEditingNoteKey(null);
                             }}
                             className="ad-tab px-2 py-0.5 text-[10px]"
@@ -330,7 +340,7 @@ export default function BillPanel({
                           onChange={(e) => setCustomNoteInput(e.target.value)}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter' && customNoteInput.trim()) {
-                              onSetLineNotes && onSetLineNotes(line.key, customNoteInput.trim());
+                               onSetLineNotes?.(line.key, customNoteInput.trim());
                               setCustomNoteInput('');
                               setEditingNoteKey(null);
                             }
@@ -342,7 +352,7 @@ export default function BillPanel({
                           type="button"
                           onClick={() => {
                             if (customNoteInput.trim()) {
-                              onSetLineNotes && onSetLineNotes(line.key, customNoteInput.trim());
+                               onSetLineNotes?.(line.key, customNoteInput.trim());
                             }
                             setCustomNoteInput('');
                             setEditingNoteKey(null);
@@ -504,6 +514,16 @@ export default function BillPanel({
                   );
                 })}
               </div>
+              {paymentMode === 'cash' ? (
+                <div className="grid grid-cols-2 gap-2 items-end pt-1">
+                  <label className="ad-label m-0">Cash received<input inputMode="decimal" className="ad-input mt-1" value={cashTendered} onChange={(event) => onCashTendered(event.target.value)} placeholder={totals.grandTotal.toFixed(2)} /></label>
+                  <div className="border border-ad-line bg-ad-bg px-3 py-2 min-h-10"><div className="ad-kicker">Change</div><div className="ad-num text-[16px]">₹{Math.max(0, (Number(cashTendered) || 0) - totals.grandTotal).toFixed(2)}</div></div>
+                </div>
+              ) : (
+                <label className="ad-label m-0 block pt-1">{paymentMode === 'upi' ? 'UPI transaction reference' : 'Card approval reference'}
+                  <input className="ad-input mt-1" value={paymentReference} onChange={(event) => onPaymentReference(event.target.value)} placeholder="Minimum 4 characters" />
+                </label>
+              )}
             </div>
 
             {/* Bill Calculation Breakdown */}
@@ -552,7 +572,7 @@ export default function BillPanel({
                 <span className="w-full text-center">Settling and printing…</span>
               ) : (
                 <>
-                  <span>Settle and print</span>
+                  <span>Confirm payment & print</span>
                   {!empty && (
                     <span className="ad-num text-[18px] font-bold">₹{totals.grandTotal.toFixed(2)}</span>
                   )}

@@ -103,7 +103,7 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
                   onClick={() => setSelectedPortion(portion)}
                   aria-pressed={selected}
                   className={cn(
-                    'rounded-lg border px-2.5 py-1 text-[12px] font-semibold transition-colors outline-none',
+                    'min-h-11 sm:min-h-8 rounded-lg border px-2.5 py-1 text-[12px] font-semibold transition-colors outline-none',
                     'focus-visible:ring-brand/30 focus-visible:ring-[3px]',
                     selected
                       ? 'border-brand-300 bg-brand-50 text-brand-800'

@@ -140,7 +140,7 @@ const MenuCard = memo(function MenuCard({ item }: Props) {
                   }}
                   aria-pressed={selected}
                   className={cn(
-                    'rounded-md border px-2 py-0.5 text-[10.5px] font-semibold transition-colors outline-none',
+                    'min-h-11 min-w-11 sm:min-h-8 rounded-md border px-2 py-1 text-xs font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand',
                     selected
                       ? 'border-brand-300 bg-brand-50 text-brand-800'
                       : 'border-hair-1 text-ink-3 hover:border-ink-4/60'

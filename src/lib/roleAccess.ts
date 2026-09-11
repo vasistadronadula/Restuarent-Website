@@ -36,7 +36,9 @@ export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[] | 'all'> = {
   customer: [],
 };
 
-export const ROLE_DENIED_PREFIXES: Partial<Record<UserRole, string[]>> = {};
+export const ROLE_DENIED_PREFIXES: Partial<Record<UserRole, string[]>> = {
+  manager: ['/admin/employees', '/admin/audit'],
+};
 
 // Reachable by every staff role regardless of ROLE_ALLOWED_PREFIXES: the
 // dashboard overview and a staff member's own profile page.
@@ -53,7 +55,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 
 export const ROLE_ACCESS_SUMMARY: Record<UserRole, string> = {
   admin: 'Full management access — all tools, POS, menu, inventory, reports',
-  manager: 'Full management access — same as Admin',
+  manager: 'Operations access — POS, menu, inventory, tables and reports',
   chef: 'Kitchen display, live orders, and menu management',
   cashier: 'POS, bills, and live orders',
   waiter: 'Legacy table management access',
@@ -84,6 +86,7 @@ export function receivesOrderNotifications(role: UserRole | null | undefined): b
 }
 
 export function receivesReservationNotifications(_role: UserRole | null | undefined): boolean {
+  void _role;
   return false;
 }
 
@@ -92,11 +95,11 @@ export function receivesNotifications(role: UserRole | null | undefined): boolea
 }
 
 export function assignableRoles(callerRole: UserRole | null | undefined): readonly StaffRole[] {
-  return isStaffRole(callerRole) ? STAFF_ROLES : [];
+  return callerRole === 'admin' ? STAFF_ROLES : [];
 }
 
 export function canManageStaffRole(callerRole: UserRole | null | undefined): boolean {
-  return isStaffRole(callerRole);
+  return callerRole === 'admin';
 }
 
 function isUnderOrEqual(pathname: string, prefix: string): boolean {

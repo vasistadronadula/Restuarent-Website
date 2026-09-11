@@ -3,12 +3,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import {
   Edit2, Flame, Plus, Sparkles, Trash2, Clock, FolderOpen, UtensilsCrossed,
-  GripVertical, AlertTriangle,
+  GripVertical,
 } from 'lucide-react';
 
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -384,7 +384,7 @@ export default function MenuManagementPage() {
   });
 
   // Auto-generate slug when name changes (only for new categories)
-  const watchCatName = catForm.watch('name');
+  const watchCatName = useWatch({ control: catForm.control, name: 'name' });
   const autoSlug = useMemo(() => toSlug(watchCatName || ''), [watchCatName]);
 
   const openAddCat = () => {

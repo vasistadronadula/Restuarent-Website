@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, RefreshCw, X, Check, AlertCircle, Sparkles, FolderOpen } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ export function CameraCaptureModal({
   const [cameraLoading, setCameraLoading] = useState(true);
 
   // Stop camera stream helper
-  const stopStream = () => {
+  const stopStream = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
         try {
@@ -39,10 +39,10 @@ export function CameraCaptureModal({
       });
       streamRef.current = null;
     }
-  };
+  }, []);
 
   // Helper to obtain media stream with progressive fallbacks
-  const getStreamWithFallbacks = async (mode: 'environment' | 'user'): Promise<MediaStream> => {
+  const getStreamWithFallbacks = useCallback(async (mode: 'environment' | 'user'): Promise<MediaStream> => {
     // 1. Try high-definition with desired facing mode
     try {
       return await navigator.mediaDevices.getUserMedia({
@@ -68,10 +68,10 @@ export function CameraCaptureModal({
         });
       }
     }
-  };
+  }, []);
 
   // Start camera stream
-  const startCamera = async (mode: 'environment' | 'user') => {
+  const startCamera = useCallback(async (mode: 'environment' | 'user') => {
     stopStream();
     setError(null);
     setCameraLoading(true);
@@ -125,7 +125,7 @@ export function CameraCaptureModal({
         setError(errorMessage);
       }
     }
-  };
+  }, [getStreamWithFallbacks, stopStream]);
 
   useEffect(() => {
     if (open) {
@@ -139,7 +139,7 @@ export function CameraCaptureModal({
     return () => {
       stopStream();
     };
-  }, [open, facingMode]);
+  }, [open, facingMode, startCamera, stopStream]);
 
   const switchCamera = () => {
     const nextMode = facingMode === 'environment' ? 'user' : 'environment';
@@ -261,6 +261,7 @@ export function CameraCaptureModal({
             </div>
           ) : capturedDataUrl ? (
             <div className="relative w-full h-full">
+              {/* eslint-disable-next-line @next/next/no-img-element -- captured snapshots are browser data URLs, not optimized app assets. */}
               <img
                 src={capturedDataUrl}
                 alt="Captured snapshot"

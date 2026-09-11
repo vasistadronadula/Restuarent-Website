@@ -335,7 +335,7 @@ function MenuBrowser() {
                 placeholder="Search for a dish…"
                 aria-label="Search dishes"
                 className={cn(
-                  'border-hair-1 text-ink-1 placeholder:text-ink-4 h-11 w-full rounded-full border bg-white pr-10 pl-11 text-[14px] font-medium',
+                  'border-hair-1 text-ink-1 placeholder:text-ink-4 h-11 w-full rounded-full border bg-white pr-12 pl-11 text-base md:text-[14px] font-medium',
                   'transition-colors outline-none focus:border-brand-300 focus:ring-[3px] focus:ring-brand/15',
                   // Safari draws its own clear button on type=search and it
                   // collides with ours.
@@ -347,7 +347,7 @@ function MenuBrowser() {
                   type="button"
                   onClick={() => setSearchQuery('')}
                   aria-label="Clear search"
-                  className="text-ink-4 hover:text-ink-1 absolute top-1/2 right-3 grid size-7 -translate-y-1/2 place-items-center rounded-full transition-colors"
+                  className="text-ink-4 hover:text-ink-1 absolute top-1/2 right-1 grid size-11 -translate-y-1/2 place-items-center rounded-full transition-colors"
                 >
                   <X className="size-4" />
                 </button>
@@ -556,15 +556,7 @@ function MenuBrowser() {
 
       <StoreCartBar itemCount={cartTotals.totalItems} total={cartTotals.grandTotal} />
 
-      {/* Space for the two fixed bars, so the last dish is never trapped
-          underneath them. */}
-      <div
-        aria-hidden="true"
-        style={{ height: cartTotals.totalItems > 0 ? '9rem' : '4.5rem' }}
-        className="lg:hidden"
-      />
-
-      <Footer />
+      <Footer mobileClearance={cartTotals.totalItems > 0 ? 144 : 72} desktopClearance={cartTotals.totalItems > 0 ? 80 : 0} />
     </div>
   );
 }
@@ -611,7 +603,7 @@ function LayoutToggle({
       aria-label={label}
       aria-pressed={active}
       className={cn(
-        'grid size-8 place-items-center rounded-full transition-colors outline-none',
+        'grid size-11 sm:size-8 place-items-center rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand',
         active ? 'bg-brand text-white' : 'text-ink-4 hover:text-ink-2'
       )}
     >

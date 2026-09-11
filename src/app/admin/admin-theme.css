@@ -498,7 +498,8 @@ textarea.ad-input { min-height: 90px; resize: vertical; }
 @media (max-width: 640px) {
   .ad-title { font-size: 20px; }
   .ad-h { font-size: 18px; }
-  .ad-btn { min-height: 40px; }
+  .ad-btn, .ad-tab { min-height: 44px; }
+  .ad-btn-icon { width: 44px; height: 44px; }
   .ad-panel, .ad-panel-surface { min-width: 0; }
 }
 

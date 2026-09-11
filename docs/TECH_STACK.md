@@ -132,6 +132,16 @@
   - Cloud Storage
   - Firestore/Realtime Database
 
+### Fastify Service
+- **Directory:** `server/`
+- **Port:** 3001
+- **Features:**
+  - High-performance HTTP & REST API endpoints
+  - Real-time native WebSockets (`@fastify/websocket`) for KDS & POS
+  - Multi-room broadcasting (`kitchen`, `cashier`, `pos`, `tables`)
+  - Shared TypeScript types & Supabase integration
+  - Hot reload via `tsx watch`
+
 ---
 
 ## 💳 Payment Integration

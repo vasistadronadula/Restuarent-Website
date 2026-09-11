@@ -370,7 +370,7 @@ function ProfileField({
           onChange={(e) => onChange(e.target.value)}
           aria-describedby={hint ? `${id}-hint` : undefined}
           className={cn(
-            'border-hair-1 text-ink-1 placeholder:text-ink-4 h-12 w-full rounded-xl border bg-white pr-10 pl-11 text-[14px] font-medium',
+            'border-hair-1 text-ink-1 placeholder:text-ink-4 h-12 w-full rounded-xl border bg-white pr-10 pl-11 text-base sm:text-[14px] font-medium',
             'transition-colors outline-none focus:border-brand-300 focus:ring-[3px] focus:ring-brand/15',
             'disabled:bg-hair-2/60 disabled:text-ink-3'
           )}

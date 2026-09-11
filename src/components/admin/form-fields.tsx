@@ -579,6 +579,7 @@ export function ImageUploadField<T extends FieldValues>({
                 ) : imageVal ? (
                   <div className="flex items-center gap-3.5 p-3 border border-ad-hairline bg-ad-surface">
                     <div className="relative w-16 h-16 overflow-hidden shrink-0 bg-ad-n200 border border-ad-hairline">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- admin previews may be object/data URLs before upload, which next/image cannot optimize. */}
                       <img
                         src={String(imageVal)}
                         alt="Preview"

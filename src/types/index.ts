@@ -133,6 +133,7 @@ export type OrderType = 'takeaway' | 'dine-in' | 'counter';
 export interface Order {
   id: string;
   orderId: string;
+  orderNumber?: number;
   customerId?: string;
   customerName: string;
   customerPhone?: string;
@@ -149,10 +150,16 @@ export interface Order {
   status: OrderStatus;
   paymentMode: PaymentMode;
   paymentStatus: PaymentStatus;
+  paymentReference?: string;
+  cashTendered?: number;
   orderDate?: string;
   orderTime?: string;
   createdAt?: string;
   deliveredAt?: string;
+  preparingAt?: string;
+  readyAt?: string;
+  /** Undefined on databases that have not installed the KDS migration. */
+  kitchenProgress?: Record<string, boolean>;
   tableNumber?: number;
   notes?: string;
   couponCode?: string;

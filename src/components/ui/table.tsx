@@ -2,19 +2,21 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-function Table({ className, ...props }: React.ComponentProps<'table'>) {
-  return (
+function Table({ className, scrollContainer = true, ...props }: React.ComponentProps<'table'> & {
+  /** Disable when a parent already owns scrolling, e.g. a virtualized table. */
+  scrollContainer?: boolean;
+}) {
+  const table = (
+    <table data-slot="table" className={cn('w-full caption-bottom border-collapse text-sm', className)} {...props} />
+  );
+  return scrollContainer ? (
     // The wrapper owns the horizontal scroll so a wide order table scrolls
     // inside its card instead of widening the page — the admin layout used to
     // gain a body-level horizontal scrollbar on every list screen.
     <div data-slot="table-container" className="relative w-full overflow-x-auto">
-      <table
-        data-slot="table"
-        className={cn('w-full caption-bottom border-collapse text-sm', className)}
-        {...props}
-      />
+      {table}
     </div>
-  );
+  ) : table;
 }
 
 function TableHeader({ className, ...props }: React.ComponentProps<'thead'>) {

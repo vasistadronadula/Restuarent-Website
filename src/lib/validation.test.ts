@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { editEmployeeSchema } from './adminSchemas';
 import {
   validateEmail,
   validateName,
@@ -84,6 +85,11 @@ describe('getPasswordStrength', () => {
 });
 
 describe('safeRedirect', () => {
+  it.each(['/\t/evil.example', '/\n/evil.example', '/\r\\evil.example'])(
+    'rejects browser-normalized external redirects: %j', (value) => {
+      expect(safeRedirect(value, '/fallback')).toBe('/fallback');
+    }
+  );
   it('allows a same-site, path-absolute target', () => {
     expect(safeRedirect('/orders', '/')).toBe('/orders');
   });
@@ -103,5 +109,17 @@ describe('safeRedirect', () => {
 
   it('blocks a backslash-disguised protocol-relative URL', () => {
     expect(safeRedirect('/\\evil.example', '/fallback')).toBe('/fallback');
+  });
+});
+
+describe('employee phone validation', () => {
+  const schema = editEmployeeSchema.shape.phone;
+  it.each(['9123456789', '+91 91234 56789', '919123456789', '09123456789'])(
+    'preserves all ten digits of %s', (value) => {
+      expect(schema.parse(value)).toBe('9123456789');
+    }
+  );
+  it('rejects an invalid country code instead of taking the last ten digits', () => {
+    expect(schema.safeParse('+1 9123456789').success).toBe(false);
   });
 });

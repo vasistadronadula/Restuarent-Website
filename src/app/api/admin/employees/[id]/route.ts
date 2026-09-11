@@ -48,7 +48,7 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     const { data: existing, error: fetchErr } = await admin
       .from('employees')
-      .select('auth_user_id')
+      .select('auth_user_id, name, phone, role, shift, salary, status')
       .eq('id', id)
       .maybeSingle();
     if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 });
@@ -62,34 +62,53 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     if (salary !== undefined) patch.salary = salary;
     if (status !== undefined) patch.status = status;
 
-    if (Object.keys(patch).length > 0) {
-      const { error: updateErr } = await admin.from('employees').update(patch).eq('id', id);
-      if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 400 });
-    }
-
+    const previousEmployee = {
+      name: existing.name, phone: existing.phone, role: existing.role,
+      shift: existing.shift, salary: existing.salary, status: existing.status,
+    };
+    let profileChanged = false;
     if (existing.auth_user_id) {
       if (role !== undefined || status !== undefined) {
-        const normalizedStatus = typeof status === 'string' ? status.toLowerCase() : '';
-        const nextRole = normalizedStatus === 'inactive' ? 'customer' : role;
-        if (nextRole !== undefined) {
-          const { error: profileErr } = await admin
-            .from('profiles')
-            .update({ role: nextRole })
-            .eq('id', existing.auth_user_id);
-          if (profileErr) return NextResponse.json({ error: profileErr.message }, { status: 400 });
-        }
+        const nextStatus = String(status ?? existing.status).toLowerCase();
+        const nextRole = nextStatus === 'inactive' ? 'customer' : (role ?? existing.role);
+        const { error: profileErr } = await admin
+          .from('profiles')
+          .update({ role: nextRole })
+          .eq('id', existing.auth_user_id);
+        if (profileErr) return NextResponse.json({ error: profileErr.message }, { status: 400 });
+        profileChanged = true;
       }
-      if (name !== undefined || phone !== undefined) {
-        await admin.auth.admin.updateUserById(existing.auth_user_id, {
+    }
+
+    if (Object.keys(patch).length > 0) {
+      const { error: updateErr } = await admin.from('employees').update(patch).eq('id', id);
+      if (updateErr) {
+        if (profileChanged && existing.auth_user_id) {
+          await admin.from('profiles').update({ role: existing.role }).eq('id', existing.auth_user_id);
+        }
+        return NextResponse.json({ error: updateErr.message }, { status: 400 });
+      }
+    }
+
+    if (existing.auth_user_id && (name !== undefined || phone !== undefined || password)) {
+      const authPatch = {
+        ...(password ? { password } : {}),
+        ...(name !== undefined || phone !== undefined ? {
           user_metadata: {
             ...(name !== undefined ? { full_name: name } : {}),
             ...(phone !== undefined ? { phone } : {}),
           },
-        }).catch(() => {});
-      }
-      if (password) {
-        const { error: pwErr } = await admin.auth.admin.updateUserById(existing.auth_user_id, { password });
-        if (pwErr) return NextResponse.json({ error: pwErr.message }, { status: 400 });
+        } : {}),
+      };
+      const { error: authUpdateErr } = await admin.auth.admin.updateUserById(existing.auth_user_id, authPatch);
+      if (authUpdateErr) {
+        if (Object.keys(patch).length > 0) {
+          await admin.from('employees').update(previousEmployee).eq('id', id);
+        }
+        if (profileChanged) {
+          await admin.from('profiles').update({ role: existing.role }).eq('id', existing.auth_user_id);
+        }
+        return NextResponse.json({ error: authUpdateErr.message }, { status: 400 });
       }
     }
 
@@ -118,18 +137,40 @@ export async function DELETE(request: Request, { params }: RouteContext) {
 
     const { data: existing, error: fetchErr } = await admin
       .from('employees')
-      .select('auth_user_id')
+      .select('auth_user_id, role')
       .eq('id', id)
       .maybeSingle();
     if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 });
 
+    // Revoke staff privileges before either destructive operation. If the row
+    // deletion fails, restore the previous profile role as compensation. If
+    // auth cleanup fails afterward, the orphaned login remains a customer and
+    // cannot access staff data.
     if (existing?.auth_user_id) {
-      const { error: authDeleteErr } = await admin.auth.admin.deleteUser(existing.auth_user_id);
-      if (authDeleteErr) return NextResponse.json({ error: authDeleteErr.message }, { status: 400 });
+      const { error: revokeErr } = await admin
+        .from('profiles')
+        .update({ role: 'customer' })
+        .eq('id', existing.auth_user_id);
+      if (revokeErr) return NextResponse.json({ error: revokeErr.message }, { status: 400 });
     }
 
     const { error: deleteErr } = await admin.from('employees').delete().eq('id', id);
-    if (deleteErr) return NextResponse.json({ error: deleteErr.message }, { status: 400 });
+    if (deleteErr) {
+      if (existing?.auth_user_id && existing.role) {
+        await admin.from('profiles').update({ role: existing.role }).eq('id', existing.auth_user_id);
+      }
+      return NextResponse.json({ error: deleteErr.message }, { status: 400 });
+    }
+
+    if (existing?.auth_user_id) {
+      const { error: authDeleteErr } = await admin.auth.admin.deleteUser(existing.auth_user_id);
+      if (authDeleteErr) {
+        return NextResponse.json({
+          ok: true,
+          warning: 'Employee removed and access revoked, but the inactive login needs manual cleanup.',
+        });
+      }
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

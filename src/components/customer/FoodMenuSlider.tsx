@@ -18,15 +18,6 @@ const SLIDE_MS = 4500;
 const SWIPE_THRESHOLD = 45;
 const MAX_DOTS = 8;
 
-const CATEGORIES = [
-  { id: 'all', label: '🔥 All Bestsellers' },
-  { id: 'combos', label: '🎉 Unlimited Combos' },
-  { id: 'biryani', label: '🍗 Dum Biryanis' },
-  { id: 'starters', label: '🍢 Signature Starters' },
-  { id: 'south-indian', label: '🍲 Royal Curries' },
-  { id: 'desserts', label: '🍧 Desserts' },
-];
-
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1585937421612-70a008356fbe?w=600&q=80';
 
 export default function FoodMenuSlider() {

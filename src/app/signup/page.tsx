@@ -3,7 +3,7 @@
 import React, { Suspense, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, Loader2, Lock, Mail, Phone, User, UserPlus, Smartphone, Apple, LogIn } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Lock, Mail, Phone, User, UserPlus, Smartphone } from 'lucide-react';
 
 import { useAuth, landAfterLogin } from '@/context/AuthContext';
 import {
@@ -142,7 +142,6 @@ function SignupForm() {
           <Smartphone className="size-5 text-stone-700 dark:text-stone-300" />
         )
       }
-      redirectTo={explicitRedirect || undefined}
       footer={
         <p className="text-xs text-stone-500 dark:text-stone-400">
           Already have an account?{' '}
@@ -279,7 +278,9 @@ function SignupForm() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  className="absolute right-0 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-xl text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300"
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -339,7 +340,7 @@ function SignupForm() {
               disabled={loading}
               className="w-full h-11 font-black bg-stone-950 hover:bg-stone-900 text-white dark:bg-stone-50 dark:hover:bg-stone-200 dark:text-stone-950 rounded-xl transition-all text-xs"
             >
-              {loading ? <Loader2 className="size-4 animate-spin" /> : 'Get Started'}
+              {loading ? <><Loader2 className="size-4 animate-spin" /> Creating account…</> : 'Create account'}
             </Button>
           </form>
 

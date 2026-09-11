@@ -27,7 +27,7 @@ const FALLBACK_CATEGORIES: MenuCategory[] = [
 
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
-export function useCategories() {
+export function useCategories(fallbackOnError = true) {
   return useQuery({
     queryKey: queryKeys.categories,
     queryFn: async (): Promise<MenuCategory[]> => {
@@ -37,10 +37,14 @@ export function useCategories() {
           .select('*')
           .order('sort_order', { ascending: true });
 
-        if (error) return FALLBACK_CATEGORIES;
+        if (error) {
+          if (fallbackOnError) return FALLBACK_CATEGORIES;
+          throw new Error(error.message);
+        }
         return (data || []).map(mapCategory);
-      } catch {
-        return FALLBACK_CATEGORIES;
+      } catch (error) {
+        if (fallbackOnError) return FALLBACK_CATEGORIES;
+        throw error;
       }
     },
     staleTime: 60_000,
@@ -82,7 +86,7 @@ export function useUpdateCategory() {
 
   return useMutation({
     mutationFn: async (cat: MenuCategory) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('menu_categories')
         .update({
           name: cat.name,
@@ -92,8 +96,11 @@ export function useUpdateCategory() {
           sort_order: cat.sortOrder,
           is_active: cat.isActive,
         })
-        .eq('id', cat.id);
+        .eq('id', cat.id)
+        .select('id')
+        .maybeSingle();
       if (error) throw new Error(error.message);
+      if (!data) throw new Error('Category was not updated. Refresh and try again.');
       return true;
     },
     onMutate: (cat) =>
@@ -112,8 +119,9 @@ export function useDeleteCategory() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('menu_categories').delete().eq('id', id);
+      const { data, error } = await supabase.from('menu_categories').delete().eq('id', id).select('id').maybeSingle();
       if (error) throw new Error(error.message);
+      if (!data) throw new Error('Category was not deleted. Refresh and try again.');
       return true;
     },
     onMutate: (id) =>

@@ -1,14 +1,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { MenuItem, CartItem } from '@/types';
-import { computeBillTotals } from '@/lib/billing';
+import { computeBillTotals, computeCouponDiscount } from '@/lib/billing';
 
 interface CartState {
   items: CartItem[];
   isOpen: boolean;
   couponCode: string;
   couponDiscount: number; // percentage 0-100
-  couponMaxDiscount: number; // ₹ cap for applied coupon, 0 = default
+  couponMaxDiscount: number; // ₹ cap for applied coupon, 0 = unlimited
   
   // Actions
   addItem: (
@@ -33,9 +33,9 @@ export interface CartReconciliation {
   removed: string[];
   /** Names of lines whose price moved to match the current menu. */
   repriced: string[];
+  /** Names of lines reduced to the current per-dish quantity cap. */
+  quantityAdjusted: string[];
 }
-
-const FALLBACK_MAX_DISCOUNT = 300;
 
 export const useCartStore = create<CartState>()(
   persist(
@@ -48,8 +48,12 @@ export const useCartStore = create<CartState>()(
 
       addItem: (incoming, quantity = 1) =>
         set((state) => {
-          const addQty = Math.max(1, Math.floor(quantity));
+          if (!Number.isFinite(quantity) || quantity <= 0) return state;
           const cap = incoming.maxQuantity;
+          const currentTotal = state.items.filter((i) => i.id === incoming.id)
+            .reduce((sum, i) => sum + i.quantity, 0);
+          const addQty = Math.min(Math.max(1, Math.floor(quantity)), cap ? Math.max(0, cap - currentTotal) : Infinity);
+          if (addQty === 0) return state;
           const existingIndex = state.items.findIndex(
             (i) => i.id === incoming.id && (i.selectedPortion || 'full') === (incoming.selectedPortion || 'full')
           );
@@ -84,7 +88,9 @@ export const useCartStore = create<CartState>()(
           );
           if (targetIndex === -1) return state;
           const current = state.items[targetIndex];
-          if (current.maxQuantity && current.quantity >= current.maxQuantity) return state;
+          const currentTotal = state.items.filter((i) => i.id === id)
+            .reduce((sum, i) => sum + i.quantity, 0);
+          if (current.maxQuantity && currentTotal >= current.maxQuantity) return state;
           const updated = [...state.items];
           updated[targetIndex] = {
             ...updated[targetIndex],
@@ -156,13 +162,13 @@ export const useCartStore = create<CartState>()(
        * once, rather than each row announcing itself.
        */
       reconcileWithMenu: (menu) => {
-        const result: CartReconciliation = { removed: [], repriced: [] };
-        if (!menu || menu.length === 0) return result;
+        const result: CartReconciliation = { removed: [], repriced: [], quantityAdjusted: [] };
 
         const byId = new Map(menu.map((m) => [m.id, m]));
         let changed = false;
 
         const next: CartItem[] = [];
+        const usedQuantities = new Map<string, number>();
         for (const line of get().items) {
           const current = byId.get(line.id);
 
@@ -173,29 +179,39 @@ export const useCartStore = create<CartState>()(
           }
 
           const portion = line.selectedPortion;
+          const hasPortions = Object.keys(current.portionPrices || {}).length > 0;
+          if (portion && (hasPortions ? current.portionPrices?.[portion] === undefined : portion !== 'full')) {
+            result.removed.push(line.name);
+            changed = true;
+            continue;
+          }
           const currentPrice =
             (portion ? current.portionPrices?.[portion] : undefined) ?? current.price;
+          const used = usedQuantities.get(line.id) || 0;
+          const quantity = current.maxQuantity
+            ? Math.min(line.quantity, Math.max(0, current.maxQuantity - used))
+            : line.quantity;
+          usedQuantities.set(line.id, used + quantity);
+          if (quantity !== line.quantity) {
+            result.quantityAdjusted.push(line.name);
+            changed = true;
+          }
+          if (quantity === 0) continue;
 
           if (currentPrice !== (line.selectedPrice ?? line.price)) {
             result.repriced.push(line.name);
             changed = true;
-            next.push({
-              ...line,
-              price: currentPrice,
-              selectedPrice: currentPrice,
-              image: current.image || line.image,
-            });
-            continue;
           }
 
           // Artwork can change without the price moving; not worth reporting.
           if (current.image && current.image !== line.image) {
             changed = true;
-            next.push({ ...line, image: current.image });
-            continue;
           }
-
-          next.push(line);
+          if (current.maxQuantity !== line.maxQuantity) changed = true;
+          next.push({
+            ...line, price: current.price, selectedPrice: currentPrice,
+            image: current.image || line.image, maxQuantity: current.maxQuantity, quantity,
+          });
         }
 
         if (changed) set({ items: next });
@@ -222,9 +238,7 @@ export const getCartSubtotal = (items: CartItem[]) =>
   items.reduce((sum, i) => sum + (i.selectedPrice ?? i.price) * i.quantity, 0);
 
 export const getCartDiscountAmount = (subtotal: number, couponDiscount: number, couponMaxDiscount: number) => {
-  if (couponDiscount <= 0) return 0;
-  const cap = couponMaxDiscount > 0 ? couponMaxDiscount : FALLBACK_MAX_DISCOUNT;
-  return Math.min((subtotal * couponDiscount) / 100, cap);
+  return computeCouponDiscount(subtotal, couponDiscount, couponMaxDiscount);
 };
 
 /**

@@ -19,8 +19,8 @@ interface Props {
 
 /** Kept in one place so ADD and the stepper cannot drift apart. */
 export const ADD_CONTROL_SIZE = {
-  small: 'h-9 min-w-[104px]',
-  medium: 'h-10 min-w-[118px]',
+  small: 'h-12 min-w-[118px] sm:h-9 sm:min-w-[104px]',
+  medium: 'h-12 min-w-[118px] sm:h-10',
 } as const;
 
 /**

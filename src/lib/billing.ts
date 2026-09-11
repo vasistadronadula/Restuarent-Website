@@ -15,6 +15,13 @@ export const HALF_GST_RATE = GST_RATE / 2;
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+/** A zero cap means unlimited, consistently in the cart and on the server. */
+export function computeCouponDiscount(subtotal: number, percentage: number, cap = 0): number {
+  const rate = Number.isFinite(percentage) ? Math.min(100, Math.max(0, percentage)) : 0;
+  const discount = Math.max(0, subtotal) * rate / 100;
+  return Number.isFinite(cap) && cap > 0 ? Math.min(discount, cap) : discount;
+}
+
 export interface BillTotals {
   subtotal: number;
   discountAmount: number;

@@ -1,10 +1,10 @@
 'use client';
 
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { PauseCircle, PlayCircle, Trash2, Clock, ShoppingBag, Utensils } from 'lucide-react';
+import { PauseCircle, PlayCircle, Trash2, Clock, ShoppingBag } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { PosLine } from '@/hooks/usePosCart';
 import { PosOrderType } from './BillPanel';

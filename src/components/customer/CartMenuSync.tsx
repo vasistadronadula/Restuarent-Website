@@ -30,7 +30,7 @@ function CartMenuSyncInner() {
   const lastReconciled = useRef<unknown>(null);
 
   useEffect(() => {
-    if (!isSuccess || !menu || menu.length === 0) return;
+    if (!isSuccess || !menu) return;
 
     // `useMenuItems` answers with the bundled demo menu when Supabase is
     // unreachable. Reconciling against that would empty a perfectly good
@@ -41,7 +41,10 @@ function CartMenuSyncInner() {
     if (lastReconciled.current === menu) return;
     lastReconciled.current = menu;
 
-    const { removed, repriced } = reconcileWithMenu(menu);
+    const { removed, repriced, quantityAdjusted } = reconcileWithMenu(menu);
+    if (quantityAdjusted.length > 0) {
+      toast.warning('Some quantities were reduced to the current order limit. Please review your cart.');
+    }
 
     if (removed.length > 0) {
       toast.warning(

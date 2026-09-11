@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { adminColors, roleColors, orderStatusColors, reservationStatusColors } from '@/theme/adminColors';
 import { ROLE_LABELS } from '@/lib/roleAccess';
 import type { UserRole } from '@/types';
+import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 export { adminColors, roleColors, orderStatusColors, reservationStatusColors };
 
@@ -265,4 +266,17 @@ export function EmptyState({
 export function RoleBadge({ role }: { role: UserRole | null | undefined }) {
   if (!role || role === 'customer') return null;
   return <span className="ad-tag ad-tag-solid">{ROLE_LABELS[role]}</span>;
+}
+
+export function AdminQueryError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  if (!error) return null;
+  return (
+    <div role="alert" className="border-2 border-ad-accent bg-ad-accent-soft p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex items-start gap-2 min-w-0">
+        <AlertTriangle className="size-4 mt-0.5 shrink-0" />
+        <div><strong>Could not load this data.</strong><div className="text-[12px] mt-0.5 break-words">{error instanceof Error ? error.message : String(error)}</div></div>
+      </div>
+      <button type="button" className="ad-btn ad-btn-secondary sm:ml-auto" onClick={onRetry}><RefreshCw className="size-4" /> Retry</button>
+    </div>
+  );
 }

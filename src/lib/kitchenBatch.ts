@@ -1,5 +1,6 @@
 import type { Order } from '@/types';
 import { orderItemPortion } from '@/lib/orderItems';
+import { kitchenItemKey } from '@/lib/kitchen';
 
 export const KITCHEN_BATCH_WINDOW_MS = 2 * 60 * 1000;
 
@@ -44,9 +45,11 @@ export function buildKitchenBatches(
   for (const order of orders) {
     if (order.status === 'ready' || order.status === 'delivered' || order.status === 'cancelled') continue;
     const timestamp = timestampFor(order);
-    for (const item of order.items || []) {
+    for (const [index, item] of (order.items || []).entries()) {
+      if (order.kitchenProgress?.[kitchenItemKey(order.items, index)]) continue;
       const portion = orderItemPortion(item);
-      const dish = `${item.name}${portion ? ` (${portion})` : ''}`;
+      const instructions = [order.notes?.trim(), item.notes?.trim()].filter(Boolean).join(' / ');
+      const dish = `${item.name}${portion ? ` (${portion})` : ''}${instructions ? ` — ${instructions}` : ''}`;
       const key = dish.trim().toLocaleLowerCase('en-IN');
       const entries = byDish.get(key) || new Map<string, Entry>();
       const existing = entries.get(order.id);
@@ -78,13 +81,15 @@ export function buildKitchenBatches(
       const kinds = new Set(cluster.map((entry) => entry.sourceKind));
       if (cluster.length > 1 && kinds.has('dine-in') && kinds.has('takeaway')) {
         const dishItem = orders
-          .flatMap((order) => order.items || [])
-          .find((item) => {
+          .flatMap((order) => (order.items || []).map(item => ({ item, notes: order.notes })))
+          .find(({ item, notes }) => {
             const portion = orderItemPortion(item);
-            return `${item.name}${portion ? ` (${portion})` : ''}`.trim().toLocaleLowerCase('en-IN') === key;
+            const instructions = [notes?.trim(), item.notes?.trim()].filter(Boolean).join(' / ');
+            return `${item.name}${portion ? ` (${portion})` : ''}${instructions ? ` — ${instructions}` : ''}`.trim().toLocaleLowerCase('en-IN') === key;
           });
-        const portion = dishItem ? orderItemPortion(dishItem) : undefined;
-        const dish = dishItem ? `${dishItem.name}${portion ? ` (${portion})` : ''}` : key;
+        const portion = dishItem ? orderItemPortion(dishItem.item) : undefined;
+        const instructions = [dishItem?.notes?.trim(), dishItem?.item.notes?.trim()].filter(Boolean).join(' / ');
+        const dish = dishItem ? `${dishItem.item.name}${portion ? ` (${portion})` : ''}${instructions ? ` — ${instructions}` : ''}` : key;
         batches.push({
           key: `${key}:${cluster[0].timestamp}`,
           dish,

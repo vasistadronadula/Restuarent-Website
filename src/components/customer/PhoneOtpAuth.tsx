@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { CheckCircle2, Edit3, Loader2, Mail, RefreshCw, User } from 'lucide-react';
+import { CheckCircle2, Edit3, Loader2, Mail, User } from 'lucide-react';
 import { toast } from 'sonner';
 
 import {

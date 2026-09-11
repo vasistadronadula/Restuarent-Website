@@ -7,7 +7,7 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function Sheet({
-  modal = false,
+  modal = true,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Root>) {
   return <SheetPrimitive.Root modal={modal} {...props} />;
@@ -65,7 +65,7 @@ function SheetContent({
       >
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close className="ring-offset-background focus-visible:ring-ring absolute top-4 right-4 grid size-9 place-items-center rounded-lg opacity-70 transition-opacity hover:bg-muted hover:opacity-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none">
+          <SheetPrimitive.Close className="ring-offset-background focus-visible:ring-ring absolute top-3 right-3 grid size-11 sm:size-9 place-items-center rounded-lg opacity-70 transition-opacity hover:bg-muted hover:opacity-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none">
             <X className="size-4" />
             <span className="sr-only">Close</span>
           </SheetPrimitive.Close>

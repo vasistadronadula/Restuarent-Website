@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { List, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import type { RailCategory } from './CategoryRail';
 
 /**
@@ -65,6 +65,7 @@ export default function MenuNavSheet({
         showCloseButton={false}
         className="max-h-[72dvh] gap-0 rounded-t-3xl border-none bg-white p-0"
       >
+        <SheetDescription className="sr-only">Choose a category to filter the menu.</SheetDescription>
         <SheetHeader className="border-hair-2 flex-row items-center justify-between border-b px-5 py-4">
           <SheetTitle className="text-ink-1 text-[16px] font-extrabold">
             Menu sections
@@ -73,7 +74,7 @@ export default function MenuNavSheet({
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Close"
-            className="text-ink-3 hover:bg-hair-2 grid size-8 place-items-center rounded-full transition-colors"
+            className="text-ink-3 hover:bg-hair-2 grid size-11 place-items-center rounded-full transition-colors"
           >
             <X className="size-[18px]" />
           </button>

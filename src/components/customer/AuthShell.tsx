@@ -11,12 +11,11 @@ interface Props {
   subtitle: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  redirectTo?: string;
   icon?: React.ReactNode;
 }
 
 export default function AuthShell({
-  title, subtitle, children, footer, redirectTo, icon,
+  title, subtitle, children, footer, icon,
 }: Props) {
   return (
     <div className="relative min-h-screen w-full flex flex-col justify-between overflow-hidden bg-stone-50 dark:bg-stone-950 font-sans transition-colors duration-300">
@@ -71,7 +70,7 @@ export default function AuthShell({
               </p>
             </div>
           </div>
-          <div className="w-full">
+          <div className="w-full [&_input]:text-base sm:[&_input]:text-sm">
             {children}
           </div>
 

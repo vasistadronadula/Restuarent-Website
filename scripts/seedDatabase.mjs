@@ -59,7 +59,7 @@ const rows = menuItems.map((item) => ({
   price: item.price,
   image: item.image,
   veg_status: item.vegStatus,
-  rating: 4.5,
+  rating: 0,
   review_count: 0,
   is_popular: Boolean(item.isPopular),
   is_special: Boolean(item.isSpecial),

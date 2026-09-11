@@ -89,11 +89,14 @@ export function useUpdateTable() {
 
   return useMutation({
     mutationFn: async (t: RestaurantTable) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('restaurant_tables')
         .update({ capacity: t.capacity, description: t.description, is_active: t.isActive })
-        .eq('id', t.id);
+        .eq('id', t.id)
+        .select('id')
+        .maybeSingle();
       if (error) throw new Error(error.message);
+      if (!data) throw new Error('Table was not updated. Refresh and try again.');
       return true;
     },
     onMutate: (t) =>
@@ -110,7 +113,7 @@ export function useDeleteTable() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('restaurant_tables').delete().eq('id', id);
+      const { data, error } = await supabase.from('restaurant_tables').delete().eq('id', id).select('id').maybeSingle();
       if (error) {
         // A table with bookings is referenced by table_reservations.
         throw new Error(
@@ -119,6 +122,7 @@ export function useDeleteTable() {
             : error.message
         );
       }
+      if (!data) throw new Error('Table was not deleted. Refresh and try again.');
       return true;
     },
     onMutate: (id) =>

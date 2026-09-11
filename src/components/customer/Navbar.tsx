@@ -25,7 +25,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
+  Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger,
 } from '@/components/ui/sheet';
 
 const NAV_LINKS = [
@@ -154,7 +154,7 @@ export default function Navbar() {
                   prefetch
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'flex items-center gap-2 rounded-lg px-3.5 py-2 text-[14px] font-semibold transition-colors outline-none',
+                    'flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-2 text-[13px] font-semibold whitespace-nowrap transition-colors outline-none lg:gap-2 lg:px-3.5 lg:text-[14px]',
                     active ? 'bg-white/15 text-white' : 'text-white/85 hover:bg-white/10 hover:text-white'
                   )}
                 >
@@ -166,10 +166,10 @@ export default function Navbar() {
           </nav>
 
           {/* ── Actions ────────────────────────────────────────────────── */}
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 whitespace-nowrap sm:gap-2">
             <a
               href={PHONE_HREF}
-              className="text-white/85 hover:bg-white/10 hover:text-white hidden items-center gap-2 rounded-lg px-3 py-2 text-[14px] font-semibold transition-colors lg:flex"
+              className="text-white/85 hover:bg-white/10 hover:text-white hidden items-center gap-2 rounded-lg px-3 py-2 text-[14px] font-semibold transition-colors xl:flex"
             >
               <Phone className="size-[17px]" />
               {restaurantInfo.phoneDisplay}
@@ -204,7 +204,7 @@ export default function Navbar() {
             {isStaff && (
               <Link
                 href={getRoleHome(userRole)}
-                className="hidden h-10 items-center gap-2 rounded-full border border-white/30 px-4 text-[13px] font-bold text-white transition-colors hover:bg-white/10 md:inline-flex"
+                className="hidden h-10 items-center gap-2 rounded-full border border-white/30 px-4 text-[13px] font-bold text-white transition-colors hover:bg-white/10 xl:inline-flex"
               >
                 <LayoutDashboard className="size-4" />
                 Dashboard
@@ -233,7 +233,7 @@ export default function Navbar() {
                         {(userName || accountLabel || 'U').charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="hidden max-w-[92px] truncate text-[14px] font-semibold md:block">
+                    <span className="hidden max-w-[92px] truncate text-[14px] font-semibold lg:block">
                       {userName?.split(' ')[0] || 'Account'}
                     </span>
                     <ChevronDown className="size-4 text-white/70" />
@@ -285,12 +285,12 @@ export default function Navbar() {
             )}
 
             {/* ── Phone drawer ─────────────────────────────────────────── */}
-            <Sheet modal={false} open={mobileOpen} onOpenChange={setMobileOpen}>
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
                 <button
                   type="button"
                   aria-label="Open menu"
-                  className="grid size-10 place-items-center rounded-full text-white transition-colors outline-none hover:bg-white/10 md:hidden"
+                  className="grid size-11 place-items-center rounded-full text-white transition-colors outline-none hover:bg-white/10 md:hidden"
                 >
                   <MenuIcon className="size-[22px]" />
                 </button>
@@ -302,6 +302,7 @@ export default function Navbar() {
               >
                 <SheetHeader className="border-hair-2 border-b p-4">
                   <SheetTitle className="sr-only">Site menu</SheetTitle>
+                  <SheetDescription className="sr-only">Browse the restaurant, your orders, and your account.</SheetDescription>
                   <PalaPittaLogo variant="light" size="small" />
                 </SheetHeader>
 

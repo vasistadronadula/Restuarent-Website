@@ -60,7 +60,7 @@ export function useUpdateCoupon() {
 
   return useMutation({
     mutationFn: async (c: Coupon) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('coupons')
         .update({
           discount: c.discount,
@@ -69,8 +69,11 @@ export function useUpdateCoupon() {
           description: c.description,
           is_active: c.isActive,
         })
-        .eq('code', normalizeCouponCode(c.code));
+        .eq('code', normalizeCouponCode(c.code))
+        .select('code')
+        .maybeSingle();
       if (error) throw new Error(error.message);
+      if (!data) throw new Error('Coupon was not updated. Refresh and try again.');
       return true;
     },
     // Drives the active/inactive switch too, which is why it has to feel
@@ -90,11 +93,14 @@ export function useDeleteCoupon() {
 
   return useMutation({
     mutationFn: async (code: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('coupons')
         .delete()
-        .eq('code', normalizeCouponCode(code));
+        .eq('code', normalizeCouponCode(code))
+        .select('code')
+        .maybeSingle();
       if (error) throw new Error(error.message);
+      if (!data) throw new Error('Coupon was not deleted. Refresh and try again.');
       return true;
     },
     onMutate: (code) =>

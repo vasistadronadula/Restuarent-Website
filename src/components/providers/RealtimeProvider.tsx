@@ -10,6 +10,7 @@ import { receivesOrderNotifications, receivesReservationNotifications, isStaffRo
 import { queryKeys } from '@/lib/queries/keys';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useOrderEventStore } from '@/store/useOrderEventStore';
+import { useRealtimeStore } from '@/store/useRealtimeStore';
 import type { OrderStatus } from '@/types';
 
 /**
@@ -44,7 +45,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
     const ordersChannel = supabase
       .channel('rq_realtime_orders')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        if (payload.eventType === 'INSERT' && receivesOrderNotifications(currentRole())) {
+        if (payload.eventType === 'INSERT' && receivesOrderNotifications(currentRole()) && window.location.pathname !== '/admin/kitchen') {
           playOrderChimeSound();
           toast.success('New order received', {
             description: `${payload.new?.customer_name || 'Customer'} · ₹${payload.new?.grand_total || 0}`,
@@ -71,7 +72,9 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
           });
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        useRealtimeStore.getState().setOrders(status === 'SUBSCRIBED' ? 'subscribed' : 'reconnecting');
+      });
 
     const menuChannel = supabase
       .channel('rq_realtime_menu_items')
@@ -95,6 +98,7 @@ export function RealtimeProvider({ children }: { children: React.ReactNode }) {
       .subscribe();
 
     return () => {
+      useRealtimeStore.getState().setOrders('connecting');
       supabase.removeChannel(ordersChannel);
       supabase.removeChannel(menuChannel);
       supabase.removeChannel(categoriesChannel);

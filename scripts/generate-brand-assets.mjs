@@ -29,10 +29,10 @@ async function createIco(pngBuffers, outPath) {
 }
 
 async function buildAllBrandAssets() {
-  console.log('Generating high-visibility tab icons and brand assets from LOGOO.png...');
+  console.log('Generating high-visibility tab icons and brand assets from public/logo-source.png...');
 
-  // 1. Extract bird emblem from LOGOO.png
-  const birdBuffer = await sharp('LOGOO.png')
+  // 1. Extract bird emblem from public/logo-source.png
+  const birdBuffer = await sharp('public/logo-source.png')
     .extract({ left: 110, top: 70, width: 585, height: 585 })
     .resize(512, 512)
     .png()

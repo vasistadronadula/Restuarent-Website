@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight, Star, Plus, ChevronLeft, ChevronRight,
-  Trophy, UtensilsCrossed, Clock, ReceiptText,
+  Trophy, Clock, ReceiptText,
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { flyToCart } from '@/lib/flyToCart';

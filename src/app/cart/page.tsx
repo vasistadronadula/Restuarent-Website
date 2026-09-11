@@ -164,7 +164,13 @@ export default function CartPage() {
                   className="mb-5"
                 />
 
-                <BillSummary {...totals} />
+                <BillSummary
+                  subtotal={totals.subtotal}
+                  discountAmount={totals.discountAmount}
+                  cgst={totals.cgst}
+                  sgst={totals.sgst}
+                  grandTotal={totals.grandTotal}
+                />
 
                 {/* Desktop only. On a phone the fixed bar at the bottom of the
                     screen is already this button, and rendering both put two
@@ -225,10 +231,7 @@ export default function CartPage() {
         </Link>
       </div>
 
-      {/* Reserves the fixed bar's height so the footer clears it. */}
-      <div aria-hidden="true" className="h-[76px] lg:hidden" />
-
-      <Footer />
+      <Footer mobileClearance={76} />
     </div>
   );
 }

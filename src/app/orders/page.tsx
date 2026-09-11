@@ -26,6 +26,7 @@ import type { Order, PersistedOrderItem, OrderStatus } from '@/types';
 import { orderItemId } from '@/lib/orderItems';
 import { classifyOrderCategory, getStatusBadgeMeta } from '@/lib/orderCategory';
 import { buildPrepTimeMap, estimateOrderMinutes } from '@/lib/orderEstimate';
+import { getOrderDisplayNumber } from '@/lib/orderNumber';
 
 import { Container } from '@/components/customer/Container';
 import { CouponTeaser } from '@/components/customer/CouponTeaser';
@@ -615,8 +616,8 @@ function ActiveOrderCard({
         <div className="flex min-w-0 items-center gap-3">
           {/* The last four digits are what the counter asks for, so they get
               to be the big number rather than the full 16-character ID. */}
-          <span className="bg-brand grid size-11 shrink-0 place-items-center rounded-xl text-[13px] font-black text-white">
-            {order.id.slice(-4)}
+          <span className="bg-brand grid min-w-11 px-2 h-11 shrink-0 place-items-center rounded-xl text-[14px] font-black text-white">
+            {getOrderDisplayNumber(order)}
           </span>
           <div className="min-w-0">
             <OrderIdLine order={order} onCopyId={onCopyId} isCopied={isCopied} />
@@ -722,8 +723,8 @@ function HistoryOrderRow({
         className="hover:bg-hair-2/60 focus-visible:ring-brand/30 flex w-full cursor-pointer flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors outline-none focus-visible:ring-[3px] sm:px-5"
       >
         <div className="flex min-w-0 items-center gap-3">
-          <span className="bg-hair-2 text-ink-2 grid size-10 shrink-0 place-items-center rounded-xl text-[12.5px] font-black">
-            {order.id.slice(-4)}
+          <span className="bg-hair-2 text-ink-2 grid min-w-10 px-1.5 h-10 shrink-0 place-items-center rounded-xl text-[13px] font-black">
+            {getOrderDisplayNumber(order)}
           </span>
           <div className="min-w-0">
             <OrderIdLine order={order} onCopyId={onCopyId} isCopied={isCopied} />

@@ -3,7 +3,7 @@
 import React, { Suspense, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, MailCheck, LogIn, Phone, Smartphone, KeyRound, Apple } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, MailCheck, LogIn, Phone, Smartphone, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth, landAfterLogin } from '@/context/AuthContext';
@@ -17,7 +17,6 @@ import GoogleIcon from '@/components/customer/GoogleIcon';
 import PhoneOtpAuth from '@/components/customer/PhoneOtpAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 
 type Field = 'email' | 'password';
 type AuthMethod = 'email' | 'otp';
@@ -221,7 +220,6 @@ function LoginForm() {
           <Smartphone className="size-5 text-amber-600" />
         )
       }
-      redirectTo={redirectTo === '/' ? undefined : redirectTo}
       footer={
         <p className="text-xs text-stone-500 dark:text-stone-400">
           New here?{' '}
@@ -321,7 +319,9 @@ function LoginForm() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  className="absolute right-0 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-xl text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300"
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -345,7 +345,7 @@ function LoginForm() {
               disabled={loading}
               className="w-full h-11 font-black bg-stone-950 hover:bg-stone-900 text-white dark:bg-stone-50 dark:hover:bg-stone-200 dark:text-stone-950 rounded-xl transition-all text-xs"
             >
-              {loading ? <Loader2 className="size-4 animate-spin" /> : 'Get Started'}
+              {loading ? <><Loader2 className="size-4 animate-spin" /> Signing in…</> : 'Sign in'}
             </Button>
           </form>
 

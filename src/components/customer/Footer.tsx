@@ -38,7 +38,10 @@ function WhatsAppIcon({ className }: { className?: string }) {
  * directly above the bottom nav — it made the nav look like part of the
  * footer rather than part of the app.
  */
-export default function Footer() {
+export default function Footer({ mobileClearance = 0, desktopClearance = 0 }: {
+  mobileClearance?: number;
+  desktopClearance?: number;
+}) {
   const closeCart = () => useCartStore.getState().closeCart();
 
   const registrations = [
@@ -48,8 +51,12 @@ export default function Footer() {
 
   return (
     <footer
-      className="border-hair-1 mt-auto border-t bg-white pt-10"
-      style={{ paddingBottom: 'calc(1.5rem + var(--ppr-bottom-nav-h, 0px) + env(safe-area-inset-bottom, 0px))' }}
+      className="border-hair-1 mt-auto border-t bg-white pt-10 [--footer-clearance:var(--footer-mobile-clearance)] lg:[--footer-clearance:var(--footer-desktop-clearance)]"
+      style={{
+        '--footer-mobile-clearance': `${mobileClearance}px`,
+        '--footer-desktop-clearance': `${desktopClearance}px`,
+        paddingBottom: 'calc(1.5rem + var(--footer-clearance) + var(--ppr-bottom-nav-h, 0px) + env(safe-area-inset-bottom, 0px))',
+      } as React.CSSProperties}
     >
       <Container className="max-w-[1180px]">
         <div className="grid gap-9 sm:grid-cols-2 lg:grid-cols-3">

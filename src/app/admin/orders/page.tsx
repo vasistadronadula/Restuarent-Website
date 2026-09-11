@@ -1,7 +1,7 @@
 'use client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { Order, OrderStatus } from '@/types';
@@ -13,6 +13,7 @@ import { Eye, Clock, Truck, LayoutGrid, Table2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNow } from '@/hooks/useNow';
 import { formatOrderTimestamp } from '@/lib/utils';
+import { getOrderDisplayNumber } from '@/lib/orderNumber';
 
 const nextStatus: Record<OrderStatus, OrderStatus | null> = {
   pending: 'preparing',
@@ -101,24 +102,25 @@ export default function OrdersPage() {
     return map;
   }, [orders]);
 
-  const handleUpdateStatus = async (orderId: string, targetStatus: OrderStatus) => {
+  const handleUpdateStatus = useCallback(async (orderId: string, targetStatus: OrderStatus) => {
     try {
       await updateOrderStatus(orderId, targetStatus);
       toast.success(`Order moved to ${targetStatus}`);
-      if (selectedOrder?.id === orderId) {
-        setSelectedOrder({ ...selectedOrder, status: targetStatus });
-      }
+      setSelectedOrder((prev) => (prev?.id === orderId ? { ...prev, status: targetStatus } : prev));
     } catch {
       toast.error('Failed to update status');
     }
-  };
+  }, [updateOrderStatus]);
 
   const columns = useMemo<ColumnDef<any, Order>[]>(() => [
     {
       accessorKey: 'id',
-      header: 'Order ID',
+      header: 'Order No / ID',
       cell: ({ row }) => (
-        <span className="ad-num text-[13px]">{row.original.id}</span>
+        <div>
+          <span className="font-extrabold text-sm text-ad-ink block">{getOrderDisplayNumber(row.original)}</span>
+          <span className="ad-num text-[11px] ad-muted truncate block max-w-[130px]">{row.original.id}</span>
+        </div>
       ),
     },
     {
@@ -191,7 +193,7 @@ export default function OrdersPage() {
         );
       },
     },
-  ], [selectedOrder]);
+  ], [handleUpdateStatus]);
 
   return (
     <AdminLayout title="Live Orders">

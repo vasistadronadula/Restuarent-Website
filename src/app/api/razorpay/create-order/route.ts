@@ -3,6 +3,8 @@ import { getRazorpayClient } from '@/lib/razorpayServer';
 import { assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { log } from '@/lib/logger';
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
+import { CheckoutValidationError, priceCheckout } from '@/lib/checkoutPricing';
 
 /** Sanity ceiling on a single takeaway bill, in rupees. */
 const MAX_ORDER_AMOUNT = 100_000;
@@ -35,7 +37,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { amount, currency = 'INR', receipt, notes } = await request.json();
+    const { amount, currency = 'INR', receipt, notes, items, couponCode } = await request.json();
 
     const numericAmount = Number(amount);
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
@@ -46,6 +48,18 @@ export async function POST(request: Request) {
     }
     if (currency !== 'INR') {
       return NextResponse.json({ error: 'Unsupported currency' }, { status: 400 });
+    }
+
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: 'Checkout is not configured on the server.' }, { status: 503 });
+    }
+    const { totals } = await priceCheckout(admin, items, couponCode);
+    if (numericAmount !== totals.grandTotal) {
+      return NextResponse.json(
+        { error: 'Your cart total has changed. Refresh and review your cart before paying.' },
+        { status: 409 }
+      );
     }
 
     const instance = getRazorpayClient();
@@ -61,7 +75,7 @@ export async function POST(request: Request) {
     }
 
     const order = await instance.orders.create({
-      amount: Math.round(numericAmount * 100),
+      amount: Math.round(totals.grandTotal * 100),
       currency,
       receipt: typeof receipt === 'string' ? receipt.slice(0, 40) : `rcpt_${Date.now()}`,
       notes: notes && typeof notes === 'object' ? notes : {},
@@ -69,6 +83,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json(order);
   } catch (error) {
+    if (error instanceof CheckoutValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     log.error('razorpay_create_order_failed', { error });
     // The upstream message can carry account detail — the client only needs
     // to know to fall back to pay-at-counter.
