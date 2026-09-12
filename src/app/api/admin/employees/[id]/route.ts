@@ -5,7 +5,7 @@ import { requireAdmin, RequireAdminError } from '@/lib/auth/requireAdmin';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { getErrorMessage } from '@/lib/errors';
 
-const EMPLOYEE_ROLES = new Set(['admin', 'manager', 'chef', 'cashier']);
+const EMPLOYEE_ROLES = new Set(['admin', 'manager', 'chef', 'cashier', 'waiter']);
 
 type RouteContext = { params: Promise<{ id: string }> };
 

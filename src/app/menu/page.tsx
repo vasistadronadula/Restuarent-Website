@@ -17,7 +17,7 @@ import CategoryRail, { type RailCategory } from '@/components/customer/CategoryR
 import { CouponTeaser } from '@/components/customer/CouponTeaser';
 import MenuNavSheet from '@/components/customer/MenuNavSheet';
 import StoreCartBar from '@/components/customer/StoreCartBar';
-import { FilterPill, SectionHeading, VegMark } from '@/components/customer/store-ui';
+import { SectionHeading, VegMark } from '@/components/customer/store-ui';
 import { useAdmin } from '@/context/AdminContext';
 import { restaurantInfo } from '@/data/restaurantInfo';
 import type { MenuItem, VegStatus } from '@/types';
@@ -46,35 +46,17 @@ function MenuBrowser() {
   const categoryParam = searchParams.get('category');
   const queryParam = searchParams.get('q');
   const vegParam = searchParams.get('veg');
+  const bestsellerParam = searchParams.get('bestseller');
+  const topRatedParam = searchParams.get('topRated');
+  const sortParam = searchParams.get('sort');
 
-  const [searchQuery, setSearchQuery] = useState(queryParam ?? '');
-  const [activeCategory, setActiveCategory] = useState<string>(
-    categoryParam && categoryParam !== ALL ? categoryParam : ALL
-  );
-  const [vegFilter, setVegFilter] = useState<VegStatus | typeof ALL>(
-    isVegStatus(vegParam) ? vegParam : ALL
-  );
-
-  // Re-sync when the URL changes underneath us — a back/forward navigation, or
-  // a link into /menu?category=biryani from elsewhere on the site.
-  const [syncedParams, setSyncedParams] = useState(() => ({ categoryParam, queryParam, vegParam }));
-  if (
-    syncedParams.categoryParam !== categoryParam ||
-    syncedParams.queryParam !== queryParam ||
-    syncedParams.vegParam !== vegParam
-  ) {
-    setSyncedParams({ categoryParam, queryParam, vegParam });
-    setActiveCategory(categoryParam && categoryParam !== ALL ? categoryParam : ALL);
-    setSearchQuery(queryParam ?? '');
-    setVegFilter(isVegStatus(vegParam) ? vegParam : ALL);
-  }
-
-  /* ── View-only state ────────────────────────────────────────────── */
-  // Deliberately not in the URL. A shared link should carry *what* someone is
-  // looking at, not how they happened to have their sort set.
-  const [bestsellerOnly, setBestsellerOnly] = useState(false);
-  const [topRatedOnly, setTopRatedOnly] = useState(false);
-  const [sort, setSort] = useState<SortMode>('default');
+  const searchQuery = queryParam ?? '';
+  const activeCategory = categoryParam && categoryParam !== ALL ? categoryParam : ALL;
+  const vegFilter = isVegStatus(vegParam) ? vegParam : ALL;
+  const bestsellerOnly = bestsellerParam === 'true';
+  const topRatedOnly = topRatedParam === 'true';
+  const sort: SortMode =
+    sortParam === 'price-asc' || sortParam === 'price-desc' ? sortParam : 'default';
   const [layout, setLayout] = useState<'list' | 'grid'>('grid');
 
   /* ── Cart ───────────────────────────────────────────────────────── */
@@ -205,19 +187,8 @@ function MenuBrowser() {
   };
 
   const selectCategory = (id: string) => {
-    setActiveCategory(id);
     pushParams((p) => (id === ALL ? p.delete('category') : p.set('category', id)));
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const toggleVeg = (value: VegStatus) => {
-    const next = vegFilter === value ? ALL : value;
-    setVegFilter(next);
-    pushParams((p) => (next === ALL ? p.delete('veg') : p.set('veg', next)));
-  };
-
-  const toggleSort = (mode: Exclude<SortMode, 'default'>) => {
-    setSort((current) => (current === mode ? 'default' : mode));
   };
 
   const activeFilterCount =
@@ -260,12 +231,6 @@ function MenuBrowser() {
   }, [activeCategory, activeFilterCount, filteredItems, railCategories, categoryLabels]);
 
   const resetAll = () => {
-    setSearchQuery('');
-    setVegFilter(ALL);
-    setBestsellerOnly(false);
-    setTopRatedOnly(false);
-    setSort('default');
-    setActiveCategory(ALL);
     router.push('/menu', { scroll: false });
   };
 
@@ -315,105 +280,6 @@ function MenuBrowser() {
         </Container>
       </section>
 
-      {/* ── Sticky search + filters ──────────────────────────────────
-          Height is pinned to --store-filters-h so the sidebar below can
-          compute its own sticky offset instead of guessing at a number that
-          goes stale the next time a chip is added. */}
-      <div
-        className="border-hair-1 bg-store/92 sticky z-30 border-b backdrop-blur-md"
-        style={{ top: 'var(--store-header-h)' }}
-      >
-        <Container className="max-w-[1600px] py-2.5 md:py-3.5">
-          <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">
-            {/* Search */}
-            <div className="relative h-11 w-full md:max-w-[340px]">
-              <Search className="text-ink-4 pointer-events-none absolute top-1/2 left-4 size-[18px] -translate-y-1/2" />
-              <input
-                type="search"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for a dish…"
-                aria-label="Search dishes"
-                className={cn(
-                  'border-hair-1 text-ink-1 placeholder:text-ink-4 h-11 w-full rounded-full border bg-white pr-12 pl-11 text-base md:text-[14px] font-medium',
-                  'transition-colors outline-none focus:border-brand-300 focus:ring-[3px] focus:ring-brand/15',
-                  // Safari draws its own clear button on type=search and it
-                  // collides with ours.
-                  '[&::-webkit-search-cancel-button]:appearance-none'
-                )}
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  aria-label="Clear search"
-                  className="text-ink-4 hover:text-ink-1 absolute top-1/2 right-1 grid size-11 -translate-y-1/2 place-items-center rounded-full transition-colors"
-                >
-                  <X className="size-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Filter chips */}
-            <div className="scrollbar-none -mx-4 flex h-10 items-center gap-2 overflow-x-auto px-4 md:mx-0 md:min-w-0 md:flex-1 md:px-0">
-              <FilterPill
-                active={vegFilter === 'veg'}
-                onClick={() => toggleVeg('veg')}
-                leading={<VegMark status="veg" size={13} />}
-              >
-                Veg
-              </FilterPill>
-              <FilterPill
-                active={vegFilter === 'non-veg'}
-                onClick={() => toggleVeg('non-veg')}
-                leading={<VegMark status="non-veg" size={13} />}
-              >
-                Non-veg
-              </FilterPill>
-              {hasEggDishes && (
-                <FilterPill
-                  active={vegFilter === 'egg'}
-                  onClick={() => toggleVeg('egg')}
-                  leading={<VegMark status="egg" size={13} />}
-                >
-                  Egg
-                </FilterPill>
-              )}
-              <FilterPill active={bestsellerOnly} onClick={() => setBestsellerOnly((v) => !v)}>
-                Bestsellers
-              </FilterPill>
-              <FilterPill active={topRatedOnly} onClick={() => setTopRatedOnly((v) => !v)}>
-                Rated 4.0+
-              </FilterPill>
-              <FilterPill
-                active={sort === 'price-asc'}
-                onClick={() => toggleSort('price-asc')}
-                leading={<ArrowUpNarrowWide className="size-3.5" />}
-              >
-                Price: low first
-              </FilterPill>
-              <FilterPill
-                active={sort === 'price-desc'}
-                onClick={() => toggleSort('price-desc')}
-                leading={<ArrowDownWideNarrow className="size-3.5" />}
-              >
-                Price: high first
-              </FilterPill>
-
-              {activeFilterCount > 0 && (
-                <button
-                  type="button"
-                  onClick={resetAll}
-                  className="text-brand-700 hover:bg-brand-50 shrink-0 rounded-full px-3 py-2 text-[13px] font-bold whitespace-nowrap transition-colors"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
-          </div>
-        </Container>
-      </div>
-
       <main className="flex-1">
         <Container className="max-w-[1600px] py-6 sm:py-8">
           <CouponTeaser className="mb-6" />
@@ -430,63 +296,71 @@ function MenuBrowser() {
             </section>
           )}
 
-          <div className="flex items-start gap-10 xl:gap-14">
+          <div className="flex items-start gap-8 xl:gap-12">
             {/* ── Desktop category sidebar ─────────────────────────── */}
             {railCategories.length > 1 && (
               <aside
                 className="scrollbar-none hidden w-[212px] shrink-0 self-start overflow-y-auto lg:block xl:w-[240px]"
                 style={{
                   position: 'sticky',
-                  top: 'calc(var(--store-header-h) + var(--store-filters-h) + 1.5rem)',
-                  maxHeight: 'calc(100dvh - var(--store-header-h) - var(--store-filters-h) - 3rem)',
+                  top: 'calc(var(--store-header-h) + 1.25rem)',
+                  maxHeight: 'calc(100dvh - var(--store-header-h) - 2.5rem)',
                 }}
               >
-                <p className="text-ink-4 mb-2 px-3 text-[11px] font-bold tracking-wider uppercase">
-                  Sections
-                </p>
-                <nav className="space-y-0.5">
-                  {railCategories.map((cat) => {
-                    const active = cat.id === activeCategory;
-                    return (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => selectCategory(cat.id)}
-                        aria-current={active ? 'true' : undefined}
-                        className={cn(
-                          'flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors outline-none',
-                          active ? 'bg-brand-50' : 'hover:bg-white'
-                        )}
-                      >
-                        <span
+                <div className="rounded-2xl border border-hair-1 bg-white p-3 shadow-xs">
+                  <div className="mb-2 flex items-center justify-between px-2">
+                    <p className="text-ink-4 text-[11px] font-extrabold tracking-wider uppercase">
+                      Categories
+                    </p>
+                    <span className="text-ink-4 text-[11px] font-bold">
+                      {railCategories.length - 1}
+                    </span>
+                  </div>
+                  <nav className="space-y-0.5">
+                    {railCategories.map((cat) => {
+                      const active = cat.id === activeCategory;
+                      return (
+                        <button
+                          key={cat.id}
+                          type="button"
+                          onClick={() => selectCategory(cat.id)}
+                          aria-current={active ? 'true' : undefined}
                           className={cn(
-                            'truncate text-[14px]',
-                            active ? 'text-brand-700 font-extrabold' : 'text-ink-2 font-semibold'
+                            'group flex w-full items-center justify-between gap-2.5 rounded-xl px-2.5 py-2 text-left transition-all outline-none',
+                            active
+                              ? 'bg-brand-50 text-brand-700 shadow-xs ring-1 ring-brand-200'
+                              : 'text-ink-2 hover:bg-hair-2/70 hover:text-ink-1'
                           )}
                         >
-                          {cat.label}
-                        </span>
-                        <span
-                          className={cn(
-                            'shrink-0 text-[12px] font-bold tabular-nums',
-                            active ? 'text-brand-600' : 'text-ink-4'
-                          )}
-                        >
-                          {cat.count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </nav>
+                          <span
+                            className={cn(
+                              'truncate text-[13px]',
+                              active ? 'font-extrabold' : 'font-semibold'
+                            )}
+                          >
+                            {cat.label}
+                          </span>
+                          <span
+                            className={cn(
+                              'shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums transition-colors',
+                              active
+                                ? 'bg-brand/15 text-brand-700 font-extrabold'
+                                : 'bg-hair-2 text-ink-4 group-hover:bg-hair-1'
+                            )}
+                          >
+                            {cat.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </nav>
+                </div>
               </aside>
             )}
 
             {/* ── Dishes ───────────────────────────────────────────── */}
             <div className="min-w-0 flex-1">
-              {/* Result header. When the list is grouped, its own section
-                  headings already name everything, so this collapses to a
-                  plain count rather than repeating "All dishes" directly above
-                  the first real heading. */}
+              {/* Result header */}
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   {groupedSections ? (
@@ -500,9 +374,81 @@ function MenuBrowser() {
                     />
                   )}
                   {activeFilterCount > 0 && !isLoadingDB && (
-                    <p className="text-ink-4 mt-0.5 text-[12px] font-semibold">
-                      {activeFilterCount} filter{activeFilterCount === 1 ? '' : 's'} applied
-                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      <span className="text-ink-4 text-[11px] font-bold tracking-tight">Active:</span>
+                      {searchQuery && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">
+                          &ldquo;{searchQuery}&rdquo;
+                          <button
+                            type="button"
+                            onClick={() => pushParams((p) => p.delete('q'))}
+                            aria-label="Remove search filter"
+                            className="hover:text-ink-1"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </span>
+                      )}
+                      {vegFilter !== ALL && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">
+                          {vegFilter}
+                          <button
+                            type="button"
+                            onClick={() => pushParams((p) => p.delete('veg'))}
+                            aria-label="Remove veg filter"
+                            className="hover:text-ink-1"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </span>
+                      )}
+                      {bestsellerOnly && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">
+                          Bestsellers
+                          <button
+                            type="button"
+                            onClick={() => pushParams((p) => p.delete('bestseller'))}
+                            aria-label="Remove bestseller filter"
+                            className="hover:text-ink-1"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </span>
+                      )}
+                      {topRatedOnly && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">
+                          Rated 4.0+
+                          <button
+                            type="button"
+                            onClick={() => pushParams((p) => p.delete('topRated'))}
+                            aria-label="Remove top rated filter"
+                            className="hover:text-ink-1"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </span>
+                      )}
+                      {sort !== 'default' && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[11px] font-bold text-brand-700">
+                          {sort === 'price-asc' ? 'Price: Low first' : 'Price: High first'}
+                          <button
+                            type="button"
+                            onClick={() => pushParams((p) => p.delete('sort'))}
+                            aria-label="Remove sort"
+                            className="hover:text-ink-1"
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={resetAll}
+                        className="text-brand-700 hover:text-brand-800 ml-1 text-[11px] font-bold underline underline-offset-2"
+                      >
+                        Clear all
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -521,6 +467,7 @@ function MenuBrowser() {
                   />
                 </div>
               </div>
+
 
               {isLoadingDB ? (
                 <DishSkeletons layout={layout} />

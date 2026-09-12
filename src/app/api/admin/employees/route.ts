@@ -5,16 +5,15 @@ import { requireAdmin, RequireAdminError } from '@/lib/auth/requireAdmin';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { getErrorMessage } from '@/lib/errors';
 
-const EMPLOYEE_ROLES = new Set(['admin', 'manager', 'chef', 'cashier']);
+const EMPLOYEE_ROLES = new Set(['admin', 'manager', 'chef', 'cashier', 'waiter']);
 
 /**
  * Creates a staff login and its employee/profile rows in one call.
  *
- * `auth.admin.createUser` and `admin_upsert_staff` (see the baseline migration in supabase/migrations)
- * are two separate calls against two different systems (GoTrue, then
- * Postgres) — if the second one fails, the freshly created login is deleted
- * so a bad employee ID or role doesn't leave a working account nobody can see
- * in the team list.
+ * Tries `admin_upsert_staff` RPC first. If the RPC is unavailable or fails,
+ * falls back to direct service-role table writes (profiles + employees) so
+ * missing DB functions don't block staff onboarding. If the writes fail, the
+ * auth user is cleaned up so dangling accounts are not left behind.
  */
 export async function POST(request: Request) {
   try {
@@ -56,24 +55,82 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    const { error: rpcErr } = await admin.rpc('admin_upsert_staff', {
-      p_auth_user_id: created.user.id,
-      p_email: email,
-      p_full_name: name,
-      p_phone: phone || '',
-      p_role: role,
-      p_employee_id: id,
-      p_shift: shift || 'morning',
-      p_salary: salary || 0,
-      p_joining_date: new Date().toISOString().split('T')[0],
-    });
+    const joiningDate = new Date().toISOString().split('T')[0];
 
-    if (rpcErr) {
-      await admin.auth.admin.deleteUser(created.user.id).catch(() => {});
-      const message = /duplicate|unique/i.test(rpcErr.message)
-        ? `Employee ID ${id} already exists`
-        : rpcErr.message;
-      return NextResponse.json({ error: message }, { status: 400 });
+    // 1. Try atomic RPC first
+    let rpcSuccess = false;
+    try {
+      const { error: rpcErr } = await admin.rpc('admin_upsert_staff', {
+        p_auth_user_id: created.user.id,
+        p_email: email,
+        p_full_name: name,
+        p_phone: phone || '',
+        p_role: role,
+        p_employee_id: id,
+        p_shift: shift || 'morning',
+        p_salary: salary || 0,
+        p_joining_date: joiningDate,
+      });
+
+      if (!rpcErr) {
+        rpcSuccess = true;
+      } else {
+        console.warn('admin_upsert_staff RPC failed, falling back to direct table inserts:', rpcErr.message);
+      }
+    } catch (e) {
+      console.warn('admin_upsert_staff RPC error, falling back to direct table inserts:', e);
+    }
+
+    // 2. Fallback to direct service-role table writes if RPC was unavailable or failed
+    if (!rpcSuccess) {
+      const { error: profileErr } = await admin.from('profiles').upsert(
+        {
+          id: created.user.id,
+          email,
+          full_name: name,
+          phone: phone || '',
+          role,
+        },
+        { onConflict: 'id' }
+      );
+
+      if (profileErr) {
+        await admin.auth.admin.deleteUser(created.user.id).catch(() => {});
+        return NextResponse.json(
+          { error: profileErr.message || 'Could not create staff profile' },
+          { status: 400 }
+        );
+      }
+
+      const employeeRecord: Record<string, unknown> = {
+        id,
+        name,
+        role,
+        phone: phone || '',
+        email,
+        shift: shift || 'morning',
+        salary: salary || 0,
+        joining_date: joiningDate,
+        status: 'Active',
+        auth_user_id: created.user.id,
+      };
+
+      let { error: empErr } = await admin.from('employees').insert(employeeRecord);
+
+      // Handle legacy tables without auth_user_id column
+      if (empErr && /auth_user_id/i.test(empErr.message)) {
+        delete employeeRecord.auth_user_id;
+        const retry = await admin.from('employees').insert(employeeRecord);
+        empErr = retry.error;
+      }
+
+      if (empErr) {
+        await admin.auth.admin.deleteUser(created.user.id).catch(() => {});
+        const message = /duplicate|unique/i.test(empErr.message)
+          ? `Employee ID ${id} already exists`
+          : empErr.message || 'Could not insert employee record';
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
     }
 
     return NextResponse.json({ ok: true });

@@ -141,20 +141,15 @@
      The header is a floating pill now, inset from the viewport edge by its
      own top padding — this is that padding plus the pill's own height, i.e.
      the full space the sticky header actually occupies, not just the bar. */
-  --store-header-h: 68px;
-  /* The menu's sticky filter bar. Two stacked rows on a phone (search, then
-     the chip scroller) and one row from `md` up, which is why it halves.
-     Kept in sync with the `py-*`/`h-*` on that bar in app/menu/page.tsx —
-     change one and change the other, or the sticky sidebar under it starts
-     its scroll at the wrong offset. */
-  --store-filters-h: 112px;
+  --store-header-h: 112px;
+  --store-filters-h: 0px;
   --store-safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @media (min-width: 768px) {
   :root {
-    --store-header-h: 80px;
-    --store-filters-h: 72px;
+    --store-header-h: 76px;
+    --store-filters-h: 0px;
   }
 }
 

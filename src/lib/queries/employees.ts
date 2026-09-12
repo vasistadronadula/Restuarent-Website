@@ -40,10 +40,17 @@ async function callEmployeeApi(
   path: string,
   init: { method: string; body?: unknown }
 ): Promise<{ warning?: string }> {
-  const {
+  let {
     data: { session },
   } = await supabase.auth.getSession();
   if (!session) throw new Error('Not signed in');
+
+  if (session.expires_at && session.expires_at * 1000 < Date.now() + 60_000) {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed.session) {
+      session = refreshed.session;
+    }
+  }
 
   const res = await fetch(path, {
     method: init.method,

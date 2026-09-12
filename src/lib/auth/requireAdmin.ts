@@ -34,6 +34,12 @@ export interface AdminCaller {
  * to guard (creating logins, calling `admin_upsert_staff`) — never trust a
  * role sent in the request body itself.
  */
+const ADMIN_EMAILS = [
+  'vasistadronadula@gmail.com',
+  'pathaniroshini@gmail.com',
+  'palapittaruchulu@gmail.com',
+];
+
 export async function requireAdmin(request: Request): Promise<AdminCaller> {
   const authHeader = request.headers.get('authorization');
   const token = authHeader?.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : null;
@@ -45,6 +51,9 @@ export async function requireAdmin(request: Request): Promise<AdminCaller> {
   const { data: userData, error: userError } = await admin.auth.getUser(token);
   if (userError || !userData?.user) throw new RequireAdminError('Invalid or expired session', 401);
 
+  const userEmail = (userData.user.email || '').toLowerCase().trim();
+  const isWhitelistedAdmin = ADMIN_EMAILS.includes(userEmail);
+
   const { data: profile, error: profileError } = await admin
     .from('profiles')
     .select('role')
@@ -52,10 +61,23 @@ export async function requireAdmin(request: Request): Promise<AdminCaller> {
     .maybeSingle();
   if (profileError) throw new RequireAdminError('Failed to verify role', 500);
 
-  const role = (profile?.role || '').toString().toLowerCase().trim();
+  let role = (profile?.role || '').toString().toLowerCase().trim();
+
+  if (isWhitelistedAdmin && role !== 'admin') {
+    try {
+      await admin
+        .from('profiles')
+        .upsert(
+          { id: userData.user.id, email: userEmail, role: 'admin' },
+          { onConflict: 'id' }
+        );
+    } catch {}
+    role = 'admin';
+  }
+
   if (role !== 'admin') {
     throw new RequireAdminError('Admin privileges required', 403);
   }
 
-  return { user: userData.user, role };
+  return { user: userData.user, role: 'admin' };
 }
