@@ -1,2 +1,2 @@
 // Backward-compatible re-export shim
-export * from './billing/index';
+export * from './billing/billing';
