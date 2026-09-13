@@ -8,10 +8,10 @@ export type RevealDirection = 'up' | 'down' | 'left' | 'right' | 'fade' | 'zoom'
 
 /** Where the element starts before it settles into place. */
 const START_TRANSFORM: Record<RevealDirection, string> = {
-  up: 'translate3d(0, 28px, 0)',
-  down: 'translate3d(0, -28px, 0)',
-  left: 'translate3d(28px, 0, 0)',
-  right: 'translate3d(-28px, 0, 0)',
+  up: 'translate3d(0, 8px, 0)',
+  down: 'translate3d(0, -8px, 0)',
+  left: 'translate3d(8px, 0, 0)',
+  right: 'translate3d(-8px, 0, 0)',
   fade: 'none',
   zoom: 'scale(0.95)',
 };
@@ -43,7 +43,7 @@ export default function Reveal({
   children,
   direction = 'up',
   delay = 0,
-  duration = 620,
+  duration = 180,
   threshold = 0.12,
   as: Component = 'div',
   className,
@@ -74,9 +74,8 @@ export default function Reveal({
       },
       {
         threshold,
-        // Hold the reveal until the element is a little way past the fold, so
-        // it animates where the eye already is rather than off at the edge.
-        rootMargin: '0px 0px -8% 0px',
+        // Prepare just before entering the viewport, rather than hiding visible content.
+        rootMargin: '120px 0px',
       }
     );
 
@@ -91,7 +90,7 @@ export default function Reveal({
       style={{
         opacity: shown ? 1 : 0,
         transform: shown ? 'none' : START_TRANSFORM[direction],
-        transition: `opacity ${duration}ms cubic-bezier(0.22, 0.61, 0.36, 1) ${delay}ms, transform ${duration}ms cubic-bezier(0.22, 0.61, 0.36, 1) ${delay}ms`,
+        transition: `opacity ${duration}ms ease-out ${Math.min(delay, 90)}ms, transform ${duration}ms ease-out ${Math.min(delay, 90)}ms`,
         // Without this the transformed subtree can be composited on its own
         // layer permanently; clearing it after the reveal keeps text crisp.
         willChange: shown ? 'auto' : 'opacity, transform',

@@ -10,39 +10,37 @@
  *   Employees:    PPR-EMP-20260725-4821
  */
 
-const getDateStamp = (): string => {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}${m}${d}`;
-};
+import { orderDateStamp } from '@/lib/orders/orderTime';
+
+/** Both the original secure IDs and new numeric-token IDs support guest tracking. */
+export const ORDER_ID_PATTERN = /^PPR-ORD-\d{8}-(?:[a-f0-9]{20}|[a-f0-9]{19}\d{4})$/i;
+
+const getDateStamp = (): string => orderDateStamp().replaceAll('-', '');
 
 /**
- * 6-digit suffix combining millisecond-precision time with a random tail, so
- * two IDs generated in the same millisecond only collide if they also draw
- * the same 2-digit random number (1-in-100), versus 1-in-9000 for a plain
- * 4-digit random suffix.
- */
-/**
- * High-entropy suffix. Order IDs double as guest tracking credentials, so a
- * timestamp plus two random digits is not sufficient: it makes another
- * customer's order practical to enumerate. Web Crypto exists in supported
- * browsers and in the Node runtime used by tests/builds.
+ * High-entropy suffix using Web Crypto. Order IDs double as guest tracking
+ * credentials, so a timestamp plus two random digits is not sufficient: it
+ * makes another customer's order practical to enumerate. Ten random bytes
+ * (80 bits of entropy) keeps the full ID below Razorpay's 40-character
+ * receipt limit while remaining infeasible to brute-force.
+ * Web Crypto is available in all supported browsers and in Node ≥ 15.
  */
 const randomSuffix = (): string => {
-  // Ten bytes (80 bits) keeps the complete ID below Razorpay's 40-character
-  // receipt limit while remaining infeasible to enumerate.
   const bytes = new Uint8Array(10);
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 };
 
-/** Generates a unique Order ID — PPR-ORD-20260725-4821 */
-export const generateOrderId = (): string =>
-  `PPR-ORD-${getDateStamp()}-${randomSuffix()}`;
+/** 76 random bits plus a four-digit token: fits Razorpay's 40-character limit.
+ * The full ID identifies the order; the short token is only a display label. */
+export const generateOrderId = (): string => {
+  const value = new Uint16Array(1);
+  do { crypto.getRandomValues(value); } while (value[0] >= 60000);
+  const token = String(value[0] % 10000).padStart(4, '0');
+  return `PPR-ORD-${getDateStamp()}-${randomSuffix().slice(0, 19)}${token}`;
+};
 
-/** Generates a unique Reservation ID — PPR-RES-20260725-3914 */
+/** Generates a unique Reservation ID — PPR-RES-20260725-<hex> */
 export const generateReservationId = (): string =>
   `PPR-RES-${getDateStamp()}-${randomSuffix()}`;
 
@@ -67,12 +65,12 @@ export const generateInvoiceNo = (orderId?: string): string => {
 export const generateTableId = (tableNumber: number): string =>
   `T-${String(tableNumber).padStart(3, '0')}`;
 
-/** Generates a unique Employee ID — PPR-EMP-20260725-4821 */
+/** Generates a unique Employee ID — PPR-EMP-20260725-<hex> */
 export const generateEmployeeId = (): string =>
   `PPR-EMP-${getDateStamp()}-${randomSuffix()}`;
 
 /**
- * Generates a Stock/Inventory ID — PPR-STK-20260725-4821
+ * Generates a Stock/Inventory ID — PPR-STK-20260725-<hex>
  *
  * The inventory page used to build its own ID from the last six digits of
  * `Date.now()`, which repeat every ~16 minutes — two items added in the same
@@ -82,7 +80,7 @@ export const generateInventoryId = (): string =>
   `PPR-STK-${getDateStamp()}-${randomSuffix()}`;
 
 /**
- * Generates a Menu Item ID — PPR-DSH-20260725-4821
+ * Generates a Menu Item ID — PPR-DSH-20260725-<hex>
  *
  * Menu management used to build `item-${Date.now()}` inline, which is both
  * unreadable in the database and collision-prone: two dishes saved in the same
@@ -91,6 +89,6 @@ export const generateInventoryId = (): string =>
 export const generateMenuItemId = (): string =>
   `PPR-DSH-${getDateStamp()}-${randomSuffix()}`;
 
-/** Generates a Category ID — CAT-biryani (from slug) or CAT-20260725-4821 */
+/** Generates a Category ID — CAT-biryani (from slug) or CAT-20260725-<hex> */
 export const generateCategoryId = (slug?: string): string =>
   slug ? `CAT-${slug}` : `CAT-${getDateStamp()}-${randomSuffix()}`;

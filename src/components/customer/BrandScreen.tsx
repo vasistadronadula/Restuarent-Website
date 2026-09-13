@@ -35,7 +35,7 @@ export function BrandScreen({
       <div className="w-full max-w-md text-center">
         <PalaPittaLogo size="large" priority className="mx-auto" />
 
-        <h1 className="text-ink-1 mt-8 font-[family-name:var(--font-manrope)] text-2xl font-extrabold sm:text-3xl">
+        <h1 className="text-ink-1 mt-8 font-sans text-2xl font-extrabold sm:text-3xl">
           {title}
         </h1>
 

@@ -305,7 +305,7 @@ export default function AdminHeader({ title, onOpenNav, wideNav = false }: Props
           <div className="relative shrink-0 flex items-center gap-1.5" ref={profileRef}>
             <button
               onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }}
-              className="w-9 h-9 grid place-items-center bg-ad-ink text-ad-bg ad-num text-[12px] overflow-hidden hover:opacity-90 transition-opacity"
+              className="w-11 h-11 rounded-full grid place-items-center bg-ad-ink text-ad-bg ad-num text-[12px] overflow-hidden hover:opacity-90 transition-opacity"
               style={avatarUrl ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}
               aria-label="Account menu"
               title="Account menu"
@@ -317,7 +317,7 @@ export default function AdminHeader({ title, onOpenNav, wideNav = false }: Props
               <div className="absolute right-0 top-full mt-2 w-64 bg-ad-bg border-2 border-ad-line z-50">
                 <div className="p-4 flex items-center gap-3 border-b-2 border-ad-line">
                   <div
-                    className="w-10 h-10 flex-none grid place-items-center bg-ad-accent text-ad-bg ad-num text-[13px] overflow-hidden"
+                    className="w-10 h-10 rounded-full flex-none grid place-items-center bg-ad-accent text-ad-bg ad-num text-[13px] overflow-hidden"
                     style={avatarUrl ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}
                   >
                     {avatarUrl ? '' : initials}

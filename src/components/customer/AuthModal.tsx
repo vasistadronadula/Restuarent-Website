@@ -76,8 +76,8 @@ export default function AuthModal() {
     <Dialog modal={false} open={isAuthModalOpen} onOpenChange={(open) => { if (!open) close(); }}>
       <DialogContent showCloseButton={false} className="p-0 overflow-hidden max-w-md w-full sm:rounded-2xl border-none">
         {/* Branded Header */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-[#1A0606] via-[#370C0C] to-[#1A0606] p-6 text-white">
-          <div className="pointer-events-none absolute -right-10 -top-20 size-48 rounded-full bg-amber-500/20 blur-2xl" />
+        <div className="from-cobalt-900 via-cobalt-700 to-cobalt-900 relative overflow-hidden bg-gradient-to-br p-6 text-white">
+          <div className="bg-brand/30 pointer-events-none absolute -top-20 -right-10 size-48 rounded-full blur-2xl" />
           
           <div className="relative z-10 pr-10">
             <div className="mb-3 inline-flex items-center rounded-xl bg-white/95 px-3 py-1.5 shadow-sm">
@@ -224,7 +224,7 @@ export default function AuthModal() {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full font-extrabold shadow-md bg-gradient-to-r from-red-700 to-red-600 hover:from-red-800 hover:to-red-700 text-white py-2.5 rounded-xl transition-all"
+                  className="bg-brand hover:bg-brand-600 w-full rounded-xl py-2.5 font-extrabold text-white shadow-md transition-all"
                 >
                   {loading ? <Loader2 className="size-5 animate-spin" /> : isLogin ? 'Log in' : 'Create account'}
                 </Button>
@@ -241,7 +241,7 @@ export default function AuthModal() {
                 type="button"
                 variant="outline"
                 onClick={signInWithGoogle}
-                className="w-full font-bold py-2.5 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-muted gap-2"
+                className="border-hair-1 hover:bg-hair-2 w-full gap-2 rounded-xl py-2.5 font-bold"
               >
                 <GoogleIcon />
                 Continue with Google

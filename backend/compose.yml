@@ -1,0 +1,56 @@
+name: pala-pitta-backend
+services:
+  business:
+    build: ./business
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set Supabase JDBC DATABASE_URL}
+      DATABASE_USER: ${DATABASE_USER:?Set Supabase DATABASE_USER}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?Set Supabase DATABASE_PASSWORD}
+      SUPABASE_JWT_SECRET: ${SUPABASE_JWT_SECRET:-}
+    networks: [backend-net]
+    read_only: true
+    tmpfs: ["/tmp:size=128m,mode=1777"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    mem_limit: 768m
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:8081/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      start_period: 40s
+      retries: 10
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+  gateway:
+    build: ./gateway
+    restart: unless-stopped
+    environment:
+      BUSINESS_URL: http://business:8081
+      WEB_ORIGIN: ${WEB_ORIGIN:?Set the frontend origin}
+      LISTEN_ADDR: :8080
+      TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-}
+    depends_on:
+      business: {condition: service_healthy}
+    # Bind locally by default; use a TLS reverse proxy for public access.
+    ports: ["127.0.0.1:${GATEWAY_PORT:-8085}:8080"]
+    networks: [backend-net]
+    read_only: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+    mem_limit: 128m
+    stop_grace_period: 20s
+    healthcheck:
+      test: ["CMD", "/gateway", "--healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+
+networks:
+  backend-net:

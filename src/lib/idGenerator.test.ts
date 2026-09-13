@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   generateOrderId,
   generateReservationId,
@@ -8,11 +8,16 @@ import {
   generateInventoryId,
   generateMenuItemId,
   generateCategoryId,
+  ORDER_ID_PATTERN,
 } from './idGenerator';
 
 describe('idGenerator', () => {
+  afterEach(() => vi.useRealTimers());
   it('generates date-stamped ids with an 80-bit random suffix', () => {
-    expect(generateOrderId()).toMatch(/^PPR-ORD-\d{8}-[a-f0-9]{20}$/);
+    const orderId = generateOrderId();
+    expect(orderId).toMatch(/^PPR-ORD-\d{8}-[a-f0-9]{19}\d{4}$/);
+    expect(orderId).toMatch(ORDER_ID_PATTERN);
+    expect(orderId.length).toBeLessThanOrEqual(40);
     expect(generateReservationId()).toMatch(/^PPR-RES-\d{8}-[a-f0-9]{20}$/);
     expect(generateEmployeeId()).toMatch(/^PPR-EMP-\d{8}-[a-f0-9]{20}$/);
     expect(generateInventoryId()).toMatch(/^PPR-STK-\d{8}-[a-f0-9]{20}$/);
@@ -24,7 +29,18 @@ describe('idGenerator', () => {
     // this file's own comments describe: a generator built from Date.now()
     // that repeats within the same millisecond/minute.
     const ids = new Set(Array.from({ length: 50 }, () => generateOrderId()));
-    expect(ids.size).toBeGreaterThan(1);
+    expect(ids.size).toBe(50);
+  });
+
+  it('uses the restaurant date across the IST midnight boundary', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-13T18:31:00Z'));
+    expect(generateOrderId()).toMatch(/^PPR-ORD-20260914-/);
+  });
+
+  it('continues accepting secure legacy guest IDs without accepting short guessable IDs', () => {
+    expect(ORDER_ID_PATTERN.test('PPR-ORD-20260913-abcdef0123456789abcd')).toBe(true);
+    expect(ORDER_ID_PATTERN.test('PPR-ORD-20260913-1234')).toBe(false);
   });
 
   it('derives an invoice number from a well-formed order id', () => {

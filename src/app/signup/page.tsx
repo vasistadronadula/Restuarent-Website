@@ -25,13 +25,13 @@ type AuthMethod = 'email' | 'otp';
 
 function TermsNote() {
   return (
-    <p className="mt-4 text-center text-[10px] text-stone-400 leading-relaxed font-semibold">
+    <p className="mt-4 text-center text-[10px] text-ink-4 leading-relaxed font-semibold">
       By continuing you agree to our{' '}
-      <Link href="/terms" target="_blank" className="font-extrabold text-amber-600 hover:underline dark:text-amber-400">
+      <Link href="/terms" target="_blank" className="font-extrabold text-brand-600 hover:underline dark:text-brand-400">
         Terms of Service
       </Link>{' '}
       and{' '}
-      <Link href="/privacy-policy" target="_blank" className="font-extrabold text-amber-600 hover:underline dark:text-amber-400">
+      <Link href="/privacy-policy" target="_blank" className="font-extrabold text-brand-600 hover:underline dark:text-brand-400">
         Privacy Policy
       </Link>
     </p>
@@ -137,22 +137,22 @@ function SignupForm() {
       subtitle="Order, track and book a table with one royal account."
       icon={
         authMethod === 'email' ? (
-          <UserPlus className="size-5 text-stone-700 dark:text-stone-300" />
+          <UserPlus className="size-5 text-brand-600" />
         ) : (
-          <Smartphone className="size-5 text-stone-700 dark:text-stone-300" />
+          <Smartphone className="size-5 text-brand-600" />
         )
       }
       footer={
-        <p className="text-xs text-stone-500 dark:text-stone-400">
+        <p className="text-xs text-ink-3 dark:text-ink-4">
           Already have an account?{' '}
-          <Link href={loginHref} prefetch className="font-extrabold text-amber-600 hover:underline dark:text-amber-400">
+          <Link href={loginHref} prefetch className="font-extrabold text-brand-600 hover:underline dark:text-brand-400">
             Log in
           </Link>
         </p>
       }
     >
       {leaving && (
-        <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-medium text-amber-700 dark:text-amber-450">
+        <div className="mb-4 rounded-xl border border-brand/30 bg-brand/10 p-3 text-xs font-medium text-brand-700 dark:text-brand-400">
           Already signed in — redirecting…
         </div>
       )}
@@ -165,8 +165,8 @@ function SignupForm() {
             customSocials={
               <div className="space-y-4 pt-1">
                 <div className="relative my-4 flex items-center justify-center">
-                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-200 dark:border-stone-800" /></div>
-                  <span className="relative bg-white/70 dark:bg-stone-900/65 px-3 text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-hair-1 dark:border-stone-800" /></div>
+                  <span className="relative bg-white/70 dark:bg-ink-1/65 px-3 text-[10px] font-bold text-ink-4 dark:text-ink-3 uppercase">
                     Or sign up with
                   </span>
                 </div>
@@ -174,7 +174,7 @@ function SignupForm() {
                   <button
                     type="button"
                     onClick={signInWithGoogle}
-                    className="w-10 h-10 border border-stone-250 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-stone-950 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors shadow-xs"
+                    className="w-10 h-10 border border-hair-1 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs"
                     title="Sign up with Google"
                   >
                     <GoogleIcon />
@@ -182,10 +182,10 @@ function SignupForm() {
                   <button
                     type="button"
                     onClick={() => { setAuthMethod('email'); setFormError(null); }}
-                    className="w-10 h-10 border border-stone-250 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-stone-950 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors shadow-xs text-stone-600 dark:text-stone-400"
+                    className="w-10 h-10 border border-hair-1 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs text-ink-2 dark:text-ink-4"
                     title="Sign up with Email"
                   >
-                    <Mail className="size-4 text-stone-550" />
+                    <Mail className="size-4 text-ink-3" />
                   </button>
                 </div>
               </div>
@@ -204,7 +204,7 @@ function SignupForm() {
 
             <div className="space-y-1.5">
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-4 dark:text-ink-3 transition-colors" />
                 <Input
                   id="signup-name"
                   ref={nameRef}
@@ -215,7 +215,7 @@ function SignupForm() {
                   autoComplete="name"
                   maxLength={80}
                   placeholder="Full Name"
-                  className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-550 text-xs font-bold"
+                  className="pl-9 h-11 rounded-xl bg-hair-2/50 dark:bg-cobalt-900/30 border-hair-1 dark:border-hair-1 text-ink-1 dark:text-stone-100 placeholder:text-ink-4 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand text-xs font-bold"
                 />
               </div>
               {showError('name') && <p className="text-[10px] font-bold text-destructive">{showError('name')}</p>}
@@ -223,7 +223,7 @@ function SignupForm() {
 
             <div className="space-y-1.5">
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-4 dark:text-ink-3 transition-colors" />
                 <Input
                   id="signup-phone"
                   ref={phoneRef}
@@ -235,7 +235,7 @@ function SignupForm() {
                   autoComplete="tel"
                   maxLength={15}
                   placeholder="Mobile Number"
-                  className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-550 text-xs font-bold"
+                  className="pl-9 h-11 rounded-xl bg-hair-2/50 dark:bg-cobalt-900/30 border-hair-1 dark:border-hair-1 text-ink-1 dark:text-stone-100 placeholder:text-ink-4 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand text-xs font-bold"
                 />
               </div>
               {showError('phone') && <p className="text-[10px] font-bold text-destructive">{showError('phone')}</p>}
@@ -243,7 +243,7 @@ function SignupForm() {
 
             <div className="space-y-1.5">
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-4 dark:text-ink-3 transition-colors" />
                 <Input
                   id="signup-email"
                   ref={emailRef}
@@ -254,7 +254,7 @@ function SignupForm() {
                   onBlur={() => handleBlur('email')}
                   autoComplete="email"
                   placeholder="Email"
-                  className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-550 text-xs font-bold"
+                  className="pl-9 h-11 rounded-xl bg-hair-2/50 dark:bg-cobalt-900/30 border-hair-1 dark:border-hair-1 text-ink-1 dark:text-stone-100 placeholder:text-ink-4 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand text-xs font-bold"
                 />
               </div>
               {showError('email') && <p className="text-[10px] font-bold text-destructive">{showError('email')}</p>}
@@ -262,7 +262,7 @@ function SignupForm() {
 
             <div className="space-y-1.5">
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-4 dark:text-ink-3 transition-colors" />
                 <Input
                   id="signup-password"
                   ref={passwordRef}
@@ -273,14 +273,14 @@ function SignupForm() {
                   onBlur={() => handleBlur('password')}
                   autoComplete="new-password"
                   placeholder="Password"
-                  className="pl-9 pr-10 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-550 text-xs font-bold"
+                  className="pl-9 pr-10 h-11 rounded-xl bg-hair-2/50 dark:bg-cobalt-900/30 border-hair-1 dark:border-hair-1 text-ink-1 dark:text-stone-100 placeholder:text-ink-4 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand text-xs font-bold"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showPassword}
-                  className="absolute right-0 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-xl text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300"
+                  className="absolute right-0 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-xl text-ink-4 hover:text-ink-2 dark:text-ink-3 dark:hover:text-stone-300"
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -302,13 +302,13 @@ function SignupForm() {
                   </div>
                   <p className="text-[10px] font-black" style={{ color: strength.color }}>
                     {strength.label}
-                    <span className="font-normal text-stone-400">
+                    <span className="font-normal text-ink-4">
                       {strength.hint ? ` · ${strength.hint}` : ' — strong password'}
                     </span>
                   </p>
                 </div>
               ) : (
-                <p className="text-[10px] text-stone-400 font-semibold">
+                <p className="text-[10px] text-ink-4 font-semibold">
                   Must be at least {MIN_PASSWORD_LENGTH} characters long
                 </p>
               )}
@@ -323,13 +323,13 @@ function SignupForm() {
                   if (checked) setFormError(null);
                 }}
               />
-              <Label htmlFor="terms" className="text-xs leading-relaxed text-stone-500 dark:text-stone-400 font-bold select-none cursor-pointer">
+              <Label htmlFor="terms" className="text-xs leading-relaxed text-ink-3 dark:text-ink-4 font-bold select-none cursor-pointer">
                 I agree to the{' '}
-                <Link href="/terms" target="_blank" className="font-extrabold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 hover:underline">
+                <Link href="/terms" target="_blank" className="font-extrabold text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline">
                   Terms of Service
                 </Link>{' '}
                 and{' '}
-                <Link href="/privacy-policy" target="_blank" className="font-extrabold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 hover:underline">
+                <Link href="/privacy-policy" target="_blank" className="font-extrabold text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline">
                   Privacy Policy
                 </Link>
               </Label>
@@ -338,15 +338,15 @@ function SignupForm() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-11 font-black bg-stone-950 hover:bg-stone-900 text-white dark:bg-stone-50 dark:hover:bg-stone-200 dark:text-stone-950 rounded-xl transition-all text-xs"
+              className="bg-brand hover:bg-brand-600 h-11 w-full rounded-xl text-xs font-black text-white shadow-md transition-all"
             >
               {loading ? <><Loader2 className="size-4 animate-spin" /> Creating account…</> : 'Create account'}
             </Button>
           </form>
 
           <div className="relative my-4 flex items-center justify-center">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-200 dark:border-stone-800" /></div>
-            <span className="relative bg-white/70 dark:bg-stone-900/65 px-3 text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-hair-1 dark:border-stone-800" /></div>
+            <span className="relative bg-white/70 dark:bg-ink-1/65 px-3 text-[10px] font-bold text-ink-4 dark:text-ink-3 uppercase">
               Or sign up with
             </span>
           </div>
@@ -355,7 +355,7 @@ function SignupForm() {
             <button
               type="button"
               onClick={signInWithGoogle}
-              className="w-10 h-10 border border-stone-250 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-stone-950 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors shadow-xs"
+              className="w-10 h-10 border border-hair-1 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs"
               title="Sign up with Google"
             >
               <GoogleIcon />
@@ -363,10 +363,10 @@ function SignupForm() {
             <button
               type="button"
               onClick={() => { setAuthMethod('otp'); setFormError(null); }}
-              className="w-10 h-10 border border-stone-250 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-stone-950 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors shadow-xs text-stone-600 dark:text-stone-400"
+              className="w-10 h-10 border border-hair-1 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs text-ink-2 dark:text-ink-4"
               title="Sign up with Mobile OTP"
             >
-              <Phone className="size-4 text-stone-550" />
+              <Phone className="size-4 text-ink-3" />
             </button>
           </div>
         </div>
@@ -375,16 +375,13 @@ function SignupForm() {
   );
 }
 
-import { BrandScreen } from '@/components/customer/BrandScreen';
-
 export default function SignupPage() {
   return (
     <Suspense
       fallback={
-        <BrandScreen title="Setting your table…" message="One moment while we prepare account creation.">
-          <span aria-hidden className="bg-brand/70 size-2.5 animate-ping rounded-full" />
-          <span className="sr-only" role="status">Loading</span>
-        </BrandScreen>
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-[9999] h-1 w-full overflow-hidden bg-transparent">
+          <div className="h-full w-full bg-gradient-to-r from-amber-400 via-brand to-amber-500 animate-pulse" />
+        </div>
       }
     >
       <SignupForm />

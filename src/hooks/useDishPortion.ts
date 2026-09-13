@@ -32,20 +32,25 @@ export function useDishPortion(item: MenuItem) {
     [item.portionPrices],
   );
 
-  const [selectedPortion, setSelectedPortion] = useState<Portion>(() => {
+  const [requestedPortion, setSelectedPortion] = useState<Portion>(() => {
     if (availablePortions.length === 0) return 'full';
     return availablePortions.includes('full') ? 'full' : availablePortions[0];
   });
 
+  const selectedPortion = availablePortions.length === 0 ? 'full' : availablePortions.includes(requestedPortion)
+    ? requestedPortion
+    : availablePortions.includes('full') ? 'full' : availablePortions[0];
+
   const hasPortions = availablePortions.length > 1;
   const activePrice = item.portionPrices?.[selectedPortion] ?? item.price;
 
-  const cartItems = useCartStore((s) => s.items);
-  const cartItem = cartItems.find(
+  // Subscribe only to this dish. Adding one item must not repaint every card.
+  const cartItem = useCartStore((s) => s.items.find(
     (i) => i.id === item.id && (i.selectedPortion || 'full') === selectedPortion,
-  );
-  const dishQuantity = cartItems.filter((line) => line.id === item.id)
-    .reduce((sum, line) => sum + line.quantity, 0);
+  ));
+  const dishQuantity = useCartStore((s) => s.items.reduce(
+    (sum, line) => line.id === item.id ? sum + line.quantity : sum, 0,
+  ));
 
   /**
    * Pass the click event through and the dish flies from the button that was
@@ -56,6 +61,7 @@ export function useDishPortion(item: MenuItem) {
    * flight.
    */
   const add = (event?: MouseEvent<HTMLElement>) => {
+    if (!item.isAvailable) return;
     const name = hasPortions ? `${item.name} (${PORTION_LABELS[selectedPortion]})` : item.name;
 
     if (item.maxQuantity && dishQuantity >= item.maxQuantity) {
@@ -80,14 +86,15 @@ export function useDishPortion(item: MenuItem) {
   };
 
   const increase = () => {
+    if (!item.isAvailable) return;
     if (item.maxQuantity && dishQuantity >= item.maxQuantity) {
       toast.error(`You can add up to ${item.maxQuantity} of ${item.name} per order`);
       return;
     }
-    useCartStore.getState().increaseQty(item.id, hasPortions ? selectedPortion : undefined);
+    useCartStore.getState().increaseQty(item.id, selectedPortion);
   };
   const decrease = () => {
-    useCartStore.getState().decreaseQty(item.id, hasPortions ? selectedPortion : undefined);
+    useCartStore.getState().decreaseQty(item.id, selectedPortion);
   };
 
   const atMax = Boolean(item.maxQuantity && dishQuantity >= item.maxQuantity);

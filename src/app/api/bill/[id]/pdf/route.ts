@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { mapOrder } from '@/lib/queries/mappers';
-import { generateThermalBillPdf } from '@/lib/pdf/generateThermalBillPdf';
-import { verifyBillToken } from '@/lib/billToken';
+import { generateThermalBillPdf, verifyBillToken } from '@/lib/billing';
 
 export const dynamic = 'force-dynamic';
 

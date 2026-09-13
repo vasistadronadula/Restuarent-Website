@@ -132,15 +132,23 @@
   - Cloud Storage
   - Firestore/Realtime Database
 
-### Fastify Service
-- **Directory:** `server/`
-- **Port:** 3001
+### Go API Gateway
+- **Directory:** `backend/gateway/`
+- **Port:** 8080
 - **Features:**
-  - High-performance HTTP & REST API endpoints
-  - Real-time native WebSockets (`@fastify/websocket`) for KDS & POS
-  - Multi-room broadcasting (`kitchen`, `cashier`, `pos`, `tables`)
-  - Shared TypeScript types & Supabase integration
-  - Hot reload via `tsx watch`
+  - High-performance reverse proxy and routing to Spring Boot (:8081)
+  - WebSocket hub (`/ws`) for POS and KDS real-time events
+  - Supabase JWT token verification
+  - In-memory rate limiting and request logging
+
+### Spring Boot Business Service
+- **Directory:** `backend/business/`
+- **Port:** 8081
+- **Features:**
+  - Full CRUD operations for menu items, categories, tables, coupons, and orders
+  - Order workflows, KDS preparation timing, and table status management
+  - Authoritative PostgreSQL connection to Supabase via Spring Data JDBC
+  - Role-based authorization matching Supabase policies
 
 ---
 

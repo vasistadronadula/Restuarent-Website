@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isDeepStrictEqual } from 'node:util';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
@@ -8,6 +9,9 @@ import { getRazorpayClient, verifyRazorpaySignature } from '@/lib/razorpayServer
 import { log } from '@/lib/logger';
 import { getTenantContext } from '@/lib/tenantContext';
 import type { PaymentMode, PaymentStatus } from '@/types';
+import { ORDER_ID_PATTERN } from '@/lib/idGenerator';
+import { normalizePhone, validatePhone } from '@/lib/validation';
+import { mapOrder } from '@/lib/queries/mappers';
 
 function text(value: unknown, max = 200): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -48,11 +52,12 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const orderId = text(body?.orderId, 60);
     const customerName = text(body?.customer?.name, 120);
-    const customerPhone = text(body?.customer?.phone, 30).replace(/[^\d+ -]/g, '');
+    const rawPhone = text(body?.customer?.phone, 30);
+    const customerPhone = normalizePhone(rawPhone);
     const paymentMode = text(body?.paymentMode, 20) as PaymentMode;
     const lines = body?.items;
 
-    if (!orderId || !customerName || customerPhone.replace(/\D/g, '').length < 10) {
+    if (!ORDER_ID_PATTERN.test(orderId) || !customerName || !rawPhone || validatePhone(rawPhone)) {
       return NextResponse.json({ error: 'Customer details are incomplete.' }, { status: 400 });
     }
     if (paymentMode !== 'cash' && paymentMode !== 'razorpay') {
@@ -127,6 +132,19 @@ export async function POST(request: Request) {
       branch_id: tenant.branch_id,
     }]);
 
+    if (insertError?.code === '23505') {
+      // A response can be lost after the insert commits. Reusing the full ID
+      // must return the saved order, rather than cause a second sale/payment.
+      const { data: existing, error } = await admin.from('orders').select('*').eq('id', orderId).maybeSingle();
+      if (error) throw error;
+      if (existing && existing.customer_phone === customerPhone && (existing.user_id || null) === userId &&
+          existing.payment_mode === paymentMode && (existing.razorpay_payment_id || null) === razorpayPaymentId &&
+          Number(existing.grand_total) === totals.grandTotal &&
+          isDeepStrictEqual(existing.items, JSON.parse(JSON.stringify(items)))) {
+        return NextResponse.json(mapOrder(existing));
+      }
+      return NextResponse.json({ error: 'This order ID is already in use for another checkout.' }, { status: 409 });
+    }
     if (insertError) throw insertError;
 
     return NextResponse.json({

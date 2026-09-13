@@ -23,6 +23,7 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     if (!authReady) return;
+    if (user && !userRole) return;
     if (signingOut) return;
     if (isRedirecting.current) return;
     if (allowed) return;
@@ -31,7 +32,7 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
 
     if (!user || !isStaff) {
       toast.error('Please log in with your staff account.', { id: 'admin-denied', duration: 3000 });
-      router.replace('/');
+      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
       return;
     }
 
@@ -39,11 +40,11 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
       id: 'admin-section-denied', duration: 3000,
     });
     router.replace(getRoleHome(userRole));
-  }, [authReady, signingOut, allowed, user, isStaff, userRole, router]);
+  }, [authReady, signingOut, allowed, user, isStaff, userRole, router, pathname]);
 
   useEffect(() => { isRedirecting.current = false; }, [pathname]);
 
-  if (!authReady) return <LoadingScreen message="Verifying access…" />;
+  if (!authReady || (user && !userRole)) return <LoadingScreen message="Verifying access…" />;
   if (signingOut) return <LoadingScreen message="Signing you out…" />;
   if (!allowed)  return <LoadingScreen message="Redirecting…" />;
 
@@ -55,7 +56,7 @@ function LoadingScreen({ message }: { message: string }) {
     <div className="min-h-screen bg-[var(--brand-50)] grid place-items-center px-6 py-16">
       <div className="w-full max-w-md text-center">
         <PalaPittaLogo size="large" priority className="mx-auto" />
-        <h1 className="text-ink-1 mt-8 font-[family-name:var(--font-manrope)] text-2xl font-extrabold sm:text-3xl">
+        <h1 className="text-ink-1 mt-8 font-sans text-2xl font-extrabold sm:text-3xl">
           {message}
         </h1>
         <div className="mt-8 flex flex-col items-center gap-3">

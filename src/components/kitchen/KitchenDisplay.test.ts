@@ -35,6 +35,18 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('Kitchen display interactions', () => {
+  it('shows the ID suffix and can find the exact full ID when short tokens collide', async () => {
+    const first = 'PPR-ORD-20260913-abcdef0123456789abc0042';
+    const second = 'PPR-ORD-20260913-123456789abcdef01230042';
+    mocks.orders = [ticket({ id: first, orderNumber: 186 }), ticket({ id: second, orderNumber: 187 })];
+    mocks.update.mockResolvedValue({ ...mocks.orders[1], status: 'preparing' });
+    mount();
+    expect(screen.getAllByRole('heading', { name: '#0042' })).toHaveLength(2);
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: second } });
+    expect(screen.getAllByRole('article')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Start cooking' }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ id: second })));
+  });
   it('keeps the full dish, portion, instructions and quantity visible without customer contact or prices', () => {
     mount();
     expect(screen.getByText('Hyderabadi Chicken Dum Biryani Family Special')).toBeTruthy();
@@ -130,7 +142,7 @@ describe('Kitchen display interactions', () => {
     const search = screen.getByRole('searchbox');
     fireEvent.change(search, { target: { value: '#186' } });
     expect(screen.getAllByRole('article')).toHaveLength(1);
-    expect(screen.getByRole('article', { name: 'Ticket 186' })).toBeTruthy();
+    expect(screen.getByRole('article', { name: 'Ticket 0001' })).toBeTruthy();
     fireEvent.change(search, { target: { value: 'no-such-dish' } });
     expect(screen.queryByRole('article')).toBeNull();
     expect(screen.getAllByText('No matching tickets')).toHaveLength(3);

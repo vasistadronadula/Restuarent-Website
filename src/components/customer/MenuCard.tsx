@@ -1,166 +1,84 @@
 'use client';
 
-import React, { memo } from 'react';
+import { memo } from 'react';
+import { BadgeCheck, ChefHat, Clock3, Sparkles } from 'lucide-react';
 
 import { cn, formatCurrency, FALLBACK_DISH_IMAGE } from '@/lib/utils';
 import type { MenuItem } from '@/types';
-import { useDishPortion, PORTION_LABELS, type Portion } from '@/hooks/useDishPortion';
+import { useDishPortion } from '@/hooks/useDishPortion';
 import CartStepper, { AddButton } from './CartStepper';
+import PortionSelector from './PortionSelector';
 import { RatingPill, VegMark } from './store-ui';
 
-interface Props {
-  item: MenuItem;
-}
-
-/**
- * A dish as a photo-first card, for the grid view.
- *
- * The row (`DishListItem`) is the default because it reads better, but a grid
- * genuinely wins in one case: browsing a category you don't know by name —
- * "show me the biryanis" — where the photo is the thing being compared and the
- * description is noise. The toggle on the menu page exists for that.
- *
- * The card keeps the row's field order and the row's ADD control, so switching
- * views changes the density and nothing else. It's the same menu, not a second
- * design.
- */
-const MenuCard = memo(function MenuCard({ item }: Props) {
+/** Photo → highlight → name → price → portions → action, with no overlapping controls. */
+const MenuCard = memo(function MenuCard({ item }: { item: MenuItem }) {
   const {
-    availablePortions,
-    hasPortions,
-    selectedPortion,
-    setSelectedPortion,
-    activePrice,
-    cartItem,
-    atMax,
-    add,
-    increase,
-    decrease,
+    availablePortions, hasPortions, selectedPortion, setSelectedPortion,
+    activePrice, cartItem, atMax, add, increase, decrease,
   } = useDishPortion(item);
-
   const unavailable = !item.isAvailable;
+  const highlight = item.isSpecial
+    ? { Icon: ChefHat, label: "Chef's pick", color: 'bg-cobalt-50 text-cobalt-700' }
+    : item.isPopular
+      ? { Icon: Sparkles, label: 'Bestseller', color: 'bg-brand-50 text-brand-700' }
+      : item.rating >= 4.5
+        ? { Icon: BadgeCheck, label: 'Top rated', color: 'bg-cream text-ink-2' }
+        : null;
 
   return (
     <article
-      className={cn(
-        // Deliberately not `overflow-hidden`: the ADD control overhangs the
-        // photo's bottom edge and clipping the card would cut it in half.
-        'group border-hair-1 shadow-store relative flex h-full flex-col rounded-2xl border bg-white',
-        'transition-shadow duration-200 hover:shadow-store-lifted',
-        unavailable && 'opacity-60'
-      )}
+      aria-label={item.name}
+      className="group flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-hair-1 bg-white shadow-xs transition-shadow duration-150 hover:shadow-store-lifted"
     >
-      {/* ── Photo ─────────────────────────────────────────────────────────
-          The wrapper is not clipped, so the ADD control can hang over the
-          bottom edge exactly as it does in the row; the inner div does the
-          clipping for the photo's hover zoom. */}
-      <div className="relative w-full">
-        <div className="bg-hair-2 relative aspect-[4/3] w-full overflow-hidden rounded-t-2xl">
-          {/* eslint-disable-next-line @next/next/no-img-element -- dish images
-              come from Supabase Storage and arbitrary admin-pasted URLs, which
-              next/image's loader would need a remotePatterns entry per host. */}
-          <img
-            src={item.image || FALLBACK_DISH_IMAGE}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            onError={(e) => {
-              const img = e.currentTarget;
-              if (img.src !== FALLBACK_DISH_IMAGE) img.src = FALLBACK_DISH_IMAGE;
-            }}
-            className="block size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-          />
-
-          {/* The mark sits on its own white chip rather than directly on the
-              photo — a green outline on a green curry is invisible. */}
-          <span className="absolute top-2.5 left-2.5 grid place-items-center rounded-md bg-white/95 p-1 shadow-sm">
-            <VegMark status={item.vegStatus} size={14} />
+      <div className="relative aspect-[4/3] overflow-hidden bg-hair-2">
+        {/* eslint-disable-next-line @next/next/no-img-element -- Admin images may use arbitrary storage hosts. */}
+        <img
+          src={item.image || FALLBACK_DISH_IMAGE}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onError={(event) => {
+            if (event.currentTarget.src !== FALLBACK_DISH_IMAGE) event.currentTarget.src = FALLBACK_DISH_IMAGE;
+          }}
+          className={cn('size-full object-cover', unavailable && 'opacity-60 grayscale')}
+        />
+        <span className="absolute top-2 left-2 grid size-6 place-items-center rounded-md bg-white shadow-sm">
+          <VegMark status={item.vegStatus} size={14} />
+        </span>
+        {item.prepTime != null && item.prepTime > 0 && (
+          <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-md bg-white/95 px-1.5 py-1 text-[10px] font-semibold text-ink-2">
+            <Clock3 className="size-3" aria-hidden="true" /> {item.prepTime} min
           </span>
-
-          {(item.isSpecial || item.isPopular) && (
-            <span className="bg-brand absolute top-2.5 right-2.5 rounded-full px-2 py-1 text-[9.5px] font-extrabold tracking-wide text-white uppercase shadow-sm">
-              {item.isSpecial ? "Chef's special" : 'Bestseller'}
-            </span>
-          )}
-
-          {unavailable && (
-            <div className="absolute inset-0 grid place-items-center bg-black/55">
-              <span className="text-ink-1 rounded-md bg-white px-2.5 py-1 text-[10px] font-extrabold tracking-wide uppercase">
-                Sold out
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Straddles the photo's bottom edge. A 158px-wide card at 360px has no
-            room for a price *and* a 104px control on one line, and the overhang
-            is also where the eye already is after looking at the photo. */}
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="absolute bottom-0 left-1/2 z-10 -translate-x-1/2 translate-y-1/2"
-        >
-          {cartItem ? (
-            <CartStepper
-              quantity={cartItem.quantity}
-              onIncrease={increase}
-              onDecrease={decrease}
-              size="small"
-              label={item.name}
-              atMax={atMax}
-            />
-          ) : (
-            <AddButton onClick={add} disabled={unavailable} label={item.name} size="small" />
-          )}
-        </div>
-      </div>
-
-      {/* ── Detail ────────────────────────────────────────────────────── */}
-      <div className="flex flex-1 flex-col gap-2 p-3.5 pt-7">
-        <h3 className="text-ink-1 line-clamp-2 text-[14px] leading-snug font-bold">
-          {item.name}
-        </h3>
-
-        {item.rating > 0 && <RatingPill value={item.rating} count={item.reviewCount} />}
-
-        {item.description && (
-          <p className="text-ink-3 line-clamp-2 text-[12px] leading-[1.4]">{item.description}</p>
         )}
-
-        {hasPortions && (
-          <div className="flex flex-wrap gap-1">
-            {availablePortions.map((portion: Portion) => {
-              const selected = portion === selectedPortion;
-              return (
-                <button
-                  key={portion}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedPortion(portion);
-                  }}
-                  aria-pressed={selected}
-                  className={cn(
-                    'min-h-11 min-w-11 sm:min-h-8 rounded-md border px-2 py-1 text-xs font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand',
-                    selected
-                      ? 'border-brand-300 bg-brand-50 text-brand-800'
-                      : 'border-hair-1 text-ink-3 hover:border-ink-4/60'
-                  )}
-                >
-                  {PORTION_LABELS[portion]}
-                </button>
-              );
-            })}
+        {unavailable && (
+          <div className="absolute inset-0 grid place-items-center bg-black/20">
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-ink-2">Sold out</span>
           </div>
         )}
+      </div>
 
-        {/* Pushed to the bottom so prices line up across a grid of cards with
-            unequal description lengths. */}
-        <div className="border-hair-2 mt-auto flex items-baseline justify-between gap-2 border-t pt-3">
-          <span className="text-ink-1 text-[15px] font-extrabold tabular-nums">
-            {formatCurrency(activePrice)}
+      <div className="flex flex-1 flex-col gap-2.5 p-3 sm:p-3.5">
+        {highlight && (
+          <span className={cn('inline-flex w-fit max-w-full items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold', highlight.color)}>
+            <highlight.Icon className="size-3 shrink-0" aria-hidden="true" /> {highlight.label}
           </span>
-          {item.prepTime != null && item.prepTime > 0 && (
-            <span className="text-ink-4 text-[11px] font-semibold">~{item.prepTime} mins</span>
+        )}
+        <h3 className="line-clamp-2 min-h-[2.6em] font-sans text-[13px] leading-[1.3] font-bold text-ink-1 sm:text-[15px]">
+          {item.name}
+        </h3>
+        {item.description && <p className="line-clamp-2 text-[11px] leading-relaxed text-ink-3 sm:text-xs">{item.description}</p>}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-[16px] font-extrabold text-ink-1 tabular-nums">{formatCurrency(activePrice)}</span>
+          <RatingPill value={item.rating} />
+        </div>
+        <div className="mt-auto flex flex-col gap-3 pt-1">
+          {hasPortions && (
+            <PortionSelector portions={availablePortions} selected={selectedPortion} onSelect={setSelectedPortion} label={item.name} />
+          )}
+          {cartItem ? (
+            <CartStepper quantity={cartItem.quantity} onIncrease={increase} onDecrease={decrease} size="small" fullWidth label={item.name} atMax={atMax || unavailable} />
+          ) : (
+            <AddButton onClick={add} disabled={unavailable || atMax} label={item.name} size="small" fullWidth atMax={atMax && !unavailable} />
           )}
         </div>
       </div>

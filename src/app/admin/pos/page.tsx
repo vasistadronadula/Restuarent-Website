@@ -137,8 +137,6 @@ export default function PosPage() {
           if (saved.paymentMode === 'cash' || saved.paymentMode === 'upi' || saved.paymentMode === 'card') setPaymentMode(saved.paymentMode);
           if (typeof saved.packagingCharge === 'number') setPackagingCharge(saved.packagingCharge);
           if (typeof saved.specialInstructions === 'string') setSpecialInstructions(saved.specialInstructions);
-          if (typeof saved.paymentReference === 'string') setPaymentReference(saved.paymentReference);
-          if (typeof saved.cashTendered === 'string') setCashTendered(saved.cashTendered);
         }
       } catch {
         localStorage.removeItem('ppr:pos:ticket-settings');
@@ -179,9 +177,8 @@ export default function PosPage() {
     if (!ticketSettingsHydrated.current || lines.length === 0) return;
     localStorage.setItem('ppr:pos:ticket-settings', JSON.stringify({
       orderType, tableNumber, paymentMode, packagingCharge, specialInstructions,
-      paymentReference, cashTendered,
     }));
-  }, [lines.length, orderType, tableNumber, paymentMode, packagingCharge, specialInstructions, paymentReference, cashTendered]);
+  }, [lines.length, orderType, tableNumber, paymentMode, packagingCharge, specialInstructions]);
 
   const quantityInBill = (itemId: string) => quantityByMenuItem[itemId] || 0;
 
@@ -195,6 +192,7 @@ export default function PosPage() {
 
   /* Order Placing State */
   const [placing, setPlacing] = useState(false);
+  const placingRef = useRef(false);
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
   const [placedInvoiceNo, setPlacedInvoiceNo] = useState<string | undefined>(undefined);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -254,25 +252,24 @@ export default function PosPage() {
 
   /* Complete Checkout & Place Order */
   const handlePlaceOrder = useCallback(async () => {
+    if (placingRef.current) return;
     if (lines.length === 0) {
       toast.error('Cart is empty! Add items before checkout.');
       return;
     }
-    if (orderType === 'dine-in' && tableNumber === '') {
+    if (orderType === 'dine-in' && !activeTables.some(table => table.tableNumber === tableNumber)) {
       toast.error('⚠️ Please assign a table for Dine-In order!');
       setTableMapOpen(true);
       return;
     }
 
+    placingRef.current = true;
     setPlacing(true);
     try {
-      const tendered = Number(cashTendered);
+      const rawCash = cashTendered.trim();
+      const tendered = rawCash === '' ? totals.grandTotal : Number(rawCash);
       if (paymentMode === 'cash' && (!Number.isFinite(tendered) || tendered < totals.grandTotal)) {
         toast.error('Enter enough cash received before settling.');
-        return;
-      }
-      if (paymentMode !== 'cash' && paymentReference.trim().length < 4) {
-        toast.error('Enter the payment transaction reference.');
         return;
       }
       const orderId = generateOrderId();
@@ -286,7 +283,7 @@ export default function PosPage() {
         orderType,
         paymentMode,
         paymentStatus: 'paid',
-        paymentReference: paymentMode === 'cash' ? undefined : paymentReference.trim(),
+        paymentReference: paymentMode === 'cash' ? undefined : (paymentReference.trim() || undefined),
         cashTendered: paymentMode === 'cash' ? tendered : undefined,
         status: 'pending',
         items: lines.map((l) => ({
@@ -301,6 +298,7 @@ export default function PosPage() {
           portion: l.portion,
           notes: l.notes,
           category: l.category,
+          vegStatus: l.vegStatus,
         })),
         subtotal: totals.subtotal,
         // `discount`, not `discountAmount` — Order has no `discountAmount`
@@ -342,9 +340,10 @@ export default function PosPage() {
     } catch {
       toast.error('Failed to complete order');
     } finally {
+      placingRef.current = false;
       setPlacing(false);
     }
-  }, [lines, orderType, tableNumber, paymentMode, paymentReference, cashTendered, totals, specialInstructions, createOrderContext, clearCart]);
+  }, [lines, orderType, tableNumber, paymentMode, paymentReference, cashTendered, totals, specialInstructions, createOrderContext, clearCart, activeTables]);
 
   /* Refs for keyboard shortcuts */
   const handlePlaceOrderRef = useRef(handlePlaceOrder);

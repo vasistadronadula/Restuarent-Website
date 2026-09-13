@@ -95,7 +95,17 @@ export async function POST(request: Request) {
       );
 
       if (profileErr) {
-        await admin.auth.admin.deleteUser(created.user.id).catch(() => {});
+        // Profile insert failed — remove the auth user we just created so it
+        // doesn't become an orphaned login with no role or employee record.
+        // If deleteUser itself fails, log it clearly so an admin can clean up
+        // the ghost account manually rather than it silently rotting.
+        await admin.auth.admin.deleteUser(created.user.id).catch((cleanupErr) => {
+          console.error(
+            `[employees] Auth user ${created.user.id} created but profile insert failed, ` +
+            `AND cleanup deleteUser also failed — ghost account exists:`,
+            cleanupErr
+          );
+        });
         return NextResponse.json(
           { error: profileErr.message || 'Could not create staff profile' },
           { status: 400 }
@@ -125,7 +135,13 @@ export async function POST(request: Request) {
       }
 
       if (empErr) {
-        await admin.auth.admin.deleteUser(created.user.id).catch(() => {});
+        await admin.auth.admin.deleteUser(created.user.id).catch((cleanupErr) => {
+          console.error(
+            `[employees] Auth user ${created.user.id} created but employee insert failed, ` +
+            `AND cleanup deleteUser also failed — ghost account exists:`,
+            cleanupErr
+          );
+        });
         const message = /duplicate|unique/i.test(empErr.message)
           ? `Employee ID ${id} already exists`
           : empErr.message || 'Could not insert employee record';

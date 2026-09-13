@@ -53,7 +53,8 @@ export function useOrderHistory(enabled = true, range?: { from?: string; to?: st
         let request = supabase
           .from('orders')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false });
         if (range?.from) request = request.gte('created_at', new Date(`${range.from}T00:00:00+05:30`).toISOString());
         if (range?.to) {
           const exclusiveEnd = new Date(`${range.to}T00:00:00+05:30`);
@@ -140,19 +141,20 @@ export function useGuestOrders(ids: string[]) {
     queryKey: ['guest-orders', ids],
     queryFn: async (): Promise<Order[]> => {
       if (!ids || ids.length === 0) return [];
-      try {
+      const orders: Order[] = [];
+      // The guest endpoint accepts at most 50 IDs per request.
+      for (let offset = 0; offset < ids.length; offset += 50) {
         const res = await fetch('/api/guest/orders', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids }),
+          body: JSON.stringify({ ids: ids.slice(offset, offset + 50) }),
         });
-        if (!res.ok) return [];
         const data = await res.json();
-        return Array.isArray(data) ? data.map(mapOrder) : [];
-      } catch (err) {
-        console.warn('Guest orders fetch warning:', err);
-        return [];
+        if (!res.ok) throw new Error(data?.error || 'Could not load your orders. Please retry.');
+        if (!Array.isArray(data)) throw new Error('Invalid order tracking response. Please retry.');
+        orders.push(...data.map(mapOrder));
       }
+      return orders;
     },
     enabled: ids.length > 0,
     staleTime: 3_000,
@@ -293,6 +295,7 @@ export function useCreateOrder() {
         orderSource: orderData.orderSource || 'direct',
         orderType: orderData.orderType || 'takeaway',
         tableNumber: orderData.tableNumber,
+        notes: orderData.notes,
       };
 
       const tenant = await getTenantContext(supabase);
@@ -316,6 +319,7 @@ export function useCreateOrder() {
         discount: newOrder.discount,
         grand_total: newOrder.grandTotal,
         status: 'pending',
+        notes: newOrder.notes || null,
         order_time: timeStr,
         coupon_code: newOrder.couponCode || null,
         order_source: newOrder.orderSource || 'direct',

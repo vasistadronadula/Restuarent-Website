@@ -52,3 +52,8 @@ next-env.d.ts
 # supabase
 supabase/.temp
 .temp
+
+# standalone backend
+backend/business/target/
+backend/gateway/gateway
+backend/gateway/gateway.exe

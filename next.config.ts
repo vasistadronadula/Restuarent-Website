@@ -43,11 +43,8 @@ const imageRemotePatterns = [
  * needed in development for React Refresh, and is dropped in production.
  */
 const isDev = process.env.NODE_ENV === "development";
-const fastifyEnabled = process.env.NEXT_PUBLIC_FASTIFY_ENABLED !== 'false';
-const fastifyOrigin = (process.env.FASTIFY_INTERNAL_URL || 'http://127.0.0.1:3001').replace(/\/$/, '');
-const extraConnections = [process.env.NEXT_PUBLIC_FASTIFY_URL, process.env.NEXT_PUBLIC_FASTIFY_WS_URL]
-  .filter((value): value is string => Boolean(value))
-  .map(value => new URL(value).origin);
+const backendGatewayUrl = (process.env.BACKEND_GATEWAY_URL || 'http://127.0.0.1:8085').replace(/\/$/, '');
+const backendGatewayWs = backendGatewayUrl.replace(/^http/, 'ws');
 
 const csp = [
   "default-src 'self'",
@@ -55,7 +52,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.supabase.co https://*.supabase.in https://images.unsplash.com https://*.razorpay.com",
   "font-src 'self' data:",
-  `connect-src 'self' ${extraConnections.join(' ')} https://*.supabase.co wss://*.supabase.co https://*.supabase.in wss://*.supabase.in https://api.razorpay.com https://lumberjack.razorpay.com https://*.razorpay.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://graph.facebook.com`,
+  `connect-src 'self' ${backendGatewayUrl} ${backendGatewayWs} ws://127.0.0.1:8080 wss://127.0.0.1:8080 ws://127.0.0.1:8085 wss://127.0.0.1:8085 https://*.supabase.co wss://*.supabase.co https://*.supabase.in wss://*.supabase.in https://api.razorpay.com https://lumberjack.razorpay.com https://*.razorpay.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://graph.facebook.com`,
   // Razorpay checkout and Firebase's reCAPTCHA both render in iframes.
   "frame-src 'self' https://api.razorpay.com https://*.razorpay.com https://www.google.com https://*.firebaseapp.com",
   "worker-src 'self' blob:",
@@ -73,19 +70,14 @@ const cspHeaderKey =
     : "Content-Security-Policy-Report-Only";
 
 const nextConfig: NextConfig = {
-  env: { NEXT_PUBLIC_FASTIFY_ENABLED: String(fastifyEnabled) },
   async rewrites() {
     return {
-      beforeFiles: fastifyEnabled ? [
-        { source: '/api/:path*', destination: `${fastifyOrigin}/api/:path*` },
-        { source: '/ws', destination: `${fastifyOrigin}/ws` },
-      ] : [],
+      beforeFiles: [
+        { source: '/api/v1/:path*', destination: `${backendGatewayUrl}/api/v1/:path*` },
+        { source: '/ws', destination: `${backendGatewayUrl}/ws` },
+      ],
     };
   },
-  compress: true,
-  poweredByHeader: false,
-  // Strict Mode's extra render/effect pass runs in development only — it has
-  // never affected production. It was switched off to quiet double-renders in
   // dev, which is exactly the signal it exists to give: effects that don't
   // clean up, state mutated during render, stale closures under concurrent
   // rendering. Those are real bugs whether or not anything is reporting them.

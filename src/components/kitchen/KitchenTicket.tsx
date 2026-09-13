@@ -43,7 +43,7 @@ export function KitchenTicket({ order, target, now, busy, disabled, onPrepare, o
     >
       <header className={styles.ticketHeader}>
         <div className={styles.ticketIdentity}>
-          <h3 className={styles.token}>{getOrderDisplayNumber(order)}</h3>
+          <h3 className={styles.token} title={`Order ID: ${order.id}`}>{getOrderDisplayNumber(order)}</h3>
           <div className={styles.sourceRow}>
             <span className={styles.channelTag} data-type={order.orderType || 'takeaway'}>
               {order.orderType === 'dine-in' ? (

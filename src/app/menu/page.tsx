@@ -1,11 +1,11 @@
 'use client';
 
-import React, { Suspense, useMemo, useState } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
-  ArrowDownWideNarrow, ArrowUpNarrowWide, Clock, LayoutGrid, MapPin, Rows3,
-  Search, Star, UtensilsCrossed, X,
+  Flame, LayoutGrid, Rows3, Search, Star, UtensilsCrossed, X,
 } from 'lucide-react';
+import { motion, MotionConfig } from 'motion/react';
 
 import { cn } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
@@ -14,12 +14,11 @@ import { Container } from '@/components/customer/Container';
 import MenuCard from '@/components/customer/MenuCard';
 import DishListItem from '@/components/customer/DishListItem';
 import CategoryRail, { type RailCategory } from '@/components/customer/CategoryRail';
-import { CouponTeaser } from '@/components/customer/CouponTeaser';
 import MenuNavSheet from '@/components/customer/MenuNavSheet';
 import StoreCartBar from '@/components/customer/StoreCartBar';
+import RestaurantHero from '@/components/customer/RestaurantHero';
 import { SectionHeading, VegMark } from '@/components/customer/store-ui';
 import { useAdmin } from '@/context/AdminContext';
-import { restaurantInfo } from '@/data/restaurantInfo';
 import type { MenuItem, VegStatus } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -38,7 +37,6 @@ const isVegStatus = (value: string | null): value is VegStatus =>
 
 function MenuBrowser() {
   const { menuItems, isLoadingDB, categories } = useAdmin();
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   /* ── URL-backed state ───────────────────────────────────────────── */
@@ -58,6 +56,46 @@ function MenuBrowser() {
   const sort: SortMode =
     sortParam === 'price-asc' || sortParam === 'price-desc' ? sortParam : 'default';
   const [layout, setLayout] = useState<'list' | 'grid'>('grid');
+
+  /* ── Search docking ───────────────────────────────────────────────
+     The search stays in a stable slot and fades into the navbar without a layout flight
+     once it scrolls out of view, and flies back when it returns. Docking is
+     driven by the pill's own position rather than a scroll offset, so the
+     handoff happens exactly as the pill disappears under the bar.
+
+     Two thresholds, not one: docking grows the navbar on phones (a second
+     row), which pushes the page down — a single threshold would flap as the
+     bar grows and shrinks around it. */
+  const heroSearchRef = useRef<HTMLDivElement>(null);
+  const [searchDocked, setSearchDocked] = useState(false);
+
+  useEffect(() => {
+    let frame = 0;
+    let docked = false;
+    const sync = () => {
+      frame = 0;
+      const el = heroSearchRef.current;
+      if (!el) return;
+      const bottom = el.getBoundingClientRect().bottom;
+      const next = docked ? bottom <= 150 : bottom < 76;
+      if (next !== docked) {
+        docked = next;
+        setSearchDocked(next);
+      }
+    };
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(sync);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    document.addEventListener('scroll', onScroll, { passive: true });
+    sync();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      document.removeEventListener('scroll', onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
 
   /* ── Cart ───────────────────────────────────────────────────────── */
 
@@ -134,8 +172,6 @@ function MenuBrowser() {
     return { average, reviews };
   }, [menuItems]);
 
-  const hasEggDishes = useMemo(() => menuItems.some((i) => i.vegStatus === 'egg'), [menuItems]);
-
   /* ── Filtering ──────────────────────────────────────────────────── */
 
   const filteredItems = useMemo(() => {
@@ -179,16 +215,18 @@ function MenuBrowser() {
   // Plain functions, not useCallback: the React Compiler memoizes them, and a
   // hand-written dependency array here disagreed with the one it inferred,
   // which makes it bail out of optimizing the whole component.
-  const pushParams = (mutate: (params: URLSearchParams) => void) => {
+  const pushParams = (mutate: (params: URLSearchParams) => void, replace = false) => {
     const params = new URLSearchParams(window.location.search);
     mutate(params);
     const query = params.toString();
-    router.push(query ? `/menu?${query}` : '/menu', { scroll: false });
+    const target = `${window.location.pathname}${query ? `?${query}` : ''}`;
+    // Client-only catalogue filters don't need a server navigation.
+    window.history[replace ? 'replaceState' : 'pushState'](null, '', target);
   };
 
   const selectCategory = (id: string) => {
     pushParams((p) => (id === ALL ? p.delete('category') : p.set('category', id)));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById('menu-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const activeFilterCount =
@@ -231,92 +269,205 @@ function MenuBrowser() {
   }, [activeCategory, activeFilterCount, filteredItems, railCategories, categoryLabels]);
 
   const resetAll = () => {
-    router.push('/menu', { scroll: false });
+    window.history.pushState(null, '', window.location.pathname);
   };
 
   /* ── Render ─────────────────────────────────────────────────────── */
 
   return (
-    <div className="bg-store flex min-h-screen flex-col">
-      <Navbar />
+    <MotionConfig reducedMotion="user">
+      <div className="bg-store flex min-h-screen flex-col">
+        <Navbar searchDocked={searchDocked} />
+        {/* Spacer for fixed top navbar — tracks its live height (published by
+            Navbar as --ppr-nav-h) so the docked search row never covers page
+            content when it slides in on scroll. */}
+        <div className="w-full shrink-0" style={{ height: 'var(--ppr-nav-h, 68px)' }} aria-hidden="true" />
+        <RestaurantHero rating={houseRating} />
 
-      {/* ── Restaurant strip ─────────────────────────────────────────
-          The context a diner wants before they start ordering: is this the
-          right place, is it any good, and when does it close. */}
-      <section className="border-hair-2 border-b bg-white">
-        <Container className="max-w-[1600px] py-5 sm:py-6">
-          <h1 className="text-ink-1 font-display text-[24px] leading-tight font-black tracking-tight sm:text-[30px]">
-            {restaurantInfo.name}
-          </h1>
-          <p className="text-ink-3 mt-1 text-[13px] font-medium sm:text-[14px]">
-            {restaurantInfo.tagline}
-            <span className="text-ink-4 px-1.5">·</span>
-            Telangana, Andhra &amp; Hyderabadi
-          </p>
+      <section id="menu-section" className="relative border-b border-hair-1 bg-store-surface scroll-mt-16">
+        <Container className="relative max-w-[1600px] py-4 sm:py-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div ref={heroSearchRef} className="relative max-w-[560px] flex-1">
+              {!searchDocked ? (
+                <motion.div
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                  className="relative"
+                >
+                  <Search className="text-ink-4 pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2" />
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => pushParams((p) => {
+                      const val = e.target.value;
+                      if (val) p.set('q', val); else p.delete('q');
+                    }, true)}
+                    placeholder="Search dishes, biryani, starters, desserts…"
+                    aria-label="Search dishes in menu"
+                    className="text-ink-1 placeholder:text-ink-4 focus:border-brand focus:ring-brand/20 h-11 w-full rounded-full border border-hair-1 bg-white pr-9 pl-10 text-[13px] font-medium shadow-xs transition-all outline-none focus:ring-2"
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => pushParams((p) => p.delete('q'))}
+                      aria-label="Clear search"
+                      className="text-ink-4 hover:text-ink-1 absolute top-1/2 right-3 -translate-y-1/2 rounded-full p-1"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </motion.div>
+              ) : (
+                // Keeps the hero's height while the pill is docked in the
+                // navbar, so docking never shifts the page underneath it.
+                <div
+                  aria-hidden
+                  className="border-hair-1 bg-hair-2/60 flex h-11 w-full items-center justify-center rounded-full border"
+                >
+                  <Search className="text-ink-4/50 size-4" />
+                </div>
+              )}
+            </div>
 
-          <div className="mt-3.5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px]">
-            {houseRating && (
-              <span className="text-rating inline-flex items-center gap-1.5 font-bold">
-                <span className="bg-rating grid size-[18px] place-items-center rounded-full">
-                  <Star className="size-[10px] fill-white text-white" />
-                </span>
-                {houseRating.average.toFixed(1)}
-                {houseRating.reviews > 0 && (
-                  <span className="text-ink-3 font-semibold">
-                    ({houseRating.reviews.toLocaleString('en-IN')} ratings)
-                  </span>
+            {/* Quick dietary & sorting pills */}
+            <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
+              <button
+                type="button"
+                aria-pressed={vegFilter === 'veg'}
+                onClick={() => pushParams((p) => {
+                  if (vegFilter === 'veg') p.delete('veg'); else p.set('veg', 'veg');
+                })}
+                className={cn(
+                  'inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 font-bold transition-colors duration-150',
+                  vegFilter === 'veg'
+                    ? 'border-brand bg-brand text-white shadow-xs'
+                    : 'border-hair-1 bg-white text-ink-2 hover:border-hair-2 hover:bg-hair-2/50'
                 )}
-              </span>
-            )}
-            <span className="text-ink-2 inline-flex items-center gap-1.5 font-semibold">
-              <Clock className="text-ink-4 size-4" />
-              {restaurantInfo.openingDisplay}
-            </span>
-            <span className="text-ink-2 inline-flex items-center gap-1.5 font-semibold">
-              <MapPin className="text-ink-4 size-4" />
-              {restaurantInfo.addressLine}
-            </span>
+              >
+                <VegMark status="veg" size={13} />
+                Veg
+              </button>
+              <button
+                type="button"
+                aria-pressed={vegFilter === 'non-veg'}
+                onClick={() => pushParams((p) => {
+                  if (vegFilter === 'non-veg') p.delete('veg'); else p.set('veg', 'non-veg');
+                })}
+                className={cn(
+                  'inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 font-bold transition-colors duration-150',
+                  vegFilter === 'non-veg'
+                    ? 'border-brand bg-brand text-white shadow-xs'
+                    : 'border-hair-1 bg-white text-ink-2 hover:border-hair-2 hover:bg-hair-2/50'
+                )}
+              >
+                <VegMark status="non-veg" size={13} />
+                Non-veg
+              </button>
+              <button
+                type="button"
+                aria-pressed={bestsellerOnly}
+                onClick={() => pushParams((p) => {
+                  if (bestsellerOnly) p.delete('bestseller'); else p.set('bestseller', 'true');
+                })}
+                className={cn(
+                  'inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 font-bold transition-colors duration-150',
+                  bestsellerOnly
+                    ? 'border-brand bg-brand text-white shadow-xs'
+                    : 'border-hair-1 bg-white text-ink-2 hover:border-hair-2 hover:bg-hair-2/50'
+                )}
+              >
+                <Flame className="size-3.5 text-amber-500" />
+                Bestsellers
+              </button>
+              <button
+                type="button"
+                aria-pressed={topRatedOnly}
+                onClick={() => pushParams((p) => {
+                  if (topRatedOnly) p.delete('topRated'); else p.set('topRated', 'true');
+                })}
+                className={cn(
+                  'inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 font-bold transition-colors duration-150',
+                  topRatedOnly
+                    ? 'border-brand bg-brand text-white shadow-xs'
+                    : 'border-hair-1 bg-white text-ink-2 hover:border-hair-2 hover:bg-hair-2/50'
+                )}
+              >
+                <Star className="size-3.5 fill-amber-400 text-amber-400" />
+                4.0+ Stars
+              </button>
+            </div>
           </div>
         </Container>
       </section>
 
       <main className="flex-1">
         <Container className="max-w-[1600px] py-6 sm:py-8">
-          <CouponTeaser className="mb-6" />
-
-          {/* ── Category rail ──────────────────────────────────────── */}
+          {/* ── Category rail (100% Full Width) ────────────────────── */}
           {!isLoadingDB && railCategories.length > 1 && (
-            <section aria-label="Browse by category" className="mb-8">
+            <section aria-label="Browse by category" className="mb-8 w-full">
               <SectionHeading title="What are you in the mood for?" className="mb-4" />
               <CategoryRail
                 categories={railCategories}
                 activeId={activeCategory}
                 onSelect={selectCategory}
+                className="w-full"
               />
             </section>
           )}
 
-          <div className="flex items-start gap-8 xl:gap-12">
-            {/* ── Desktop category sidebar ─────────────────────────── */}
+          {/* ── Mobile sticky categories strip — sticks under fixed navbar ── */}
+          {railCategories.length > 1 && (
+            <div
+              className="border-hair-2 bg-white/95 sticky z-30 -mx-4 mb-4 border-b px-4 py-2 shadow-xs backdrop-blur-md md:hidden"
+              // Parks under the live navbar height instead of a magic number:
+              // with a fixed bar, a stale offset slides the strip underneath
+              // it the moment the search row docks in and the bar grows.
+              style={{ top: 'var(--ppr-nav-h, 72px)' }}
+            >
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+                {railCategories.map((cat) => {
+                  const active = cat.id === activeCategory;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => selectCategory(cat.id)}
+                      className={cn(
+                        'shrink-0 rounded-full px-3.5 py-1 text-[12px] font-bold transition-all whitespace-nowrap',
+                        active
+                          ? 'bg-brand text-white shadow-xs'
+                          : 'bg-hair-2 text-ink-2 hover:bg-hair-1'
+                      )}
+                    >
+                      {cat.label} ({cat.count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-start gap-6 lg:gap-10 xl:gap-12">
+            {/* ── Desktop category sidebar (sticks when scroll) ────── */}
             {railCategories.length > 1 && (
               <aside
-                className="scrollbar-none hidden w-[212px] shrink-0 self-start overflow-y-auto lg:block xl:w-[240px]"
+                className="scrollbar-none hidden w-[200px] shrink-0 self-start overflow-y-auto md:block lg:w-[230px] xl:w-[250px]"
                 style={{
                   position: 'sticky',
-                  top: 'calc(var(--store-header-h) + 1.25rem)',
-                  maxHeight: 'calc(100dvh - var(--store-header-h) - 2.5rem)',
+                  // Same live-navbar parking as the mobile strip above.
+                  top: 'calc(var(--ppr-nav-h, 76px) + 12px)',
+                  maxHeight: 'calc(100dvh - var(--ppr-nav-h, 76px) - 28px)',
                 }}
               >
-                <div className="rounded-2xl border border-hair-1 bg-white p-3 shadow-xs">
-                  <div className="mb-2 flex items-center justify-between px-2">
+                <div className="rounded-2xl border border-hair-1 bg-white p-3.5 shadow-xs">
+                  <div className="mb-2.5 flex items-center justify-between px-2">
                     <p className="text-ink-4 text-[11px] font-extrabold tracking-wider uppercase">
                       Categories
                     </p>
-                    <span className="text-ink-4 text-[11px] font-bold">
+                    <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] font-black text-brand-700">
                       {railCategories.length - 1}
                     </span>
                   </div>
-                  <nav className="space-y-0.5">
+                  <nav className="space-y-1">
                     {railCategories.map((cat) => {
                       const active = cat.id === activeCategory;
                       return (
@@ -328,14 +479,14 @@ function MenuBrowser() {
                           className={cn(
                             'group flex w-full items-center justify-between gap-2.5 rounded-xl px-2.5 py-2 text-left transition-all outline-none',
                             active
-                              ? 'bg-brand-50 text-brand-700 shadow-xs ring-1 ring-brand-200'
-                              : 'text-ink-2 hover:bg-hair-2/70 hover:text-ink-1'
+                              ? 'bg-brand text-white shadow-sm ring-1 ring-brand-600 font-bold'
+                              : 'text-ink-2 hover:bg-hair-2 hover:text-ink-1'
                           )}
                         >
                           <span
                             className={cn(
                               'truncate text-[13px]',
-                              active ? 'font-extrabold' : 'font-semibold'
+                              active ? 'font-extrabold text-white' : 'font-semibold'
                             )}
                           >
                             {cat.label}
@@ -344,7 +495,7 @@ function MenuBrowser() {
                             className={cn(
                               'shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums transition-colors',
                               active
-                                ? 'bg-brand/15 text-brand-700 font-extrabold'
+                                ? 'bg-white text-brand-700 font-extrabold'
                                 : 'bg-hair-2 text-ink-4 group-hover:bg-hair-1'
                             )}
                           >
@@ -359,7 +510,7 @@ function MenuBrowser() {
             )}
 
             {/* ── Dishes ───────────────────────────────────────────── */}
-            <div className="min-w-0 flex-1">
+            <div id="menu-results" className="min-w-0 flex-1 scroll-mt-40">
               {/* Result header */}
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">
@@ -504,7 +655,8 @@ function MenuBrowser() {
       <StoreCartBar itemCount={cartTotals.totalItems} total={cartTotals.grandTotal} />
 
       <Footer mobileClearance={cartTotals.totalItems > 0 ? 144 : 72} desktopClearance={cartTotals.totalItems > 0 ? 80 : 0} />
-    </div>
+      </div>
+    </MotionConfig>
   );
 }
 
@@ -515,7 +667,7 @@ function MenuBrowser() {
 function DishCollection({ items, layout }: { items: MenuItem[]; layout: 'list' | 'grid' }) {
   if (layout === 'grid') {
     return (
-      <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 pt-2 sm:grid-cols-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
         {items.map((item) => (
           <MenuCard key={item.id} item={item} />
         ))}
@@ -562,7 +714,7 @@ function LayoutToggle({
 function DishSkeletons({ layout }: { layout: 'list' | 'grid' }) {
   if (layout === 'grid') {
     return (
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4 2xl:grid-cols-5" aria-busy="true">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" aria-busy="true">
         {Array.from({ length: 10 }).map((_, i) => (
           <Skeleton key={i} className="h-64 rounded-2xl" />
         ))}

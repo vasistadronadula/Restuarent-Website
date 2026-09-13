@@ -3,7 +3,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/lib/supabase';
-import { menuItems as fallbackMenuItems } from '@/data/menuData';
 import type { MenuItem } from '@/types';
 import { queryKeys } from './keys';
 import { mapMenuItem } from './mappers';
@@ -28,12 +27,12 @@ export function useMenuItems(fallbackOnError = true) {
         // repopulated the menu with demo items that the admin could then
         // neither edit nor delete.
         if (error) {
-          if (fallbackOnError) return fallbackMenuItems;
+          if (fallbackOnError) return (await import('@/data/menuData')).menuItems;
           throw new Error(error.message);
         }
         return (data || []).map(mapMenuItem);
       } catch (error) {
-        if (fallbackOnError) return fallbackMenuItems;
+        if (fallbackOnError) return (await import('@/data/menuData')).menuItems;
         throw error;
       }
     },

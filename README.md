@@ -6,6 +6,15 @@ staff (orders, kitchen display, billing, inventory, reservations, reports).
 
 Next.js App Router · React 19 · Radix UI + Tailwind CSS · Zustand + TanStack Query · Supabase · Razorpay.
 
+## Go + Spring Boot Backend (with Supabase Database)
+
+The backend services are organized under [`backend/`](backend/README.md):
+- **Go Gateway** (`:8080`): Rate-limiting, CORS, request IDs, reverse-proxying, and WebSocket routing.
+- **Java 21 / Spring Boot** (`:8081`): Business APIs, Supabase JWT authentication, authoritative pricing, 5% GST, and table management.
+- **Database**: 100% **Supabase** (PostgreSQL, Auth, Storage, and RLS).
+
+See the [Backend README](backend/README.md) for configuration, endpoints, and startup instructions.
+
 ## Running it
 
 ```bash

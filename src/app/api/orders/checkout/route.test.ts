@@ -6,6 +6,7 @@ const db = vi.hoisted(() => ({
   coupon: { discount: 10, max_discount: 0, min_order: 100, is_active: true },
   insert: vi.fn(), createPayment: vi.fn(), verifySignature: vi.fn(),
   fetchOrder: vi.fn(), fetchPayment: vi.fn(),
+  existing: null as Record<string, unknown> | null,
 }));
 
 vi.mock('@/lib/supabaseAdmin', () => ({
@@ -13,7 +14,7 @@ vi.mock('@/lib/supabaseAdmin', () => ({
     from: (table: string) => ({
       select: () => ({
         in: async () => ({ data: db.menu, error: null }),
-        eq: () => ({ maybeSingle: async () => ({ data: db.coupon, error: null }) }),
+        eq: () => ({ maybeSingle: async () => ({ data: table === 'orders' ? db.existing : db.coupon, error: null }) }),
       }),
       insert: table === 'orders' ? db.insert : vi.fn(),
     }),
@@ -45,11 +46,36 @@ beforeEach(() => {
   db.menu[0].is_available = true;
   db.coupon = { discount: 10, max_discount: 0, min_order: 100, is_active: true };
   db.insert.mockResolvedValue({ error: null });
+  db.existing = null;
   db.createPayment.mockResolvedValue({ id: 'order_gateway', amount: 52500, currency: 'INR' });
   db.verifySignature.mockReturnValue(false);
 });
 
 describe('checkout basket validation', () => {
+  it.each(['1234567890', '98765432100000', 'phone9876543210'])('rejects invalid contact details: %s', async phone => {
+    expect((await checkout(request({ ...basket, customer: { name: 'Guest', phone } }))).status).toBe(400);
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+  it('rejects IDs that cannot be tracked securely', async () => {
+    expect((await checkout(request({ ...basket, orderId: '1234' }))).status).toBe(400);
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+  it('returns the original order after a lost response, including reordered JSONB keys', async () => {
+    await checkout(request(basket));
+    const saved = db.insert.mock.calls[0][0][0];
+    db.existing = { ...saved, items: saved.items.map((item: Record<string, unknown>) =>
+      Object.fromEntries(Object.entries(item).reverse().filter(([, value]) => value !== undefined))) };
+    db.insert.mockResolvedValue({ error: { code: '23505' } });
+    const response = await checkout(request(basket));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ id: basket.orderId, grandTotal: 525 });
+  });
+  it('does not disclose an existing order when the retry belongs to another customer', async () => {
+    await checkout(request(basket));
+    db.existing = { ...db.insert.mock.calls[0][0][0], customer_phone: '9999999999' };
+    db.insert.mockResolvedValue({ error: { code: '23505' } });
+    expect((await checkout(request(basket))).status).toBe(409);
+  });
   it('prices a cash order from the menu, ignoring submitted prices', async () => {
     const response = await checkout(request({ ...basket, items: [{ ...line, price: 1 }] }));
     expect(response.status).toBe(200);

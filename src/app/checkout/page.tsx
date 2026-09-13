@@ -23,7 +23,7 @@ import { menuItems as fallbackMenuItems } from '@/data/menuData';
 import { orderStamps } from '@/lib/orderTime';
 import { generateOrderId } from '@/lib/idGenerator';
 import { supabase } from '@/lib/supabase';
-import { normalizePhone } from '@/lib/validation';
+import { normalizePhone, validatePhone } from '@/lib/validation';
 import { accountDisplayName, isInternalPhoneEmail } from '@/lib/phoneIdentity';
 import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -74,17 +74,22 @@ function CheckoutForm() {
   const { user } = useAuth();
   const { menuItems } = useAdmin();
 
-  const [form, setForm] = useState({ name: '', phone: '' });
+  const [form, setForm] = useState<{ name?: string; phone?: string }>({});
   const [paymentChoice, setPaymentChoice] = useState<'online' | 'counter'>('online');
   const [placed, setPlaced] = useState(false);
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   // Set the instant `handler` starts processing a payment, so a same-tick or
   // later `ondismiss` (Razorpay fires it on close regardless of outcome)
   // knows not to re-process — see the `ondismiss` handler below.
   const paymentHandledRef = useRef(false);
+  const submittingRef = useRef(false);
+  const retrySaveRef = useRef<(() => Promise<void>) | null>(null);
+  const attemptRef = useRef<{ basket: string; id: string } | null>(null);
+  const finishAttempt = () => { submittingRef.current = false; setLoading(false); };
 
   // Autofill form state with logged-in user profile details
   React.useEffect(() => {
@@ -108,8 +113,8 @@ function CheckoutForm() {
       const loadedPhone = normalizePhone(prof?.phone || metaPhone);
 
       setForm((prev) => ({
-        name: prev.name || loadedName,
-        phone: prev.phone || loadedPhone,
+        name: prev.name ?? loadedName,
+        phone: prev.phone ?? loadedPhone,
       }));
     })();
 
@@ -120,8 +125,8 @@ function CheckoutForm() {
   const autofillPhone = user?.user_metadata?.phone || user?.phone || '';
   /** Empty for a phone-only account — see the customerId note in finalizeOrder. */
   const accountEmail = isInternalPhoneEmail(user?.email) ? '' : (user?.email ?? '');
-  const effectiveName = form.name || autofillName;
-  const effectivePhone = form.phone || autofillPhone;
+  const effectiveName = form.name ?? autofillName;
+  const effectivePhone = form.phone ?? autofillPhone;
 
   // grandTotal comes from useCart() above — computeBillTotals()'s whole-rupee
   // rounding, the same math the POS bill and printed receipt use. This used
@@ -133,7 +138,7 @@ function CheckoutForm() {
     if (!effectiveName.trim()) e.name = 'Full name required';
     if (!effectivePhone.trim()) {
       e.phone = 'Mobile number required';
-    } else if (effectivePhone.trim().replace(/\D/g, '').length < 10) {
+    } else if (validatePhone(effectivePhone)) {
       e.phone = 'Enter valid 10-digit mobile number';
     }
     setErrors(e);
@@ -220,7 +225,7 @@ function CheckoutForm() {
       if (!user) {
         try {
           const guestOrders = JSON.parse(localStorage.getItem('ppr:guestOrderIds') || '[]');
-          const updated = [id, ...guestOrders.filter((oid: string) => oid !== id)];
+          const updated = [id, ...(Array.isArray(guestOrders) ? guestOrders : []).filter((oid: unknown) => typeof oid === 'string' && oid !== id)];
           localStorage.setItem('ppr:guestOrderIds', JSON.stringify(updated));
           if (customer.phone) {
             localStorage.setItem('ppr:guestPhone', customer.phone.trim());
@@ -234,17 +239,26 @@ function CheckoutForm() {
       triggerWhatsAppOrderConfirmation(id);
       setCompletedOrder({ ...previewOrder, ...savedOrder } as Order);
       setPlaced(true);
+      retrySaveRef.current = null;
+      setAwaitingConfirmation(false);
       clearCart();
-      setLoading(false);
+      finishAttempt();
     } catch (error) {
       toast.error(mode === 'razorpay'
         ? 'Your payment may have succeeded, but we could not save the order. Please contact us before paying again.'
         : error instanceof Error ? error.message : 'We could not save your order. Please try again or contact us.');
-      setLoading(false);
+      finishAttempt();
     }
   };
 
   const handleProceedToPayment = async () => {
+    if (submittingRef.current) return;
+    if (retrySaveRef.current) {
+      submittingRef.current = true;
+      setLoading(true);
+      await retrySaveRef.current();
+      return;
+    }
     if (!validateDetails()) return;
 
     // CartMenuSync reconciles the cart against the menu app-wide, but that
@@ -280,9 +294,12 @@ function CheckoutForm() {
       }
     }
 
+    submittingRef.current = true;
     setLoading(true);
 
-    const activeOrderId = generateOrderId();
+    const basket = JSON.stringify({ items: state.items, couponCode: state.couponCode, name: effectiveName, phone: effectivePhone, paymentChoice, userId: user?.id });
+    if (attemptRef.current?.basket !== basket) attemptRef.current = { basket, id: generateOrderId() };
+    const activeOrderId = attemptRef.current.id;
 
     if (paymentChoice === 'counter') {
       await finalizeOrder(activeOrderId, 'cash');
@@ -310,12 +327,12 @@ function CheckoutForm() {
       orderData = paymentResult;
       if (!res.ok || !orderData?.id) {
         toast.error(paymentResult?.error || 'Online payment service is momentarily busy. You can pay at counter or retry.');
-        setLoading(false);
+        finishAttempt();
         return;
       }
     } catch {
       toast.error('Online payment service is momentarily busy. You can pay at counter or retry.');
-      setLoading(false);
+      finishAttempt();
       return;
     }
 
@@ -324,7 +341,7 @@ function CheckoutForm() {
 
     if (!scriptLoaded || !razorpayKey) {
       toast.error('Payment window could not be loaded. Please try paying at counter.');
-      setLoading(false);
+      finishAttempt();
       return;
     }
 
@@ -342,53 +359,42 @@ function CheckoutForm() {
       // Matches --brand-500 in globals.css — this modal is the one surface
       // Razorpay owns, so it's themed by hand rather than reading the CSS
       // variable, but it still has to agree with everything else on screen.
-      theme: { color: '#FC8019' },
+      theme: { color: '#DF301C' },
       handler: async function (response) {
         // Razorpay closes the modal right after calling `handler`, which
         // also fires `ondismiss` — mark this payment handled so that
         // fallback check doesn't re-run against the same order.
+        if (paymentHandledRef.current) return;
         paymentHandledRef.current = true;
         toast.loading('Confirming your payment…', { id: 'verify-toast' });
-        try {
-          const verifyRes = await fetch('/api/razorpay/verify-payment', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            }),
-          });
-          const verifyData = await verifyRes.json();
-
-          if (verifyRes.ok && verifyData.success) {
-            toast.success('Payment received successfully', { id: 'verify-toast' });
-            await finalizeOrder(activeOrderId, 'razorpay', response);
-          } else {
-            toast.error('Payment could not be verified. Please pay at counter or contact us if charged.', { id: 'verify-toast', duration: 6000 });
-            setLoading(false);
-          }
-        } catch {
-          toast.error('Payment could not be verified. Please pay at counter or contact us if charged.', { id: 'verify-toast', duration: 6000 });
-          setLoading(false);
-        }
+        // Checkout verifies the signature, captured payment and amount itself.
+        // Retry that same save after a network failure instead of charging again.
+        retrySaveRef.current = () => finalizeOrder(activeOrderId, 'razorpay', response);
+        setAwaitingConfirmation(true);
+        await retrySaveRef.current();
+        toast.dismiss('verify-toast');
       },
       modal: {
         ondismiss: async function () {
           if (paymentHandledRef.current) return;
           toast.error('Payment cancelled.');
-          setLoading(false);
+          finishAttempt();
         },
       },
     };
 
     if (!window.Razorpay) {
       toast.error('Payment window could not be loaded. Try paying at counter.');
-      setLoading(false);
+      finishAttempt();
       return;
     }
-    const rzp = new window.Razorpay(options);
-    rzp.open();
+    try {
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch {
+      toast.error('Payment window could not be opened. Please retry.');
+      finishAttempt();
+    }
   };
 
   // ─── Empty cart ─────────────────────────────────────────────────────────
@@ -396,6 +402,7 @@ function CheckoutForm() {
     return (
       <div className="bg-store flex min-h-screen flex-col">
         <Navbar />
+        <div className="w-full shrink-0" style={{ height: 'var(--ppr-nav-h, 68px)' }} aria-hidden="true" />
         <main className="grid flex-1 place-items-center px-4 py-16">
           <div className="w-full max-w-sm text-center">
             <span className="bg-brand-50 text-brand-500 mx-auto mb-5 grid size-20 place-items-center rounded-full">
@@ -433,6 +440,7 @@ function CheckoutForm() {
     return (
       <div className="bg-store flex min-h-screen flex-col">
         <Navbar />
+        <div className="w-full shrink-0" style={{ height: 'var(--ppr-nav-h, 68px)' }} aria-hidden="true" />
         <main className="grid flex-1 place-items-center px-4 py-10">
           <div className="w-full max-w-md">
             <div className="border-hair-1 shadow-store overflow-hidden rounded-2xl border bg-white">
@@ -458,18 +466,20 @@ function CheckoutForm() {
                   <p className="text-ink-4 text-[11px] font-bold tracking-wider uppercase">
                     Order ID
                   </p>
-                  <div className="mt-1 flex items-center justify-center gap-1.5">
-                    <code className="text-ink-1 text-[17px] font-black break-all">
+                  <div className="mt-1 flex items-start justify-center gap-1">
+                    <code className="text-ink-1 min-w-0 flex-1 text-center text-[15px] leading-snug font-black break-all sm:text-[16px]">
                       {completedOrder.orderId}
                     </code>
                     <button
                       type="button"
                       aria-label="Copy order ID"
-                      onClick={() => {
-                        navigator.clipboard.writeText(completedOrder.orderId);
-                        toast.success('Order ID copied');
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(completedOrder.orderId);
+                          toast.success('Order ID copied');
+                        } catch { toast.error('Could not copy. Select and copy the order ID shown here.'); }
                       }}
-                      className="text-ink-4 hover:text-ink-1 hover:bg-hair-2 grid size-8 place-items-center rounded-lg transition-colors"
+                      className="text-ink-4 hover:text-ink-1 hover:bg-hair-2 mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg transition-colors"
                     >
                       <Copy className="size-4" />
                     </button>
@@ -515,11 +525,12 @@ function CheckoutForm() {
   }
 
   // ─── Checkout form ──────────────────────────────────────────────────────
-  const payLabel = paymentChoice === 'online' ? 'Pay now' : 'Place order';
+  const payLabel = awaitingConfirmation ? 'Retry confirmation' : paymentChoice === 'online' ? 'Pay now' : 'Place order';
 
   return (
     <div className="bg-store flex min-h-screen flex-col">
       <Navbar />
+      <div className="w-full shrink-0" style={{ height: 'var(--ppr-nav-h, 68px)' }} aria-hidden="true" />
 
       <main className="flex-1 py-5 sm:py-7">
         <Container className="max-w-[1320px]">

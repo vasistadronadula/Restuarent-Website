@@ -214,7 +214,7 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
 
   if (!isFirebaseConfigured) {
     return (
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-600 dark:text-amber-400">
+      <div className="rounded-xl border border-brand/30 bg-brand/10 p-4 text-xs text-brand-600 dark:text-brand-400">
         Mobile sign-in is unavailable right now. Please use email and password.
       </div>
     );
@@ -235,9 +235,9 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
         <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="space-y-4">
           {isSignUpMode && (
             <div className="space-y-1.5">
-              <Label htmlFor="signup-name" className="text-xs font-black text-stone-600 dark:text-stone-400">Full Name</Label>
+              <Label htmlFor="signup-name" className="text-xs font-black text-ink-2 dark:text-ink-4">Full Name</Label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-4 dark:text-ink-3 transition-colors" />
                 <Input
                   id="signup-name"
                   value={name}
@@ -245,16 +245,16 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
                   placeholder="e.g. Rahul Sharma"
                   autoComplete="name"
                   maxLength={80}
-                  className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-500 text-xs font-bold"
+                  className="pl-9 h-11 rounded-xl bg-hair-2/50 dark:bg-cobalt-900/30 border-hair-1 dark:border-hair-1 text-ink-1 placeholder:text-ink-4 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand text-xs font-bold"
                 />
               </div>
             </div>
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="phone-input" className="text-xs font-black text-stone-600 dark:text-stone-400">Mobile Number</Label>
+            <Label htmlFor="phone-input" className="text-xs font-black text-ink-2 dark:text-ink-4">Mobile Number</Label>
             <div className="relative flex items-center">
-              <div className="absolute left-3 flex items-center border-r pr-2 font-black text-xs text-stone-500 dark:text-stone-450 border-stone-200 dark:border-stone-800">
+              <div className="absolute left-3 flex items-center border-r pr-2 font-black text-xs text-ink-3 dark:text-ink-4 border-hair-1 dark:border-hair-1">
                 +91
               </div>
               <Input
@@ -267,10 +267,10 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
                 placeholder="9876543210"
                 autoComplete="tel-national"
                 maxLength={10}
-                className="pl-14 h-11 tracking-widest font-black bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-500 text-xs"
+                className="pl-14 h-11 tracking-widest font-black bg-hair-2/50 dark:bg-cobalt-900/30 border-hair-1 dark:border-hair-1 text-ink-1 placeholder:text-ink-4 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand text-xs"
               />
             </div>
-            <p className="text-[10px] text-stone-400 dark:text-stone-500 font-semibold">
+            <p className="text-[10px] text-ink-4 dark:text-ink-3 font-semibold">
               We&apos;ll text you a 6-digit code. Standard rates apply.
             </p>
           </div>
@@ -278,7 +278,7 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
           <Button
             type="submit"
             disabled={busy || !phoneIsValid}
-            className="w-full h-11 font-extrabold shadow-md bg-stone-950 hover:bg-stone-900 text-white dark:bg-stone-50 dark:hover:bg-stone-200 dark:text-stone-950 rounded-xl transition-all text-xs"
+            className="bg-brand hover:bg-brand-600 h-11 w-full rounded-xl text-xs font-extrabold text-white shadow-md transition-all"
           >
             {busy ? <Loader2 className="size-4 animate-spin" /> : 'Get Started'}
           </Button>
@@ -290,10 +290,10 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
       {/* ── Step 2: OTP Code ────────────────────────────────────────────── */}
       {step === 'code' && (
         <form onSubmit={(e) => { e.preventDefault(); submitCode(code); }} className="space-y-5">
-          <div className="flex items-center justify-between gap-2 rounded-2xl bg-stone-50 dark:bg-stone-950/40 p-3 border border-stone-200 dark:border-stone-850">
+          <div className="flex items-center justify-between gap-2 rounded-2xl bg-hair-2 dark:bg-cobalt-900/40 p-3 border border-hair-1 dark:border-hair-1">
             <div className="min-w-0">
-              <p className="text-[10px] text-stone-400 font-semibold">Code sent to</p>
-              <p className="text-xs font-black text-stone-900 dark:text-stone-100">{formatMobileForDisplay(e164 ?? phone)}</p>
+              <p className="text-[10px] text-ink-4 font-semibold">Code sent to</p>
+              <p className="text-xs font-black text-ink-1">{formatMobileForDisplay(e164 ?? phone)}</p>
             </div>
             <Button
               type="button"
@@ -301,7 +301,7 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
               size="sm"
               onClick={startOver}
               disabled={busy}
-              className="text-xs font-extrabold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 shrink-0 gap-1 h-8 rounded-full"
+              className="text-xs font-extrabold text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 shrink-0 gap-1 h-8 rounded-full"
             >
               <Edit3 className="size-3.5" />
               Change
@@ -309,7 +309,7 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs font-black text-stone-600 dark:text-stone-400">Enter the 6-digit code</Label>
+            <Label className="text-xs font-black text-ink-2 dark:text-ink-4">Enter the 6-digit code</Label>
             <OtpInput
               key={codeRound}
               value={code}
@@ -326,20 +326,20 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
           <Button
             type="submit"
             disabled={busy || code.length !== OTP_LENGTH}
-            className="w-full h-11 font-extrabold shadow-md bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all text-xs"
+            className="bg-brand hover:bg-brand-600 h-11 w-full rounded-xl text-xs font-extrabold text-white shadow-md transition-all"
           >
             {busy ? <Loader2 className="size-4 animate-spin text-white" /> : 'Verify & Continue'}
           </Button>
 
           <div className="text-center">
-            <span className="text-xs text-stone-500">Didn&apos;t get it? </span>
+            <span className="text-xs text-ink-3">Didn&apos;t get it? </span>
             <Button
               type="button"
               variant="link"
               size="sm"
               onClick={handleSend}
               disabled={cooldown > 0 || busy}
-              className="text-xs font-black text-amber-600 dark:text-amber-400 p-0 h-auto gap-1"
+              className="text-xs font-black text-brand-600 dark:text-brand-400 p-0 h-auto gap-1"
             >
               {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend Code'}
             </Button>
@@ -350,20 +350,20 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
       {/* ── Step 3: Details ────────────────────────────────────────────── */}
       {step === 'details' && (
         <form onSubmit={handleSaveProfile} className="space-y-4">
-          <div className="flex gap-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3.5">
-            <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+          <div className="border-veg/25 bg-veg/10 flex gap-3 rounded-2xl border p-3.5">
+            <CheckCircle2 className="text-veg mt-0.5 size-5 shrink-0" />
             <div>
-              <p className="text-xs font-black text-emerald-800 dark:text-emerald-300">Mobile number verified</p>
-              <p className="text-[11px] text-stone-500 dark:text-stone-400 font-semibold leading-relaxed">
+              <p className="text-veg text-xs font-black">Mobile number verified</p>
+              <p className="text-[11px] text-ink-3 dark:text-ink-4 font-semibold leading-relaxed">
                 Last step — tell us who you are so we can put a name on your orders.
               </p>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="details-name" className="text-xs font-black text-stone-600 dark:text-stone-400">Full Name</Label>
+            <Label htmlFor="details-name" className="text-xs font-black text-ink-2 dark:text-ink-4">Full Name</Label>
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-4 dark:text-ink-3 transition-colors" />
               <Input
                 id="details-name"
                 autoFocus
@@ -372,15 +372,15 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
                 placeholder="e.g. Rahul Sharma"
                 autoComplete="name"
                 maxLength={80}
-                className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-500 text-xs font-bold"
+                className="pl-9 h-11 rounded-xl bg-hair-2/50 dark:bg-cobalt-900/30 border-hair-1 dark:border-hair-1 text-ink-1 placeholder:text-ink-4 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand text-xs font-bold"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="details-email" className="text-xs font-black text-stone-600 dark:text-stone-400">Email Address</Label>
+            <Label htmlFor="details-email" className="text-xs font-black text-ink-2 dark:text-ink-4">Email Address</Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-4 dark:text-ink-3 transition-colors" />
               <Input
                 id="details-email"
                 type="email"
@@ -388,10 +388,10 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="e.g. rahul@example.com"
                 autoComplete="email"
-                className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-500 text-xs font-bold"
+                className="pl-9 h-11 rounded-xl bg-hair-2/50 dark:bg-cobalt-900/30 border-hair-1 dark:border-hair-1 text-ink-1 placeholder:text-ink-4 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand text-xs font-bold"
               />
             </div>
-            <p className="text-[10px] text-stone-450 dark:text-stone-500 font-semibold">
+            <p className="text-[10px] text-ink-4 dark:text-ink-3 font-semibold">
               Where your order receipts and booking confirmations go.
             </p>
           </div>
@@ -399,7 +399,7 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
           <Button
             type="submit"
             disabled={busy || !name.trim() || !email.trim()}
-            className="w-full h-11 font-extrabold shadow-md bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition-all text-xs"
+            className="bg-brand hover:bg-brand-600 h-11 w-full rounded-xl text-xs font-extrabold text-white shadow-md transition-all"
           >
             {busy ? <Loader2 className="size-4 animate-spin text-white" /> : 'Finish & Continue'}
           </Button>

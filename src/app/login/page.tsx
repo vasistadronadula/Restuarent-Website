@@ -129,18 +129,18 @@ function LoginForm() {
       <AuthShell
         title="Check your email"
         subtitle={`We sent a password reset link to ${resetSentTo}. Click the link inside to set a new password.`}
-        icon={<MailCheck className="size-5 text-amber-600" />}
+        icon={<MailCheck className="size-5 text-brand-600" />}
       >
         <div className="space-y-4">
           <Button
-            className="w-full h-11 font-extrabold shadow-md bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition-all text-xs"
+            className="w-full h-11 font-extrabold shadow-md bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-all text-xs"
             onClick={() => { setResetSentTo(null); setMode('login'); setEmail(''); }}
           >
             Back to sign in
           </Button>
           <Button
             variant="ghost"
-            className="w-full text-xs font-semibold text-stone-500 hover:text-stone-850"
+            className="text-ink-3 hover:text-ink-1 w-full text-xs font-semibold"
             onClick={() => setResetSentTo(null)}
           >
             Use a different email address
@@ -156,7 +156,7 @@ function LoginForm() {
       <AuthShell
         title="Reset your password"
         subtitle="Enter your email to receive a password reset link."
-        icon={<KeyRound className="size-5 text-amber-650" />}
+        icon={<KeyRound className="size-5 text-brand-600" />}
       >
         <form onSubmit={handleForgot} className="space-y-4">
           {formError && (
@@ -167,7 +167,7 @@ function LoginForm() {
 
           <div className="space-y-1.5">
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-550 transition-colors" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-4 dark:text-ink-3 transition-colors" />
               <Input
                 id="forgot-email"
                 ref={emailRef}
@@ -178,7 +178,7 @@ function LoginForm() {
                 onBlur={() => handleBlur('email')}
                 autoFocus
                 placeholder="Email Address"
-                className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-500 text-xs font-bold"
+                className="pl-9 h-11 rounded-xl bg-hair-2/50 border-hair-1 text-ink-1 placeholder:text-ink-4 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand text-xs font-bold"
               />
             </div>
             {showError('email') && (
@@ -189,7 +189,7 @@ function LoginForm() {
           <Button
             type="submit"
             disabled={loading}
-            className="w-full h-11 font-extrabold shadow-md bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition-all text-xs"
+            className="w-full h-11 font-extrabold shadow-md bg-brand-600 hover:bg-brand-700 text-white rounded-xl transition-all text-xs"
           >
             {loading ? <Loader2 className="size-4 animate-spin text-white" /> : 'Send reset link'}
           </Button>
@@ -198,7 +198,7 @@ function LoginForm() {
             type="button"
             variant="ghost"
             onClick={() => { setMode('login'); setFormError(null); setErrors({}); setTouched({}); }}
-            className="w-full text-xs font-semibold text-stone-500 hover:text-stone-800 gap-1.5"
+            className="w-full text-xs font-semibold text-ink-3 hover:text-ink-1 gap-1.5"
           >
             <ArrowLeft className="size-4" />
             Back to log in
@@ -215,18 +215,18 @@ function LoginForm() {
       subtitle={authMethod === 'email' ? 'Enter your credentials to access your account' : 'Confirm your mobile number below to request an OTP code.'}
       icon={
         authMethod === 'email' ? (
-          <LogIn className="size-5 text-amber-600" />
+          <LogIn className="size-5 text-brand-600" />
         ) : (
-          <Smartphone className="size-5 text-amber-600" />
+          <Smartphone className="size-5 text-brand-600" />
         )
       }
       footer={
-        <p className="text-xs text-stone-500 dark:text-stone-400">
+        <p className="text-xs text-ink-3 dark:text-ink-4">
           New here?{' '}
           <Link
             href={redirectTo === '/' ? '/signup' : `/signup?redirect=${encodeURIComponent(redirectTo)}`}
             prefetch
-            className="font-extrabold text-amber-600 hover:underline dark:text-amber-400"
+            className="font-extrabold text-brand-600 hover:underline dark:text-brand-400"
           >
             Create an account
           </Link>
@@ -234,7 +234,7 @@ function LoginForm() {
       }
     >
       {leaving && (
-        <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-medium text-amber-700 dark:text-amber-450">
+        <div className="mb-4 rounded-xl border border-brand/30 bg-brand/10 p-3 text-xs font-medium text-brand-700 dark:text-brand-400">
           Already signed in — redirecting…
         </div>
       )}
@@ -245,8 +245,8 @@ function LoginForm() {
           customSocials={
             <div className="space-y-4 pt-1">
               <div className="relative my-4 flex items-center justify-center">
-                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-200 dark:border-stone-800" /></div>
-                <span className="relative bg-white/70 dark:bg-stone-900/65 px-3 text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-hair-1 dark:border-ink-1" /></div>
+                <span className="relative bg-white/70 dark:bg-ink-1/65 px-3 text-[10px] font-bold text-ink-4 dark:text-ink-3 uppercase">
                   Or sign in with
                 </span>
               </div>
@@ -254,7 +254,7 @@ function LoginForm() {
                 <button
                   type="button"
                   onClick={signInWithGoogle}
-                  className="w-10 h-10 border border-stone-250 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-stone-950 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors shadow-xs"
+                  className="w-10 h-10 border border-hair-1 dark:border-ink-1 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs"
                   title="Sign in with Google"
                 >
                   <GoogleIcon />
@@ -262,10 +262,10 @@ function LoginForm() {
                 <button
                   type="button"
                   onClick={() => { setAuthMethod('email'); setFormError(null); }}
-                  className="w-10 h-10 border border-stone-250 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-stone-950 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors shadow-xs text-stone-600 dark:text-stone-400"
+                  className="w-10 h-10 border border-hair-1 dark:border-ink-1 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs text-ink-2 dark:text-ink-4"
                   title="Sign in with Email"
                 >
-                  <Mail className="size-4 text-stone-500" />
+                  <Mail className="size-4 text-ink-3" />
                 </button>
               </div>
             </div>
@@ -282,7 +282,7 @@ function LoginForm() {
 
             <div className="space-y-1.5">
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-4 dark:text-ink-3 transition-colors" />
                 <Input
                   id="login-email"
                   ref={emailRef}
@@ -293,7 +293,7 @@ function LoginForm() {
                   onBlur={() => handleBlur('email')}
                   autoComplete="email"
                   placeholder="Email"
-                  className="pl-9 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-500 text-xs font-bold"
+                  className="pl-9 h-11 rounded-xl bg-hair-2/50 border-hair-1 text-ink-1 placeholder:text-ink-4 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand text-xs font-bold"
                 />
               </div>
               {showError('email') && (
@@ -303,7 +303,7 @@ function LoginForm() {
 
             <div className="space-y-1.5">
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-stone-400 dark:text-stone-500 transition-colors" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-ink-4 dark:text-ink-3 transition-colors" />
                 <Input
                   id="login-password"
                   ref={passwordRef}
@@ -314,14 +314,14 @@ function LoginForm() {
                   onBlur={() => handleBlur('password')}
                   autoComplete="current-password"
                   placeholder="Password"
-                  className="pl-9 pr-10 h-11 rounded-xl bg-stone-50/50 dark:bg-stone-950/30 border-stone-200 dark:border-stone-850 text-stone-900 dark:text-stone-100 placeholder:text-stone-400 focus-visible:ring-1 focus-visible:ring-amber-500 focus-visible:border-amber-500 text-xs font-bold"
+                  className="pl-9 pr-10 h-11 rounded-xl bg-hair-2/50 border-hair-1 text-ink-1 placeholder:text-ink-4 focus-visible:ring-1 focus-visible:ring-brand focus-visible:border-brand text-xs font-bold"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   aria-pressed={showPassword}
-                  className="absolute right-0 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-xl text-stone-400 hover:text-stone-600 dark:text-stone-500 dark:hover:text-stone-300"
+                  className="absolute right-0 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-xl text-ink-4 hover:text-ink-2"
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -333,7 +333,7 @@ function LoginForm() {
                 <button
                   type="button"
                   onClick={() => { setMode('forgot'); setFormError(null); setErrors({}); setTouched({}); }}
-                  className="text-xs font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-350"
+                  className="text-xs font-bold text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
                 >
                   Forgot password?
                 </button>
@@ -343,15 +343,15 @@ function LoginForm() {
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-11 font-black bg-stone-950 hover:bg-stone-900 text-white dark:bg-stone-50 dark:hover:bg-stone-200 dark:text-stone-950 rounded-xl transition-all text-xs"
+              className="bg-brand hover:bg-brand-600 h-11 w-full rounded-xl text-xs font-black text-white shadow-md transition-all"
             >
               {loading ? <><Loader2 className="size-4 animate-spin" /> Signing in…</> : 'Sign in'}
             </Button>
           </form>
 
           <div className="relative my-4 flex items-center justify-center">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-200 dark:border-stone-800" /></div>
-            <span className="relative bg-white/70 dark:bg-stone-900/65 px-3 text-[10px] font-bold text-stone-400 dark:text-stone-500 uppercase">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-hair-1 dark:border-ink-1" /></div>
+            <span className="relative bg-white/70 dark:bg-ink-1/65 px-3 text-[10px] font-bold text-ink-4 dark:text-ink-3 uppercase">
               Or sign in with
             </span>
           </div>
@@ -360,7 +360,7 @@ function LoginForm() {
             <button
               type="button"
               onClick={signInWithGoogle}
-              className="w-10 h-10 border border-stone-250 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-stone-950 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors shadow-xs"
+              className="w-10 h-10 border border-hair-1 dark:border-ink-1 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs"
               title="Sign in with Google"
             >
               <GoogleIcon />
@@ -368,10 +368,10 @@ function LoginForm() {
             <button
               type="button"
               onClick={() => { setAuthMethod('otp'); setFormError(null); }}
-              className="w-10 h-10 border border-stone-250 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-stone-950 hover:bg-stone-50 dark:hover:bg-stone-900 transition-colors shadow-xs text-stone-600 dark:text-stone-400"
+              className="w-10 h-10 border border-hair-1 dark:border-ink-1 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs text-ink-2 dark:text-ink-4"
               title="Sign in with Mobile OTP"
             >
-              <Phone className="size-4 text-stone-500" />
+              <Phone className="size-4 text-ink-3" />
             </button>
           </div>
         </div>
@@ -380,16 +380,13 @@ function LoginForm() {
   );
 }
 
-import { BrandScreen } from '@/components/customer/BrandScreen';
-
 export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <BrandScreen title="Setting your table…" message="One moment while we prepare sign in.">
-          <span aria-hidden className="bg-brand/70 size-2.5 animate-ping rounded-full" />
-          <span className="sr-only" role="status">Loading</span>
-        </BrandScreen>
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-[9999] h-1 w-full overflow-hidden bg-transparent">
+          <div className="h-full w-full bg-gradient-to-r from-amber-400 via-brand to-amber-500 animate-pulse" />
+        </div>
       }
     >
       <LoginForm />

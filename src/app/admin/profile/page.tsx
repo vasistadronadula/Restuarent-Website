@@ -118,14 +118,14 @@ export default function ProfilePage() {
         <section className="border-2 border-ad-line p-5">
           <div className="relative group w-24 h-24 mx-auto sm:mx-0">
             <div
-              className="w-24 h-24 rounded-2xl grid place-items-center bg-ad-accent text-ad-bg ad-num text-[30px] overflow-hidden border border-ad-line shadow-sm"
+              className="w-24 h-24 rounded-full grid place-items-center bg-ad-accent text-ad-bg ad-num text-[30px] overflow-hidden border border-ad-line shadow-sm"
               style={avatarUrl ? { backgroundImage: `url(${avatarUrl})`, backgroundSize: 'cover', backgroundPosition: 'center', color: 'transparent' } : undefined}
             >
               {avatarUrl ? '' : initials}
             </div>
 
             {uploadingAvatar && (
-              <div className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center">
+              <div className="absolute inset-0 bg-black/60 rounded-full flex items-center justify-center">
                 <Loader2 className="w-6 h-6 text-white animate-spin" />
               </div>
             )}

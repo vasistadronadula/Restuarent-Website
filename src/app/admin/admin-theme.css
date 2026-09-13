@@ -25,38 +25,36 @@
    ========================================================================= */
 
 :root {
-  /* Warm orange + white, matching the customer storefront palette.
-     White carries the ground and panels; #fc8019 is the hot accent
-     (buttons, active states, the sidebar rail). */
-  --ad-bg: #ffffff;
-  --ad-surface: #fff8f2;
-  --ad-ink: #221c1a;
-  --ad-accent: #fc8019;
+  /* Shared restaurant palette with quieter surfaces for dense staff screens. */
+  --ad-bg: #fffdf8;
+  --ad-surface: var(--store-ground);
+  --ad-ink: var(--ink-1);
+  --ad-accent: var(--palette-red);
+  --ad-sunset: var(--palette-orange);
 
-  /* 40% ink. Strong on purpose — at 2px this is the system's main structural
-     line, not a whisper-thin hairline. */
-  --ad-divider: color-mix(in srgb, #221c1a 40%, transparent);
-  --ad-hairline: color-mix(in srgb, #221c1a 20%, transparent);
+  /* 40% ink structural lines */
+  --ad-divider: color-mix(in srgb, var(--ink-1) 25%, transparent);
+  --ad-hairline: color-mix(in srgb, var(--ink-1) 12%, transparent);
 
-  --ad-n100: #faf7f6;
-  --ad-n200: #f0ebea;
-  --ad-n300: #ddd6d4;
-  --ad-n400: #bfb6b3;
-  --ad-n500: #9c928f;
-  --ad-n600: #7c7371;
-  --ad-n700: #5e5654;
-  --ad-n800: #423b3a;
-  --ad-n900: #2a2422;
+  --ad-n100: #fff8eb;
+  --ad-n200: #f5ebdb;
+  --ad-n300: #e9d9bf;
+  --ad-n400: #cbbb9f;
+  --ad-n500: #9e8a72;
+  --ad-n600: var(--ink-3);
+  --ad-n700: #66513f;
+  --ad-n800: var(--ink-2);
+  --ad-n900: var(--ink-1);
 
-  --ad-a100: #fff6ee;
-  --ad-a200: #ffead6;
-  --ad-a300: #ffd4ac;
-  --ad-a400: #ffb877;
-  --ad-a500: #fe9c45;
-  --ad-a600: #fc8019;
-  --ad-a700: #ec6d06;
-  --ad-a800: #c25708;
-  --ad-a900: #94430b;
+  --ad-a100: var(--brand-50);
+  --ad-a200: var(--brand-100);
+  --ad-a300: var(--brand-200);
+  --ad-a400: var(--brand-300);
+  --ad-a500: var(--brand-400);
+  --ad-a600: var(--brand-500);
+  --ad-a700: var(--brand-600);
+  --ad-a800: var(--brand-700);
+  --ad-a900: var(--brand-900);
 
   /* Semantic hues, pulled to the same flat register as the accent so a green
      "paid" chip doesn't look like it came from a different application. */
@@ -64,15 +62,15 @@
   --ad-ok-bg: #e8f3ec;
   --ad-warn: #a1620a;
   --ad-warn-bg: #f6eddd;
-  --ad-info: #1d4ed8;
-  --ad-info-bg: #e6ebf8;
+  --ad-info: var(--cobalt-700);
+  --ad-info-bg: var(--cobalt-50);
   /* Distinct from the accent on purpose: the accent means "primary action",
      this means "needs attention now" — an overdue KDS ticket or a voided
      bill shouldn't compete visually with a Save button. */
   --ad-critical: #b91c1c;
   --ad-critical-bg: #fbe4e4;
 
-  --ad-font: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --ad-font: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
   --ad-sidebar-w: 236px;
   --ad-header-h: 68px;
 

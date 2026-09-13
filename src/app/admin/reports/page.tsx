@@ -14,16 +14,30 @@ import { Download, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 /**
- * Chart series, in the console's own palette: the accent first, then ink, then
- * alternating tints that separate by lightness as well as hue. Seven unrelated
- * brand colours read as seven unrelated apps on a page whose entire design is
- * one accent over neutrals.
+ * Pala Pitta Ruchulu Brand Palette for Analytics:
+ * - Brand Chilli Red (#df301c)
+ * - Pala Pitta Deep Teal (#008391)
+ * - Turmeric Gold (#f59e0b)
+ * - Curry Leaf Green (#10b981)
+ * - Mango Orange (#ff9100)
+ * - Vibrant Turquoise (#00b4c5)
+ * - Royal Cobalt (#1e40af)
+ * - Rich Spice Cocoa (#5d211a)
  */
-const COLORS = ['#fc8019', '#221c1a', '#ffb877', '#5e5654', '#c25708', '#ddd6d4', '#94430b'];
+const COLORS = [
+  '#df301c', // Brand Chilli Red (Primary / Revenue)
+  '#008391', // Pala Pitta Deep Teal (Orders / Secondary)
+  '#f59e0b', // Turmeric Gold
+  '#10b981', // Curry Leaf Green
+  '#ff9100', // Mango Orange
+  '#00b4c5', // Turquoise
+  '#1e40af', // Royal Cobalt
+  '#5d211a', // Rich Spice Cocoa
+];
 
-/* Chart chrome — axes and gridlines sit under the data, never beside it. */
-const AXIS = '#9c928f';
-const GRID = '#ddd6d4';
+/* Chart chrome — axes and gridlines in warm brand neutrals */
+const AXIS = '#786351';
+const GRID = '#ebd9c3';
 
 export default function ReportsPage() {
   const today = orderDateStamp();
@@ -196,22 +210,32 @@ export default function ReportsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 {tab === 'categories' ? (
                   <BarChart data={categoryRevenue.slice(0, 10)} layout="vertical" margin={{ left: 18 }}>
-                    <CartesianGrid vertical={false} stroke={GRID} />
+                    <CartesianGrid vertical={false} stroke={GRID} strokeDasharray="3 3" />
                     <XAxis type="number" stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
-                    <YAxis type="category" dataKey="name" width={105} stroke={AXIS} fontSize={10} tickLine={false} axisLine={false} />
-                    <Tooltip formatter={(val: any) => [`₹${Number(val || 0).toLocaleString('en-IN')}`, 'Revenue']} />
-                    <Bar dataKey="value" name="Revenue" fill={COLORS[0]} radius={[0, 3, 3, 0]} />
+                    <YAxis type="category" dataKey="name" width={110} stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#ffffff', borderColor: GRID, borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                      formatter={(val: any) => [`₹${Number(val || 0).toLocaleString('en-IN')}`, 'Revenue']}
+                    />
+                    <Bar dataKey="value" name="Revenue" radius={[0, 4, 4, 0]}>
+                      {categoryRevenue.slice(0, 10).map((_, index) => (
+                        <Cell key={`cat-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 ) : (
                   <BarChart data={periodSales as any[]} margin={{ top: 8, right: 12, left: 4 }}>
-                    <CartesianGrid vertical={false} stroke={GRID} />
+                    <CartesianGrid vertical={false} stroke={GRID} strokeDasharray="3 3" />
                     <XAxis dataKey={tab === 'daily' ? 'date' : 'period'} stroke={AXIS} fontSize={11} tickLine={false} />
                     <YAxis yAxisId="money" stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
                     <YAxis yAxisId="orders" orientation="right" stroke={AXIS} fontSize={11} tickLine={false} axisLine={false} />
-                    <Tooltip formatter={(val: any, name: any) => [name === 'Revenue' ? `₹${Number(val || 0).toLocaleString('en-IN')}` : val, name || '']} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: '#ffffff', borderColor: GRID, borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                      formatter={(val: any, name: any) => [name === 'Revenue' ? `₹${Number(val || 0).toLocaleString('en-IN')}` : val, name || '']}
+                    />
                     <Legend />
-                    <Bar yAxisId="money" dataKey="revenue" name="Revenue" fill={COLORS[0]} radius={[3, 3, 0, 0]} />
-                    <Bar yAxisId="orders" dataKey="orders" name="Orders" fill={COLORS[1]} radius={[3, 3, 0, 0]} />
+                    <Bar yAxisId="money" dataKey="revenue" name="Revenue" fill={COLORS[0]} radius={[4, 4, 0, 0]} />
+                    <Bar yAxisId="orders" dataKey="orders" name="Orders" fill={COLORS[1]} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 )}
               </ResponsiveContainer>
@@ -226,11 +250,19 @@ export default function ReportsPage() {
             <div className="h-64" role="img" aria-label="Order totals grouped by status">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={statusMix} layout="vertical" margin={{ left: 18 }}>
-                  <CartesianGrid horizontal={false} stroke={GRID} />
+                  <CartesianGrid horizontal={false} stroke={GRID} strokeDasharray="3 3" />
                   <XAxis type="number" allowDecimals={false} stroke={AXIS} fontSize={11} />
                   <YAxis type="category" dataKey="name" width={90} stroke={AXIS} fontSize={10} />
-                  <Tooltip />
-                  <Bar dataKey="orders" name="Orders" fill={COLORS[1]} radius={[0, 3, 3, 0]} />
+                  <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: GRID, borderRadius: '8px' }} />
+                  <Bar dataKey="orders" name="Orders" radius={[0, 4, 4, 0]}>
+                    {statusMix.map((entry, index) => {
+                      const isOk = ['DELIVERED', 'COMPLETED', 'PAID', 'SERVED'].includes(entry.name);
+                      const isWarn = ['PENDING', 'PREPARING', 'READY'].includes(entry.name);
+                      const isErr = ['CANCELLED', 'REJECTED'].includes(entry.name);
+                      const fill = isOk ? '#10b981' : isWarn ? '#f59e0b' : isErr ? '#df301c' : COLORS[index % COLORS.length];
+                      return <Cell key={`status-${index}`} fill={fill} />;
+                    })}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -244,7 +276,7 @@ export default function ReportsPage() {
                   <Pie data={paymentMix} dataKey="value" nameKey="name" innerRadius={48} outerRadius={82} paddingAngle={3}>
                     {paymentMix.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
                   </Pie>
-                  <Tooltip />
+                  <Tooltip contentStyle={{ backgroundColor: '#ffffff', borderColor: GRID, borderRadius: '8px' }} />
                   <Legend />
                 </PieChart>
               </ResponsiveContainer>

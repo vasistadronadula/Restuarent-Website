@@ -1,13 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope } from "next/font/google";
+import { DM_Sans, Fraunces } from "next/font/google";
 import "./globals.css";
 
-// One Apple-style geometric sans for the whole app — body copy, headings and
-// the admin console alike. Replaces the previous Inter/Fraunces/Archivo trio.
-const manrope = Manrope({
-  variable: "--font-manrope",
+// Variable fonts: expressive restaurant headings, clear UI and numeric text.
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
+  subsets: ["latin"],
   display: "swap",
 });
 
@@ -15,9 +19,7 @@ import { Providers } from "./providers";
 import RoleManifestLink from "@/components/admin/RoleManifestLink";
 
 export const viewport: Viewport = {
-  // Light mode only — no dark theme anymore, so the browser chrome stays
-  // cream in every context instead of snapping to a dark bar.
-  themeColor: "#FFF8F2",
+  themeColor: "#df301c",
   width: "device-width",
   initialScale: 1,
   // maximumScale/userScalable are deliberately not set: pinning them blocks
@@ -81,7 +83,7 @@ export default function RootLayout({
     <html
       lang="en"
       data-scroll-behavior="smooth"
-      className={manrope.variable}
+      className={`${dmSans.variable} ${fraunces.variable}`}
       suppressHydrationWarning
     >
       <head>

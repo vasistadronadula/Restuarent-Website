@@ -29,6 +29,8 @@ export default function ContactPage() {
   return (
     <div className="bg-store flex min-h-screen w-full flex-col">
       <Navbar />
+      {/* Spacer for fixed top navbar — prevents top of page from being cut off underneath navbar */}
+      <div className="w-full shrink-0" style={{ height: 'var(--ppr-nav-h, 68px)' }} aria-hidden="true" />
 
       <main className="flex-1 py-6 sm:py-9">
         <Container className="max-w-[1080px]">

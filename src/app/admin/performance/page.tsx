@@ -13,10 +13,10 @@ import { PageHeader, HairlineGrid, StatCell, SectionCard, EmptyState } from '@/c
 import { ArrowLeft } from 'lucide-react';
 import { orderDateStamp } from '@/lib/orderTime';
 
-/* Chart chrome, matching the console: one accent line over neutral rules. */
-const ACCENT = '#fc8019';
-const AXIS = '#9c928f';
-const GRID = '#ddd6d4';
+/* Chart chrome, matching brand theme */
+const ACCENT = '#df301c';
+const AXIS = '#786351';
+const GRID = '#ebd9c3';
 
 // IST-pinned, matching how mapOrder() stamps `orderDate` — see the identical
 // fix on admin/page.tsx for why the browser's own timezone can't decide

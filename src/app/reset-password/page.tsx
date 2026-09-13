@@ -91,10 +91,9 @@ export default function ResetPasswordPage() {
     }
   };
 
-  /* ── Waiting on the token exchange ────────────────────────────────────── */
   if (stage === 'checking') {
     return (
-      <BrandScreen title="Setting your table…" message="Checking your reset link…">
+      <BrandScreen title="Verifying Link…" message="Checking your reset link…">
         <span aria-hidden className="bg-brand/70 size-2.5 animate-ping rounded-full" />
         <span className="sr-only" role="status">Loading</span>
       </BrandScreen>

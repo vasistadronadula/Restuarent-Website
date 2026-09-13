@@ -17,25 +17,27 @@ const faint = '#A8A29E';
 const line = '#E7E5E4';
 const lineSoft = '#F1EFED';
 
-const brand = '#C62828';      // Pala Pitta red
-const brandDark = '#9B1C1C';
-const accent = '#EA580C';     // orange — AA on white, unlike #FF9800
-const accentDark = '#C2410C';
+const brand = '#DF301C';
+const brandDark = '#A32418';
+const accent = '#A35200';    // Readable companion to the mango-orange highlight
+const accentDark = '#7D3E00';
 
 export const adminColors = {
   // ── Surfaces ──────────────────────────────────────────────
-  canvas: '#FBF8F5',          // page background (warm cream)
-  bgPage: '#FBF8F5',
+  canvas: '#FFF8EB',
+  bgPage: '#FFF8EB',
   bgPanel: '#FFFFFF',
-  bgPanelAlt: '#FDFBF9',
-  bgSubtle: '#FAFAF9',
+  bgPanelAlt: '#FFFAF0',
+  bgSubtle: '#FFF1D2',
   bgDanger: '#FEF2F2',
   bgDangerPanel: '#FFFFFF',
 
   // ── Brand ─────────────────────────────────────────────────
   brand,
   brandDark,
-  brandSoft: '#FEF2F2',
+  brandSoft: '#FFF2ED',
+  mango: '#FF9100',
+  turquoise: '#00B4C5',
   accent,
   accentDark,
   accentSoft: '#FFF7ED',
@@ -45,7 +47,7 @@ export const adminColors = {
   accentOrange: accent,
   accentOrangeDark: accentDark,
   gradientBrand: `linear-gradient(135deg, ${brand}, ${accent})`,
-  gradientBrandSoft: 'linear-gradient(135deg, rgba(198,40,40,0.06), rgba(234,88,12,0.05))',
+  gradientBrandSoft: 'linear-gradient(135deg, #fff2ed, #fff1d2)',
   gradientDanger: `linear-gradient(135deg, ${brand}, ${accent})`,
 
   // ── Semantic status (AA on white) ─────────────────────────
@@ -59,9 +61,9 @@ export const adminColors = {
   dangerStrong: '#991B1B',
   dangerBg: '#FEF2F2',
   dangerBorder: '#FECACA',
-  info: '#1D4ED8',
-  infoBg: '#EFF6FF',
-  infoBorder: '#BFDBFE',
+  info: '#006773',
+  infoBg: '#EFFCFC',
+  infoBorder: '#A9E9EC',
   neutral: muted,
   neutralBg: lineSoft,
 
@@ -91,18 +93,18 @@ export const adminColors = {
 
 // Role accents — distinct hues, all AA on their own soft background.
 export const roleColors: Record<'admin' | 'manager' | 'chef' | 'cashier' | 'waiter', { color: string; bg: string }> = {
-  admin: { color: '#C62828', bg: '#FEF2F2' },
-  manager: { color: '#7C3AED', bg: '#F5F3FF' },
-  chef: { color: '#EA580C', bg: '#FFF7ED' },
+  admin: { color: brand, bg: '#FFF2ED' },
+  manager: { color: '#07515B', bg: '#D9F5F5' },
+  chef: { color: accent, bg: '#FFF1D2' },
   cashier: { color: '#15803D', bg: '#F0FDF4' },
-  waiter: { color: '#1D4ED8', bg: '#EFF6FF' },
+  waiter: { color: '#006773', bg: '#EFFCFC' },
 };
 
 // One order-status palette shared by Dashboard, Orders, and Kitchen instead
 // of three near-identical local copies.
 export const orderStatusColors: Record<string, { label: string; color: string; bg: string }> = {
   pending: { label: 'Pending', color: '#B45309', bg: '#FFFBEB' },
-  preparing: { label: 'Preparing', color: '#1D4ED8', bg: '#EFF6FF' },
+  preparing: { label: 'Preparing', color: '#006773', bg: '#EFFCFC' },
   ready: { label: 'Ready', color: '#15803D', bg: '#F0FDF4' },
   delivered: { label: 'Delivered', color: '#78716C', bg: '#F1EFED' },
   cancelled: { label: 'Cancelled', color: '#B91C1C', bg: '#FEF2F2' },

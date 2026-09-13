@@ -51,7 +51,7 @@ export default function Footer({ mobileClearance = 0, desktopClearance = 0 }: {
 
   return (
     <footer
-      className="border-hair-1 mt-auto border-t bg-white pt-10 [--footer-clearance:var(--footer-mobile-clearance)] lg:[--footer-clearance:var(--footer-desktop-clearance)]"
+      className="border-hair-1 mt-auto border-t bg-cream pt-10 [--footer-clearance:var(--footer-mobile-clearance)] lg:[--footer-clearance:var(--footer-desktop-clearance)]"
       style={{
         '--footer-mobile-clearance': `${mobileClearance}px`,
         '--footer-desktop-clearance': `${desktopClearance}px`,

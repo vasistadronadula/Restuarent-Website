@@ -5,11 +5,11 @@ import { cn } from '@/lib/utils';
 interface LogoProps {
   /**
    * Visual variant:
-   * - 'light': Default on bright/cream/white surfaces. Pure transparent logo mark.
-   * - 'dark': For dark backgrounds, places the logo on a subtle clean pill.
+   * - 'light': Default on bright/cream/white surfaces. Pure transparent logo mark with dark text.
+   * - 'dark' | 'white': For colored/red/dark backgrounds. Pure transparent logo mark with white text.
    * - 'plain': Clean image with no container styling.
    */
-  variant?: 'light' | 'dark' | 'plain';
+  variant?: 'light' | 'dark' | 'white' | 'plain';
   size?: 'small' | 'medium' | 'large';
   className?: string;
   priority?: boolean;
@@ -28,17 +28,17 @@ export default function PalaPittaLogo({
   priority = false,
 }: LogoProps) {
   const { h, w } = SIZES[size];
+  const isWhite = variant === 'dark' || variant === 'white';
 
   return (
     <span
       className={cn(
         'inline-flex items-center justify-center transition-transform duration-200 hover:scale-[1.02] select-none',
-        variant === 'dark' && 'rounded-xl bg-white/95 px-3 py-1.5 shadow-sm backdrop-blur-xs',
         className
       )}
     >
       <Image
-        src="/logo.png"
+        src={isWhite ? '/logo-white.png' : '/logo.png'}
         alt="Pala Pitta Ruchulu"
         width={1948}
         height={579}
@@ -50,4 +50,3 @@ export default function PalaPittaLogo({
     </span>
   );
 }
-

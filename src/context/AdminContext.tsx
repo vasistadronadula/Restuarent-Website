@@ -9,7 +9,7 @@
 
 'use client';
 
-import React, { createContext, useContext, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
 
 import { useAdminStore } from '@/store/useAdminStore';
@@ -90,38 +90,41 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   const { data: floorOrders = [], isLoading: floorOrdersLoading, error: floorOrdersError } = useFloorOrders(userRole === 'waiter');
   const orders = userRole === 'waiter' ? floorOrders : staffOrders;
   const { data: reservations = [], isLoading: resLoading, error: reservationsError } = useReservations(canReadReservations);
-  const { data: menuItems = [], isLoading: menuLoading, error: menuError } = useMenuItems(!userRole || userRole === 'customer');
+  // Menu items and categories are needed by ALL sessions: staff (POS, menu-management
+  // preview) and customers (public menu page). Gating by role caused logged-in
+  // staff visiting the public /menu page to see an empty catalogue.
+  const { data: menuItems = [], isLoading: menuLoading, error: menuError } = useMenuItems(true);
   const { data: inventory = [], isLoading: invLoading, error: inventoryError } = useInventory(canReadInventory);
   const { data: employees = [], isLoading: empLoading, error: employeesError } = useEmployees(canReadEmployees);
-  const { data: categories = [], isLoading: catLoading, error: categoriesError } = useCategories(!userRole || userRole === 'customer');
+  const { data: categories = [], isLoading: catLoading, error: categoriesError } = useCategories(true);
 
   const isLoadingDB = ordersLoading || floorOrdersLoading || resLoading || menuLoading || invLoading || empLoading || catLoading;
   const firstDataError = [ordersError, floorOrdersError, reservationsError, menuError, inventoryError, employeesError, categoriesError].find(Boolean);
   const dataError = firstDataError instanceof Error ? firstDataError.message : firstDataError ? String(firstDataError) : null;
 
-  const updateOrderStatusMutation = useUpdateOrderStatus();
-  const updateOrderPrepTimeMutation = useUpdateOrderPrepTime();
-  const updateReservationStatusMutation = useUpdateReservationStatus();
-  const addMenuItemMutation = useAddMenuItem();
-  const updateMenuItemMutation = useUpdateMenuItem();
-  const deleteMenuItemMutation = useDeleteMenuItem();
-  const addInventoryItemMutation = useAddInventoryItem();
-  const updateInventoryItemMutation = useUpdateInventoryItem();
-  const deleteInventoryItemMutation = useDeleteInventoryItem();
-  const createOrderMutation = useCreateOrder();
-  const createReservationMutation = useCreateReservation();
-  const addCategoryMutation = useAddCategory();
-  const updateCategoryMutation = useUpdateCategory();
-  const deleteCategoryMutation = useDeleteCategory();
+  const { mutateAsync: mutateOrderStatus } = useUpdateOrderStatus();
+  const { mutateAsync: mutateOrderPrepTime } = useUpdateOrderPrepTime();
+  const { mutateAsync: mutateReservationStatus } = useUpdateReservationStatus();
+  const { mutateAsync: mutateAddMenuItem } = useAddMenuItem();
+  const { mutateAsync: mutateUpdateMenuItem } = useUpdateMenuItem();
+  const { mutateAsync: mutateDeleteMenuItem } = useDeleteMenuItem();
+  const { mutateAsync: mutateAddInventoryItem } = useAddInventoryItem();
+  const { mutateAsync: mutateUpdateInventoryItem } = useUpdateInventoryItem();
+  const { mutateAsync: mutateDeleteInventoryItem } = useDeleteInventoryItem();
+  const { mutateAsync: mutateCreateOrder } = useCreateOrder();
+  const { mutateAsync: mutateCreateReservation } = useCreateReservation();
+  const { mutateAsync: mutateAddCategory } = useAddCategory();
+  const { mutateAsync: mutateUpdateCategory } = useUpdateCategory();
+  const { mutateAsync: mutateDeleteCategory } = useDeleteCategory();
 
   // Derive customers from orders (same logic as before)
   const customers: Customer[] = useMemo(() => {
-    const customerMap: Record<string, Customer> = {};
+    const customerMap: Record<string, Customer> = Object.create(null);
     orders.forEach((o) => {
       const key = o.customerPhone || o.customerId || o.customerName || 'GUEST';
       if (!customerMap[key]) {
         const name = o.customerName || 'Guest Diner';
-        const nameParts = name.split(' ');
+        const nameParts = name.trim().split(/\s+/);
         const avatar = nameParts.length > 1
           ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
           : name.slice(0, 2).toUpperCase();
@@ -148,50 +151,51 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     return Object.values(customerMap).sort((a, b) => b.totalSpent - a.totalSpent);
   }, [orders]);
 
-  const notify = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+  const notify = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     useAdminStore.getState().showNotification(message, type);
+    const current = useAdminStore.getState().notification;
     // Errors get longer on screen — 2.5s was tuned for a short "Order
     // updated" success line, not for a longer failure message someone
     // actually needs to read and act on.
     const displayMs = type === 'error' ? 4500 : 2500;
     setTimeout(() => {
-      useAdminStore.getState().clearNotification();
+      if (useAdminStore.getState().notification === current) useAdminStore.getState().clearNotification();
     }, displayMs);
-  };
+  }, []);
 
   // ─── Adapter methods ──────────────────────────────────────────────────────
   // Both throw on failure so callers (checkout, reservation flow, POS) can
   // tell the customer/cashier the write actually failed instead of showing
   // a false "success" screen while nothing was saved.
-  const addOrderLocallyAndDB = async (newOrder: Order) => {
+  const addOrderLocallyAndDB = useCallback(async (newOrder: Order) => {
     try {
-      await createOrderMutation.mutateAsync(newOrder);
+      await mutateCreateOrder(newOrder);
     } catch (err) {
       const message = (err as Error).message || 'Failed to save order';
       notify(message, 'error');
       throw new Error(message);
     }
     notify(`New order ${newOrder.id} placed`, 'success');
-  };
+  }, [mutateCreateOrder, notify]);
 
-  const addReservationLocallyAndDB = async (newRes: Reservation) => {
+  const addReservationLocallyAndDB = useCallback(async (newRes: Reservation) => {
     try {
-      await createReservationMutation.mutateAsync(newRes);
+      await mutateCreateReservation(newRes);
     } catch (err) {
       const message = (err as Error).message || 'Failed to save reservation';
       notify(message, 'error');
       throw new Error(message);
     }
     notify(`Reservation ${newRes.id} confirmed`, 'success');
-  };
+  }, [mutateCreateReservation, notify]);
 
   // These two report their own outcome (they're wired to bare onClick
   // handlers all over the admin, so they must never reject) and also return
   // whether the write landed, for callers that chain further work off it.
-  const updateOrderStatus = async (id: string, status: Order['status']): Promise<boolean> => {
+  const updateOrderStatus = useCallback(async (id: string, status: Order['status']): Promise<boolean> => {
     try {
       const expectedStatus = orders.find((order) => order.id === id)?.status;
-      await updateOrderStatusMutation.mutateAsync({ id, status, expectedStatus });
+      await mutateOrderStatus({ id, status, expectedStatus });
     } catch (err) {
       notify((err as Error).message || `Failed to update order ${id}`, 'error');
       return false;
@@ -209,11 +213,11 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     }
 
     return true;
-  };
+  }, [orders, mutateOrderStatus, notify]);
 
-  const updateOrderPrepTime = async (id: string, delayMinutes: number, notes?: string): Promise<boolean> => {
+  const updateOrderPrepTime = useCallback(async (id: string, delayMinutes: number, notes?: string): Promise<boolean> => {
     try {
-      await updateOrderPrepTimeMutation.mutateAsync({ id, delayMinutes, notes });
+      await mutateOrderPrepTime({ id, delayMinutes, notes });
     } catch {
       notify(`Failed to update prep time for order ${id}`, 'error');
       return false;
@@ -228,20 +232,20 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return true;
-  };
+  }, [mutateOrderPrepTime, notify]);
 
-  const updateReservationStatus = async (
+  const updateReservationStatus = useCallback(async (
     id: string, status: Reservation['status']
   ): Promise<boolean> => {
     try {
-      await updateReservationStatusMutation.mutateAsync({ id, status });
+      await mutateReservationStatus({ id, status });
     } catch {
       notify(`Failed to update reservation ${id}`, 'error');
       return false;
     }
     notify(`Reservation ${id} set to ${status}`);
     return true;
-  };
+  }, [mutateReservationStatus, notify]);
 
   // ── CRUD adapters ─────────────────────────────────────────────────────────
   // Every one of these awaits the write and surfaces the server's own message
@@ -250,37 +254,37 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   // the fire-and-forget versions used to do: they announced "Added to
   // inventory!" in the same tick the request left the browser, so an RLS
   // rejection or a dropped connection still read as a win.
-  const addMenuItem = async (item: MenuItem) => {
-    await addMenuItemMutation.mutateAsync(item);
-  };
+  const addMenuItem = useCallback(async (item: MenuItem) => {
+    await mutateAddMenuItem(item);
+  }, [mutateAddMenuItem]);
 
-  const updateMenuItem = async (item: MenuItem) => {
-    await updateMenuItemMutation.mutateAsync(item);
-  };
+  const updateMenuItem = useCallback(async (item: MenuItem) => {
+    await mutateUpdateMenuItem(item);
+  }, [mutateUpdateMenuItem]);
 
-  const deleteMenuItem = async (id: string) => {
-    await deleteMenuItemMutation.mutateAsync(id);
-  };
+  const deleteMenuItem = useCallback(async (id: string) => {
+    await mutateDeleteMenuItem(id);
+  }, [mutateDeleteMenuItem]);
 
-  const toggleMenuItemAvailability = async (id: string) => {
+  const toggleMenuItemAvailability = useCallback(async (id: string) => {
     const target = menuItems.find((m) => m.id === id);
     if (!target) return;
-    await updateMenuItemMutation.mutateAsync({ ...target, isAvailable: !target.isAvailable });
-  };
+    await mutateUpdateMenuItem({ ...target, isAvailable: !target.isAvailable });
+  }, [menuItems, mutateUpdateMenuItem]);
 
-  const addInventoryItem = async (item: InventoryItem) => {
-    await addInventoryItemMutation.mutateAsync(item);
-  };
+  const addInventoryItem = useCallback(async (item: InventoryItem) => {
+    await mutateAddInventoryItem(item);
+  }, [mutateAddInventoryItem]);
 
-  const updateInventoryItem = async (item: InventoryItem) => {
-    await updateInventoryItemMutation.mutateAsync(item);
-  };
+  const updateInventoryItem = useCallback(async (item: InventoryItem) => {
+    await mutateUpdateInventoryItem(item);
+  }, [mutateUpdateInventoryItem]);
 
-  const deleteInventoryItem = async (id: string) => {
-    await deleteInventoryItemMutation.mutateAsync(id);
-  };
+  const deleteInventoryItem = useCallback(async (id: string) => {
+    await mutateDeleteInventoryItem(id);
+  }, [mutateDeleteInventoryItem]);
 
-  const adjustInventoryQuantity = async (id: string, delta: number) => {
+  const adjustInventoryQuantity = useCallback(async (id: string, delta: number) => {
     const target = inventory.find((i) => i.id === id);
     if (!target) return;
     const newQty = Math.max(0, target.currentStock + delta);
@@ -294,28 +298,26 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     // the outcome, and only once it's known. It used to celebrate the new
     // quantity before the request had even been sent.
     try {
-      await updateInventoryItemMutation.mutateAsync(updated);
+      await mutateUpdateInventoryItem(updated);
       toast.success(`${target.name}: ${newQty} ${target.unit}`, { id: `stock-${id}` });
     } catch (err) {
       toast.error((err as Error).message, { id: `stock-${id}` });
     }
-  };
+  }, [inventory, mutateUpdateInventoryItem]);
 
-  const addCategory = async (cat: MenuCategory) => {
-    await addCategoryMutation.mutateAsync(cat);
-  };
+  const addCategory = useCallback(async (cat: MenuCategory) => {
+    await mutateAddCategory(cat);
+  }, [mutateAddCategory]);
 
-  const updateCategory = async (cat: MenuCategory) => {
-    await updateCategoryMutation.mutateAsync(cat);
-  };
+  const updateCategory = useCallback(async (cat: MenuCategory) => {
+    await mutateUpdateCategory(cat);
+  }, [mutateUpdateCategory]);
 
-  const deleteCategory = async (id: string) => {
-    await deleteCategoryMutation.mutateAsync(id);
-  };
+  const deleteCategory = useCallback(async (id: string) => {
+    await mutateDeleteCategory(id);
+  }, [mutateDeleteCategory]);
 
-  const notification = notificationState
-    ? { message: notificationState.message, type: notificationState.type }
-    : null;
+  const notification = notificationState;
 
   const value = useMemo(() => ({
     orders, reservations, customers, employees, menuItems, inventory, categories,
@@ -326,8 +328,17 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
     addCategory, updateCategory, deleteCategory,
     activeRole, setActiveRole,
     notification, showNotification: notify, isLoadingDB, dataError,
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [orders, reservations, customers, employees, menuItems, inventory, categories, activeRole, notification, isLoadingDB, dataError]);
+  }), [
+    orders, reservations, customers, employees, menuItems, inventory, categories,
+    addOrderLocallyAndDB, addReservationLocallyAndDB,
+    updateOrderStatus, updateOrderPrepTime, updateReservationStatus,
+    addMenuItem, updateMenuItem, deleteMenuItem, toggleMenuItemAvailability,
+    addInventoryItem, updateInventoryItem, deleteInventoryItem, adjustInventoryQuantity,
+    addCategory, updateCategory, deleteCategory,
+    activeRole, setActiveRole,
+    notification, notify, isLoadingDB, dataError,
+  ]);
+
 
   return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
 };

@@ -14,26 +14,19 @@ import { toast } from 'sonner';
 
 import { supabase } from '@/lib/supabase';
 import { getErrorMessage } from '@/lib/errors';
-import { getRoleHome, isStaffRole } from '@/lib/roleAccess';
+import { isStaffRole } from '@/lib/roleAccess';
+import { getLoginDestination } from '@/lib/portalRouting';
 import type { UserRole } from '@/types';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export type { UserRole };
 
-// Owner-account bootstrap: these emails are always forced to 'admin' even if
-// their `profiles.role` row says otherwise. Mirrors the same whitelist used
-// in the one-time `UPDATE profiles SET role = 'admin' WHERE email IN (...)`
-// at the bottom of the baseline migration in supabase/migrations.
-//
-// WARNING: this list bypasses the database role entirely. If any of these
-// accounts is ever compromised, admin access CANNOT be revoked without a code
-// change and a redeploy — there is no DB row to flip. Keep it as short as
-// possible, and treat editing it as security-sensitive.
-const ADMIN_EMAILS = [
-  'vasistadronadula@gmail.com',
-  'pathaniroshini@gmail.com',
-  'palapittaruchulu@gmail.com',
-];
+// NOTE: The owner-email whitelist that used to live here has been removed.
+// It was shipping real email addresses in the browser JS bundle and bypassing
+// the database role entirely — admin access couldn't be revoked without a
+// redeploy. The server-side requireAdmin.ts keeps its own whitelist for API
+// gate-keeping. The DB migration/trigger sets profiles.role='admin' for owner
+// accounts at database level. This code now trusts profiles.role exclusively.
 
 const KNOWN_ROLES: UserRole[] = ['customer', 'admin', 'manager', 'chef', 'cashier', 'waiter'];
 const isKnownRole = (value: unknown): value is UserRole =>
@@ -76,7 +69,7 @@ const takeOAuthPendingFlag = (): boolean => {
  */
 export function landAfterLogin(role: UserRole, fallbackPath?: string) {
   if (typeof window === 'undefined') return;
-  const target = isStaffRole(role) ? getRoleHome(role) : (fallbackPath ?? getRoleHome(role));
+  const target = getLoginDestination(role, fallbackPath);
   window.location.replace(target);
 }
 
@@ -115,51 +108,59 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // with a trigger blocking self-escalation) is the only source of truth here.
 // `u.app_metadata` is safe (only settable server-side) but isn't populated
 // by anything in this app, so it's not read either — one source of truth.
+const pendingRoles = new Map<string, Promise<UserRole>>();
+
+async function readProfileRole(u: User): Promise<UserRole> {
+  const email = (u.email || '').toLowerCase().trim();
+  const own = await supabase.from('profiles').select('role').eq('id', u.id).maybeSingle();
+  let data = own.data;
+  let lookupError = own.error;
+
+  if (!data && email) {
+    const fallback = await supabase.from('profiles').select('role').ilike('email', email).maybeSingle();
+    data = fallback.data;
+    lookupError = lookupError || fallback.error;
+  }
+
+  // A failed lookup is not evidence that someone is a customer. In particular,
+  // don't insert a customer profile or route an admin to the storefront offline.
+  if (!data && lookupError) throw new Error(lookupError.message);
+  if (!data) {
+    const inserted = await supabase.from('profiles').insert([{
+      id: u.id, email: u.email || '',
+      full_name: u.user_metadata?.full_name || u.user_metadata?.name || '',
+      phone: u.user_metadata?.phone || '', role: 'customer',
+    }]).select('role').single();
+    if (inserted.error?.code === '23505') {
+      const existing = await supabase.from('profiles').select('role').eq('id', u.id).single();
+      if (existing.error) throw new Error(existing.error.message);
+      data = existing.data;
+    } else {
+      if (inserted.error) throw new Error(inserted.error.message);
+      data = inserted.data;
+    }
+  }
+  const role = data?.role?.toString().toLowerCase().trim();
+  if (!isKnownRole(role)) throw new Error('Account role could not be verified');
+  return role;
+}
+
 async function fetchAndSetUserRole(u: User): Promise<UserRole> {
-  const { setUserRole } = useAuthStore.getState();
+  let request = pendingRoles.get(u.id);
+  if (!request) {
+    request = readProfileRole(u).finally(() => pendingRoles.delete(u.id));
+    pendingRoles.set(u.id, request);
+  }
   try {
-    const email = (u.email || '').toLowerCase().trim();
-
-    if (ADMIN_EMAILS.includes(email)) {
-      setUserRole('admin');
-      return 'admin';
-    }
-
-    const { data: ownData, error } = await supabase
-      .from('profiles').select('role').eq('id', u.id).maybeSingle();
-    let data = ownData;
-
-    if ((!data || error) && email) {
-      const { data: emailData } = await supabase
-        .from('profiles').select('role').ilike('email', email).maybeSingle();
-      if (emailData) data = emailData;
-    }
-
-    if (data?.role) {
-      const raw = data.role.toString().toLowerCase().trim();
-      const role: UserRole = isKnownRole(raw) ? raw : 'customer';
-      setUserRole(role);
-      return role;
-    }
-
-    // Insert default customer profile
-    const newRole: UserRole = 'customer';
-    const fullName = u.user_metadata?.full_name || u.user_metadata?.name || '';
-    const phone = u.user_metadata?.phone || '';
-    await supabase.from('profiles').insert([{
-      id: u.id, email: u.email || '', full_name: fullName, phone, role: newRole,
-    }]);
-    setUserRole(newRole);
-    return newRole;
+    const role = await request;
+    if (useAuthStore.getState().user?.id === u.id) useAuthStore.getState().setUserRole(role);
+    return role;
   } catch (err) {
     console.error('Error fetching user role:', err);
-    const email = (u.email || '').toLowerCase().trim();
-    if (ADMIN_EMAILS.includes(email)) {
-      setUserRole('admin');
-      return 'admin';
+    if (useAuthStore.getState().user?.id === u.id) {
+      useAuthStore.getState().setRoleError('Could not verify your account role. Please retry.');
     }
-    setUserRole('customer');
-    return 'customer';
+    throw err;
   }
 }
 
@@ -180,6 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     let settled = false;
+    let authEventVersion = 0;
 
     const { setUser, setSession, setUserRole, authResolved } = useAuthStore.getState();
 
@@ -201,26 +203,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // well beyond a realistic slow response, not inside it — it is an
     // emergency exit, not part of the normal path.
     const ceiling = setTimeout(() => {
-      console.warn('[auth] session check did not settle in 15s — unblocking UI as signed out');
+      useAuthStore.getState().setRoleError('Session verification timed out. Please retry.');
       settle();
     }, 15_000);
 
     // 1. Restore an existing session.
     //
-    // Restoring a session is NOT a navigation event: whatever page the user
-    // opened is the page they want. This deliberately never redirects.
-    // Redirecting here is what made a signed-in staff member unable to reach
-    // the public site at all — Back out of /admin, land on /, get thrown
-    // straight back to /admin, forever.
+    // PortalBoundary owns routing after restoration, before content mounts.
     supabase.auth.getSession()
       .then(async ({ data: { session: restored } }) => {
-        if (cancelled) return;
+        if (cancelled || authEventVersion > 0) return;
         setSession(restored);
         setUser(restored?.user ?? null);
 
         if (restored?.user) {
           const role = await fetchAndSetUserRole(restored.user);
-          if (cancelled) return;
+          if (cancelled || useAuthStore.getState().user?.id !== restored.user.id) return;
           roleForUserId.current = restored.user.id;
           cachedRole.current = role;
         } else {
@@ -230,12 +228,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch((err) => {
         console.error('[auth] getSession failed:', err);
+        if (!cancelled && authEventVersion === 0) useAuthStore.getState().setRoleError('Could not restore your session. Please retry.');
         settle();
       });
 
     // 2. Track auth state changes for the rest of the session.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+    const roleTimers = new Set<ReturnType<typeof setTimeout>>();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (cancelled) return;
+      authEventVersion += 1;
 
       setSession(nextSession);
       const currentUser = nextSession?.user ?? null;
@@ -249,35 +250,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // TOKEN_REFRESHED fires hourly and on every tab focus; USER_UPDATED
-      // fires on profile edits. Re-querying `profiles` on each is a wasted
-      // round-trip, and worse — if that query fails (offline, RLS hiccup)
-      // fetchAndSetUserRole falls back to 'customer', which would demote a
-      // working cashier mid-shift and bounce them out of the till.
-      const isRefresh = event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED';
-      const sameUser = roleForUserId.current === currentUser.id;
-      const role = isRefresh && sameUser && cachedRole.current
-        ? cachedRole.current
-        : await fetchAndSetUserRole(currentUser);
+      // Release Supabase's auth callback lock before queries ask for its token.
+      // Awaiting database work inside that callback can stall sign-in/navigation.
+      const timer = setTimeout(async () => {
+        roleTimers.delete(timer);
+        if (cancelled || useAuthStore.getState().user?.id !== currentUser.id) return;
+        try {
+          // Token refresh and profile edits can reuse this account's verified role.
+          const isRefresh = event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED';
+          const sameUser = roleForUserId.current === currentUser.id;
+          const role = isRefresh && sameUser && cachedRole.current
+            ? cachedRole.current
+            : await fetchAndSetUserRole(currentUser);
 
-      if (cancelled) return;
-      roleForUserId.current = currentUser.id;
-      cachedRole.current = role;
-      settle();
+          if (cancelled || useAuthStore.getState().user?.id !== currentUser.id) return;
+          roleForUserId.current = currentUser.id;
+          cachedRole.current = role;
+          settle();
 
-      // Only a Google/OAuth return navigates from here. Every password login
-      // is routed by its own caller (login page, signup page, auth modal), so
-      // there is exactly one owner per flow and no two redirects racing each
-      // other to set window.location.
-      if (event === 'SIGNED_IN' && takeOAuthPendingFlag()) {
-        landAfterLogin(role);
-      }
+          if (event === 'SIGNED_IN' && takeOAuthPendingFlag()) landAfterLogin(role);
+        } catch {
+          // Keep the account unresolved and expose retry UI instead of guessing a role.
+          settle();
+        }
+      }, 0);
+      roleTimers.add(timer);
     });
 
     return () => {
       cancelled = true;
       clearTimeout(ceiling);
       subscription.unsubscribe();
+      roleTimers.forEach(clearTimeout);
     };
   }, []);
 
@@ -320,10 +324,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       if (error) { toast.error(error.message || 'Signup failed'); return { success: false }; }
       const u = data.user;
-      let role: UserRole = 'customer';
+      const role: UserRole = 'customer';
       if (u) {
-        const isOwner = ADMIN_EMAILS.includes((u.email || '').toLowerCase().trim());
-        role = isOwner ? 'admin' : 'customer';
+        // The DB trigger sets profiles.role='admin' for owner email addresses
+        // at insert time. Client-side email checks were removed from this module
+        // (they exposed emails in the bundle); the DB is the authoritative source.
         await supabase.from('profiles').insert([{
           id: u.id, email: u.email || email, full_name: name || '', phone: phone || '', role,
         }]);
@@ -506,7 +511,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.success('Logged out successfully');
 
       if (wasStaff && typeof window !== 'undefined') {
-        window.location.replace('/');
+        window.location.replace('/login?redirect=%2Fadmin');
         return;
       }
       useAuthStore.getState().signOut();

@@ -16,6 +16,10 @@ export function useCoupons() {
       return (data || []).map(mapCoupon);
     },
     staleTime: 120_000,
+    // Realtime is primary; focus/polling catches updates after a dropped socket.
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
 }
 

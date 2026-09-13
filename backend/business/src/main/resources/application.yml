@@ -1,0 +1,40 @@
+server:
+  port: 8081
+  shutdown: graceful
+  error:
+    include-message: never
+    include-stacktrace: never
+  tomcat:
+    max-http-form-post-size: 1MB
+spring:
+  application:
+    name: pala-pitta-business
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/postgres}
+    username: ${DATABASE_USER:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: 15
+      connection-timeout: 5000
+      connection-init-sql: SET statement_timeout = '15s'
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: false
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+supabase:
+  jwt:
+    secret: ${SUPABASE_JWT_SECRET:}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db

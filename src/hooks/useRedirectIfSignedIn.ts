@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useAuthStore } from '@/store/useAuthStore';
-import { getRoleHome, isStaffRole } from '@/lib/roleAccess';
+import { getLoginDestination } from '@/lib/portalRouting';
 
 /**
  * Sends an already-signed-in visitor away from /login and /signup.
@@ -47,8 +47,8 @@ export function useRedirectIfSignedIn(fallback: string): boolean {
   const shouldRedirect = authReady && !signingOut && Boolean(user) && Boolean(role);
 
   useEffect(() => {
-    if (!shouldRedirect) return;
-    router.replace(isStaffRole(role) ? getRoleHome(role) : fallback);
+    if (!shouldRedirect || !role) return;
+    router.replace(getLoginDestination(role, fallback));
   }, [shouldRedirect, role, fallback, router]);
 
   return shouldRedirect;

@@ -1,0 +1,220 @@
+.hero {
+  position: relative;
+  isolation: isolate;
+  background: var(--palette-cream);
+  color: var(--ink-1);
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: radial-gradient(var(--hair-1) 0.7px, transparent 0.7px);
+  background-size: 12px 12px;
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  align-items: center;
+  gap: clamp(2.5rem, 6vw, 6rem);
+  max-width: 1320px;
+  padding-top: clamp(0.75rem, 1.5vw, 1.75rem);
+  padding-bottom: clamp(2rem, 3.5vw, 3.5rem);
+}
+
+.intro { min-width: 0; }
+.eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+  color: var(--brand-700);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.eyebrowLine { width: 1.8rem; height: 2px; background: var(--palette-red); }
+
+.title {
+  margin: 0;
+  color: var(--palette-red);
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-size: clamp(3.7rem, 6.7vw, 6.6rem);
+  font-weight: 700;
+  line-height: 0.99;
+  letter-spacing: -0.06em;
+}
+.title > span { display: block; }
+.titleLast { padding-bottom: 0.08em; }
+.titleDot { color: var(--cobalt-600); }
+.tagline {
+  margin-top: 1.4rem;
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-size: clamp(1.25rem, 2vw, 1.7rem);
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: -0.025em;
+}
+.description {
+  max-width: 44ch;
+  margin-top: 0.8rem;
+  color: var(--ink-3);
+  font-size: 0.9375rem;
+  line-height: 1.8;
+}
+
+.offer { margin-bottom: 1.65rem; max-width: 100%; }
+.offerViewport { min-height: 86px; overflow: hidden; padding: 3px 3px 4px; margin: -3px -3px -4px; }
+.offerSlide { animation: offerSlideIn 180ms ease-out both; }
+.offerControls { display: flex; align-items: center; gap: 0.2rem; margin-top: 0.2rem; color: var(--ink-3); font-size: 0.6875rem; }
+.offerControls button { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; transition: background-color 150ms; }
+.offerControls button:hover { background: var(--brand-100); color: var(--brand-700); }
+@keyframes offerSlideIn { from { opacity: 0.5; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+.offerButton {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  max-width: 100%;
+  gap: 0.65rem;
+  min-height: 44px;
+  padding: 0.5rem 0.7rem 0.5rem 0.5rem;
+  border: 1px solid var(--hair-1);
+  border-radius: 12px;
+  background: #fffcf5;
+  box-shadow: 0 3px 0 var(--hair-1);
+  cursor: pointer;
+  transition: border-color 160ms, box-shadow 160ms;
+}
+.offerButton:hover { border-color: var(--brand-300); box-shadow: 0 3px 0 var(--brand-200); }
+.offerDiscount {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  padding: 0.35rem 0.55rem;
+  border-radius: 6px;
+  background: var(--palette-red);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.offerCode {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.offerCopy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--cobalt-700);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+.offerTerms { margin-top: 0.55rem; color: var(--ink-3); font-size: 0.6875rem; line-height: 1.6; }
+
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem; margin-top: 1.7rem; }
+.primaryAction, .secondaryAction { display: inline-flex; align-items: center; justify-content: center; gap: 0.65rem; min-height: 48px; font-size: 0.875rem; font-weight: 700; }
+.primaryAction {
+  padding: 0.85rem 1.4rem;
+  border: 1px solid var(--palette-red);
+  border-radius: 12px;
+  background: var(--palette-red);
+  color: white;
+  box-shadow: 0 4px 0 var(--brand-800);
+  transition: background 160ms, transform 160ms, box-shadow 160ms;
+}
+.primaryAction:hover { background: var(--brand-600); transform: translateY(-2px); box-shadow: 0 6px 0 var(--brand-800); }
+.primaryAction:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--brand-800); }
+.secondaryAction { color: var(--ink-2); border-bottom: 1px solid var(--ink-4); }
+.secondaryAction:hover { color: var(--brand-700); border-color: currentColor; }
+.cuisines { display: flex; flex-wrap: wrap; gap: 0.8rem 1.5rem; margin-top: 2.2rem; padding-top: 1.3rem; border-top: 1px solid var(--hair-1); }
+.cuisine { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; font-weight: 700; }
+.cuisineNumber { color: var(--brand-600); font-size: 0.625rem; font-weight: 500; }
+
+.portrait { position: relative; width: 100%; max-width: 510px; justify-self: center; padding: 1rem 0.7rem 1.25rem; }
+.portraitOutline { position: absolute; inset: 0 0 0 1.7rem; border: 1px solid var(--brand-400); border-radius: 48% 48% 22px 22px; transform: rotate(4deg); }
+.photo { position: relative; aspect-ratio: 0.88; overflow: hidden; margin: 0; border: 7px solid var(--palette-orange); border-radius: 48% 48% 20px 20px; background: var(--brand-900); box-shadow: 0 20px 40px rgb(93 33 26 / 12%); }
+.photoImage { object-fit: cover; object-position: 50% 45%; }
+.photoShade { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 35%, rgb(34 19 10 / 25%) 58%, rgb(34 19 10 / 92%) 100%); }
+.photoCaption { position: absolute; inset: auto 1.75rem 1.75rem; color: var(--palette-cream); }
+.photoEyebrow { display: block; margin-bottom: 0.6rem; color: var(--palette-cream); font-size: 0.625rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.photoTitle { display: block; font-family: var(--font-fraunces), Georgia, serif; font-size: clamp(1.8rem, 3.2vw, 2.75rem); font-weight: 600; line-height: 1.08; letter-spacing: -0.035em; }
+.photoFootnote { display: block; margin-top: 0.8rem; font-size: 0.75rem; }
+.seal {
+  position: absolute;
+  top: 3.7rem;
+  right: -1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  width: 106px;
+  height: 106px;
+  border: 5px solid var(--palette-cream);
+  border-radius: 50%;
+  background: var(--palette-turquoise);
+  color: var(--ink-1);
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-size: 1rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.1;
+  transform: rotate(10deg);
+}
+.photoLabel { position: absolute; bottom: 2.6rem; right: -1.25rem; display: flex; align-items: center; gap: 0.6rem; padding: 0.8rem 1rem; border-radius: 10px; background: var(--palette-cream); color: var(--brand-700); box-shadow: 0 4px 16px rgb(48 35 29 / 12%); font-size: 0.6875rem; line-height: 1.5; transform: rotate(-4deg); }
+
+.detailsBar { border-top: 1px solid var(--hair-1); background: rgb(255 252 245 / 65%); }
+.details { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 1.8rem; max-width: 1320px; padding-block: 1.2rem; }
+.detail { display: flex; align-items: center; gap: 0.55rem; font-size: 0.75rem; color: var(--ink-2); }
+.detail svg { color: var(--cobalt-700); flex-shrink: 0; }
+.detail .ratingStar { color: var(--brand-600); fill: var(--palette-orange); }
+.ratingCount { color: var(--ink-3); }
+.scrollHint { display: inline-flex; align-items: center; gap: 0.75rem; min-height: 44px; color: var(--brand-700); font-size: 0.6875rem; font-weight: 800; }
+
+@media (max-width: 1023px) {
+  .layout { grid-template-columns: minmax(0, 1fr); max-width: 720px; gap: 2rem; padding-block: 2.5rem; }
+  .intro { text-align: center; }
+  .eyebrow, .actions, .cuisines, .offerControls { justify-content: center; }
+  .title { font-size: clamp(3.8rem, 10vw, 6rem); }
+  .description { margin-inline: auto; }
+  .portrait { max-width: 450px; }
+  .photo { aspect-ratio: 1.1; }
+  .photoCaption { text-align: left; }
+  .details { justify-content: center; }
+  .scrollHint { display: none; }
+}
+
+@media (max-width: 479px) {
+  .layout { padding-block: 2rem; }
+  .eyebrow { font-size: 0.5625rem; letter-spacing: 0.12em; }
+  .title { font-size: clamp(3rem, 14vw, 4.1rem); }
+  .offerButton { gap: 0.45rem; }
+  .offerCode { font-size: 0.6875rem; }
+  .description { font-size: 0.875rem; }
+  .actions { gap: 1.15rem; }
+  .cuisines { gap: 1rem; }
+  .cuisine { font-size: 0.6875rem; }
+  .portrait { width: calc(100% - 1.5rem); }
+  .photo { border-width: 5px; aspect-ratio: 1; }
+  .photoCaption { inset: auto 1.1rem 1.25rem; }
+  .seal { top: 2.3rem; right: -0.8rem; width: 86px; height: 86px; font-size: 0.875rem; }
+  .photoLabel { right: -0.8rem; bottom: 2rem; padding: 0.65rem; font-size: 0.625rem; }
+  .details { gap: 0.8rem; padding-block: 1rem; }
+  .detail { font-size: 0.6875rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offerSlide { animation: none; }
+  .primaryAction, .offerButton { transition: none; }
+  .primaryAction:hover, .primaryAction:active { transform: none; }
+}

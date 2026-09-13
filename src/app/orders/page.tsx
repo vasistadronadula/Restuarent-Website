@@ -23,13 +23,12 @@ import { useOrderEventStore } from '@/store/useOrderEventStore';
 import { useGuestOrders, useMyOrders } from '@/lib/queries';
 import { playOrderChimeSound } from '@/lib/audio';
 import type { Order, PersistedOrderItem, OrderStatus } from '@/types';
-import { orderItemId } from '@/lib/orderItems';
+import { orderItemId, orderItemPortion } from '@/lib/orderItems';
 import { classifyOrderCategory, getStatusBadgeMeta } from '@/lib/orderCategory';
 import { buildPrepTimeMap, estimateOrderMinutes } from '@/lib/orderEstimate';
 import { getOrderDisplayNumber } from '@/lib/orderNumber';
 
 import { Container } from '@/components/customer/Container';
-import { CouponTeaser } from '@/components/customer/CouponTeaser';
 import { FilterPill, VegMark } from '@/components/customer/store-ui';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -70,7 +69,8 @@ export default function OrderHistoryPage() {
   const [guestOrderIds, setGuestOrderIds] = useState<string[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
-      return JSON.parse(window.localStorage.getItem('ppr:guestOrderIds') || '[]');
+      const ids: unknown = JSON.parse(window.localStorage.getItem('ppr:guestOrderIds') || '[]');
+      return Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : [];
     } catch {
       return [];
     }
@@ -89,7 +89,7 @@ export default function OrderHistoryPage() {
     }
     try {
       const ids = JSON.parse(localStorage.getItem('ppr:guestOrderIds') || '[]');
-      setGuestOrderIds(Array.isArray(ids) ? ids : []);
+      setGuestOrderIds(Array.isArray(ids) ? ids.filter((id): id is string => typeof id === 'string') : []);
     } catch {
       setGuestOrderIds([]);
     }
@@ -171,13 +171,14 @@ export default function OrderHistoryPage() {
   const filteredOrders = useMemo(() => {
     const needle = search.trim().toLowerCase();
     const sorted = [...myOrders].sort((a, b) => {
-      const aDate = new Date(`${a.orderDate} ${a.orderTime}`).getTime();
-      const bDate = new Date(`${b.orderDate} ${b.orderTime}`).getTime();
+      const aDate = Date.parse(a.createdAt || `${a.orderDate}T${a.orderTime || '00:00'}+05:30`) || 0;
+      const bDate = Date.parse(b.createdAt || `${b.orderDate}T${b.orderTime || '00:00'}+05:30`) || 0;
       return bDate - aDate;
     });
     return sorted.filter((order) => {
       const matchesSearch = !needle ||
         order.id.toLowerCase().includes(needle) ||
+        getOrderDisplayNumber(order).toLowerCase().includes(needle) ||
         order.customerName.toLowerCase().includes(needle) ||
         order.customerPhone?.includes(needle) ||
         order.items.some((item) => item.name.toLowerCase().includes(needle));
@@ -199,11 +200,13 @@ export default function OrderHistoryPage() {
     [myOrders]
   );
 
-  const handleCopyOrderId = (id: string) => {
-    navigator.clipboard.writeText(id);
-    setCopiedOrderId(id);
-    toast.success(`Order ID copied`);
-    setTimeout(() => setCopiedOrderId(null), 2000);
+  const handleCopyOrderId = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedOrderId(id);
+      toast.success('Order ID copied');
+      setTimeout(() => setCopiedOrderId(null), 2000);
+    } catch { toast.error('Could not copy the order ID. Please copy it manually.'); }
   };
 
   // Looks each line up against the live menu instead of fabricating a
@@ -224,11 +227,23 @@ export default function OrderHistoryPage() {
         return;
       }
       const qty = Math.max(1, item.quantity || 1);
-      const portion = item.selectedPortion;
-      const selectedPrice = portion ? menuItem.portionPrices?.[portion] ?? menuItem.price : menuItem.price;
-
+      const rawPortion = orderItemPortion(item);
+      if (rawPortion && !['single', 'full', 'large'].includes(rawPortion)) {
+        unavailableCount += 1;
+        return;
+      }
+      const portion = rawPortion as 'single' | 'full' | 'large' | undefined;
+      const hasPortions = Object.keys(menuItem.portionPrices || {}).length > 0;
+      const selectedPrice = hasPortions
+        ? menuItem.portionPrices?.[portion || 'full']
+        : !portion || portion === 'full' ? menuItem.price : undefined;
+      if (selectedPrice == null || selectedPrice <= 0) {
+        unavailableCount += 1;
+        return;
+      }
+      const before = useCartStore.getState().items.reduce((sum, line) => sum + line.quantity, 0);
       addItem({ ...menuItem, selectedPortion: portion, selectedPrice }, qty);
-      addedCount += qty;
+      addedCount += useCartStore.getState().items.reduce((sum, line) => sum + line.quantity, 0) - before;
     });
 
     if (addedCount > 0) {
@@ -248,6 +263,7 @@ export default function OrderHistoryPage() {
   return (
     <div className="bg-store flex min-h-screen flex-col">
       <Navbar />
+      <div className="w-full shrink-0" style={{ height: 'var(--ppr-nav-h, 68px)' }} aria-hidden="true" />
 
       <main className="flex-1">
         {/* ── Sticky filter bar ────────────────────────────────────────
@@ -321,7 +337,6 @@ export default function OrderHistoryPage() {
             </p>
           </header>
 
-          <CouponTeaser className="mb-6" />
 
           {/* Summary strip. Only once there is something to summarise — four
               zeroes above an empty list is noise pretending to be a dashboard. */}

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowDownWideNarrow,
   ArrowUpNarrowWide,
@@ -25,6 +26,7 @@ import {
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { useScrolled } from '@/hooks/useScrolled';
 import { useCartStore, getCartTotalItems } from '@/store/useCartStore';
 import { CART_TARGET_ATTR } from '@/lib/flyToCart';
 import { useAuthStore } from '@/store/useAuthStore';
@@ -91,11 +93,6 @@ function NavbarSearchInner() {
   const [query, setQuery] = useState(qParam);
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // Keep search input in sync if URL changes outside (e.g. Back/Forward)
-  useEffect(() => {
-    setQuery(qParam);
-  }, [qParam]);
-
   const activeFilterCount =
     (vegParam !== 'all' ? 1 : 0) +
     (bestsellerParam ? 1 : 0) +
@@ -114,8 +111,8 @@ function NavbarSearchInner() {
       });
       const qs = params.toString();
       const target = qs ? `/menu?${qs}` : '/menu';
-      if (pathname === '/menu') {
-        router.replace(target, { scroll: false });
+      if (pathname === '/menu' || pathname === '/') {
+        window.history.replaceState(null, '', `${pathname}${qs ? `?${qs}` : ''}`);
       } else {
         router.push(target);
       }
@@ -130,7 +127,7 @@ function NavbarSearchInner() {
 
   const handleQueryChange = (val: string) => {
     setQuery(val);
-    if (pathname === '/menu') {
+    if (pathname === '/menu' || pathname === '/') {
       applyParams({ q: val.trim() || null });
     }
   };
@@ -182,7 +179,7 @@ function NavbarSearchInner() {
 
         <input
           type="search"
-          value={query}
+            value={pathname === '/menu' || pathname === '/' ? qParam : query}
           onChange={(e) => handleQueryChange(e.target.value)}
           placeholder="Search dishes, biryani…"
           aria-label="Search dishes in menu"
@@ -213,14 +210,14 @@ function NavbarSearchInner() {
               className={cn(
                 'mr-1 flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-bold tracking-tight transition-all outline-none',
                 activeFilterCount > 0
-                  ? 'bg-white text-brand-700 shadow-sm hover:bg-white/90'
+                  ? 'bg-brand text-white shadow-sm hover:bg-brand-600'
                   : 'bg-white/15 text-white hover:bg-white/25'
               )}
             >
               <SlidersHorizontal className="size-3 shrink-0" />
-              <span className="hidden sm:inline">Filters</span>
+              <span className="hidden lg:inline">Filters</span>
               {activeFilterCount > 0 && (
-                <span className="bg-brand text-white grid size-4 place-items-center rounded-full text-[9px] font-black">
+                <span className="bg-white text-brand-700 grid size-4 place-items-center rounded-full text-[9px] font-black">
                   {activeFilterCount}
                 </span>
               )}
@@ -385,6 +382,10 @@ function NavbarSearchInner() {
 
 function NavbarSearch() {
   return (
+    // key={qParam} was removed: it caused a full remount (and Suspense fallback
+    // flash) on every keystroke when searching on the /menu page. The inner
+    // component reads from URL params directly, so it doesn't need to be
+    // destroyed and recreated when the query changes.
     <Suspense fallback={<div className="h-9 w-full rounded-full bg-white/10" />}>
       <NavbarSearchInner />
     </Suspense>
@@ -395,11 +396,19 @@ function NavbarSearch() {
 /*  Main Navbar                                                        */
 /* ------------------------------------------------------------------ */
 
-export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
+export default function Navbar({ searchDocked }: { searchDocked?: boolean }) {
+  const scrolled = useScrolled(40);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const [lastPath, setLastPath] = useState(pathname);
+  const headerRef = useRef<HTMLElement>(null);
+
+  /**
+   * The search pill lives in the page hero at the top and flies into the
+   * navbar once it scrolls out of view. Pages without a hero search (cart,
+   * orders, …) fall back to the scroll position: past 40px the navbar grows
+   * its own search. `searchDocked` is only ever passed by the menu page.
+   */
+  const showSearch = searchDocked ?? scrolled;
 
   const totalItems = useCartStore((s) => getCartTotalItems(s.items));
   const user = useAuthStore((s) => s.user);
@@ -415,6 +424,12 @@ export default function Navbar() {
     return ACCOUNT_LINKS;
   }, [isStaff]);
 
+  // Close the mobile drawer whenever the user navigates to a new page. Done
+  // as a render-time adjustment (the sanctioned "adjust state when props
+  // change" pattern): calling setState inside an effect for this trips
+  // react-hooks/set-state-in-effect, and doing it in the render body is
+  // idempotent, so StrictMode double-render is harmless.
+  const [lastPath, setLastPath] = useState(pathname);
   if (pathname !== lastPath) {
     setLastPath(pathname);
     setMobileOpen(false);
@@ -427,24 +442,30 @@ export default function Navbar() {
   }, [pathname]);
 
   useEffect(() => {
-    let frame = 0;
-    const handler = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        setScrolled(window.scrollY > 10);
-      });
-    };
-    window.addEventListener('scroll', handler, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handler);
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  }, []);
-
-  useEffect(() => {
     useCartStore.getState().closeCart();
   }, [pathname]);
+
+  /**
+   * Publishes the navbar's live height as `--ppr-nav-h` so sticky followers —
+   * the desktop category sidebar, the mobile category strip — can park
+   * exactly underneath it instead of guessing a magic number. The height
+   * changes when the search row docks in (a second row on phones), hence the
+   * ResizeObserver rather than a one-off read.
+   */
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const publish = () => {
+      document.documentElement.style.setProperty(
+        '--ppr-nav-h',
+        `${Math.round(el.getBoundingClientRect().height)}px`
+      );
+    };
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const isActive = useCallback(
     (href: string) => (href === '/' ? pathname === '/' : Boolean(pathname?.startsWith(href))),
@@ -452,55 +473,40 @@ export default function Navbar() {
   );
 
   return (
-    <header className="sticky top-0 z-40 w-full px-2 pt-2 transition-all duration-300 md:px-3 md:pt-2.5">
-      <div
-        className={cn(
-          'relative overflow-hidden rounded-2xl border transition-all duration-300 md:rounded-full',
-          scrolled
-            ? 'bg-brand/92 border-white/25 shadow-[0_12px_36px_rgba(148,67,11,0.38)] backdrop-blur-xl'
-            : 'bg-brand border-white/15 shadow-[0_4px_20px_rgba(148,67,11,0.22)]'
-        )}
+    <header ref={headerRef} className="fixed inset-x-0 top-0 z-50 w-full">
+      <motion.div
+        animate={{
+          backgroundColor: scrolled ? 'rgba(195, 40, 24, 0.96)' : 'rgba(223, 48, 28, 1)',
+          backdropFilter: scrolled ? 'blur(16px)' : 'blur(0px)',
+          boxShadow: scrolled
+            ? '0 6px 24px rgba(93,33,26,0.14)'
+            : '0 1px 0 rgba(93,33,26,0.12)',
+          borderBottomColor: scrolled ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.15)',
+        }}
+        transition={{
+          type: 'spring',
+          stiffness: 260,
+          damping: 30,
+          mass: 0.8,
+        }}
+        className="relative overflow-hidden border border-x-0 border-t-0 text-white"
       >
-        {/* Curved glassy sheen reflection */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/30 via-white/10 to-transparent"
-        />
-
-        <Container className="relative flex flex-col gap-2 py-2 md:h-[64px] md:flex-row md:items-center md:justify-between md:gap-3 md:py-0">
-          {/* Top row on mobile / Left + Center + Right on Desktop */}
+        <Container className="relative flex flex-col gap-2 py-2 md:h-[64px] md:flex-row md:items-center md:justify-between md:gap-4 md:py-0">
+          {/* Left: Logo — subtle scale-down on scroll */}
           <div className="flex w-full items-center justify-between gap-2.5 md:w-auto">
-            <Link
-              href="/menu"
-              aria-label={`${restaurantInfo.name} — Menu`}
-              className="flex shrink-0 items-center transition-transform active:scale-95"
+            <motion.div
+              animate={{ scale: scrolled ? 0.92 : 1 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+              className="origin-left"
             >
-              <PalaPittaLogo variant="dark" size="small" priority />
-            </Link>
-
-            {/* ── Desktop Navigation Links ────────────────────────────── */}
-            <nav aria-label="Main" className="hidden items-center gap-0.5 lg:flex">
-              {NAV_LINKS.map(({ label, href, icon: Icon }) => {
-                const active = isActive(href);
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    prefetch
-                    aria-current={active ? 'page' : undefined}
-                    className={cn(
-                      'flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-bold whitespace-nowrap transition-all outline-none',
-                      active
-                        ? 'bg-white/20 text-white shadow-xs'
-                        : 'text-white/80 hover:bg-white/10 hover:text-white'
-                    )}
-                  >
-                    <Icon className="size-3.5" />
-                    {label}
-                  </Link>
-                );
-              })}
-            </nav>
+              <Link
+                href="/menu"
+                aria-label={`${restaurantInfo.name} — Menu`}
+                className="flex shrink-0 items-center transition-transform active:scale-95"
+              >
+                <PalaPittaLogo variant="dark" size="small" priority />
+              </Link>
+            </motion.div>
 
             {/* Mobile action buttons (Cart + Menu Drawer) */}
             <div className="flex items-center gap-1 md:hidden">
@@ -512,13 +518,13 @@ export default function Navbar() {
                 className={cn(
                   'relative flex h-8 items-center gap-1 rounded-full px-2.5 text-[12px] font-bold transition-all',
                   totalItems > 0
-                    ? 'bg-white text-brand-700 shadow-sm'
+                    ? 'bg-brand text-white shadow-sm'
                     : 'bg-white/15 text-white hover:bg-white/25'
                 )}
               >
                 <ShoppingCart className="size-3.5" />
                 {totalItems > 0 && (
-                  <span className="bg-brand grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-black text-white tabular-nums">
+                  <span className="bg-white text-brand-700 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-black tabular-nums">
                     {totalItems > 99 ? '99+' : totalItems}
                   </span>
                 )}
@@ -614,9 +620,94 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* ── Search Bar in Navbar (Center on Desktop / Row 2 on Mobile) ── */}
-          <div className="w-full md:max-w-[340px] lg:max-w-[420px] md:px-2">
-            <NavbarSearch />
+          {/* ── Center Stage: Centered Nav Links at top -> Glides to side on scroll with Search Bar in center ── */}
+          <div className="relative flex flex-1 items-center min-w-0 w-full md:w-auto">
+            {/* Nav Links — proudly centered at top, smoothly glides beside logo on scroll */}
+            <motion.nav
+              layout
+              transition={{
+                type: 'spring',
+                stiffness: 340,
+                damping: 32,
+                mass: 0.7,
+              }}
+              aria-label="Main"
+              className={cn(
+                'hidden md:flex items-center gap-1 lg:gap-1.5',
+                showSearch
+                  ? 'ml-2 shrink-0 lg:ml-4'
+                  : 'mx-auto shrink-0'
+              )}
+            >
+              {NAV_LINKS.map(({ label, href, icon: Icon }, i) => {
+                const active = isActive(href);
+                return (
+                  <motion.div
+                    key={href}
+                    layout
+                    initial={false}
+                    animate={{
+                      scale: showSearch ? 0.95 : 1,
+                      opacity: 1,
+                    }}
+                    transition={{
+                      type: 'spring',
+                      stiffness: 380,
+                      damping: 30,
+                      mass: 0.5,
+                      delay: showSearch ? i * 0.03 : (NAV_LINKS.length - 1 - i) * 0.03,
+                    }}
+                  >
+                    <Link
+                      href={href}
+                      prefetch
+                      aria-current={active ? 'page' : undefined}
+                      className={cn(
+                        'flex shrink-0 items-center gap-1.5 rounded-full font-bold whitespace-nowrap transition-colors outline-none',
+                        showSearch
+                          ? 'px-2.5 py-1 text-[12px] lg:px-3 lg:py-1.5 lg:text-[12.5px]'
+                          : 'px-3.5 py-1.5 text-[12.5px] lg:px-4 lg:text-[13px]',
+                        active
+                          ? 'bg-cream text-brand-700 shadow-sm'
+                          : 'text-white/85 hover:bg-white/15 hover:text-white'
+                      )}
+                    >
+                      <Icon className="size-3.5 shrink-0" />
+                      {label === 'My Orders' ? (
+                        <span>
+                          <span className="hidden xl:inline">My </span>Orders
+                        </span>
+                      ) : (
+                        label
+                      )}
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </motion.nav>
+
+            {/* Search Bar — the hero pill flies into this center slot on scroll */}
+            <AnimatePresence mode="popLayout">
+              {showSearch && (
+                <motion.div
+                  key="navbar-search"
+                  initial={{ opacity: 0, scale: 0.92, filter: 'blur(6px)' }}
+                  animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                  exit={{ opacity: 0, scale: 0.92, filter: 'blur(6px)' }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 320,
+                    damping: 32,
+                    mass: 0.6,
+                    opacity: { duration: 0.2 },
+                    filter: { duration: 0.25 },
+                  }}
+                  className="w-full md:mx-auto md:max-w-[480px] md:flex-1 md:px-1.5 lg:px-2"
+                >
+                  <NavbarSearch />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* ── Desktop Actions ─────────────────────────────────────── */}
@@ -738,7 +829,7 @@ export default function Navbar() {
             )}
           </div>
         </Container>
-      </div>
+      </motion.div>
     </header>
   );
 }

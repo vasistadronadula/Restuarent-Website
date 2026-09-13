@@ -3,6 +3,7 @@ import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { log } from '@/lib/logger';
+import { ORDER_ID_PATTERN } from '@/lib/idGenerator';
 
 /**
  * Columns a guest order-tracking card needs.
@@ -39,7 +40,6 @@ const MAX_IDS_PER_REQUEST = 50;
 // Guest IDs are bearer credentials. Only the cryptographically random format
 // is accepted; legacy timestamp/random-tail IDs were enumerable and therefore
 // cannot safely authorize disclosure of an order.
-const ORDER_ID_PATTERN = /^PPR-ORD-\d{8}-[a-f0-9]{20}$/i;
 
 export async function POST(request: Request) {
   try {
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     const admin = getSupabaseAdmin();
     if (!admin) {
       log.error('guest_orders_missing_admin_client');
-      return NextResponse.json([]);
+      return NextResponse.json({ error: 'Order tracking is temporarily unavailable.' }, { status: 503 });
     }
 
     // Phone-number lookup is intentionally not supported: a phone number is not proof of ownership.
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
 
       if (error) {
         log.error('guest_orders_id_query_failed', { error });
-        return NextResponse.json([]);
+        return NextResponse.json({ error: 'Could not load your orders. Please retry.' }, { status: 503 });
       }
 
       return NextResponse.json(data || []);
@@ -97,6 +97,6 @@ export async function POST(request: Request) {
     return NextResponse.json([]);
   } catch (error) {
     log.error('guest_orders_failed', { error });
-    return NextResponse.json([]);
+    return NextResponse.json({ error: 'Could not load your orders. Please retry.' }, { status: 500 });
   }
 }

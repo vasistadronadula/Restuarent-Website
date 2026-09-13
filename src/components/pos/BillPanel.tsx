@@ -8,6 +8,7 @@ import {
 import { type PosLine } from '@/hooks/usePosCart';
 import type { BillTotals } from '@/lib/billing';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
 
 export type PosOrderType = 'dine-in' | 'counter';
 
@@ -98,12 +99,32 @@ export default function BillPanel({
 }: BillPanelProps) {
   const empty = lines.length === 0;
   const needsTable = orderType === 'dine-in' && tableNumber === '';
-  const tenderedAmount = Number(cashTendered);
-  const paymentConfirmed = paymentMode === 'cash'
-    ? Number.isFinite(tenderedAmount) && tenderedAmount >= totals.grandTotal
-    : paymentReference.trim().length >= 4;
-  const blocked = empty || needsTable || !paymentConfirmed;
+  const rawCash = cashTendered.trim();
+  const effectiveCashTendered = rawCash === '' ? totals.grandTotal : Number(rawCash);
+  const isCashSufficient = Number.isFinite(effectiveCashTendered) && effectiveCashTendered >= totals.grandTotal;
   const activeTables = React.useMemo(() => tables.filter((table) => table.isActive !== false), [tables]);
+
+  const handleSettleClick = () => {
+    if (isPlacing) return;
+    if (empty) {
+      toast.error('Ticket is empty! Add items from the menu before settling.');
+      return;
+    }
+    if (needsTable) {
+      toast.warning('⚠️ Please select a table for Dine-In order!');
+      if (onOpenTableMap) {
+        onOpenTableMap();
+      }
+      return;
+    }
+    if (paymentMode === 'cash' && !isCashSufficient) {
+      toast.error(
+        `Insufficient cash! Received ₹${effectiveCashTendered.toFixed(2)}, need ₹${totals.grandTotal.toFixed(2)}.`
+      );
+      return;
+    }
+    onPlace();
+  };
 
   /* Editing note key state */
   const [editingNoteKey, setEditingNoteKey] = useState<string | null>(null);
@@ -202,7 +223,7 @@ export default function BillPanel({
                   <SelectValue placeholder="Select table (Required)" />
                 </SelectTrigger>
                 <SelectContent>
-                  {activeTables.length === 0 && <SelectItem value="" disabled>No active tables</SelectItem>}
+                  {activeTables.length === 0 && <SelectItem value="no-active-tables" disabled>No active tables</SelectItem>}
                   {activeTables.map((t) => (
                     <SelectItem key={t.id} value={String(t.tableNumber)}>
                       Table {t.tableNumber} ({t.capacity} seats)
@@ -456,7 +477,7 @@ export default function BillPanel({
                         <SelectValue placeholder="Select table" />
                       </SelectTrigger>
                       <SelectContent>
-                        {activeTables.length === 0 && <SelectItem value="" disabled>No active tables</SelectItem>}
+                        {activeTables.length === 0 && <SelectItem value="no-active-tables" disabled>No active tables</SelectItem>}
                         {activeTables.map((t) => (
                           <SelectItem key={t.id} value={String(t.tableNumber)}>
                             Table {t.tableNumber} · {t.capacity} seats
@@ -515,13 +536,70 @@ export default function BillPanel({
                 })}
               </div>
               {paymentMode === 'cash' ? (
-                <div className="grid grid-cols-2 gap-2 items-end pt-1">
-                  <label className="ad-label m-0">Cash received<input inputMode="decimal" className="ad-input mt-1" value={cashTendered} onChange={(event) => onCashTendered(event.target.value)} placeholder={totals.grandTotal.toFixed(2)} /></label>
-                  <div className="border border-ad-line bg-ad-bg px-3 py-2 min-h-10"><div className="ad-kicker">Change</div><div className="ad-num text-[16px]">₹{Math.max(0, (Number(cashTendered) || 0) - totals.grandTotal).toFixed(2)}</div></div>
+                <div className="space-y-2 pt-1">
+                  <div className="grid grid-cols-2 gap-2 items-end">
+                    <label className="ad-label m-0">
+                      Cash received
+                      <input
+                        inputMode="decimal"
+                        className="ad-input mt-1"
+                        value={cashTendered}
+                        onChange={(event) => onCashTendered(event.target.value)}
+                        placeholder={`₹${totals.grandTotal.toFixed(2)} (Exact)`}
+                      />
+                    </label>
+                    <div className="border border-ad-line bg-ad-bg px-3 py-2 min-h-10">
+                      <div className="ad-kicker">Change</div>
+                      <div className="ad-num text-[16px] font-bold text-ad-ink">
+                        ₹{Math.max(0, effectiveCashTendered - totals.grandTotal).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick cash denomination chips */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => onCashTendered(totals.grandTotal.toFixed(2))}
+                      className="px-2 py-0.5 text-[11px] font-semibold border border-ad-line bg-ad-surface hover:bg-ad-muted rounded transition-colors text-ad-ink"
+                    >
+                      Exact (₹{Math.round(totals.grandTotal)})
+                    </button>
+                    {[
+                      Math.ceil(totals.grandTotal / 50) * 50,
+                      Math.ceil(totals.grandTotal / 100) * 100,
+                      Math.ceil(totals.grandTotal / 500) * 500,
+                      Math.ceil(totals.grandTotal / 1000) * 1000,
+                    ]
+                      .filter((val, idx, arr) => val > totals.grandTotal && arr.indexOf(val) === idx)
+                      .slice(0, 3)
+                      .map((val) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => onCashTendered(val.toString())}
+                          className="px-2 py-0.5 text-[11px] font-semibold border border-ad-line bg-ad-surface hover:bg-ad-muted rounded transition-colors text-ad-ink"
+                        >
+                          ₹{val}
+                        </button>
+                      ))}
+                  </div>
+
+                  {rawCash !== '' && !isCashSufficient && (
+                    <div className="text-[12px] text-ad-accent font-medium">
+                      ⚠️ Short by ₹{(totals.grandTotal - (Number(rawCash) || 0)).toFixed(2)}
+                    </div>
+                  )}
                 </div>
               ) : (
-                <label className="ad-label m-0 block pt-1">{paymentMode === 'upi' ? 'UPI transaction reference' : 'Card approval reference'}
-                  <input className="ad-input mt-1" value={paymentReference} onChange={(event) => onPaymentReference(event.target.value)} placeholder="Minimum 4 characters" />
+                <label className="ad-label m-0 block pt-1">
+                  {paymentMode === 'upi' ? 'UPI transaction reference (optional)' : 'Card approval reference (optional)'}
+                  <input
+                    className="ad-input mt-1"
+                    value={paymentReference}
+                    onChange={(event) => onPaymentReference(event.target.value)}
+                    placeholder="Ref / UTR / Approval code (optional)"
+                  />
                 </label>
               )}
             </div>
@@ -556,26 +634,73 @@ export default function BillPanel({
 
           {/* Settle & Action Buttons (Bottom of Right Column / Drawer) */}
           <div className="p-3.5 border-t border-ad-line bg-ad-surface space-y-2 shrink-0">
+            {/* Warning banner if table is needed */}
+            {needsTable && !empty && (
+              <button
+                type="button"
+                onClick={onOpenTableMap}
+                className="w-full p-2.5 bg-amber-500/10 border border-amber-500/40 rounded-sm flex items-center justify-between text-amber-800 text-[12px] font-semibold hover:bg-amber-500/20 transition-colors text-left"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Utensils className="size-4 text-amber-600 shrink-0" />
+                  <span>Dine-In order requires a table</span>
+                </div>
+                <span className="underline text-[11px] font-bold">Pick Table &rarr;</span>
+              </button>
+            )}
+
+            {/* Warning banner if cash received is short */}
+            {paymentMode === 'cash' && !isCashSufficient && !empty && (
+              <div className="p-2.5 bg-red-500/10 border border-red-500/40 rounded-sm flex items-center justify-between text-red-700 text-[12px] font-semibold">
+                <span>⚠️ Short by ₹{(totals.grandTotal - effectiveCashTendered).toFixed(2)}</span>
+                <button
+                  type="button"
+                  onClick={() => onCashTendered(totals.grandTotal.toFixed(2))}
+                  className="px-2 py-0.5 bg-red-600 text-white rounded text-[11px] font-bold hover:bg-red-700 transition-colors"
+                >
+                  Set Exact
+                </button>
+              </div>
+            )}
+
             {/* Primary Action Button: Settle and print */}
             <button
               type="button"
-              onClick={() => { if (!blocked) onPlace(); }}
-              disabled={blocked || isPlacing}
+              onClick={handleSettleClick}
+              disabled={empty || isPlacing}
               className="ad-btn w-full h-12 text-[15px] font-bold justify-between px-4 rounded-sm shadow-sm transition-all"
               style={
-                blocked || isPlacing
-                  ? { background: 'var(--ad-n300)', color: 'var(--ad-n600)', cursor: 'not-allowed' }
-                  : { background: 'var(--ad-ok)', color: '#ffffff' }
+                isPlacing || empty
+                  ? { background: 'var(--ad-n300)', color: 'var(--ad-n600)', cursor: empty ? 'not-allowed' : 'wait' }
+                  : needsTable
+                  ? { background: '#f59e0b', color: '#ffffff', cursor: 'pointer' }
+                  : paymentMode === 'cash' && !isCashSufficient
+                  ? { background: '#dc2626', color: '#ffffff', cursor: 'pointer' }
+                  : { background: 'var(--ad-ok)', color: '#ffffff', cursor: 'pointer' }
               }
             >
               {isPlacing ? (
                 <span className="w-full text-center">Settling and printing…</span>
+              ) : empty ? (
+                <span>Add items to settle</span>
+              ) : needsTable ? (
+                <>
+                  <span className="flex items-center gap-1">
+                    <span>⚠️ Assign Table & Settle</span>
+                  </span>
+                  <span className="ad-num text-[18px] font-bold">₹{totals.grandTotal.toFixed(2)}</span>
+                </>
+              ) : paymentMode === 'cash' && !isCashSufficient ? (
+                <>
+                  <span className="flex items-center gap-1">
+                    <span>⚠️ Short by ₹{(totals.grandTotal - effectiveCashTendered).toFixed(2)}</span>
+                  </span>
+                  <span className="ad-num text-[18px] font-bold">₹{totals.grandTotal.toFixed(2)}</span>
+                </>
               ) : (
                 <>
                   <span>Confirm payment & print</span>
-                  {!empty && (
-                    <span className="ad-num text-[18px] font-bold">₹{totals.grandTotal.toFixed(2)}</span>
-                  )}
+                  <span className="ad-num text-[18px] font-bold">₹{totals.grandTotal.toFixed(2)}</span>
                 </>
               )}
             </button>

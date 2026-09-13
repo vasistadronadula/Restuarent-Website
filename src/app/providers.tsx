@@ -13,6 +13,7 @@ import CartMenuSync from '@/components/customer/CartMenuSync';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useAuthStore } from '@/store/useAuthStore';
+import PortalBoundary from '@/components/providers/PortalBoundary';
 
 const AuthModal = dynamic(() => import('@/components/customer/AuthModal'), { ssr: false });
 
@@ -59,15 +60,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
               <TooltipProvider>
                 <SessionScopedCart />
                 <CartMenuSync />
-                {children}
-                <AuthModalHost />
+                <PortalBoundary>
+                  {children}
+                  <AuthModalHost />
                 {/* No floating cart bar. The cart is reachable from the
                     navbar icon and the phone bottom nav, both of which show
                     a live count — a third persistent surface repeating the
                     same number cost a strip of every screen and covered the
                     footer. Adding to the cart is now acknowledged by the
                     dish flying to that icon (lib/flyToCart). */}
-                <MobileBottomNav />
+                  <MobileBottomNav />
+                </PortalBoundary>
                 <Toaster />
               </TooltipProvider>
             </CartProvider>

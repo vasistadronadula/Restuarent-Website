@@ -5,17 +5,17 @@
 
 export const pos = {
   // ── Surfaces ──────────────────────────────────────────────
-  bg:            '#FBF8F5',   // Warm cream page canvas
+  bg:            '#FFF8EB',   // Warm cream page canvas
   surface:       '#FFFFFF',   // Clean white cards/panels
-  surfaceAlt:    '#F9F8F6',
-  surfaceHover:  '#F3F0EC',
-  surfaceActive: '#EBE7E1',
+  surfaceAlt:    '#FFFAF0',
+  surfaceHover:  '#FFF1D2',
+  surfaceActive: '#F5E5C5',
   elevated:      '#FFFFFF',
 
   // ── Borders ───────────────────────────────────────────────
   border:        '#E7E5E4',
   borderSubtle:  '#F1EFED',
-  borderFocus:   '#C62828',
+  borderFocus:   '#008391',
 
   // ── Text ──────────────────────────────────────────────────
   text:          '#1C1917',   // Near black
@@ -24,9 +24,9 @@ export const pos = {
   textFaint:     '#A8A29E',
 
   // ── Brand & Actions ───────────────────────────────────────
-  brand:         '#C62828',   // Pala Pitta red
-  brandDark:     '#9B1C1C',
-  brandSoft:     '#FEF2F2',
+  brand:         '#DF301C',
+  brandDark:     '#A32418',
+  brandSoft:     '#FFF2ED',
 
   charge:        '#15803D',   // Emerald green for charge/pay action
   chargeDark:    '#166534',
@@ -37,8 +37,8 @@ export const pos = {
   dangerSoft:    '#FEF2F2',
 
   // ── Category / Selection ──────────────────────────────────
-  categoryActive:   '#C62828',
-  categoryActiveBg: '#FEF2F2',
+  categoryActive:   '#DF301C',
+  categoryActiveBg: '#FFF2ED',
 
   // ── Veg indicators ────────────────────────────────────────
   veg:           '#16A34A',
@@ -47,8 +47,8 @@ export const pos = {
 
   // ── Payment mode ──────────────────────────────────────────
   cash:          '#16A34A',
-  upi:           '#7C3AED',
-  card:          '#2563EB',
+  upi:           '#006773',
+  card:          '#A35200',
 
   // ── Shadows ───────────────────────────────────────────────
   shadowSm:  '0 1px 3px rgba(28,25,23,0.06)',

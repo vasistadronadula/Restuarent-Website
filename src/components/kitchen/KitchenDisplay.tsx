@@ -131,7 +131,8 @@ export default function KitchenDisplay() {
         const table = o.tableNumber != null ? `table ${o.tableNumber}` : '';
         const items = (o.items || []).map(i => i.name.toLowerCase()).join(' ');
         return (
-          orderNum.includes(q) ||
+          (orderNum && `#${orderNum}`.includes(q)) ||
+          o.id.toLowerCase().includes(q) ||
           orderToken.includes(q) ||
           displayNum.includes(q) ||
           customer.includes(q) ||

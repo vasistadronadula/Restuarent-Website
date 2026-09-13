@@ -98,7 +98,13 @@ export default function CategoryRail({
     <div className={cn('relative', className)}>
       <div
         ref={trackRef}
-        className="scrollbar-none flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pb-1 sm:gap-6"
+        // `safe center`: the rail sits centred while it fits, and — unlike a
+        // plain `justify-center`, which would clip the leading items out of
+        // reach — falls back to a left-aligned scroller once it overflows.
+        // The top padding is load-bearing: the active circle's ring + offset
+        // draw ~5px outside the photo, and with overflow-x set the track
+        // clips vertically — without it the ring's crown is cut flat.
+        className="scrollbar-none flex snap-x snap-mandatory gap-4 overflow-x-auto px-1 pt-1.5 pb-1 [justify-content:safe_center] sm:gap-6"
       >
         {categories.map((cat) => {
           const active = cat.id === activeId;
@@ -172,9 +178,10 @@ function RailArrow({ side, onClick }: { side: 'left' | 'right'; onClick: () => v
       className={cn(
         // Vertically centred on the circle image, not the button column: the
         // arrows only ever render at `lg:` and up, where the circle is
-        // already at its `sm:` size (76px, centre 38px) — using the mobile
-        // 62px centre here left them sitting visibly above the ring.
-        'border-hair-1 text-ink-2 hover:text-brand-600 absolute top-[38px] hidden size-9 -translate-y-1/2 place-items-center rounded-full border bg-white shadow-[0_2px_10px_rgba(2,6,12,0.12)] transition-colors lg:grid',
+        // already at its `sm:` size (76px, centre 38px) plus the track's 6px
+        // top padding — using the mobile 62px centre here left them sitting
+        // visibly above the ring.
+        'border-hair-1 text-ink-2 hover:text-brand-600 absolute top-[44px] hidden size-9 -translate-y-1/2 place-items-center rounded-full border bg-white shadow-[0_2px_10px_rgba(2,6,12,0.12)] transition-colors lg:grid',
         side === 'left' ? '-left-4' : '-right-4'
       )}
     >

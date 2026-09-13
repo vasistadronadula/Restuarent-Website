@@ -4,8 +4,9 @@ import React, { memo } from 'react';
 
 import { cn, formatCurrency, FALLBACK_DISH_IMAGE } from '@/lib/utils';
 import type { MenuItem } from '@/types';
-import { useDishPortion, PORTION_LABELS, type Portion } from '@/hooks/useDishPortion';
+import { useDishPortion } from '@/hooks/useDishPortion';
 import CartStepper, { AddButton } from './CartStepper';
+import PortionSelector from './PortionSelector';
 import { DishFlag, RatingPill, VegMark } from './store-ui';
 
 interface Props {
@@ -45,7 +46,10 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
   return (
     <article
       className={cn(
-        'flex items-start gap-4 py-5 sm:gap-8',
+        // Hover card: the row lifts onto a white card so the dish under the
+        // finger separates from the list. Negative margins keep the text
+        // column exactly where it was — no layout shift on hover.
+        'group -mx-2 flex items-start gap-4 rounded-2xl px-2 py-5 transition-all duration-200 outline-none hover:bg-white hover:shadow-store sm:-mx-3 sm:gap-8 sm:px-3',
         divider && 'rule-dash',
         unavailable && 'opacity-55'
       )}
@@ -60,11 +64,11 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
           </div>
         )}
 
-        <h3 className="text-ink-1 mt-1 text-[16px] leading-snug font-bold sm:text-[17px]">
+        <h3 className="text-ink-1 mt-1 font-sans text-[16px] leading-snug font-bold sm:text-[17px]">
           {item.name}
         </h3>
 
-        <p className="text-ink-1 mt-1 text-[15px] font-bold tabular-nums sm:text-[15.5px]">
+        <p className="text-cobalt-800 mt-1 text-[15px] font-extrabold tabular-nums sm:text-[15.5px]">
           {formatCurrency(activePrice)}
         </p>
 
@@ -93,27 +97,8 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
         {/* Portion pills. Only rendered when a dish genuinely has more than one
             size — a lone "Full" pill is a control that can't do anything. */}
         {hasPortions && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {availablePortions.map((portion: Portion) => {
-              const selected = portion === selectedPortion;
-              return (
-                <button
-                  key={portion}
-                  type="button"
-                  onClick={() => setSelectedPortion(portion)}
-                  aria-pressed={selected}
-                  className={cn(
-                    'min-h-11 sm:min-h-8 rounded-lg border px-2.5 py-1 text-[12px] font-semibold transition-colors outline-none',
-                    'focus-visible:ring-brand/30 focus-visible:ring-[3px]',
-                    selected
-                      ? 'border-brand-300 bg-brand-50 text-brand-800'
-                      : 'border-hair-1 text-ink-3 bg-white hover:border-ink-4/60'
-                  )}
-                >
-                  {PORTION_LABELS[portion]} · {formatCurrency(item.portionPrices?.[portion] ?? 0)}
-                </button>
-              );
-            })}
+          <div className="mt-3 max-w-sm">
+            <PortionSelector portions={availablePortions} selected={selectedPortion} onSelect={setSelectedPortion} label={item.name} prices={item.portionPrices} />
           </div>
         )}
       </div>
@@ -134,7 +119,7 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
               // Guard against a fallback that itself 404s looping forever.
               if (img.src !== FALLBACK_DISH_IMAGE) img.src = FALLBACK_DISH_IMAGE;
             }}
-            className="block size-full object-cover"
+            className="block size-full object-cover transition-transform duration-500 group-hover:scale-[1.05]"
           />
 
           {unavailable && (
@@ -154,10 +139,10 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
               onDecrease={decrease}
               size="small"
               label={item.name}
-              atMax={atMax}
+              atMax={atMax || unavailable}
             />
           ) : (
-            <AddButton onClick={add} disabled={unavailable} label={item.name} size="small" />
+            <AddButton onClick={add} disabled={unavailable || atMax} atMax={atMax && !unavailable} label={item.name} size="small" />
           )}
         </div>
       </div>

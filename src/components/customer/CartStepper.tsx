@@ -19,8 +19,8 @@ interface Props {
 
 /** Kept in one place so ADD and the stepper cannot drift apart. */
 export const ADD_CONTROL_SIZE = {
-  small: 'h-12 min-w-[118px] sm:h-9 sm:min-w-[104px]',
-  medium: 'h-12 min-w-[118px] sm:h-10',
+  small: 'h-11 min-w-[112px]',
+  medium: 'h-12 min-w-[118px]',
 } as const;
 
 /**
@@ -31,10 +31,7 @@ export const ADD_CONTROL_SIZE = {
  * stepper even a few pixels wider than the button it replaces makes the whole
  * dish list twitch sideways on the first tap.
  *
- * Green rather than the brand orange on purpose: orange is this storefront's
- * action colour and means "tap me to do the thing". This control only ever
- * appears for a dish that is *already* in the cart, so it is confirmation, not
- * a call to action, and takes the confirmation colour.
+ * The tinted stepper shares the solid Add button's dimensions and brand family.
  *
  * At quantity 1 the minus becomes a bin. Decrementing to zero and removing the
  * line are the same intent, and a minus that silently deletes a row — with no
@@ -57,7 +54,7 @@ export default function CartStepper({
     <div
       onClick={(e) => e.stopPropagation()}
       className={cn(
-        'border-veg shadow-add inline-flex items-center justify-between overflow-hidden rounded-[10px] border bg-white select-none touch-manipulation',
+        'border-brand-200 inline-flex items-center justify-between overflow-hidden rounded-[10px] border bg-brand-50 select-none touch-manipulation',
         fullWidth ? 'w-full' : 'w-auto',
         compact ? ADD_CONTROL_SIZE.small : ADD_CONTROL_SIZE.medium
       )}
@@ -73,7 +70,7 @@ export default function CartStepper({
           'grid h-full flex-1 place-items-center transition-colors outline-none cursor-pointer',
           isOne
             ? 'text-nonveg hover:bg-nonveg/8 focus-visible:bg-nonveg/12 active:bg-nonveg/16'
-            : 'text-veg hover:bg-veg/8 focus-visible:bg-veg/12 active:bg-veg/16'
+            : 'text-brand-700 hover:bg-brand/8 focus-visible:bg-brand/12 active:bg-brand/16'
         )}
       >
         {isOne ? (
@@ -91,7 +88,7 @@ export default function CartStepper({
         aria-live="polite"
         aria-label={`${label}: ${quantity} in cart`}
         className={cn(
-          'text-veg animate-pop min-w-6 text-center font-extrabold tabular-nums select-none',
+          'text-brand-700 min-w-6 text-center font-extrabold tabular-nums select-none',
           compact ? 'text-[14px]' : 'text-[15px]'
         )}
       >
@@ -110,7 +107,7 @@ export default function CartStepper({
           'grid h-full flex-1 place-items-center transition-colors outline-none',
           atMax
             ? 'text-ink-4 cursor-not-allowed'
-            : 'text-veg hover:bg-veg/8 focus-visible:bg-veg/12 active:bg-veg/16 cursor-pointer'
+            : 'text-brand-700 hover:bg-brand/8 focus-visible:bg-brand/12 active:bg-brand/16 cursor-pointer'
         )}
       >
         <Plus className={compact ? 'size-4' : 'size-[17px]'} strokeWidth={3} />
@@ -129,12 +126,14 @@ export function AddButton({
   label,
   size = 'medium',
   fullWidth = false,
+  atMax = false,
 }: {
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   disabled?: boolean;
   label: string;
   size?: 'small' | 'medium';
   fullWidth?: boolean;
+  atMax?: boolean;
 }) {
   const compact = size === 'small';
 
@@ -146,17 +145,18 @@ export function AddButton({
         onClick(e);
       }}
       disabled={disabled}
-      aria-label={`Add ${label} to cart`}
+      aria-label={atMax ? `${label} order limit reached` : `Add ${label} to cart`}
       className={cn(
-        'border-veg text-veg shadow-add relative inline-flex items-center justify-center rounded-[10px] border bg-white font-extrabold tracking-[0.06em] uppercase select-none touch-manipulation cursor-pointer',
-        'transition-[transform,background-color,color] outline-none active:scale-[0.97]',
-        'hover:bg-veg hover:text-white focus-visible:ring-[3px] focus-visible:ring-veg/30',
+        'border-brand text-white relative inline-flex items-center justify-center gap-1.5 rounded-[10px] border bg-brand font-bold select-none touch-manipulation cursor-pointer',
+        'transition-[transform,background-color,color] duration-150 outline-none active:scale-[0.98]',
+        'hover:bg-brand-600 focus-visible:ring-[3px] focus-visible:ring-brand/30',
         'disabled:border-hair-1 disabled:text-ink-4 disabled:bg-hair-2 disabled:shadow-none disabled:hover:bg-hair-2 disabled:hover:text-ink-4 disabled:active:scale-100 disabled:cursor-not-allowed',
         fullWidth ? 'w-full' : '',
         compact ? `${ADD_CONTROL_SIZE.small} text-[13px]` : `${ADD_CONTROL_SIZE.medium} text-[14px]`
       )}
     >
-      {disabled ? 'Sold out' : 'Add'}
+      {!disabled && <Plus className="size-4" strokeWidth={2.5} aria-hidden="true" />}
+      {disabled ? (atMax ? 'Limit reached' : 'Sold out') : 'Add'}
     </button>
   );
 }

@@ -37,6 +37,7 @@ export default function CartPage() {
     return (
       <div className="bg-store flex min-h-screen flex-col">
         <Navbar />
+        <div className="w-full shrink-0" style={{ height: 'var(--ppr-nav-h, 68px)' }} aria-hidden="true" />
 
         <main className="flex flex-1 items-center justify-center px-4 py-14">
           <div className="w-full max-w-md text-center">
@@ -104,6 +105,7 @@ export default function CartPage() {
   return (
     <div className="bg-store flex min-h-screen flex-col">
       <Navbar />
+      <div className="w-full shrink-0" style={{ height: 'var(--ppr-nav-h, 68px)' }} aria-hidden="true" />
 
       <main className="flex-1 py-5 sm:py-7">
         <Container className="max-w-[1320px]">

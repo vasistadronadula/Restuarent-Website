@@ -50,23 +50,30 @@ export const useCartStore = create<CartState>()(
         set((state) => {
           if (!Number.isFinite(quantity) || quantity <= 0) return state;
           const cap = incoming.maxQuantity;
-          const currentTotal = state.items.filter((i) => i.id === incoming.id)
+          // Sum across ALL portions of this dish (e.g., 2×Single + 3×Full = 5).
+          // This is the correct total to check against maxQuantity, which is a
+          // per-dish limit, not a per-portion limit.
+          const crossPortionTotal = state.items.filter((i) => i.id === incoming.id)
             .reduce((sum, i) => sum + i.quantity, 0);
-          const addQty = Math.min(Math.max(1, Math.floor(quantity)), cap ? Math.max(0, cap - currentTotal) : Infinity);
+          const addQty = Math.min(
+            Math.max(1, Math.floor(quantity)),
+            cap ? Math.max(0, cap - crossPortionTotal) : Infinity
+          );
           if (addQty === 0) return state;
           const existingIndex = state.items.findIndex(
             (i) => i.id === incoming.id && (i.selectedPortion || 'full') === (incoming.selectedPortion || 'full')
           );
           if (existingIndex > -1) {
             const updated = [...state.items];
-            const nextQty = updated[existingIndex].quantity + addQty;
+            // addQty was already clamped to (cap - crossPortionTotal), so
+            // updated[existingIndex].quantity + addQty is guaranteed ≤ cap.
             updated[existingIndex] = {
               ...updated[existingIndex],
-              quantity: cap ? Math.min(nextQty, cap) : nextQty,
+              quantity: updated[existingIndex].quantity + addQty,
             };
             return { items: updated };
           }
-          return { items: [...state.items, { ...incoming, quantity: cap ? Math.min(addQty, cap) : addQty }] };
+          return { items: [...state.items, { ...incoming, quantity: addQty }] };
         }),
 
       removeItem: (id, portion) =>

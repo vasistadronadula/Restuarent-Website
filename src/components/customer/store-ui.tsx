@@ -169,13 +169,15 @@ export function SectionHeading({
 /*  Dish tags                                                          */
 /* ------------------------------------------------------------------ */
 
-/** Bestseller / Chef's special, above the dish name. */
+/** Bestseller / Chef's special, above the dish name. Cobalt for the chef's
+    pick, orange for the crowd favourite — the two theme colours split the
+    two honours instead of both shouting in orange. */
 export function DishFlag({ kind }: { kind: 'special' | 'popular' }) {
   return (
     <span
       className={cn(
         'inline-flex items-center gap-1 text-[11.5px] font-bold tracking-wide uppercase',
-        kind === 'special' ? 'text-brand-700' : 'text-brand-600'
+        kind === 'special' ? 'text-cobalt-700' : 'text-brand-600'
       )}
     >
       <Star className="size-3 fill-current" aria-hidden="true" />
