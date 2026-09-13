@@ -1,7 +1,7 @@
 /**
  * seedDatabase.mjs — resets test/demo operational data and seeds the real
- * menu from src/data/menuItems.json (the same file menuData.ts's client
- * fallback reads, so there's one source of truth for menu content).
+ * menu from src/data/menuItems.json, the restaurant's seed catalogue.
+ * The website reads the live database rather than this seed data.
  *
  * Deliberately does NOT touch: profiles (real accounts), push_subscriptions
  * (real device subscriptions), restaurant_tables (facility config, not

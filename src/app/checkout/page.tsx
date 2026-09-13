@@ -19,7 +19,6 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { useCartStore } from '@/store/useCartStore';
-import { menuItems as fallbackMenuItems } from '@/data/menuData';
 import { orderStamps } from '@/lib/orderTime';
 import { generateOrderId } from '@/lib/idGenerator';
 import { supabase } from '@/lib/supabase';
@@ -268,7 +267,7 @@ function CheckoutForm() {
     // at a delisted/sold-out dish's old price. Re-checking synchronously
     // right before submit closes that race; if anything changed, the totals
     // above already reflect it and the customer reviews before trying again.
-    if (menuItems.length > 0 && menuItems !== fallbackMenuItems) {
+    if (menuItems.length > 0) {
       const { removed, repriced, quantityAdjusted } = useCartStore.getState().reconcileWithMenu(menuItems);
       if (quantityAdjusted.length > 0) {
         toast.warning('Some quantities were reduced to the current order limit. Please review before paying.');

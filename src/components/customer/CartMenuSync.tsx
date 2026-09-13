@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 
 import { useMenuItems } from '@/lib/queries';
-import { menuItems as fallbackMenuItems } from '@/data/menuData';
 import { useCartStore } from '@/store/useCartStore';
 
 /**
@@ -31,12 +30,6 @@ function CartMenuSyncInner() {
 
   useEffect(() => {
     if (!isSuccess || !menu) return;
-
-    // `useMenuItems` answers with the bundled demo menu when Supabase is
-    // unreachable. Reconciling against that would empty a perfectly good
-    // cart because the customer's dishes aren't in the demo data — so an
-    // offline moment must be a no-op, not a purge.
-    if (menu === fallbackMenuItems) return;
 
     if (lastReconciled.current === menu) return;
     lastReconciled.current = menu;

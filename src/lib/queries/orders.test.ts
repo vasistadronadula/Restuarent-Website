@@ -4,10 +4,11 @@ import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ insert: vi.fn().mockResolvedValue({ error: null }) }));
-vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ insert: mocks.insert }) } }));
+const mocks = vi.hoisted(() => ({ insert: vi.fn().mockResolvedValue({ error: null }), menu: vi.fn() }));
+vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ insert: mocks.insert, select: () => ({ order: mocks.menu }) }) } }));
 vi.mock('@/lib/tenantContext', () => ({ getTenantContext: async () => ({}) }));
 import { useCreateOrder, useGuestOrders } from './orders';
+import { useMenuItems } from './menu';
 
 function wrapper() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -18,6 +19,13 @@ function wrapper() {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe('order data flows', () => {
+  it('reports a menu database failure without replacing the catalogue with seed dishes', async () => {
+    mocks.menu.mockResolvedValue({ data: null, error: { message: 'Menu unavailable' } });
+    const { result } = renderHook(() => useMenuItems(), { wrapper: wrapper() });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data).toBeUndefined();
+    expect(result.current.error?.message).toBe('Menu unavailable');
+  });
   it('exposes guest fetch errors instead of reporting an empty order history', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: 'Tracking unavailable' }), { status: 503 })));
     const { result } = renderHook(() => useGuestOrders(['order']), { wrapper: wrapper() });

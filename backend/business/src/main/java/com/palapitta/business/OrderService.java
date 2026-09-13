@@ -8,8 +8,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,6 +23,15 @@ import static org.springframework.http.HttpStatus.*;
 
 @Service
 public class OrderService {
+    private static final SecureRandom ORDER_RANDOM = new SecureRandom();
+
+    static String newOrderId() {
+        byte[] bytes = new byte[10];
+        ORDER_RANDOM.nextBytes(bytes);
+        return "PPR-ORD-" + LocalDate.now(ZoneId.of("Asia/Kolkata")).format(DateTimeFormatter.BASIC_ISO_DATE)
+            + "-" + HexFormat.of().formatHex(bytes).substring(0, 19)
+            + String.format(Locale.ROOT, "%04d", ORDER_RANDOM.nextInt(10000));
+    }
     public record Line(@NotBlank @Size(max=80) String menuItemId, @Min(1) @Max(1000) int quantity,
         @Pattern(regexp="single|full|large") String selectedPortion) {}
     public record Checkout(@NotBlank @Size(max=120) String customerName,
@@ -60,7 +72,7 @@ public class OrderService {
         }
 
         if (input.orderType().equals("dine-in")) {
-            if (user != null && !user.hasRole("admin","manager","cashier","waiter")) {
+            if (user == null || !user.hasRole("admin","manager","cashier","waiter")) {
                 throw new ResponseStatusException(FORBIDDEN, "Only staff can open a dine-in table order");
             }
             if (input.tableNumber() == null || db.queryForList("SELECT id FROM restaurant_tables WHERE table_number=? AND is_active FOR SHARE", input.tableNumber()).isEmpty()) {
@@ -94,7 +106,7 @@ public class OrderService {
                 : portions.get(portion);
 
             if (price == null || price.signum() <= 0) {
-                price = new BigDecimal(item.get("price").toString());
+                throw bad("Selected portion is unavailable for item: " + item.get("name"));
             }
 
             lines.add(Map.of(
@@ -114,16 +126,14 @@ public class OrderService {
         BigDecimal discount = BigDecimal.ZERO;
         if (!code.isEmpty()) {
             List<Map<String,Object>> rows = db.queryForList("SELECT * FROM coupons WHERE code=? AND is_active FOR SHARE", code);
-            if (!rows.isEmpty()) {
-                Map<String,Object> coupon = rows.getFirst();
-                BigDecimal minOrder = new BigDecimal(coupon.get("min_order").toString());
-                if (subtotal.compareTo(minOrder) >= 0) {
-                    BigDecimal discPct = new BigDecimal(coupon.get("discount").toString());
-                    discount = subtotal.multiply(discPct).movePointLeft(2);
-                    BigDecimal cap = new BigDecimal(coupon.get("max_discount").toString());
-                    if (cap.signum() > 0) discount = discount.min(cap);
-                }
-            }
+            if (rows.isEmpty()) throw bad("Coupon is invalid or inactive");
+            Map<String,Object> coupon = rows.getFirst();
+            BigDecimal minOrder = new BigDecimal(coupon.get("min_order").toString());
+            if (subtotal.compareTo(minOrder) < 0) throw bad("Coupon minimum order amount has not been reached");
+            BigDecimal discPct = new BigDecimal(coupon.get("discount").toString());
+            discount = subtotal.multiply(discPct).movePointLeft(2);
+            BigDecimal cap = new BigDecimal(coupon.get("max_discount").toString());
+            if (cap.signum() > 0) discount = discount.min(cap);
         }
 
         Totals t = totals(subtotal, discount);
@@ -131,7 +141,7 @@ public class OrderService {
             throw bad("Order total is invalid");
         }
 
-        String orderId = "PPR-" + LocalDate.now().toString().replace("-", "") + "-" + (1000 + new Random().nextInt(9000));
+        String orderId = newOrderId();
         UUID userId = user != null ? user.id() : null;
 
         Map<String,Object> order = db.queryForMap("""

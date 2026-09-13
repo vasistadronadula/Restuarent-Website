@@ -2,6 +2,9 @@ package com.palapitta.business;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.zonky.test.db.postgres.embedded.EmbeddedPostgres;
+import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.*;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,13 +24,24 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureMockMvc
 class BackendIntegrationTest {
+    // Exercise PostgreSQL SQL/JSONB/RETURNING semantics against PostgreSQL.
+    // H2 compatibility mode cannot run the production connection setup or CRUD.
+    private static final EmbeddedPostgres POSTGRES = startPostgres();
+
+    private static EmbeddedPostgres startPostgres() {
+        try { return EmbeddedPostgres.start(); }
+        catch (IOException error) { throw new ExceptionInInitializerError(error); }
+    }
+
+    @AfterAll
+    static void stopPostgres() throws IOException { POSTGRES.close(); }
 
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry properties) {
-        properties.add("spring.datasource.url", () -> "jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1");
-        properties.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");
-        properties.add("spring.datasource.username", () -> "sa");
-        properties.add("spring.datasource.password", () -> "");
+        properties.add("spring.datasource.url", () -> POSTGRES.getJdbcUrl("postgres", "postgres"));
+        properties.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
+        properties.add("spring.datasource.username", () -> "postgres");
+        properties.add("spring.datasource.password", () -> "postgres");
         properties.add("supabase.jwt.secret", () -> "test-supabase-jwt-secret-key-for-unit-tests-12345");
     }
 
@@ -226,9 +240,11 @@ class BackendIntegrationTest {
         Map<String,Object> basket = Map.of("customerName","Diner","customerPhone","9999999999","orderType","takeaway","items",List.of(Map.of("menuItemId",item,"quantity",2)));
 
         JsonNode created = body(send(post("/api/v1/orders/checkout").header("Idempotency-Key", UUID.randomUUID().toString()), customer, basket).andExpect(status().isOk())).path("data");
-        assertEquals("398.00", created.path("subtotal").asText());
-        assertEquals("418", created.path("grand_total").asText()); // 398 + 5% tax = 417.9 -> rounded 418
+        assertEquals(0, new BigDecimal("398.00").compareTo(created.path("subtotal").decimalValue()));
+        assertEquals(0, new BigDecimal("418").compareTo(created.path("grand_total").decimalValue()));
         String orderId = created.path("id").asText();
+        assertTrue(orderId.matches("PPR-ORD-\\d{8}-[a-f0-9]{19}\\d{4}"));
+        assertEquals(40, orderId.length());
 
         // Check transition
         send(patch("/api/v1/orders/" + orderId + "/status"), admin, Map.of("status", "preparing")).andExpect(status().isOk());
@@ -237,6 +253,14 @@ class BackendIntegrationTest {
         // Cash collection
         send(post("/api/v1/orders/" + orderId + "/cash-payment"), admin, null).andExpect(status().isOk());
         send(patch("/api/v1/orders/" + orderId + "/status"), admin, Map.of("status", "delivered")).andExpect(status().isOk());
+    }
+
+    @Test
+    void guestCannotOpenDiningTableOrder() throws Exception {
+        send(post("/api/v1/orders/checkout"), null, Map.of(
+            "customerName", "Guest", "customerPhone", "9999999999", "orderType", "dine-in",
+            "tableNumber", 1, "items", List.of(Map.of("menuItemId", "dish", "quantity", 1))
+        )).andExpect(status().isForbidden());
     }
 
     private String account(String role) {

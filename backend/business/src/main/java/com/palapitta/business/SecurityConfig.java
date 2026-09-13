@@ -33,6 +33,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/v1/auth/login", "/api/v1/auth/register").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/data/menu_items", "/api/v1/data/menu_items/**",
                     "/api/v1/data/menu_categories", "/api/v1/data/menu_categories/**").permitAll()
+                // Guest takeaway checkout is optional-auth; dine-in is staff-only enforced in OrderService.
+                .requestMatchers(HttpMethod.POST, "/api/v1/orders/checkout").permitAll()
                 .anyRequest().authenticated())
             .exceptionHandling(e -> e
                 .authenticationEntryPoint((req, res, ex) -> error(res, 401, "Authentication required"))

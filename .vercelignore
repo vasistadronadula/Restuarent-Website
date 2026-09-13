@@ -1,0 +1,7 @@
+backend
+supabase
+tests
+.git
+.github
+playwright*
+*.md

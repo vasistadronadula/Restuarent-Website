@@ -8,33 +8,18 @@ import { queryKeys } from './keys';
 import { mapMenuItem } from './mappers';
 import { patchList, rollbackList } from './optimistic';
 
-export function useMenuItems(fallbackOnError = true) {
+export function useMenuItems() {
   return useQuery({
     queryKey: queryKeys.menuItems,
     queryFn: async (): Promise<MenuItem[]> => {
-      try {
-        // Explicit ordering: without it Postgres may return rows in any order,
-        // and an UPDATE physically moves a row — so editing one dish
-        // reshuffled the whole menu list under the admin's cursor.
-        const { data, error } = await supabase
-          .from('menu_items')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        // The bundled demo menu is a last resort for the storefront when the
-        // database is unreachable — never a stand-in for an empty table. It
-        // used to fire on `data.length === 0` too, so deleting the last dish
-        // repopulated the menu with demo items that the admin could then
-        // neither edit nor delete.
-        if (error) {
-          if (fallbackOnError) return (await import('@/data/menuData')).menuItems;
-          throw new Error(error.message);
-        }
-        return (data || []).map(mapMenuItem);
-      } catch (error) {
-        if (fallbackOnError) return (await import('@/data/menuData')).menuItems;
-        throw error;
-      }
+      const { data, error } = await supabase
+        .from('menu_items')
+        .select('*')
+        .order('created_at', { ascending: false });
+      // Keep the last successful live catalogue on a transient failure.
+      // An error must never populate staff/customer caches with seed dishes.
+      if (error) throw new Error(error.message);
+      return (data || []).map(mapMenuItem);
     },
     staleTime: 60_000,
   });

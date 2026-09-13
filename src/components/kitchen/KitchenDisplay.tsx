@@ -60,7 +60,7 @@ function connectionAllowsWrite(client: QueryClient) {
 
 export default function KitchenDisplay() {
   const ordersQuery = useOrders(true, true);
-  const menuQuery = useMenuItems(false);
+  const menuQuery = useMenuItems();
   const orders = ordersQuery.data;
   const updateStatus = useUpdateOrderStatus();
   const updateDetails = useUpdateOrderPrepTime();

@@ -19,6 +19,7 @@ import StoreCartBar from '@/components/customer/StoreCartBar';
 import RestaurantHero from '@/components/customer/RestaurantHero';
 import { SectionHeading, VegMark } from '@/components/customer/store-ui';
 import { useAdmin } from '@/context/AdminContext';
+import { useMenuItems } from '@/lib/queries/menu';
 import type { MenuItem, VegStatus } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -37,6 +38,7 @@ const isVegStatus = (value: string | null): value is VegStatus =>
 
 function MenuBrowser() {
   const { menuItems, isLoadingDB, categories } = useAdmin();
+  const menuQuery = useMenuItems();
   const searchParams = useSearchParams();
 
   /* ── URL-backed state ───────────────────────────────────────────── */
@@ -401,6 +403,15 @@ function MenuBrowser() {
 
       <main className="flex-1">
         <Container className="max-w-[1600px] py-6 sm:py-8">
+          {menuQuery.isError && (
+            <div role="alert" className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-nonveg/30 bg-white p-4 text-sm text-ink-2">
+              <p>{menuItems.length ? 'The menu could not be refreshed. Showing the last loaded dishes.' : 'We could not load the menu. Please try again.'}</p>
+              <button type="button" disabled={menuQuery.isFetching} onClick={() => void menuQuery.refetch()}
+                className="rounded-lg bg-brand px-4 py-2 font-bold text-white disabled:opacity-60">
+                {menuQuery.isFetching ? 'Retrying…' : 'Retry menu'}
+              </button>
+            </div>
+          )}
           {/* ── Category rail (100% Full Width) ────────────────────── */}
           {!isLoadingDB && railCategories.length > 1 && (
             <section aria-label="Browse by category" className="mb-8 w-full">
@@ -622,7 +633,7 @@ function MenuBrowser() {
 
               {isLoadingDB ? (
                 <DishSkeletons layout={layout} />
-              ) : filteredItems.length === 0 ? (
+              ) : menuQuery.isError && menuItems.length === 0 ? null : filteredItems.length === 0 ? (
                 <EmptyResult onReset={resetAll} hasFilters={activeFilterCount > 0} />
               ) : groupedSections ? (
                 <div className="space-y-10">

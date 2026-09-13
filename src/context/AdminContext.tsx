@@ -93,7 +93,7 @@ export const AdminProvider = ({ children }: { children: ReactNode }) => {
   // Menu items and categories are needed by ALL sessions: staff (POS, menu-management
   // preview) and customers (public menu page). Gating by role caused logged-in
   // staff visiting the public /menu page to see an empty catalogue.
-  const { data: menuItems = [], isLoading: menuLoading, error: menuError } = useMenuItems(true);
+  const { data: menuItems = [], isLoading: menuLoading, error: menuError } = useMenuItems();
   const { data: inventory = [], isLoading: invLoading, error: inventoryError } = useInventory(canReadInventory);
   const { data: employees = [], isLoading: empLoading, error: employeesError } = useEmployees(canReadEmployees);
   const { data: categories = [], isLoading: catLoading, error: categoriesError } = useCategories(true);

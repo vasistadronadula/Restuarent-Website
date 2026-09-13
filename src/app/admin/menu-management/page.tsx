@@ -14,7 +14,7 @@ import {
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { MenuItem as MenuItemType, PortionPrices, MenuCategory } from '@/types';
-import { categoryLabels as fallbackCategoryLabels } from '@/data/menuData';
+import { categoryLabels as fallbackCategoryLabels } from '@/data/categoryLabels';
 import { generateMenuItemId, generateCategoryId } from '@/lib/idGenerator';
 import { FALLBACK_DISH_IMAGE } from '@/lib/utils';
 import {
