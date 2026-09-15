@@ -90,7 +90,8 @@ func gateway(target *url.URL, origin string, trusted ...*net.IPNet) http.Handler
 			r.SetXForwarded()
 		},
 		Transport: &http.Transport{
-			Proxy:        http.ProxyFromEnvironment,
+			// Direct connection only: proxy env vars must never steer
+			// business traffic to an attacker-chosen host.
 			DialContext:  (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
 			MaxIdleConns: 100, MaxIdleConnsPerHost: 50, IdleConnTimeout: 90 * time.Second,
 			ResponseHeaderTimeout: 25 * time.Second, TLSHandshakeTimeout: 5 * time.Second,
@@ -179,8 +180,22 @@ func gateway(target *url.URL, origin string, trusted ...*net.IPNet) http.Handler
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 	if len(os.Args) == 2 && os.Args[1] == "--healthcheck" {
+		addr := os.Getenv("LISTEN_ADDR")
+		if addr == "" {
+			addr = ":8080"
+		}
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			host, port = "127.0.0.1", "8080"
+		}
+		if host == "" || host == "0.0.0.0" || host == "::" {
+			host = "127.0.0.1"
+		}
+		if port == "" {
+			port = "8080"
+		}
 		client := &http.Client{Timeout: 3 * time.Second}
-		res, err := client.Get("http://127.0.0.1:8080/health/ready")
+		res, err := client.Get("http://" + net.JoinHostPort(host, port) + "/health/ready")
 		if err != nil {
 			os.Exit(1)
 		}

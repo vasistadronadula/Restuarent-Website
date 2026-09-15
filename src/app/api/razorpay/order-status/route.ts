@@ -3,6 +3,7 @@ import { getRazorpayClient } from '@/lib/razorpayServer';
 import { assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { log } from '@/lib/logger';
+import { readCheckoutQuote } from '@/lib/billing/checkoutQuote';
 
 // For UPI (QR/intent) payments, Razorpay's checkout modal can lose track of
 // a successful payment — the tab loses focus while the customer is in their
@@ -12,10 +13,8 @@ import { log } from '@/lib/logger';
 // client calls this route to ask Razorpay directly whether a payment against
 // the order actually went through.
 //
-// Guest checkout means there's no session to require, so the gate is the
-// same-origin check plus a rate limit: enough to stop this being a public
-// "was order X paid?" oracle that anyone could walk through Razorpay order
-// ids with. The response deliberately carries no customer or amount detail.
+// Guests prove possession of the server-signed checkout quote; origin checks
+// and rate limits are additional protections, not proof of payment ownership.
 export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
@@ -33,9 +32,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { razorpay_order_id } = await request.json();
-    if (!razorpay_order_id || typeof razorpay_order_id !== 'string') {
-      return NextResponse.json({ error: 'razorpay_order_id required' }, { status: 400 });
+    const body = await request.json().catch(() => null);
+    const quote = readCheckoutQuote(body?.checkoutToken);
+    if (!quote) {
+      return NextResponse.json({ error: 'A valid payment checkout token is required.' }, { status: 400 });
     }
 
     const instance = getRazorpayClient();
@@ -46,19 +46,21 @@ export async function POST(request: Request) {
       );
     }
 
-    const { items } = await instance.orders.fetchPayments(razorpay_order_id);
+    const { items } = await instance.orders.fetchPayments(quote.gatewayOrderId);
 
-    const successfulPayment = items.find((p) => p.status === 'captured');
+    const successfulPayment = items.find((p) => p.status === 'captured' && p.currency === 'INR'
+      && Number(p.amount) === Math.round(quote.pricing.totals.grandTotal * 100));
 
     if (successfulPayment) {
       return NextResponse.json({
         paid: true,
+        razorpay_order_id: quote.gatewayOrderId,
         razorpay_payment_id: successfulPayment.id,
         status: successfulPayment.status,
       });
     }
 
-    return NextResponse.json({ paid: false });
+    return NextResponse.json({ paid: false, pending: items.some((p) => p.status === 'authorized' || p.status === 'created') });
   } catch (error) {
     log.error('razorpay_order_status_failed', { error });
     return NextResponse.json({ error: 'Failed to fetch order status' }, { status: 500 });

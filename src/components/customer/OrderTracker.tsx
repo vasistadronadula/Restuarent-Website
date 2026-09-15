@@ -61,17 +61,21 @@ function applyFulfillmentCopy(
 function EtaRing({ minutes }: { minutes: number }) {
   const [secs, setSecs] = useState(minutes * 60);
 
+  // Only reset the countdown when the kitchen extends the time (a delay
+  // bump), not when the estimate naturally decreases from polling. Without
+  // this guard, the ring stuttered every 3 seconds because each refetch
+  // returned a slightly lower estimate and triggered a full reset. Tracked
+  // via a synced snapshot so no effect-setState is needed.
+  const [syncedMinutes, setSyncedMinutes] = useState(minutes);
+  if (minutes !== syncedMinutes) {
+    setSyncedMinutes(minutes);
+    if (minutes * 60 > secs) setSecs(minutes * 60);
+  }
+
   useEffect(() => {
-    // Deferred a tick, not called directly in the effect body, so resetting
-    // the ring when `minutes` changes doesn't fire setState synchronously
-    // within the effect.
-    const reset = setTimeout(() => setSecs(minutes * 60), 0);
     const id = setInterval(() => setSecs((s) => Math.max(0, s - 1)), 1000);
-    return () => {
-      clearTimeout(reset);
-      clearInterval(id);
-    };
-  }, [minutes]);
+    return () => clearInterval(id);
+  }, []);
 
   const m = Math.floor(secs / 60);
   const s = secs % 60;
@@ -157,7 +161,7 @@ export default function OrderTracker({
         <div>
           <p className="text-ink-1 text-[14px] font-extrabold">Order cancelled</p>
           <p className="text-ink-3 mt-0.5 text-[12.5px]">
-            This order will not be prepared. Any online payment is refunded automatically.
+            This order will not be prepared. If you paid online, contact us with your order ID for a refund.
           </p>
         </div>
       </div>

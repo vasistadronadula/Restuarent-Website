@@ -34,7 +34,7 @@ const MenuCard = memo(function MenuCard({ item }: { item: MenuItem }) {
         {/* eslint-disable-next-line @next/next/no-img-element -- Admin images may use arbitrary storage hosts. */}
         <img
           src={item.image || FALLBACK_DISH_IMAGE}
-          alt=""
+          alt={item.image ? `Photo of ${item.name}` : `${item.name} (photo coming soon)`}
           loading="lazy"
           decoding="async"
           onError={(event) => {

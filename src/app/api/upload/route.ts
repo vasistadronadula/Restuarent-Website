@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'node:crypto';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { requireStaff, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
@@ -21,6 +22,34 @@ const ALLOWED_TYPES: Record<string, string> = {
 };
 
 /**
+ * Verify the file's magic bytes match its claimed type. `File.type` comes
+ * from the uploader's browser and is trivially spoofed — without this, HTML
+ * or JS relabelled as image/png would be stored in a public bucket and
+ * served back under the restaurant's domain.
+ */
+export function magicBytesMatch(buffer: Buffer, mime: string): boolean {
+  if (buffer.length < 12) return false;
+  const head = [...buffer.subarray(0, 12)];
+  switch (mime) {
+    case 'image/png':
+      return head[0] === 0x89 && head[1] === 0x50 && head[2] === 0x4e && head[3] === 0x47;
+    case 'image/jpeg':
+      return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+    case 'image/gif':
+      return head[0] === 0x47 && head[1] === 0x49 && head[2] === 0x46;
+    case 'image/webp':
+      return (
+        head[0] === 0x52 && head[1] === 0x49 && head[2] === 0x46 && head[3] === 0x46 &&
+        head[8] === 0x57 && head[9] === 0x45 && head[10] === 0x42 && head[11] === 0x50
+      );
+    case 'image/avif':
+      return head[4] === 0x66 && head[5] === 0x74 && head[6] === 0x79 && head[7] === 0x70;
+    default:
+      return false;
+  }
+}
+
+/**
  * POST /api/upload — staff-only image upload for menu/category artwork.
  *
  * This endpoint holds the service-role key and writes to a public bucket, so
@@ -33,7 +62,10 @@ const ALLOWED_TYPES: Record<string, string> = {
  */
 export async function POST(request: NextRequest) {
   try {
-    await requireStaff(request);
+    const caller = await requireStaff(request);
+    if (!['admin', 'manager', 'chef'].includes(caller.role)) {
+      return NextResponse.json({ error: 'Menu management privileges required.' }, { status: 403 });
+    }
   } catch (err) {
     const { body, status } = authErrorResponse(err);
     return NextResponse.json(body, { status });
@@ -51,13 +83,14 @@ export async function POST(request: NextRequest) {
 
   try {
     const formData = await request.formData();
-    const file = formData.get('file') as File | null;
-    const rawFolder = (formData.get('folder') as string) || 'dishes';
+    const file = formData.get('file');
+    const folderValue = formData.get('folder');
+    const rawFolder = typeof folderValue === 'string' ? folderValue : 'dishes';
     // Never let the caller steer the storage path — `../` or a leading slash
     // here would write outside the intended prefix.
     const folder = rawFolder.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'dishes';
 
-    if (!file) {
+    if (!(file instanceof File) || file.size === 0) {
       return NextResponse.json({ error: 'No image file provided' }, { status: 400 });
     }
 
@@ -96,11 +129,20 @@ export async function POST(request: NextRequest) {
       .replace(/\.[^/.]+$/, '')
       .replace(/[^a-zA-Z0-9_-]/g, '_')
       .slice(0, 30) || 'image';
-    const uniqueSuffix = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    // Unpredictable and collision-safe: timestamp + Math.random could repeat
+    // under burst uploads and, with upsert:true, overwrite a sibling file.
+    const uniqueSuffix = `${Date.now()}-${randomUUID().slice(0, 8)}`;
     const filePath = `${folder}/${cleanName}-${uniqueSuffix}.${ext}`;
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    if (!magicBytesMatch(buffer, file.type)) {
+      return NextResponse.json(
+        { error: 'File content does not match its image type' },
+        { status: 400 }
+      );
+    }
 
     const { data, error } = await supabase.storage
       .from(BUCKET_NAME)

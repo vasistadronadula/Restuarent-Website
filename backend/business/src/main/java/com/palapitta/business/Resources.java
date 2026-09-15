@@ -17,9 +17,9 @@ public final class Resources {
     }
     private static final Map<String, Resource> ALL = Map.of(
         "menu_items", resource("menu_items", "id", "name,category,price,image,veg_status,is_available,is_popular,is_special,description,prep_time,max_quantity,portion_prices,tags,rating,review_count", "name,category,price", STAFF, Set.of("admin","manager","chef"), true, false),
-        "menu_categories", resource("menu_categories", "id", "name,slug,icon,image,sort_order,is_active", "name", STAFF, MANAGERS, true, false),
-        "inventory_items", resource("inventory_items", "id", "name,category,quantity,unit,min_quantity,unit_cost,supplier,last_restocked", "name,category,unit", STAFF, MANAGERS, false, false),
-        "employees", resource("employees", "id", "name,role,phone,email,shift,salary,joining_date,status", "name,role,phone", MANAGERS, Set.of("admin"), false, false),
+        "menu_categories", resource("menu_categories", "id", "name,slug,icon,image,sort_order,is_active", "name", STAFF, Set.of("admin","manager","chef"), true, false),
+        "inventory_items", resource("inventory_items", "id", "name,category,quantity,unit,min_quantity,unit_cost,supplier,last_restocked", "name,category,unit", Set.of("admin","manager","chef"), Set.of("admin","manager","chef"), false, false),
+        "employees", resource("employees", "id", "name,role,phone,email,shift,salary,joining_date,status", "name,role,phone", Set.of("admin"), Set.of("admin"), false, false),
         "restaurant_tables", resource("restaurant_tables", "id", "table_number,capacity,description,is_active", "table_number", STAFF, MANAGERS, false, false),
         "coupons", resource("coupons", "code", "code,discount,max_discount,min_order,description,is_active", "code,discount", MANAGERS, MANAGERS, false, false),
         "reservations", resource("reservations", "id", "name,phone,email,guests,date,time,request,status,table_id,table_number", "name,phone,guests,date,time", Set.of("admin","manager","waiter","cashier"), Set.of("admin","manager","waiter","cashier"), false, true)

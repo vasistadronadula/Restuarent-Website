@@ -104,7 +104,8 @@ export default function OrdersPage() {
 
   const handleUpdateStatus = useCallback(async (orderId: string, targetStatus: OrderStatus) => {
     try {
-      await updateOrderStatus(orderId, targetStatus);
+      const ok = await updateOrderStatus(orderId, targetStatus);
+      if (!ok) return; // updateOrderStatus already toasted the failure.
       toast.success(`Order moved to ${targetStatus}`);
       setSelectedOrder((prev) => (prev?.id === orderId ? { ...prev, status: targetStatus } : prev));
     } catch {
@@ -374,17 +375,19 @@ export default function OrdersPage() {
             </div>
 
             <DialogFooter className="flex flex-wrap gap-2 pt-3 border-t-2 border-ad-line">
-              {statusOf(selectedOrder) !== 'preparing' && statusOf(selectedOrder) !== 'delivered' && (
+              {/* Only the next legal transition is offered: skipping stages
+                (pending → ready) bypasses the KDS and corrupts prep metrics. */}
+              {statusOf(selectedOrder) === 'pending' && (
                 <button type="button" className="ad-btn ad-btn-secondary ad-btn-sm" onClick={() => handleUpdateStatus(selectedOrder.id, 'preparing')}>
                   Mark preparing
                 </button>
               )}
-              {statusOf(selectedOrder) !== 'ready' && statusOf(selectedOrder) !== 'delivered' && (
+              {statusOf(selectedOrder) === 'preparing' && (
                 <button type="button" className="ad-btn ad-btn-secondary ad-btn-sm" onClick={() => handleUpdateStatus(selectedOrder.id, 'ready')}>
                   Mark ready
                 </button>
               )}
-              {statusOf(selectedOrder) !== 'delivered' && (
+              {statusOf(selectedOrder) === 'ready' && (
                 <button type="button" className="ad-btn ad-btn-primary ad-btn-sm" onClick={() => handleUpdateStatus(selectedOrder.id, 'delivered')}>
                   <Truck className="size-3.5" /> Delivered
                 </button>

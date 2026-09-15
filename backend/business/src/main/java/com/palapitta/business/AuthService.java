@@ -29,16 +29,15 @@ public class AuthService {
     }
 
     public Identity authenticate(String token) {
-        if (token == null || token.isBlank()) return null;
-        String[] parts = token.split("\\.");
-        if (parts.length != 3) {
-            // Support legacy test tokens or simple UUIDs for integration testing
-            return tryAuthenticateTestToken(token);
-        }
+        if (token == null || token.isBlank() || jwtSecret.isEmpty()) return null;
+        String[] parts = token.split("\\.", -1);
+        if (parts.length != 3) return null;
 
         try {
-            // 1. Verify HMAC-SHA256 signature if secret is provided
-            if (!jwtSecret.isEmpty()) {
+            // Never accept unsigned credentials or synthetic UUID/email tokens.
+            JsonNode header = json.readTree(Base64.getUrlDecoder().decode(parts[0]));
+            if (!"HS256".equals(header.path("alg").asText())) return null;
+            {
                 Mac mac = Mac.getInstance("HmacSHA256");
                 mac.init(new SecretKeySpec(jwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
                 byte[] expected = mac.doFinal((parts[0] + "." + parts[1]).getBytes(StandardCharsets.US_ASCII));
@@ -53,12 +52,15 @@ public class AuthService {
             JsonNode payload = json.readTree(payloadBytes);
 
             // 3. Check expiration
-            if (payload.has("exp")) {
-                long exp = payload.get("exp").asLong();
-                if (Instant.now().getEpochSecond() > exp) {
-                    return null;
-                }
-            }
+            long now = Instant.now().getEpochSecond();
+            if (!payload.path("exp").isIntegralNumber() || payload.path("exp").asLong() <= now) return null;
+            if (payload.has("nbf") && (!payload.path("nbf").isIntegralNumber() || payload.path("nbf").asLong() > now)) return null;
+            if (!"authenticated".equals(payload.path("role").asText())) return null;
+            // Bind the token to this project's auth server when the claims
+            // carry audience/issuer, so a token minted for another Supabase
+            // project can never authenticate here.
+            if (payload.has("aud") && !"authenticated".equals(payload.path("aud").asText())) return null;
+            if (payload.has("iss") && !payload.path("iss").asText().contains("supabase")) return null;
 
             // 4. Extract user ID (sub)
             if (!payload.has("sub")) return null;
@@ -84,31 +86,13 @@ public class AuthService {
                     if (meta.has("full_name")) fullName = meta.get("full_name").asText();
                 }
             } catch (Exception ignored) {
-                // If database or table is inaccessible during lightweight check
+                return null;
             }
 
             return new Identity(userId, email, fullName, role);
         } catch (Exception e) {
             return null;
         }
-    }
-
-    private Identity tryAuthenticateTestToken(String token) {
-        // Fallback for tests or synthetic tokens
-        try {
-            List<Map<String, Object>> rows = db.queryForList(
-                "SELECT id, email, full_name, role FROM public.profiles WHERE id::text = ? OR email = ?", token, token);
-            if (!rows.isEmpty()) {
-                Map<String, Object> r = rows.getFirst();
-                return new Identity(
-                    UUID.fromString(r.get("id").toString()),
-                    r.get("email") != null ? r.get("email").toString() : "",
-                    r.get("full_name") != null ? r.get("full_name").toString() : "Test User",
-                    r.get("role") != null ? r.get("role").toString() : "customer"
-                );
-            }
-        } catch (Exception ignored) {}
-        return null;
     }
 
     @Transactional
@@ -132,25 +116,4 @@ public class AuthService {
             "Please log in using Supabase Auth on the frontend.");
     }
 
-    /** Helper to generate a Supabase-compatible test token (used in tests). */
-    public String createTestToken(UUID userId, String email, String role) {
-        try {
-            String header = Base64.getUrlEncoder().withoutPadding().encodeToString("{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(StandardCharsets.UTF_8));
-            long exp = Instant.now().plusSeconds(3600 * 8).getEpochSecond();
-            String payloadJson = String.format("{\"sub\":\"%s\",\"email\":\"%s\",\"role\":\"authenticated\",\"exp\":%d}", userId, email, exp);
-            String payload = Base64.getUrlEncoder().withoutPadding().encodeToString(payloadJson.getBytes(StandardCharsets.UTF_8));
-            String data = header + "." + payload;
-            String signature = "";
-            if (!jwtSecret.isEmpty()) {
-                Mac mac = Mac.getInstance("HmacSHA256");
-                mac.init(new SecretKeySpec(jwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-                signature = Base64.getUrlEncoder().withoutPadding().encodeToString(mac.doFinal(data.getBytes(StandardCharsets.US_ASCII)));
-            } else {
-                signature = Base64.getUrlEncoder().withoutPadding().encodeToString("dummy-signature".getBytes(StandardCharsets.UTF_8));
-            }
-            return data + "." + signature;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 }

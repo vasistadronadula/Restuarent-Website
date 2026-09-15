@@ -25,6 +25,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', mocks.fetch);
   vi.stubEnv('NEXT_PUBLIC_RAZORPAY_KEY_ID', 'test-key');
   localStorage.clear();
+  sessionStorage.clear();
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); delete window.Razorpay; });
 
@@ -70,7 +71,7 @@ describe('checkout submission', () => {
       constructor(options: { handler: typeof handlePayment }) { handlePayment = options.handler; }
       open = open;
     } as typeof window.Razorpay;
-    mocks.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'gateway', amount: 10500, currency: 'INR' })))
+    mocks.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'gateway', amount: 10500, currency: 'INR', checkoutToken: 'signed-quote' })))
       .mockRejectedValueOnce(new Error('Network lost')).mockImplementationOnce(async () => response());
     render(React.createElement(CheckoutPage)); details();
     fireEvent.click(screen.getAllByRole('button', { name: /Pay now/ })[0]);
@@ -81,5 +82,50 @@ describe('checkout submission', () => {
     expect(open).toHaveBeenCalledTimes(1);
     expect(mocks.fetch.mock.calls.map(call => call[0])).toEqual(['/api/razorpay/create-order', '/api/orders/checkout', '/api/orders/checkout']);
     expect(mocks.fetch.mock.calls[1][1].body).toBe(mocks.fetch.mock.calls[2][1].body);
+  });
+  it('recovers a captured UPI payment when the modal closes without calling its success handler', async () => {
+    let dismiss!: () => void;
+    const open = vi.fn();
+    window.Razorpay = class {
+      constructor(options: { modal: { ondismiss: typeof dismiss } }) { dismiss = options.modal.ondismiss; }
+      open = open;
+    } as typeof window.Razorpay;
+    mocks.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ id: 'gateway', amount: 10500, checkoutToken: 'signed-quote' })))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ paid: true, razorpay_order_id: 'gateway', razorpay_payment_id: 'payment' })))
+      .mockImplementationOnce(async () => response());
+    render(React.createElement(CheckoutPage)); details();
+    fireEvent.click(screen.getAllByRole('button', { name: /Pay now/ })[0]);
+    await waitFor(() => expect(open).toHaveBeenCalledOnce());
+    await act(async () => dismiss());
+    expect(screen.getByText('Order confirmed')).toBeTruthy();
+    expect(mocks.error).not.toHaveBeenCalledWith('Payment cancelled.');
+    expect(sessionStorage.getItem('ppr:pendingPayment')).toBeNull();
+  });
+  it('recovers a payment after reloading instead of creating another gateway order', async () => {
+    sessionStorage.setItem('ppr:pendingPayment', JSON.stringify({ orderId: 'original-order', gatewayOrderId: 'gateway',
+      checkoutToken: 'signed-quote', amount: 10500, customer: { name: 'Original diner', phone: '9876543210' } }));
+    mocks.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ paid: true, razorpay_order_id: 'gateway', razorpay_payment_id: 'payment' })))
+      .mockImplementationOnce(async () => response());
+    render(React.createElement(CheckoutPage));
+    fireEvent.click(screen.getAllByRole('button', { name: /Retry confirmation/ })[0]);
+    await waitFor(() => expect(screen.getByText('Order confirmed')).toBeTruthy());
+    expect(mocks.fetch.mock.calls.map(call => call[0])).toEqual(['/api/razorpay/order-status', '/api/orders/checkout']);
+    expect(JSON.parse(mocks.fetch.mock.calls[1][1].body)).toMatchObject({ orderId: 'original-order', customer: { name: 'Original diner' }, checkoutToken: 'signed-quote' });
+  });
+  it('resumes the same unpaid gateway order after a cancelled attempt', async () => {
+    sessionStorage.setItem('ppr:pendingPayment', JSON.stringify({ orderId: 'original-order', gatewayOrderId: 'gateway',
+      checkoutToken: 'signed-quote', amount: 10500, customer: { name: 'Diner', phone: '9876543210' } }));
+    const open = vi.fn();
+    const optionsSeen = vi.fn();
+    window.Razorpay = class {
+      constructor(options: unknown) { optionsSeen(options); }
+      open = open;
+    } as typeof window.Razorpay;
+    mocks.fetch.mockResolvedValueOnce(new Response(JSON.stringify({ paid: false, pending: false })));
+    render(React.createElement(CheckoutPage));
+    fireEvent.click(screen.getAllByRole('button', { name: /Retry confirmation/ })[0]);
+    await waitFor(() => expect(open).toHaveBeenCalledOnce());
+    expect(optionsSeen).toHaveBeenCalledWith(expect.objectContaining({ order_id: 'gateway' }));
+    expect(mocks.fetch).toHaveBeenCalledOnce();
   });
 });

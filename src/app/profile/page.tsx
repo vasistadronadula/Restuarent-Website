@@ -111,11 +111,12 @@ export default function CustomerProfilePage() {
     e.preventDefault();
     setFormError(null);
 
-    const problem =
-      validateName(fullName)
-      ?? (email ? validateEmail(email) : null)
-      ?? validatePhone(phone);
-    if (problem) { setFormError(problem); return; }
+    const problems = [
+      validateName(fullName),
+      email ? validateEmail(email) : null,
+      validatePhone(phone),
+    ].filter((p): p is string => Boolean(p));
+    if (problems.length > 0) { setFormError(problems.join(' ')); return; }
 
     setSaving(true);
     const success = await updateUserProfile(fullName.trim(), email.trim(), normalizePhone(phone));
@@ -126,8 +127,9 @@ export default function CustomerProfilePage() {
   };
 
   /* ── Still deciding ───────────────────────────────────────────────────── */
-  if (!authReady || loadingProfile) {
-    return (
+  // Staff accounts bounce to /admin/profile via the effect above: hold the
+  // loader instead of flashing customer UI for a frame before the replace.
+  if (!authReady || loadingProfile || (user && isStaffRole(userRole))) {    return (
       <PageFrame>
         <div className="flex w-full flex-1 flex-col items-center justify-center gap-3 py-24">
           <div className="border-brand/25 border-t-brand size-9 animate-spin rounded-full border-[3px]" />

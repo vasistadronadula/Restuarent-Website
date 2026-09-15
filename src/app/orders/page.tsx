@@ -76,6 +76,11 @@ export default function OrderHistoryPage() {
     }
   });
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+  }, []);
 
   const previousStatusMapRef = useRef<Map<string, OrderStatus>>(new Map());
   const previousDelayMapRef  = useRef<Map<string, number>>(new Map());
@@ -196,7 +201,7 @@ export default function OrderHistoryPage() {
   const pastOrders   = useMemo(() => filteredOrders.filter((o) => !isActiveStatus(o.status)), [filteredOrders]);
 
   const totalSpent = useMemo(() =>
-    myOrders.filter((o) => o.status !== 'cancelled').reduce((s, o) => s + (o.grandTotal || 0), 0),
+    myOrders.filter((o) => o.status !== 'cancelled' && o.paymentStatus === 'paid').reduce((s, o) => s + (o.grandTotal || 0), 0),
     [myOrders]
   );
 
@@ -205,7 +210,8 @@ export default function OrderHistoryPage() {
       await navigator.clipboard.writeText(id);
       setCopiedOrderId(id);
       toast.success('Order ID copied');
-      setTimeout(() => setCopiedOrderId(null), 2000);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => setCopiedOrderId(null), 2000);
     } catch { toast.error('Could not copy the order ID. Please copy it manually.'); }
   };
 
@@ -272,7 +278,10 @@ export default function OrderHistoryPage() {
             reason anyone opens this page twice. */}
         <div
           className="border-hair-1 bg-store/92 sticky z-30 border-b backdrop-blur-md"
-          style={{ top: 'var(--store-header-h)' }}
+          // Live navbar height like the menu strip: the static header var
+          // went stale the moment the docked search row grew the bar, and a
+          // fallback-less var() dropped the sticky offset entirely.
+          style={{ top: 'var(--ppr-nav-h, 72px)' }}
         >
           <Container className="max-w-[1280px] py-2.5 md:py-3.5">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:gap-4">

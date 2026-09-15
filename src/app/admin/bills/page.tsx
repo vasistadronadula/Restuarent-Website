@@ -61,7 +61,9 @@ function GeneratedBillsPage() {
       setReprint({ order, format: 'thermal' });
     });
     window.print();
-    setReprint(null);
+    // window.print() returns before the paper path finishes on several
+    // browsers: unmounting the portal synchronously can print a blank page.
+    setTimeout(() => setReprint(null), 800);
   };
 
   const columns = useMemo<ColumnDef<any, Order>[]>(() => [
@@ -128,7 +130,7 @@ function GeneratedBillsPage() {
             order={reprint.order}
             format={reprint.format}
             invoiceNo={generateInvoiceNo(reprint.order.id)}
-            copyLabel={reprint.format === 'a4' ? 'DUPLICATE' : undefined}
+            copyLabel="DUPLICATE"
           />
         )}
 

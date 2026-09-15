@@ -4,15 +4,23 @@ import { NextResponse } from 'next/server';
 import { requireAdmin, RequireAdminError } from '@/lib/auth/requireAdmin';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { getErrorMessage } from '@/lib/errors';
+import { rateLimit } from '@/lib/auth/rateLimit';
 
 const EMPLOYEE_ROLES = new Set(['admin', 'manager', 'chef', 'cashier', 'waiter']);
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-async function authorize(request: Request) {
+async function authorize(request: Request): Promise<{ user: { id: string } } | NextResponse> {
   try {
-    await requireAdmin(request);
-    return null;
+    const caller = await requireAdmin(request);
+    const limit = rateLimit(`employees:write:${caller.user.id}`, 30, 60_000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests. Please wait a moment.' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+      );
+    }
+    return { user: caller.user };
   } catch (err) {
     if (err instanceof RequireAdminError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
@@ -30,8 +38,8 @@ async function authorize(request: Request) {
  * see raw passwords, GoTrue does.
  */
 export async function PATCH(request: Request, { params }: RouteContext) {
-  const authError = await authorize(request);
-  if (authError) return authError;
+  const auth = await authorize(request);
+  if (auth instanceof NextResponse) return auth;
 
   const admin = getSupabaseAdmin();
   if (!admin) {
@@ -44,6 +52,24 @@ export async function PATCH(request: Request, { params }: RouteContext) {
     const { name, phone, role, shift, salary, status, password } = body || {};
     if (role !== undefined && !EMPLOYEE_ROLES.has(role)) {
       return NextResponse.json({ error: 'Unsupported employee role' }, { status: 400 });
+    }
+    if (name !== undefined && (typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 120)) {
+      return NextResponse.json({ error: 'Enter a valid staff name.' }, { status: 400 });
+    }
+    if (phone !== undefined && (typeof phone !== 'string' || !/^[+0-9][0-9 ()-]{6,24}$/.test(phone.trim()))) {
+      return NextResponse.json({ error: 'Enter a valid phone number.' }, { status: 400 });
+    }
+    if (shift !== undefined && !['morning', 'evening', 'night'].includes(String(shift).toLowerCase())) {
+      return NextResponse.json({ error: 'Unsupported shift.' }, { status: 400 });
+    }
+    if (salary !== undefined && (typeof salary !== 'number' || !Number.isFinite(salary) || salary < 0 || salary > 100_000_000)) {
+      return NextResponse.json({ error: 'Enter a valid salary.' }, { status: 400 });
+    }
+    if (status !== undefined && !['active', 'inactive'].includes(String(status).toLowerCase())) {
+      return NextResponse.json({ error: 'Unsupported status.' }, { status: 400 });
+    }
+    if (password !== undefined && (typeof password !== 'string' || password.length < 8 || password.length > 200)) {
+      return NextResponse.json({ error: 'Password must be at least 8 characters.' }, { status: 400 });
     }
 
     const { data: existing, error: fetchErr } = await admin
@@ -124,8 +150,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
  * show up on the team list looking employed.
  */
 export async function DELETE(request: Request, { params }: RouteContext) {
-  const authError = await authorize(request);
-  if (authError) return authError;
+  const auth = await authorize(request);
+  if (auth instanceof NextResponse) return auth;
 
   const admin = getSupabaseAdmin();
   if (!admin) {

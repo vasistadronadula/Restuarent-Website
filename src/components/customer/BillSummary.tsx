@@ -9,6 +9,8 @@ interface BillSummaryProps extends React.ComponentProps<'div'> {
   cgst: number;
   sgst: number;
   grandTotal: number;
+  /** Printed-receipt parity: shown only when rounding moved the total. */
+  roundOff?: number;
   /** Hides the "Bill details" caption where the surrounding card already says it. */
   heading?: boolean;
 }
@@ -32,6 +34,7 @@ export function BillSummary({
   cgst,
   sgst,
   grandTotal,
+  roundOff = 0,
   heading = true,
   className,
   ...props
@@ -59,6 +62,13 @@ export function BillSummary({
 
         <Row label="Takeaway packing" value="Free" tone="saving" />
         <Row label="GST (5%)" value={formatCurrency(tax, 2)} tone="muted" />
+        {Math.abs(roundOff) >= 0.005 && (
+          <Row
+            label="Round off"
+            value={`${roundOff > 0 ? '+ ' : '− '}${formatCurrency(Math.abs(roundOff), 2)}`}
+            tone="muted"
+          />
+        )}
       </div>
 
       <div className="rule-dash my-3.5" />

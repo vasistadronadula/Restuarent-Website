@@ -39,7 +39,7 @@ export function CartLineItem({
       {/* eslint-disable-next-line @next/next/no-img-element -- see DishListItem */}
       <img
         src={item.image || FALLBACK_DISH_IMAGE}
-        alt=""
+        alt={item.image ? `Photo of ${item.name}` : `${item.name} (photo coming soon)`}
         loading="lazy"
         decoding="async"
         onError={(e) => {

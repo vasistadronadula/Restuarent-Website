@@ -31,7 +31,7 @@ export function CouponField({
   className?: string;
 }) {
   const [input, setInput] = useState('');
-  const { data: coupons = [] } = useCoupons();
+  const { data: coupons = [], isSuccess: couponsLoaded } = useCoupons();
   const couponCode = useCartStore((s) => s.couponCode);
   const user = useAuthStore((s) => s.user);
 
@@ -40,6 +40,20 @@ export function CouponField({
       useCartStore.getState().removeCoupon();
     }
   }, [user, couponCode]);
+
+  // A coupon applied when the basket was bigger must not survive the basket
+  // shrinking below its minimum (or being deactivated server-side): checkout
+  // would reject it and the customer would pay full price by surprise.
+  useEffect(() => {
+    // Only after a successful fetch: on outage an empty list must not wipe
+    // a valid coupon the server may still honor.
+    if (!couponCode || !couponsLoaded) return;
+    const applied = coupons.find((c) => c.code === couponCode);
+    if (!applied || !applied.isActive || subtotal < applied.minOrder) {
+      useCartStore.getState().removeCoupon();
+      if (applied) toast.error(`${couponCode} no longer applies to this cart and was removed.`);
+    }
+  }, [couponCode, coupons, couponsLoaded, subtotal]);
 
   if (!user) return null;
 

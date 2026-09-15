@@ -4,8 +4,12 @@ import { NextResponse } from 'next/server';
 import { requireAdmin, RequireAdminError } from '@/lib/auth/requireAdmin';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { getErrorMessage } from '@/lib/errors';
+import { rateLimit } from '@/lib/auth/rateLimit';
 
 const EMPLOYEE_ROLES = new Set(['admin', 'manager', 'chef', 'cashier', 'waiter']);
+const SHIFTS = new Set(['morning', 'evening', 'night']);
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const PHONE_RE = /^[+0-9][0-9 ()-]{6,24}$/;
 
 /**
  * Creates a staff login and its employee/profile rows in one call.
@@ -16,13 +20,24 @@ const EMPLOYEE_ROLES = new Set(['admin', 'manager', 'chef', 'cashier', 'waiter']
  * auth user is cleaned up so dangling accounts are not left behind.
  */
 export async function POST(request: Request) {
+  let callerId = 'unknown';
   try {
-    await requireAdmin(request);
+    const caller = await requireAdmin(request);
+    callerId = caller.user.id;
   } catch (err) {
     if (err instanceof RequireAdminError) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Staff creation mints real logins: throttle per admin account.
+  const limit = rateLimit(`employees:create:${callerId}`, 20, 60_000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please wait a moment.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+    );
   }
 
   const admin = getSupabaseAdmin();
@@ -39,6 +54,24 @@ export async function POST(request: Request) {
     }
     if (!EMPLOYEE_ROLES.has(role)) {
       return NextResponse.json({ error: 'Unsupported employee role' }, { status: 400 });
+    }
+    if (!EMAIL_RE.test(email)) {
+      return NextResponse.json({ error: 'Enter a valid email address.' }, { status: 400 });
+    }
+    if (typeof password !== 'string' || password.length < 8 || password.length > 200) {
+      return NextResponse.json({ error: 'Password must be at least 8 characters.' }, { status: 400 });
+    }
+    if (typeof name !== 'string' || name.trim().length < 2 || name.trim().length > 120) {
+      return NextResponse.json({ error: 'Enter a valid staff name.' }, { status: 400 });
+    }
+    if (phone && (typeof phone !== 'string' || !PHONE_RE.test(phone.trim()))) {
+      return NextResponse.json({ error: 'Enter a valid phone number.' }, { status: 400 });
+    }
+    if (shift && !SHIFTS.has(String(shift).toLowerCase())) {
+      return NextResponse.json({ error: 'Unsupported shift.' }, { status: 400 });
+    }
+    if (salary !== undefined && (typeof salary !== 'number' || !Number.isFinite(salary) || salary < 0 || salary > 100_000_000)) {
+      return NextResponse.json({ error: 'Enter a valid salary.' }, { status: 400 });
     }
 
     const { data: created, error: createErr } = await admin.auth.admin.createUser({

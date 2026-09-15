@@ -102,6 +102,8 @@ export default function BillPanel({
   const rawCash = cashTendered.trim();
   const effectiveCashTendered = rawCash === '' ? totals.grandTotal : Number(rawCash);
   const isCashSufficient = Number.isFinite(effectiveCashTendered) && effectiveCashTendered >= totals.grandTotal;
+  const reference = paymentReference.trim();
+  const isReferenceSufficient = paymentMode === 'cash' || reference.length >= 6;
   const activeTables = React.useMemo(() => tables.filter((table) => table.isActive !== false), [tables]);
 
   const handleSettleClick = () => {
@@ -121,6 +123,10 @@ export default function BillPanel({
       toast.error(
         `Insufficient cash! Received ₹${effectiveCashTendered.toFixed(2)}, need ₹${totals.grandTotal.toFixed(2)}.`
       );
+      return;
+    }
+    if (!isReferenceSufficient) {
+      toast.error('Enter the UPI UTR or card approval code before settling.');
       return;
     }
     onPlace();
@@ -593,13 +599,18 @@ export default function BillPanel({
                 </div>
               ) : (
                 <label className="ad-label m-0 block pt-1">
-                  {paymentMode === 'upi' ? 'UPI transaction reference (optional)' : 'Card approval reference (optional)'}
+                  {paymentMode === 'upi' ? 'UPI transaction reference (required)' : 'Card approval reference (required)'}
                   <input
                     className="ad-input mt-1"
                     value={paymentReference}
                     onChange={(event) => onPaymentReference(event.target.value)}
-                    placeholder="Ref / UTR / Approval code (optional)"
+                    placeholder="Ref / UTR / Approval code (required)"
                   />
+                  {!isReferenceSufficient && (
+                    <span className="mt-1 block text-[12px] font-medium text-ad-accent">
+                      Enter at least 6 characters from the payment confirmation.
+                    </span>
+                  )}
                 </label>
               )}
             </div>

@@ -70,6 +70,13 @@ const cspHeaderKey =
     : "Content-Security-Policy-Report-Only";
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    '/api/bill/*/pdf': [
+      './node_modules/@fontsource/noto-sans/files/noto-sans-latin-{400,700}-normal.woff',
+      './node_modules/@fontsource/noto-sans/files/noto-sans-devanagari-400-normal.woff',
+      './node_modules/@fontsource/ramabhadra/files/ramabhadra-telugu-400-normal.woff',
+    ],
+  },
   async rewrites() {
     return {
       beforeFiles: [

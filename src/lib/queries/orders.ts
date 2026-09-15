@@ -9,7 +9,18 @@ import type { Order, OrderStatus } from '@/types';
 import { queryKeys } from './keys';
 import { mapOrder } from './mappers';
 import { patchList, rollbackList } from './optimistic';
-import { getTenantContext } from '@/lib/tenantContext';
+import { getTenantContext, tenantInsertFields } from '@/lib/tenantContext';
+
+function stableJson(value: unknown): string {
+  const normalize = (input: unknown): unknown => {
+    if (Array.isArray(input)) return input.map(normalize);
+    if (input && typeof input === 'object') return Object.fromEntries(Object.entries(input)
+      .filter(([, value]) => value !== undefined).sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => [key, normalize(value)]));
+    return input;
+  };
+  return JSON.stringify(normalize(value));
+}
 
 export function useOrders(enabled = true, keepPolling = false) {
   return useQuery({
@@ -326,25 +337,38 @@ export function useCreateOrder() {
         user_id: orderData.userId || null,
         razorpay_order_id: orderData.razorpayOrderId || null,
         razorpay_payment_id: orderData.razorpayPaymentId || null,
-        tenant_id: tenant.tenant_id,
-        restaurant_id: tenant.restaurant_id,
-        branch_id: tenant.branch_id,
+        ...tenantInsertFields(tenant),
       };
 
       let { error } = await supabase
         .from('orders')
         .insert([{ ...row, table_number: newOrder.tableNumber ?? null }]);
 
-      // 42703 = undefined_column. orders.table_number arrives with the schema
-      // update in the baseline migration, section 13; until that has been run,
-      // saving the order matters far more than recording which table it came
-      // from, so retry without it rather than losing the sale. Once the column
-      // exists this branch never runs.
+      // 42703 = undefined_column. Older databases predate table_number and/or
+      // the optional tenant columns. Strip whichever group is missing and
+      // retry so a counter sale is never lost to a schema lag.
       if (error?.code === '42703') {
+        const rowWithoutOptional = { ...(row as Record<string, unknown>) };
+        delete rowWithoutOptional.table_number;
+        delete rowWithoutOptional.tenant_id;
+        delete rowWithoutOptional.restaurant_id;
+        delete rowWithoutOptional.branch_id;
         console.warn(
-          'orders.table_number missing — apply supabase/migrations to store dine-in table numbers'
+          'orders optional columns missing — apply supabase/migrations to store dine-in table numbers and tenant scope'
         );
-        ({ error } = await supabase.from('orders').insert([row]));
+        ({ error } = await supabase.from('orders').insert([rowWithoutOptional]));
+      }
+
+      if (error?.code === '23505') {
+        const { data: existing, error: lookupError } = await supabase.from('orders').select('*').eq('id', orderId).maybeSingle();
+        if (lookupError) throw new Error(lookupError.message);
+        const sameIdentity = existing && ['customer_name', 'customer_phone', 'order_type', 'payment_mode', 'user_id']
+          .every(field => (existing[field] ?? null) === (row[field as keyof typeof row] ?? null));
+        const sameMoney = existing && ['subtotal', 'cgst', 'sgst', 'discount', 'delivery_charge', 'grand_total']
+          .every(field => Number(existing[field] || 0) === Number(row[field as keyof typeof row] || 0));
+        if (sameIdentity && sameMoney && (existing.table_number ?? null) === (newOrder.tableNumber ?? null)
+            && stableJson(existing.items) === stableJson(row.items)) return mapOrder(existing);
+        throw new Error('This order ID belongs to a different sale. Refresh before retrying.');
       }
 
       if (error) throw new Error(error.message);

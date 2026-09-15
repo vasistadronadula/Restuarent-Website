@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Printer, Bluetooth, AlertCircle, Receipt, Loader2 } from 'lucide-react';
 import ThermalBill from '@/components/bill/ThermalBill';
 import PrintBillPortal from '@/components/bill/PrintBillPortal';
@@ -38,17 +38,19 @@ function PlacedDialog({
     isPrinterConnected() ? 'printing' : 'idle'
   );
   const [browserPrinting, setBrowserPrinting] = useState(false);
+  const autoPrint = useRef<Promise<boolean> | null>(null);
 
   useEffect(() => {
-    if (!isPrinterConnected()) return;
+    if (!open || !isPrinterConnected()) return;
     let cancelled = false;
 
-    void printOrder(order, invoiceNo).then((ok) => {
+    autoPrint.current ??= printOrder(order, invoiceNo);
+    void autoPrint.current.then((ok) => {
       if (!cancelled) setPrintState(ok ? 'printed' : 'failed');
     });
 
     return () => { cancelled = true; };
-  }, [order, invoiceNo]);
+  }, [open, order, invoiceNo]);
 
   const printAgain = () => {
     if (isPrinterConnected()) {

@@ -28,9 +28,12 @@ interface Props {
   onSuccess?: (role?: UserRole) => void;
   isSignUpMode?: boolean;
   customSocials?: React.ReactNode;
+  /** When signup requires explicit consent, the send-code button stays
+   * disabled until the parent confirms the user accepted the terms. */
+  termsAccepted?: boolean;
 }
 
-export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSocials }: Props) {
+export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSocials, termsAccepted = true }: Props) {
   const { signInWithPhoneToken, updateUserProfile } = useAuth();
   const containerId = `recaptcha-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
 
@@ -277,7 +280,8 @@ export default function PhoneOtpAuth({ onSuccess, isSignUpMode = false, customSo
 
           <Button
             type="submit"
-            disabled={busy || !phoneIsValid}
+            disabled={busy || !phoneIsValid || !termsAccepted}
+            title={!termsAccepted ? 'Accept the Terms of Service first' : undefined}
             className="bg-brand hover:bg-brand-600 h-11 w-full rounded-xl text-xs font-extrabold text-white shadow-md transition-all"
           >
             {busy ? <Loader2 className="size-4 animate-spin" /> : 'Get Started'}

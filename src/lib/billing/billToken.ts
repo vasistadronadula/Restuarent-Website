@@ -1,7 +1,7 @@
 import 'server-only';
 import crypto from 'crypto';
 
-const DEFAULT_TTL_SECONDS = 60 * 60;
+const DEFAULT_TTL_SECONDS = 15 * 60;
 
 function secret(): string | null {
   // BILL_TOKEN_SECRET must be its own env var — never alias the service-role

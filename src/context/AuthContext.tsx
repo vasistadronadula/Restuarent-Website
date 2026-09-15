@@ -24,9 +24,7 @@ export type { UserRole };
 // NOTE: The owner-email whitelist that used to live here has been removed.
 // It was shipping real email addresses in the browser JS bundle and bypassing
 // the database role entirely — admin access couldn't be revoked without a
-// redeploy. The server-side requireAdmin.ts keeps its own whitelist for API
-// gate-keeping. The DB migration/trigger sets profiles.role='admin' for owner
-// accounts at database level. This code now trusts profiles.role exclusively.
+// redeploy. Both the UI and server now trust profiles.role exclusively.
 
 const KNOWN_ROLES: UserRole[] = ['customer', 'admin', 'manager', 'chef', 'cashier', 'waiter'];
 const isKnownRole = (value: unknown): value is UserRole =>

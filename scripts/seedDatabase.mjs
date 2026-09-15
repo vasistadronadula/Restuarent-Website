@@ -22,6 +22,16 @@ if (!supabaseUrl || !serviceRoleKey) {
   console.error('Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY in the environment.');
   process.exit(1);
 }
+
+// Destructive by design: refuse hosted projects unless explicitly confirmed.
+const looksLocal = /localhost|127\.0\.0\.1/i.test(supabaseUrl);
+if (!looksLocal && (process.argv[2] !== '--allow-prod' || process.env.ALLOW_PROD_SEED !== 'true')) {
+  console.error(
+    'Refusing to wipe a non-local project. Re-run with `--allow-prod` and ALLOW_PROD_SEED=true ' +
+    'only after a backup, or point NEXT_PUBLIC_SUPABASE_URL at a local/test project.'
+  );
+  process.exit(1);
+}
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
 function fail(step, error) {

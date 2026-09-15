@@ -9,8 +9,8 @@ import { postAuthedJson } from '@/lib/authedFetch';
 
 /**
  * Ask the server to notify the cashier and kitchen about a new order.
- * Orders always come from a signed-in customer (checkout requires an account)
- * or a signed-in cashier (POS), so the request carries their access token.
+ * Used by staff POS screens. Public checkout schedules its alert server-side
+ * so guests do not need an access token.
  */
 export async function triggerNewOrderPush(orderId: string): Promise<void> {
   await postAuthedJson('/api/push/notify-new-order', { orderId });
@@ -56,4 +56,3 @@ export async function triggerNewReservationPush(reservationId: string): Promise<
     // Non-critical — silently ignore.
   }
 }
-

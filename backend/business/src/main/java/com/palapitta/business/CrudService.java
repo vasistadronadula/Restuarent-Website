@@ -31,7 +31,7 @@ public class CrudService {
         args.add(limit);
         args.add(offset);
         String orderClause = r.table().equals("menu_categories") ? "sort_order ASC, " + r.pk() : "created_at DESC, " + r.pk();
-        return db.queryForList("SELECT * FROM " + r.table() + " WHERE " + where + " ORDER BY " + orderClause + " LIMIT ? OFFSET ?", args.toArray())
+        return db.queryForList("SELECT *, xmin::text::bigint AS version FROM " + r.table() + " WHERE " + where + " ORDER BY " + orderClause + " LIMIT ? OFFSET ?", args.toArray())
             .stream().map(this::decoded).toList();
     }
 
@@ -41,7 +41,7 @@ public class CrudService {
         List<Object> args = new ArrayList<>();
         String where = scope(r, user, false, args);
         args.add(id);
-        return decoded(found(db.queryForList("SELECT * FROM " + r.table() + " WHERE " + where + " AND " + r.pk() + " = ?", args.toArray())));
+        return decoded(found(db.queryForList("SELECT *, xmin::text::bigint AS version FROM " + r.table() + " WHERE " + where + " AND " + r.pk() + " = ?", args.toArray())));
     }
 
     @Transactional
@@ -62,7 +62,7 @@ public class CrudService {
         String columns = String.join(",", values.keySet());
         String placeholders = String.join(",", values.keySet().stream().map(this::placeholder).toList());
         Map<String,Object> row = db.queryForMap(
-            "INSERT INTO " + r.table() + " (" + columns + ") VALUES (" + placeholders + ") RETURNING *",
+            "INSERT INTO " + r.table() + " (" + columns + ") VALUES (" + placeholders + ") RETURNING *, xmin::text::bigint AS version",
             values.values().toArray()
         );
         audit(user, r, pkValue, "create");
@@ -77,9 +77,11 @@ public class CrudService {
         List<Object> args = new ArrayList<>(values.values());
         String where = scope(r, user, true, args);
         args.add(id);
+        if (version > 0) args.add(version);
         String changes = String.join(",", values.keySet().stream().map(k -> k + "=" + placeholder(k)).toList());
         List<Map<String,Object>> rows = db.queryForList(
-            "UPDATE " + r.table() + " SET " + changes + " WHERE " + where + " AND " + r.pk() + " = ? RETURNING *",
+            "UPDATE " + r.table() + " SET " + changes + " WHERE " + where + " AND " + r.pk() + " = ?"
+                + (version > 0 ? " AND xmin::text::bigint = ?" : "") + " RETURNING *, xmin::text::bigint AS version",
             args.toArray()
         );
         if (rows.isEmpty()) throw new ResponseStatusException(CONFLICT, "Record changed or is unavailable; refresh before retrying");
@@ -94,7 +96,9 @@ public class CrudService {
         List<Object> args = new ArrayList<>();
         String where = scope(r, user, true, args);
         args.add(id);
-        if (db.update("DELETE FROM " + r.table() + " WHERE " + where + " AND " + r.pk() + " = ?", args.toArray()) != 1) {
+        if (version > 0) args.add(version);
+        if (db.update("DELETE FROM " + r.table() + " WHERE " + where + " AND " + r.pk() + " = ?"
+            + (version > 0 ? " AND xmin::text::bigint = ?" : ""), args.toArray()) != 1) {
             throw new ResponseStatusException(CONFLICT, "Record changed or is unavailable; refresh before retrying");
         }
         audit(user, r, id, "delete");
@@ -115,7 +119,7 @@ public class CrudService {
         if (input.isEmpty() || !r.fields().containsAll(input.keySet())) throw bad("Unknown or empty fields");
         if (create && !input.keySet().containsAll(r.required())) throw bad("Required fields are missing");
         if (r.owned() && ownerScope(r, user, true)) {
-            if (input.containsKey("table_id")) throw new ResponseStatusException(FORBIDDEN, "Only staff can assign a table");
+            if (input.containsKey("table_id") || input.containsKey("table_number")) throw new ResponseStatusException(FORBIDDEN, "Only staff can assign a table");
             if (input.containsKey("status") && !(create ? "pending" : "cancelled").equals(input.get("status"))) {
                 throw new ResponseStatusException(FORBIDDEN, "Invalid customer reservation status");
             }

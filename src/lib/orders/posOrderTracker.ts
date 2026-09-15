@@ -20,6 +20,16 @@ const seenPosOrders = new Set<string>();
 
 export function markPosOrderPrinted(orderId: string): void {
   seenPosOrders.add(orderId);
+  // Cap the set: a full day of counter sales must not grow it without bound.
+  if (seenPosOrders.size > 500) {
+    const oldest = seenPosOrders.values().next().value;
+    if (oldest !== undefined) seenPosOrders.delete(oldest);
+  }
+}
+
+/** Release the flag when the sale failed to save — the id never existed. */
+export function unmarkPosOrderPrinted(orderId: string): void {
+  seenPosOrders.delete(orderId);
 }
 
 export function wasPosOrderPrinted(orderId: string): boolean {

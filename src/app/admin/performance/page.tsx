@@ -60,7 +60,7 @@ export default function PerformancePage() {
       const isToday = o.createdAt && dayKey(new Date(o.createdAt)) === todayStr;
       if (isToday) {
         todayOrders++;
-        if (o.status !== 'cancelled') todayRevenue += o.grandTotal || 0;
+        if (o.status !== 'cancelled' && o.paymentStatus === 'paid') todayRevenue += o.grandTotal || 0;
       }
       if (o.status === 'pending' || o.status === 'preparing') {
         pendingOrders++;

@@ -8,7 +8,7 @@ import type { Reservation, ReservationStatus } from '@/types';
 import { queryKeys } from './keys';
 import { mapReservation } from './mappers';
 import { patchList, rollbackList } from './optimistic';
-import { getTenantContext } from '@/lib/tenantContext';
+import { getTenantContext, tenantInsertFields } from '@/lib/tenantContext';
 
 export function useReservations(enabled = true) {
   return useQuery({
@@ -84,9 +84,7 @@ export function useCreateReservation() {
           table_id: resData.tableId || null,
           table_number: resData.tableNumber || null,
           user_id: resData.userId || null,
-          tenant_id: tenant.tenant_id,
-          restaurant_id: tenant.restaurant_id,
-          branch_id: tenant.branch_id,
+          ...tenantInsertFields(tenant),
         },
       ]);
       if (error) throw new Error(error.message);

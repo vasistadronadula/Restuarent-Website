@@ -37,6 +37,7 @@ interface CartContextType {
   discountAmount: number;
   deliveryCharge: number;
   grandTotal: number;
+  roundOff: number;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);

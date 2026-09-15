@@ -2,11 +2,13 @@
 import React from 'react';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ insert: vi.fn().mockResolvedValue({ error: null }), menu: vi.fn() }));
-vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ insert: mocks.insert, select: () => ({ order: mocks.menu }) }) } }));
-vi.mock('@/lib/tenantContext', () => ({ getTenantContext: async () => ({}) }));
+const mocks = vi.hoisted(() => ({ insert: vi.fn().mockResolvedValue({ error: null }), menu: vi.fn(), existing: null as Record<string, unknown> | null }));
+vi.mock('@/lib/supabase', () => ({ supabase: { from: () => ({ insert: mocks.insert, select: () => ({ order: mocks.menu,
+  eq: () => ({ maybeSingle: async () => ({ data: mocks.existing, error: null }) }),
+}) }) } }));
+vi.mock('@/lib/tenantContext', () => ({ getTenantContext: async () => ({}), tenantInsertFields: () => ({}) }));
 import { useCreateOrder, useGuestOrders } from './orders';
 import { useMenuItems } from './menu';
 
@@ -17,6 +19,7 @@ function wrapper() {
   return TestWrapper;
 }
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
+beforeEach(() => { mocks.insert.mockResolvedValue({ error: null }); mocks.existing = null; });
 
 describe('order data flows', () => {
   it('reports a menu database failure without replacing the catalogue with seed dishes', async () => {
@@ -49,5 +52,20 @@ describe('order data flows', () => {
     await act(() => result.current.mutateAsync({ id: 'KDS-0042', notes: 'Severe peanut allergy',
       items: [{ name: 'Rice', price: 100, quantity: 1 }] }));
     expect(mocks.insert).toHaveBeenCalledWith([expect.objectContaining({ notes: 'Severe peanut allergy' })]);
+  });
+  it('recognizes a committed POS retry despite JSONB key ordering and numeric strings', async () => {
+    const { result } = renderHook(() => useCreateOrder(), { wrapper: wrapper() });
+    const input = { id: 'POS-retry', subtotal: 100, grandTotal: 105,
+      items: [{ menuItemId: 'rice', name: 'Rice', price: 100, quantity: 1 }] };
+    await act(() => result.current.mutateAsync(input));
+    const row = mocks.insert.mock.calls[0][0][0];
+    mocks.existing = { ...row, grand_total: '105.00', items: [{ quantity: 1, price: 100, name: 'Rice', menuItemId: 'rice' }], status: 'preparing' };
+    mocks.insert.mockResolvedValue({ error: { code: '23505' } });
+    await act(async () => {
+      expect(await result.current.mutateAsync(input)).toMatchObject({ id: 'POS-retry', grandTotal: 105, status: 'preparing' });
+    });
+    await act(async () => {
+      await expect(result.current.mutateAsync({ ...input, grandTotal: 1 })).rejects.toThrow('different sale');
+    });
   });
 });

@@ -91,6 +91,15 @@ function NavbarSearchInner() {
   const sortParam = searchParams.get('sort') ?? 'default';
 
   const [query, setQuery] = useState(qParam);
+  // Keep local query state in sync with the URL when re-entering /menu,
+  // so the clear button and input value match after a navigation round-trip.
+  // Adjusted during render (not in an effect): this is the documented
+  // pattern for syncing state from props/navigation without cascading renders.
+  const [syncedParams, setSyncedParams] = useState(`${pathname}?${qParam}`);
+  if (`${pathname}?${qParam}` !== syncedParams) {
+    setSyncedParams(`${pathname}?${qParam}`);
+    setQuery(qParam);
+  }
   const [filterOpen, setFilterOpen] = useState(false);
 
   const activeFilterCount =
@@ -112,7 +121,9 @@ function NavbarSearchInner() {
       const qs = params.toString();
       const target = qs ? `/menu?${qs}` : '/menu';
       if (pathname === '/menu' || pathname === '/') {
-        window.history.replaceState(null, '', `${pathname}${qs ? `?${qs}` : ''}`);
+        // Same reason as the menu page: useSearchParams only re-emits on
+        // router navigations, so history.replaceState desynced the filters.
+        router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
       } else {
         router.push(target);
       }

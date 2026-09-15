@@ -63,7 +63,9 @@ export default function ReportsPage() {
     const statusMap: Record<string, number> = {};
 
     orders.forEach((o) => {
-      const grandTotal = o.status === 'cancelled' ? 0 : (o.grandTotal || o.subtotal || 0);
+      // Revenue means money actually collected: cancelled and unpaid orders
+      // must not inflate the ledger (bills and performance use the same rule).
+      const grandTotal = o.status === 'cancelled' || o.paymentStatus !== 'paid' ? 0 : (o.grandTotal || o.subtotal || 0);
       revSum += grandTotal;
 
       const date = o.createdAt ? new Date(o.createdAt) : null;

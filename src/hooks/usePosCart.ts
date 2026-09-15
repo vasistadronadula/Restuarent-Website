@@ -35,6 +35,7 @@ export interface PosLine {
   /** Read by Reports to group revenue by category — without it, every POS
    *  sale fell into the "GENERAL" bucket regardless of what was rung up. */
   category?: string;
+  maxQuantity?: number;
 }
 
 type Action =
@@ -49,6 +50,51 @@ type Action =
 
 const clampQty = (n: number) => Math.min(Math.max(Math.trunc(n), 1), MAX_LINE_QTY);
 
+function allowedQuantity(state: PosLine[], line: Omit<PosLine, 'quantity'>, desired: number) {
+  const otherPortions = state.filter(l => l.menuItemId === line.menuItemId && l.key !== line.key)
+    .reduce((sum, l) => sum + l.quantity, 0);
+  const cap = line.maxQuantity ? Math.min(200, line.maxQuantity) : 200;
+  return Math.min(clampQty(desired), Math.max(0, cap - otherPortions));
+}
+
+/** Local storage is untrusted and may contain obsolete or partially written tickets. */
+export function restorePosLines(input: unknown): PosLine[] {
+  if (!Array.isArray(input)) return [];
+  const result: PosLine[] = [];
+  for (const value of input.slice(0, 50)) {
+    if (!value || typeof value !== 'object' || typeof value.key !== 'string'
+        || typeof value.menuItemId !== 'string' || typeof value.name !== 'string'
+        || !Number.isFinite(value.unitPrice) || value.unitPrice <= 0
+        || !Number.isFinite(value.quantity) || value.quantity <= 0
+        || (value.portion !== undefined && !['single', 'full', 'large'].includes(value.portion))
+        || result.some(line => line.key === value.key)) continue;
+    const line: PosLine = { ...value, quantity: clampQty(value.quantity),
+      maxQuantity: Number.isFinite(value.maxQuantity) && value.maxQuantity > 0 ? value.maxQuantity : undefined };
+    line.quantity = allowedQuantity(result, line, line.quantity);
+    if (line.quantity > 0) result.push(line);
+  }
+  return result;
+}
+
+export function reconcilePosLines(lines: PosLine[], menu: MenuItem[]) {
+  const next: PosLine[] = [];
+  let changed = false;
+  for (const line of lines) {
+    const item = menu.find(item => item.id === line.menuItemId);
+    if (!item || item.isAvailable === false) { changed = true; continue; }
+    const portions = sellablePortions(item);
+    const portion = line.portion || (portions.length ? 'full' : undefined);
+    const price = portions.length ? portions.find(p => p.portion === portion)?.price
+      : !portion || portion === 'full' ? item.price : undefined;
+    if (price === undefined || !Number.isFinite(price) || price <= 0) { changed = true; continue; }
+    const updated = { ...line, unitPrice: price, maxQuantity: item.maxQuantity, category: item.category };
+    updated.quantity = allowedQuantity(next, updated, line.quantity);
+    if (price !== line.unitPrice || updated.quantity !== line.quantity || updated.maxQuantity !== line.maxQuantity) changed = true;
+    if (updated.quantity > 0) next.push(updated);
+  }
+  return { lines: next, changed };
+}
+
 function reducer(state: PosLine[], action: Action): PosLine[] {
   switch (action.type) {
     case 'hydrate':
@@ -58,14 +104,15 @@ function reducer(state: PosLine[], action: Action): PosLine[] {
       const step = action.quantity ?? 1;
       if (existing) {
         return state.map((l) =>
-          l.key === action.line.key ? { ...l, quantity: clampQty(l.quantity + step) } : l
+           l.key === action.line.key ? { ...l, quantity: allowedQuantity(state, l, l.quantity + step) } : l
         );
       }
-      return [...state, { ...action.line, quantity: clampQty(step) }];
+      const quantity = allowedQuantity(state, action.line, step);
+      return quantity > 0 ? [...state, { ...action.line, quantity }] : state;
     }
     case 'increment':
       return state.map((l) =>
-        l.key === action.key ? { ...l, quantity: clampQty(l.quantity + 1) } : l
+        l.key === action.key ? { ...l, quantity: allowedQuantity(state, l, l.quantity + 1) } : l
       );
     case 'decrement': {
       // 1. Direct key match (e.g. dish123::full)
@@ -93,7 +140,7 @@ function reducer(state: PosLine[], action: Action): PosLine[] {
         return state.filter((l) => l.key !== action.key);
       }
       return state.map((l) =>
-        l.key === action.key ? { ...l, quantity: clampQty(action.quantity) } : l
+        l.key === action.key ? { ...l, quantity: allowedQuantity(state, l, action.quantity) } : l
       );
     }
     case 'setNotes': {
@@ -126,7 +173,7 @@ export interface AddResult {
 
 export function usePosCart() {
   const [lines, dispatch] = useReducer(reducer, [] as PosLine[]);
-  const hasHydrated = useRef(false);
+  const [hasHydrated, markHydrated] = useReducer(() => true, false);
   const linesRef = useRef(lines);
   useEffect(() => {
     linesRef.current = lines;
@@ -139,19 +186,19 @@ export function usePosCart() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          dispatch({ type: 'hydrate', lines: parsed });
+          dispatch({ type: 'hydrate', lines: restorePosLines(parsed) });
         }
       }
     } catch (e) {
       console.error('Failed to restore POS cart:', e);
     } finally {
-      hasHydrated.current = true;
+      markHydrated();
     }
   }, []);
 
   // Save cart to localStorage on changes after hydration
   useEffect(() => {
-    if (!hasHydrated.current) return;
+    if (!hasHydrated) return;
     try {
       if (typeof window !== 'undefined') {
         if (lines.length > 0) {
@@ -163,9 +210,10 @@ export function usePosCart() {
     } catch (e) {
       console.error('Failed to persist POS cart:', e);
     }
-  }, [lines]);
+  }, [lines, hasHydrated]);
 
   const add = useCallback((item: MenuItem, portion?: Portion): AddResult => {
+    if (item.isAvailable === false) return { ok: false, reason: `${item.name} is unavailable` };
     const portions = sellablePortions(item);
 
     // If no portion specified, check if there's already a line for this dish in cart
@@ -207,6 +255,7 @@ export function usePosCart() {
         portion: chosen?.portion,
         image: item.image,
         category: item.category,
+        maxQuantity: item.maxQuantity,
       },
     });
     return { ok: true };
@@ -216,6 +265,11 @@ export function usePosCart() {
   const decrement = useCallback((key: string) => dispatch({ type: 'decrement', key }), []);
   const remove = useCallback((key: string) => dispatch({ type: 'remove', key }), []);
   const clear = useCallback(() => dispatch({ type: 'clear' }), []);
+  const reconcile = useCallback((menu: MenuItem[]) => {
+    const result = reconcilePosLines(linesRef.current, menu);
+    if (result.changed) dispatch({ type: 'hydrate', lines: result.lines });
+    return result.changed;
+  }, []);
   const setQuantity = useCallback(
     (key: string, quantity: number) => dispatch({ type: 'setQuantity', key, quantity }),
     []
@@ -267,5 +321,7 @@ export function usePosCart() {
     setNotes,
     remove,
     clear,
+    reconcile,
+    hasHydrated,
   };
 }

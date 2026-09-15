@@ -37,6 +37,9 @@ export default function StoreCartBar({
 
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-label={`${itemCount} ${itemCount === 1 ? 'item' : 'items'} in cart, total ${formatCurrency(total)}`}
       className={cn(
         'fixed inset-x-0 z-30 px-3 pb-3 md:px-6',
         // Clears the phone bottom nav and the iOS home indicator. Both are

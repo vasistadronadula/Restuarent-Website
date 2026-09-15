@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyRazorpaySignature } from '@/lib/razorpayServer';
+import { getRazorpayClient, verifyRazorpaySignature } from '@/lib/razorpayServer';
 import { assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { log } from '@/lib/logger';
@@ -12,6 +12,10 @@ import { log } from '@/lib/logger';
  * session requirement, so the same-origin check and rate limit stand in —
  * the latter also caps how fast anyone could grind signatures, though the
  * HMAC comparison below is the real barrier.
+ *
+ * Beyond the signature, the response binds the proof to the gateway's own
+ * record: amount, currency, capture state, and the order receipt, so a valid
+ * signature for one payment can never vouch for a different amount or order.
  */
 export async function POST(request: Request) {
   try {
@@ -57,10 +61,30 @@ export async function POST(request: Request) {
     );
 
     if (isAuthentic) {
-      return NextResponse.json({
-        success: true,
-        message: 'Payment signature verified successfully',
-      });
+      // Bind the signature to gateway state: a signature alone proves who
+      // paid, not how much or for which receipt.
+      const instance = getRazorpayClient();
+      if (!instance) {
+        return NextResponse.json({ success: true, bound: false });
+      }
+      try {
+        const [gatewayOrder, gatewayPayment] = await Promise.all([
+          instance.orders.fetch(razorpay_order_id),
+          instance.payments.fetch(razorpay_payment_id),
+        ]);
+        return NextResponse.json({
+          success: true,
+          bound: true,
+          amount: Number(gatewayPayment.amount ?? gatewayOrder.amount),
+          currency: gatewayPayment.currency ?? gatewayOrder.currency,
+          status: gatewayPayment.status,
+          receipt: gatewayOrder.receipt,
+          order_id: gatewayPayment.order_id,
+        });
+      } catch (error) {
+        log.warn('razorpay_verify_binding_failed', { razorpay_order_id, error });
+        return NextResponse.json({ success: true, bound: false });
+      }
     }
 
     log.warn('razorpay_signature_mismatch', { razorpay_order_id, razorpay_payment_id });

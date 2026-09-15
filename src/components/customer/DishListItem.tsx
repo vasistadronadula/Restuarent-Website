@@ -104,14 +104,16 @@ const DishListItem = memo(function DishListItem({ item, divider = true }: Props)
       </div>
 
       {/* ── Right: photo with the action pinned to it ────────────────────── */}
-      <div className="relative w-[118px] shrink-0 pb-4 sm:w-[130px]">
+      {/* 104px under 400px viewports: at 320–360px a 118px photo leaves the
+          name column ~150px wide, truncating most dish names to one word. */}
+      <div className="relative w-[104px] shrink-0 pb-4 min-[400px]:w-[118px] sm:w-[130px]">
         <div className="bg-hair-2 relative aspect-[4/3.4] w-full overflow-hidden rounded-2xl">
           {/* eslint-disable-next-line @next/next/no-img-element -- dish images
               come from Supabase Storage and arbitrary admin-pasted URLs, which
               next/image's loader would need a remotePatterns entry per host. */}
           <img
             src={item.image || FALLBACK_DISH_IMAGE}
-            alt=""
+            alt={item.image ? `Photo of ${item.name}` : `${item.name} (photo coming soon)`}
             loading="lazy"
             decoding="async"
             onError={(e) => {

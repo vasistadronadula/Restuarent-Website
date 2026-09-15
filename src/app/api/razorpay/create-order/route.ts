@@ -5,6 +5,8 @@ import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { log } from '@/lib/logger';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { CheckoutValidationError, priceCheckout } from '@/lib/checkoutPricing';
+import { ORDER_ID_PATTERN } from '@/lib/idGenerator';
+import { signCheckoutQuote } from '@/lib/billing/checkoutQuote';
 
 /** Sanity ceiling on a single takeaway bill, in rupees. */
 const MAX_ORDER_AMOUNT = 100_000;
@@ -39,6 +41,10 @@ export async function POST(request: Request) {
   try {
     const { amount, currency = 'INR', receipt, notes, items, couponCode } = await request.json();
 
+    if (typeof receipt !== 'string' || !ORDER_ID_PATTERN.test(receipt) || receipt.length > 40) {
+      return NextResponse.json({ error: 'A valid order receipt is required.' }, { status: 400 });
+    }
+
     const numericAmount = Number(amount);
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       return NextResponse.json({ error: 'Invalid amount' }, { status: 400 });
@@ -54,7 +60,8 @@ export async function POST(request: Request) {
     if (!admin) {
       return NextResponse.json({ error: 'Checkout is not configured on the server.' }, { status: 503 });
     }
-    const { totals } = await priceCheckout(admin, items, couponCode);
+    const pricing = await priceCheckout(admin, items, couponCode);
+    const { totals } = pricing;
     if (numericAmount !== totals.grandTotal) {
       return NextResponse.json(
         { error: 'Your cart total has changed. Refresh and review your cart before paying.' },
@@ -77,11 +84,12 @@ export async function POST(request: Request) {
     const order = await instance.orders.create({
       amount: Math.round(totals.grandTotal * 100),
       currency,
-      receipt: typeof receipt === 'string' ? receipt.slice(0, 40) : `rcpt_${Date.now()}`,
+      receipt,
       notes: notes && typeof notes === 'object' ? notes : {},
     });
 
-    return NextResponse.json(order);
+    const checkoutToken = signCheckoutQuote({ orderId: receipt, gatewayOrderId: order.id, pricing });
+    return NextResponse.json({ ...order, checkoutToken });
   } catch (error) {
     if (error instanceof CheckoutValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });

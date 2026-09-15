@@ -135,7 +135,7 @@ export function billSummaryLines(order: Order): BillLine[] {
   const extraCharges = delivery + packaging;
   const cgst = Number(order.cgst) || 0;
   const sgst = Number(order.sgst) || 0;
-  const grandTotal = Number(order.grandTotal) || subtotal;
+  const grandTotal = Number.isFinite(Number(order.grandTotal)) ? Number(order.grandTotal) : subtotal;
 
   const taxable = round2(subtotal - discount);
   const beforeRounding = round2(taxable + extraCharges + cgst + sgst);

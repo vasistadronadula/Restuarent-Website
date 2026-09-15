@@ -1,6 +1,6 @@
 'use client';
 
-import React, { Suspense, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail, MailCheck, LogIn, Phone, Smartphone, KeyRound } from 'lucide-react';
@@ -31,6 +31,13 @@ function LoginForm() {
   const [mode, setMode] = useState<'login' | 'forgot'>(
     searchParams.get('mode') === 'forgot' ? 'forgot' : 'login',
   );
+
+  // A later ?mode=forgot navigation must reflect in the form: the initial
+  // useState read above runs only on mount.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMode(searchParams.get('mode') === 'forgot' ? 'forgot' : 'login');
+  }, [searchParams]);
   const [authMethod, setAuthMethod] = useState<AuthMethod>('email');
 
   const [email, setEmail] = useState('');
@@ -84,6 +91,7 @@ function LoginForm() {
       if (res.success) {
         landAfterLogin(res.role ?? 'customer', redirectTo);
       } else {
+        setFormError('Sign in failed. Check your email and password, then try again.');
         setLoading(false);
       }
     } catch (err) {
@@ -253,8 +261,9 @@ function LoginForm() {
               <div className="flex items-center justify-center gap-4">
                 <button
                   type="button"
-                  onClick={signInWithGoogle}
-                  className="w-10 h-10 border border-hair-1 dark:border-ink-1 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs"
+                  onClick={() => { if (!loading) { setLoading(true); void signInWithGoogle().finally(() => setLoading(false)); } }}
+                  disabled={loading}
+                  className="w-10 h-10 border border-hair-1 dark:border-ink-1 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs disabled:opacity-60"
                   title="Sign in with Google"
                 >
                   <GoogleIcon />
@@ -359,8 +368,9 @@ function LoginForm() {
           <div className="flex items-center justify-center gap-4">
             <button
               type="button"
-              onClick={signInWithGoogle}
-              className="w-10 h-10 border border-hair-1 dark:border-ink-1 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs"
+              onClick={() => { if (!loading) { setLoading(true); void signInWithGoogle().finally(() => setLoading(false)); } }}
+              disabled={loading}
+              className="w-10 h-10 border border-hair-1 dark:border-ink-1 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs disabled:opacity-60"
               title="Sign in with Google"
             >
               <GoogleIcon />

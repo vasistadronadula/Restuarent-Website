@@ -90,7 +90,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 });
   }
 
-  const idToken = typeof body.idToken === 'string' ? body.idToken : '';
+  const idToken = typeof body?.idToken === 'string' ? body.idToken : '';
   if (!idToken) {
     return NextResponse.json({ error: 'Missing verification token.' }, { status: 400 });
   }
@@ -211,7 +211,7 @@ export async function POST(request: Request) {
 }
 
 type AdminClient = NonNullable<ReturnType<typeof getSupabaseAdmin>>;
-type AuthUser = { id: string; user_metadata?: Record<string, unknown> | null };
+type AuthUser = { id: string; user_metadata?: Record<string, unknown> | null; app_metadata?: Record<string, unknown> | null };
 
 /**
  * Settles the auth user before a session token is minted for it: gives the
@@ -238,7 +238,7 @@ async function hardenAccount(
   requestedName: string,
 ): Promise<boolean> {
   const metadata = user.user_metadata ?? {};
-  const alreadySecured = metadata.phone_auth_secured === true;
+  const alreadySecured = user.app_metadata?.phone_auth_secured === true;
   const existingName = typeof metadata.full_name === 'string' ? metadata.full_name.trim() : '';
   // Only fills a blank — a customer who set their name in their profile must
   // not have it overwritten by whatever was typed on a later sign-in form.
@@ -250,6 +250,7 @@ async function hardenAccount(
 
   const { error } = await admin.auth.admin.updateUserById(user.id, {
     ...(rotatePassword ? { password: randomBytes(48).toString('base64url') } : {}),
+    app_metadata: { ...user.app_metadata, phone_auth_secured: true },
     user_metadata: {
       ...metadata,
       full_name: existingName || requestedName || `Customer ${mobile.slice(-4)}`,
@@ -260,12 +261,7 @@ async function hardenAccount(
   });
 
   if (error) {
-    // Swallowed on purpose: the customer in front of us has verified their SMS
-    // and should not be turned away because a hardening write had a bad
-    // moment. Reporting no rotation keeps the already-valid token in play, and
-    // the next sign-in retries this.
-    console.warn('[auth/phone] could not harden account:', error.message);
-    return false;
+    throw new Error('Could not secure the phone account. Please retry sign-in.');
   }
 
   return rotatePassword;
@@ -287,25 +283,15 @@ async function syncProfile(
   mobile: string,
   requestedName: string,
 ): Promise<SyncProfileResult> {
-  // 1. Try to find profile by ID or Phone
-  const { data: byId, error: readError } = await admin
+  // Profile phone fields are user-editable contact details, not identity proof.
+  // Never read or update another account by matching one of those fields.
+  const { data: existing, error: readError } = await admin
     .from('profiles')
     .select('id, full_name, email, phone')
     .eq('id', userId)
     .maybeSingle();
-  let existing = byId;
-
-  if (!existing && !readError) {
-    const { data: phoneMatch } = await admin
-      .from('profiles')
-      .select('id, full_name, email, phone')
-      .eq('phone', mobile)
-      .maybeSingle();
-    if (phoneMatch) existing = phoneMatch;
-  }
-
   if (readError) {
-    console.warn('[auth/phone] could not read profile:', readError.message);
+    throw new Error('Could not load the phone account profile.');
   }
 
   const isGenericName = (name?: string) => !name || name.trim().startsWith('Customer ');

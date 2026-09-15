@@ -19,10 +19,13 @@ See the [Backend README](backend/README.md) for configuration, endpoints, and st
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000
+npm run dev      # http://localhost:3001
 npm run build    # production build
 npm run lint
 ```
+
+See [the public launch review](docs/LAUNCH_REVIEW.md) for required corrective
+database migrations, regression checks and deployment verification.
 
 ## Environment
 

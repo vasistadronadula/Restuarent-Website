@@ -172,6 +172,7 @@ export default function CartPage() {
                   cgst={totals.cgst}
                   sgst={totals.sgst}
                   grandTotal={totals.grandTotal}
+                  roundOff={totals.roundOff}
                 />
 
                 {/* Desktop only. On a phone the fixed bar at the bottom of the

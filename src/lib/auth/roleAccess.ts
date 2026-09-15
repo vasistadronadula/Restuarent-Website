@@ -37,7 +37,9 @@ export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[] | 'all'> = {
 };
 
 export const ROLE_DENIED_PREFIXES: Partial<Record<UserRole, string[]>> = {
-  manager: ['/admin/employees'],
+  // Employees and the audit trail are the two admin-only modules: payroll
+  // data and the tamper-evident change log must not be reachable by managers.
+  manager: ['/admin/employees', '/admin/audit'],
 };
 
 // Reachable by every staff role regardless of ROLE_ALLOWED_PREFIXES: the

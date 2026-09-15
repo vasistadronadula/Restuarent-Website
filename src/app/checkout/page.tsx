@@ -24,7 +24,7 @@ import { generateOrderId } from '@/lib/idGenerator';
 import { supabase } from '@/lib/supabase';
 import { normalizePhone, validatePhone } from '@/lib/validation';
 import { accountDisplayName, isInternalPhoneEmail } from '@/lib/phoneIdentity';
-import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
+import { triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
 import { Skeleton } from '@/components/ui/skeleton';
 import { restaurantInfo } from '@/data/restaurantInfo';
 import { buildPrepTimeMap, estimateOrderMinutes } from '@/lib/orderEstimate';
@@ -33,8 +33,16 @@ import type { Order, PaymentMode } from '@/types';
 interface RazorpayResponse {
   razorpay_order_id: string;
   razorpay_payment_id: string;
-  razorpay_signature: string;
+  razorpay_signature?: string;
 }
+interface PendingPayment {
+  orderId: string;
+  checkoutToken: string;
+  gatewayOrderId: string;
+  amount: number;
+  customer: { name: string; phone: string };
+}
+const PENDING_PAYMENT_KEY = 'ppr:pendingPayment';
 interface RazorpayOptions {
   key: string;
   amount?: number;
@@ -61,15 +69,16 @@ const loadRazorpayScript = (): Promise<boolean> => {
   return new Promise((resolve) => {
     if (window.Razorpay) { resolve(true); return; }
     const script = document.createElement('script');
+    const timer = window.setTimeout(() => { script.remove(); resolve(false); }, 15_000);
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
+    script.onload = () => { window.clearTimeout(timer); resolve(Boolean(window.Razorpay)); };
+    script.onerror = () => { window.clearTimeout(timer); script.remove(); resolve(false); };
     document.body.appendChild(script);
   });
 };
 
 function CheckoutForm() {
-  const { state, subtotal, cgst, sgst, discountAmount, grandTotal, clearCart } = useCart();
+  const { state, subtotal, cgst, sgst, discountAmount, grandTotal, roundOff, clearCart } = useCart();
   const { user } = useAuth();
   const { menuItems } = useAdmin();
 
@@ -88,7 +97,21 @@ function CheckoutForm() {
   const submittingRef = useRef(false);
   const retrySaveRef = useRef<(() => Promise<void>) | null>(null);
   const attemptRef = useRef<{ basket: string; id: string } | null>(null);
+  const pendingPaymentRef = useRef<PendingPayment | null>(null);
   const finishAttempt = () => { submittingRef.current = false; setLoading(false); };
+
+  React.useEffect(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(PENDING_PAYMENT_KEY) || 'null');
+      if (saved && typeof saved.orderId === 'string' && typeof saved.checkoutToken === 'string'
+          && typeof saved.gatewayOrderId === 'string' && Number.isFinite(saved.amount)
+          && typeof saved.customer?.name === 'string' && typeof saved.customer?.phone === 'string') {
+        pendingPaymentRef.current = saved;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setAwaitingConfirmation(true);
+      }
+    } catch { /* Storage may be disabled; in-memory recovery still works. */ }
+  }, []);
 
   // Autofill form state with logged-in user profile details
   React.useEffect(() => {
@@ -137,7 +160,7 @@ function CheckoutForm() {
     if (!effectiveName.trim()) e.name = 'Full name required';
     if (!effectivePhone.trim()) {
       e.phone = 'Mobile number required';
-    } else if (validatePhone(effectivePhone)) {
+    } else if (validatePhone(effectivePhone) !== null) {
       e.phone = 'Enter valid 10-digit mobile number';
     }
     setErrors(e);
@@ -156,7 +179,8 @@ function CheckoutForm() {
     id: string,
     mode: PaymentMode,
     razorpayResponse?: RazorpayResponse,
-    customer: { name: string; phone: string } = { name: effectiveName, phone: effectivePhone }
+    customer: { name: string; phone: string } = { name: effectiveName, phone: effectivePhone },
+    checkoutToken?: string
   ) => {
     const orderItemPayload = state.items.map((i) => ({
       menuItemId: i.id,
@@ -214,6 +238,7 @@ function CheckoutForm() {
           items: orderItemPayload,
           couponCode: state.couponCode,
           razorpay: razorpayResponse,
+          checkoutToken,
         }),
       });
       const savedOrder = await res.json().catch(() => null);
@@ -224,7 +249,7 @@ function CheckoutForm() {
       if (!user) {
         try {
           const guestOrders = JSON.parse(localStorage.getItem('ppr:guestOrderIds') || '[]');
-          const updated = [id, ...(Array.isArray(guestOrders) ? guestOrders : []).filter((oid: unknown) => typeof oid === 'string' && oid !== id)];
+          const updated = [id, ...(Array.isArray(guestOrders) ? guestOrders : []).filter((oid: unknown) => typeof oid === 'string' && oid !== id)].slice(0, 50);
           localStorage.setItem('ppr:guestOrderIds', JSON.stringify(updated));
           if (customer.phone) {
             localStorage.setItem('ppr:guestPhone', customer.phone.trim());
@@ -234,11 +259,12 @@ function CheckoutForm() {
         }
       }
 
-      triggerNewOrderPush(id);
       triggerWhatsAppOrderConfirmation(id);
       setCompletedOrder({ ...previewOrder, ...savedOrder } as Order);
       setPlaced(true);
       retrySaveRef.current = null;
+      pendingPaymentRef.current = null;
+      try { sessionStorage.removeItem(PENDING_PAYMENT_KEY); } catch { /* Optional storage. */ }
       setAwaitingConfirmation(false);
       clearCart();
       finishAttempt();
@@ -250,12 +276,84 @@ function CheckoutForm() {
     }
   };
 
+  const recoverPayment = async (pending: PendingPayment, reopenIfUnpaid: boolean) => {
+    try {
+      const res = await fetch('/api/razorpay/order-status', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checkoutToken: pending.checkoutToken }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result?.error || 'Payment status could not be checked.');
+      // A normal success callback may have arrived while the status request was in flight.
+      if (paymentHandledRef.current) return;
+      if (result.paid && result.razorpay_payment_id) {
+        paymentHandledRef.current = true;
+        retrySaveRef.current = () => finalizeOrder(pending.orderId, 'razorpay', result, pending.customer, pending.checkoutToken);
+        await retrySaveRef.current();
+      } else if (reopenIfUnpaid && !result.pending) {
+        await openPayment(pending);
+      } else {
+        toast.error(result.pending
+          ? 'Your payment is still processing. Retry confirmation in a moment.'
+          : 'Payment is not confirmed. Retry confirmation to check again or resume the same payment.');
+        finishAttempt();
+      }
+    } catch {
+      toast.error('Could not check payment status. Retry confirmation before making another payment.');
+      finishAttempt();
+    }
+  };
+
+  const openPayment = async (pending: PendingPayment) => {
+    const scriptLoaded = await loadRazorpayScript();
+    const key = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+    if (!scriptLoaded || !key || !window.Razorpay) {
+      toast.error('Payment window could not be loaded. Retry confirmation to resume your payment.');
+      finishAttempt();
+      return;
+    }
+    paymentHandledRef.current = false;
+    const options: RazorpayOptions = {
+      key, amount: pending.amount, currency: 'INR', name: 'Pala Pitta Ruchulu',
+      description: `Takeaway Order #${pending.orderId}`, image: '/logo.png',
+      order_id: pending.gatewayOrderId,
+      prefill: { name: pending.customer.name, contact: pending.customer.phone },
+      theme: { color: '#DF301C' },
+      handler: async (response) => {
+        if (paymentHandledRef.current) return;
+        paymentHandledRef.current = true;
+        toast.loading('Confirming your payment…', { id: 'verify-toast' });
+        retrySaveRef.current = () => finalizeOrder(pending.orderId, 'razorpay', response, pending.customer, pending.checkoutToken);
+        await retrySaveRef.current();
+        toast.dismiss('verify-toast');
+      },
+      modal: {
+        ondismiss: async () => {
+          if (paymentHandledRef.current) return;
+          await recoverPayment(pending, false);
+        },
+      },
+    };
+    try { new window.Razorpay(options).open(); }
+    catch {
+      toast.error('Payment window could not be opened. Retry confirmation to resume.');
+      finishAttempt();
+    }
+  };
+
   const handleProceedToPayment = async () => {
     if (submittingRef.current) return;
     if (retrySaveRef.current) {
       submittingRef.current = true;
       setLoading(true);
       await retrySaveRef.current();
+      return;
+    }
+    if (pendingPaymentRef.current) {
+      submittingRef.current = true;
+      setLoading(true);
+      await recoverPayment(pendingPaymentRef.current, true);
       return;
     }
     if (!validateDetails()) return;
@@ -296,7 +394,7 @@ function CheckoutForm() {
     submittingRef.current = true;
     setLoading(true);
 
-    const basket = JSON.stringify({ items: state.items, couponCode: state.couponCode, name: effectiveName, phone: effectivePhone, paymentChoice, userId: user?.id });
+    const basket = JSON.stringify({ items: state.items, couponCode: state.couponCode, name: effectiveName, phone: effectivePhone, paymentChoice, userId: user?.id, grandTotal });
     if (attemptRef.current?.basket !== basket) attemptRef.current = { basket, id: generateOrderId() };
     const activeOrderId = attemptRef.current.id;
 
@@ -306,7 +404,7 @@ function CheckoutForm() {
     }
 
     // Online Payment mode
-    let orderData: { id?: string; amount?: number; currency?: string } | undefined;
+    let orderData: { id?: string; amount?: number; currency?: string; checkoutToken?: string } | undefined;
     try {
       const res = await fetch('/api/razorpay/create-order', {
         method: 'POST',
@@ -324,7 +422,7 @@ function CheckoutForm() {
       });
       const paymentResult = await res.json();
       orderData = paymentResult;
-      if (!res.ok || !orderData?.id) {
+      if (!res.ok || !orderData?.id || !orderData.checkoutToken || !orderData.amount) {
         toast.error(paymentResult?.error || 'Online payment service is momentarily busy. You can pay at counter or retry.');
         finishAttempt();
         return;
@@ -335,69 +433,19 @@ function CheckoutForm() {
       return;
     }
 
-    const scriptLoaded = await loadRazorpayScript();
-    const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-
-    if (!scriptLoaded || !razorpayKey) {
-      toast.error('Payment window could not be loaded. Please try paying at counter.');
-      finishAttempt();
-      return;
-    }
-
-    paymentHandledRef.current = false;
-
-    const options: RazorpayOptions = {
-      key: razorpayKey,
-      amount: orderData.amount,
-      currency: orderData.currency || 'INR',
-      name: 'Pala Pitta Ruchulu',
-      description: `Takeaway Order #${activeOrderId}`,
-      image: '/logo.png',
-      order_id: orderData.id,
-      prefill: { name: effectiveName, contact: effectivePhone },
-      // Matches --brand-500 in globals.css — this modal is the one surface
-      // Razorpay owns, so it's themed by hand rather than reading the CSS
-      // variable, but it still has to agree with everything else on screen.
-      theme: { color: '#DF301C' },
-      handler: async function (response) {
-        // Razorpay closes the modal right after calling `handler`, which
-        // also fires `ondismiss` — mark this payment handled so that
-        // fallback check doesn't re-run against the same order.
-        if (paymentHandledRef.current) return;
-        paymentHandledRef.current = true;
-        toast.loading('Confirming your payment…', { id: 'verify-toast' });
-        // Checkout verifies the signature, captured payment and amount itself.
-        // Retry that same save after a network failure instead of charging again.
-        retrySaveRef.current = () => finalizeOrder(activeOrderId, 'razorpay', response);
-        setAwaitingConfirmation(true);
-        await retrySaveRef.current();
-        toast.dismiss('verify-toast');
-      },
-      modal: {
-        ondismiss: async function () {
-          if (paymentHandledRef.current) return;
-          toast.error('Payment cancelled.');
-          finishAttempt();
-        },
-      },
+    const pending: PendingPayment = {
+      orderId: activeOrderId, gatewayOrderId: orderData.id,
+      checkoutToken: orderData.checkoutToken, amount: orderData.amount,
+      customer: { name: effectiveName, phone: effectivePhone },
     };
-
-    if (!window.Razorpay) {
-      toast.error('Payment window could not be loaded. Try paying at counter.');
-      finishAttempt();
-      return;
-    }
-    try {
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } catch {
-      toast.error('Payment window could not be opened. Please retry.');
-      finishAttempt();
-    }
+    pendingPaymentRef.current = pending;
+    try { sessionStorage.setItem(PENDING_PAYMENT_KEY, JSON.stringify(pending)); } catch { /* In-memory recovery remains available. */ }
+    setAwaitingConfirmation(true);
+    await openPayment(pending);
   };
 
   // ─── Empty cart ─────────────────────────────────────────────────────────
-  if (state.items.length === 0 && !placed) {
+  if (state.items.length === 0 && !placed && !awaitingConfirmation) {
     return (
       <div className="bg-store flex min-h-screen flex-col">
         <Navbar />
@@ -541,6 +589,14 @@ function CheckoutForm() {
               <Store className="text-brand size-4" />
               Takeaway — collect from our {restaurantInfo.locality} counter
             </p>
+            <div aria-live="polite">
+              {awaitingConfirmation && (
+                <p role="status" className="mt-3 rounded-xl bg-brand-50 p-3 text-sm text-brand-700">
+                  A payment is awaiting confirmation. Retry confirmation to check its status or resume the same payment.
+                  Your original basket and amount are preserved. If you need help, call {restaurantInfo.phone}.
+                </p>
+              )}
+            </div>
           </header>
 
           <div className="grid items-start gap-5 lg:grid-cols-[1fr_25rem]">
@@ -558,7 +614,7 @@ function CheckoutForm() {
                     label="Full name"
                     icon={User}
                     error={errors.name}
-                    value={effectiveName}
+                    value={effectiveName ?? ''}
                     onChange={(value) => setForm({ ...form, name: value })}
                     placeholder="Name for the order"
                     autoComplete="name"
@@ -570,7 +626,7 @@ function CheckoutForm() {
                     icon={Phone}
                     error={errors.phone}
                     hint="We'll text you when the order is ready."
-                    value={effectivePhone}
+                    value={effectivePhone ?? ''}
                     onChange={(value) => setForm({ ...form, phone: value })}
                     placeholder="10-digit mobile number"
                     autoComplete="tel"
@@ -591,7 +647,7 @@ function CheckoutForm() {
                 >
                   <PaymentOption
                     selected={paymentChoice === 'online'}
-                    disabled={loading}
+                    disabled={loading || awaitingConfirmation}
                     onSelect={() => setPaymentChoice('online')}
                     icon={CreditCard}
                     title="Pay online"
@@ -599,7 +655,7 @@ function CheckoutForm() {
                   />
                   <PaymentOption
                     selected={paymentChoice === 'counter'}
-                    disabled={loading}
+                    disabled={loading || awaitingConfirmation}
                     onSelect={() => setPaymentChoice('counter')}
                     icon={Banknote}
                     title="Pay at counter"
@@ -649,6 +705,7 @@ function CheckoutForm() {
                 cgst={cgst}
                 sgst={sgst}
                 grandTotal={grandTotal}
+                roundOff={roundOff}
                 className="border-hair-2 mt-4 border-t pt-4"
               />
 

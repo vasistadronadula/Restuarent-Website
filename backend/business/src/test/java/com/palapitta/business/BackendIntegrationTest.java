@@ -49,6 +49,7 @@ class BackendIntegrationTest {
     @Autowired ObjectMapper json;
     @Autowired JdbcTemplate db;
     @Autowired AuthService auth;
+    @Autowired OrderService orders;
     @LocalServerPort int port;
 
     @BeforeEach
@@ -182,6 +183,12 @@ class BackendIntegrationTest {
                 record_id TEXT,
                 new_data JSONB
             );
+            CREATE TABLE IF NOT EXISTS public.checkout_requests (
+                request_key TEXT PRIMARY KEY,
+                request_hash TEXT NOT NULL,
+                order_id TEXT NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+                created_at TIMESTAMPTZ DEFAULT now()
+            );
             TRUNCATE public.profiles, public.menu_items, public.menu_categories, public.inventory_items,
                      public.employees, public.restaurant_tables, public.coupons, public.reservations,
                      public.admin_audit_log, public.orders CASCADE;
@@ -219,6 +226,8 @@ class BackendIntegrationTest {
         String customer = account("customer"), stranger = account("customer"), chef = account("chef");
         send(post("/api/v1/data/menu_items"), customer, Map.of("name","Hack","category","X","price",1)).andExpect(status().isForbidden());
         send(get("/api/v1/data/employees"), chef, null).andExpect(status().isForbidden());
+        send(get("/api/v1/data/employees"), account("manager"), null).andExpect(status().isForbidden());
+        send(get("/api/v1/data/inventory_items"), account("waiter"), null).andExpect(status().isForbidden());
         send(get("/api/v1/data/inventory_items"), null, null).andExpect(status().isUnauthorized());
         send(get("/api/v1/data/unknown_resource"), customer, null).andExpect(status().isNotFound());
 
@@ -228,6 +237,7 @@ class BackendIntegrationTest {
         send(get(path + "/" + id), stranger, null).andExpect(status().isNotFound());
         send(get(path), stranger, null).andExpect(jsonPath("$.data.length()").value(0));
         send(patch(path + "/" + id), customer, Map.of("status","confirmed")).andExpect(status().isForbidden());
+        send(patch(path + "/" + id), customer, Map.of("table_number",1)).andExpect(status().isForbidden());
 
         send(get("/api/v1/auth/me"), customer, null).andExpect(status().isOk())
             .andExpect(jsonPath("$.role").value("customer"));
@@ -257,10 +267,82 @@ class BackendIntegrationTest {
 
     @Test
     void guestCannotOpenDiningTableOrder() throws Exception {
-        send(post("/api/v1/orders/checkout"), null, Map.of(
+        send(post("/api/v1/orders/checkout").header("Idempotency-Key", UUID.randomUUID().toString()), null, Map.of(
             "customerName", "Guest", "customerPhone", "9999999999", "orderType", "dine-in",
             "tableNumber", 1, "items", List.of(Map.of("menuItemId", "dish", "quantity", 1))
         )).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void checkoutRetriesAreDurableScopedAndBasketBound() throws Exception {
+        String admin = account("admin"), customer = account("customer");
+        String item = body(send(post("/api/v1/data/menu_items"), admin,
+            Map.of("name", "Rice", "category", "Rice", "price", 100)).andExpect(status().isCreated())).path("data").path("id").asText();
+        Map<String,Object> basket = Map.of("customerName", "Diner", "customerPhone", "9999999999", "orderType", "takeaway",
+            "items", List.of(Map.of("menuItemId", item, "quantity", 1)));
+        String key = UUID.randomUUID().toString();
+        String path = "/api/v1/orders/checkout";
+        String first = body(send(post(path).header("Idempotency-Key", key), null, basket).andExpect(status().isOk())).path("data").path("id").asText();
+        // A new service instance has no memory of the first call.
+        OrderService restarted = new OrderService(db, json);
+        assertEquals(first, restarted.checkout(json.convertValue(basket, OrderService.Checkout.class), key, null).get("id"));
+        Map<String,Object> changed = new HashMap<>(basket);
+        changed.put("customerName", "Different diner");
+        send(post(path).header("Idempotency-Key", key), null, changed).andExpect(status().isConflict());
+        String owned = body(send(post(path).header("Idempotency-Key", key), customer, basket).andExpect(status().isOk())).path("data").path("id").asText();
+        assertNotEquals(first, owned);
+        assertEquals(2, db.queryForObject("SELECT count(*) FROM public.orders", Integer.class));
+        // No key, no sale: retries without one would mint duplicates.
+        send(post(path), null, basket).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void concurrentGuestRetriesCommitOneOrder() throws Exception {
+        db.update("INSERT INTO public.menu_items(id,name,category,price) VALUES ('rice','Rice','Rice',100)");
+        var basket = new OrderService.Checkout("Guest", "9999999999", "takeaway", null,
+            List.of(new OrderService.Line("rice", 1, null)), null);
+        String key = UUID.randomUUID().toString();
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try (var pool = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            java.util.concurrent.Callable<Object> submit = () -> { start.await(); return orders.checkout(basket, key, null).get("id"); };
+            var a = pool.submit(submit);
+            var b = pool.submit(submit);
+            start.countDown();
+            assertEquals(a.get(10, java.util.concurrent.TimeUnit.SECONDS), b.get(10, java.util.concurrent.TimeUnit.SECONDS));
+        }
+        assertEquals(1, db.queryForObject("SELECT count(*) FROM public.orders", Integer.class));
+    }
+
+    @Test
+    void existingAdminEmailAndIdAreNotAuthenticationTokens() throws Exception {
+        account("admin");
+        var profile = db.queryForMap("SELECT id,email FROM public.profiles WHERE role='admin'");
+        send(get("/api/v1/data/employees"), profile.get("id").toString(), null).andExpect(status().isUnauthorized());
+        send(get("/api/v1/data/employees"), profile.get("email").toString(), null).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void conditionalWritesRejectStaleVersions() throws Exception {
+        String admin = account("admin");
+        JsonNode item = body(send(post("/api/v1/data/menu_items"), admin,
+            Map.of("name", "Rice", "category", "Rice", "price", 100)).andExpect(status().isCreated())).path("data");
+        String path = "/api/v1/data/menu_items/" + item.path("id").asText();
+        String etag = "\"" + item.path("version").asLong() + "\"";
+        send(get(path), admin, null).andExpect(header().string("ETag", etag));
+        send(patch(path).header("If-Match", etag), admin, Map.of("price", 120)).andExpect(status().isOk());
+        send(patch(path).header("If-Match", etag), admin, Map.of("price", 1)).andExpect(status().isConflict());
+        send(delete(path).header("If-Match", etag), admin, null).andExpect(status().isConflict());
+        send(patch(path).header("If-Match", "invalid"), admin, Map.of("price", 1)).andExpect(status().isBadRequest());
+
+        JsonNode order = body(send(post("/api/v1/orders/checkout").header("Idempotency-Key", UUID.randomUUID().toString()), null, Map.of(
+            "customerName", "Guest", "customerPhone", "9999999999", "orderType", "takeaway",
+            "items", List.of(Map.of("menuItemId", item.path("id").asText(), "quantity", 1))
+        )).andExpect(status().isOk())).path("data");
+        String orderPath = "/api/v1/orders/" + order.path("id").asText();
+        String orderVersion = "\"" + order.path("version").asLong() + "\"";
+        send(patch(orderPath + "/status").header("If-Match", orderVersion), admin, Map.of("status", "preparing")).andExpect(status().isOk());
+        send(patch(orderPath + "/status").header("If-Match", orderVersion), admin, Map.of("status", "ready")).andExpect(status().isConflict());
+        send(post(orderPath + "/cash-payment").header("If-Match", orderVersion), admin, null).andExpect(status().isConflict());
     }
 
     private String account(String role) {
@@ -268,7 +350,7 @@ class BackendIntegrationTest {
         String email = role + "_" + id + "@example.com";
         db.update("INSERT INTO public.profiles(id, email, full_name, role) VALUES (?,?,?,?)",
             id, email, "Test " + role, role);
-        return auth.createTestToken(id, email, role);
+        return TestTokens.user(id, email);
     }
 
     private ResultActions send(MockHttpServletRequestBuilder req, String token, Object body) throws Exception {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { computeBillTotals, GST_RATE } from './billing';
+import { billSummaryLines } from './billDocument';
+import type { Order } from '@/types';
 
 describe('computeBillTotals', () => {
   it('splits GST evenly into CGST and SGST', () => {
@@ -59,5 +61,16 @@ describe('computeBillTotals', () => {
   it('treats a negative or non-finite subtotal as zero rather than throwing', () => {
     expect(computeBillTotals(-500).grandTotal).toBe(0);
     expect(computeBillTotals(NaN).grandTotal).toBe(0);
+  });
+  it('keeps totals finite for malformed discount and packaging values', () => {
+    for (const discount of [NaN, Infinity, { type: 'flat' as const, value: NaN }]) {
+      const bill = computeBillTotals(100, discount, Infinity);
+      expect(bill.grandTotal).toBe(105);
+      expect(bill.roundOff).toBe(0);
+    }
+  });
+  it('preserves a genuinely zero total on a fully discounted receipt', () => {
+    const rows = billSummaryLines({ subtotal: 100, discount: 100, grandTotal: 0, cgst: 0, sgst: 0 } as Order);
+    expect(rows.find(row => row.label === 'TOTAL')?.value).toBe('0.00');
   });
 });

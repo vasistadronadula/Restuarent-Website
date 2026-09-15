@@ -27,6 +27,8 @@ interface CartState {
   reconcileWithMenu: (menu: MenuItem[]) => CartReconciliation;
 }
 
+const dishLimit = (limit?: number) => limit ? Math.min(limit, 200) : 200;
+
 /** What `reconcileWithMenu` changed, so the UI can say so once. */
 export interface CartReconciliation {
   /** Names of lines dropped — the dish is gone from the menu or sold out. */
@@ -49,7 +51,7 @@ export const useCartStore = create<CartState>()(
       addItem: (incoming, quantity = 1) =>
         set((state) => {
           if (!Number.isFinite(quantity) || quantity <= 0) return state;
-          const cap = incoming.maxQuantity;
+          const cap = dishLimit(incoming.maxQuantity);
           // Sum across ALL portions of this dish (e.g., 2×Single + 3×Full = 5).
           // This is the correct total to check against maxQuantity, which is a
           // per-dish limit, not a per-portion limit.
@@ -57,7 +59,7 @@ export const useCartStore = create<CartState>()(
             .reduce((sum, i) => sum + i.quantity, 0);
           const addQty = Math.min(
             Math.max(1, Math.floor(quantity)),
-            cap ? Math.max(0, cap - crossPortionTotal) : Infinity
+            Math.max(0, cap - crossPortionTotal)
           );
           if (addQty === 0) return state;
           const existingIndex = state.items.findIndex(
@@ -97,7 +99,7 @@ export const useCartStore = create<CartState>()(
           const current = state.items[targetIndex];
           const currentTotal = state.items.filter((i) => i.id === id)
             .reduce((sum, i) => sum + i.quantity, 0);
-          if (current.maxQuantity && currentTotal >= current.maxQuantity) return state;
+          if (currentTotal >= dishLimit(current.maxQuantity)) return state;
           const updated = [...state.items];
           updated[targetIndex] = {
             ...updated[targetIndex],
@@ -185,19 +187,16 @@ export const useCartStore = create<CartState>()(
             continue;
           }
 
-          const portion = line.selectedPortion;
+          const portion = line.selectedPortion || 'full';
           const hasPortions = Object.keys(current.portionPrices || {}).length > 0;
           if (portion && (hasPortions ? current.portionPrices?.[portion] === undefined : portion !== 'full')) {
             result.removed.push(line.name);
             changed = true;
             continue;
           }
-          const currentPrice =
-            (portion ? current.portionPrices?.[portion] : undefined) ?? current.price;
+          const currentPrice = hasPortions ? current.portionPrices![portion]! : current.price;
           const used = usedQuantities.get(line.id) || 0;
-          const quantity = current.maxQuantity
-            ? Math.min(line.quantity, Math.max(0, current.maxQuantity - used))
-            : line.quantity;
+          const quantity = Math.min(line.quantity, Math.max(0, dishLimit(current.maxQuantity) - used));
           usedQuantities.set(line.id, used + quantity);
           if (quantity !== line.quantity) {
             result.quantityAdjusted.push(line.name);

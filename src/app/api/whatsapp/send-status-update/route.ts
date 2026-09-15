@@ -1,86 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
+import { NextResponse } from 'next/server';
 import { sendOrderStatusUpdate } from '@/lib/whatsapp';
-import { requireStaff, authErrorResponse } from '@/lib/auth/apiAuth';
-import { log } from '@/lib/logger';
+import { authErrorResponse } from '@/lib/auth/apiAuth';
+import { prepareOrderNotification } from '@/lib/notifications/orderNotification';
 
-/**
- * POST /api/whatsapp/send-status-update
- *
- * Called when the kitchen / cashier changes an order's status.
- * Sends a rich WhatsApp notification to the customer about the new stage.
- *
- * Body: { orderId: string, newStatus: string }
- *
- * Staff-gated. Open, this endpoint let anyone send WhatsApp messages from the
- * restaurant's own business number to any customer whose order id they could
- * guess — contradicting real status updates, and burning the Meta API quota
- * that genuine confirmations depend on.
- */
-export async function POST(req: NextRequest) {
+export async function POST(request: Request) {
   try {
-    await requireStaff(req);
-  } catch (err) {
-    const { body, status } = authErrorResponse(err);
-    return NextResponse.json(body, { status });
-  }
-
-  try {
-    const { orderId, newStatus } = await req.json();
-    if (!orderId || !newStatus) {
-      return NextResponse.json(
-        { error: 'orderId and newStatus required' },
-        { status: 400 }
-      );
-    }
-
-    // Only notify for meaningful status transitions
-    if (!['preparing', 'ready', 'delivered'].includes(newStatus)) {
-      return NextResponse.json({ ok: false, reason: 'status not notifiable' });
-    }
-
-    const supabase = getSupabaseAdmin();
-    if (!supabase) {
-      log.warn('whatsapp_skipped_no_supabase_admin', { route: 'send-status-update' });
-      return NextResponse.json({ ok: false, reason: 'supabase not configured' });
-    }
-
-    // Fetch customer + order details so we can personalise the message
-    const { data, error } = await supabase
-      .from('orders')
-      .select('id, customer_name, customer_phone, order_type, table_number, items')
-      .eq('id', orderId)
-      .single();
-
-    if (error || !data) {
-      log.warn('whatsapp_order_not_found', { orderId, error: error?.message });
-      return NextResponse.json({ ok: false, reason: 'order not found' });
-    }
-
-    // Count items for context in the message
-    let itemCount: number | undefined;
-    try {
-      const items = typeof data.items === 'string' ? JSON.parse(data.items) : data.items;
-      itemCount = Array.isArray(items) ? items.length : undefined;
-    } catch {
-      itemCount = undefined;
-    }
-
-    const sent = await sendOrderStatusUpdate(
-      orderId,
-      data.customer_phone,
-      data.customer_name || 'Customer',
-      newStatus,
-      {
-        orderType: data.order_type,
-        tableNumber: data.table_number ?? undefined,
-        itemCount,
-      }
-    );
-
+    const { order, newStatus, allowed } = await prepareOrderNotification(request, 'status', 'whatsapp');
+    if (!allowed) return NextResponse.json({ ok: true, notified: false });
+    const sent = await sendOrderStatusUpdate(order.id, order.customer_phone, order.customer_name || 'Customer', newStatus!, {
+      orderType: order.order_type, tableNumber: order.table_number ?? undefined,
+      itemCount: Array.isArray(order.items) ? order.items.reduce((sum: number, item: { quantity?: number }) => sum + (Number(item.quantity) || 1), 0) : undefined,
+    });
     return NextResponse.json({ ok: sent });
-  } catch (err) {
-    log.error('whatsapp_status_update_failed', { error: err });
-    return NextResponse.json({ ok: false, reason: 'internal error' }, { status: 500 });
+  } catch (error) {
+    const { body, status } = authErrorResponse(error);
+    return NextResponse.json(body, { status });
   }
 }

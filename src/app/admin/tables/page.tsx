@@ -54,6 +54,7 @@ export default function TablesPage() {
   const stats = useMemo(() => {
     let available = 0, occupied = 0, waitingPayment = 0;
     tables.forEach((t) => {
+      if (!t.isActive) return;
       const status = occupancyMap.get(t.tableNumber)?.status;
       if (status === 'waiting_payment') waitingPayment++;
       else if (status === 'ordered') occupied++;
@@ -100,6 +101,7 @@ export default function TablesPage() {
           tableNumber: values.tableNumber,
           capacity: values.capacity,
           description: values.description,
+          isActive: values.isActive,
         });
         toast.success(`Table ${values.tableNumber} added`);
       }
@@ -116,6 +118,12 @@ export default function TablesPage() {
 
   const handleDelete = async () => {
     if (!deleting) return;
+    // A table with a live order on it must not disappear mid-service: the
+    // KDS ticket and POS bill would point at a table that no longer exists.
+    if (occupancyMap.get(deleting.tableNumber)?.activeOrder) {
+      toast.error(`Table ${deleting.tableNumber} has a live order — settle it before deleting.`);
+      return;
+    }
     try {
       await deleteTable.mutateAsync(deleting.id);
       toast.success(`Table ${deleting.tableNumber} deleted`);
@@ -126,11 +134,15 @@ export default function TablesPage() {
   };
 
   const toggleActive = useCallback((t: RestaurantTable, next: boolean) => {
+    if (!next && occupancyMap.get(t.tableNumber)?.activeOrder) {
+      toast.error(`Table ${t.tableNumber} has a live order — settle it before disabling.`);
+      return;
+    }
     updateTable.mutate(
       { ...t, isActive: next },
       { onError: (err) => toast.error((err as Error).message || `Could not update table ${t.tableNumber}`) }
     );
-  }, [updateTable]);
+  }, [updateTable, occupancyMap]);
 
   return (
     <AdminLayout title="Table management">

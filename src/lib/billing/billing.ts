@@ -49,19 +49,19 @@ export function computeBillTotals(
   let discountAmount = 0;
 
   if (typeof discount === 'number') {
-    const safePercent = Math.min(Math.max(discount, 0), 100);
+    const safePercent = Number.isFinite(discount) ? Math.min(Math.max(discount, 0), 100) : 0;
     discountAmount = round2((safeSubtotal * safePercent) / 100);
   } else if (discount.type === 'percent') {
-    const safePercent = Math.min(Math.max(discount.value, 0), 100);
+    const safePercent = Number.isFinite(discount.value) ? Math.min(Math.max(discount.value, 0), 100) : 0;
     discountAmount = round2((safeSubtotal * safePercent) / 100);
   } else if (discount.type === 'flat') {
-    discountAmount = round2(Math.min(Math.max(discount.value, 0), safeSubtotal));
+    discountAmount = Number.isFinite(discount.value) ? round2(Math.min(Math.max(discount.value, 0), safeSubtotal)) : 0;
   }
 
   const taxable = round2(Math.max(0, safeSubtotal - discountAmount));
   const cgst = round2(taxable * HALF_GST_RATE);
   const sgst = round2(taxable * HALF_GST_RATE);
-  const safePackaging = Math.max(0, packagingCharge || 0);
+  const safePackaging = Number.isFinite(packagingCharge) ? round2(Math.max(0, packagingCharge)) : 0;
   const payable = taxable + cgst + sgst + safePackaging;
   const grandTotal = Math.round(payable);
 

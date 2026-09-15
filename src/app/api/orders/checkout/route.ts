@@ -1,17 +1,19 @@
-import { NextResponse } from 'next/server';
+import { after, NextResponse } from 'next/server';
 import { isDeepStrictEqual } from 'node:util';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
+import { ApiAuthError, assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
-import { CheckoutValidationError, priceCheckout } from '@/lib/checkoutPricing';
+import { CheckoutValidationError, parseCheckoutLines, priceCheckout } from '@/lib/checkoutPricing';
 import { orderStamps } from '@/lib/orderTime';
 import { getRazorpayClient, verifyRazorpaySignature } from '@/lib/razorpayServer';
 import { log } from '@/lib/logger';
-import { getTenantContext } from '@/lib/tenantContext';
+import { getTenantContext, tenantInsertFields } from '@/lib/tenantContext';
 import type { PaymentMode, PaymentStatus } from '@/types';
 import { ORDER_ID_PATTERN } from '@/lib/idGenerator';
 import { normalizePhone, validatePhone } from '@/lib/validation';
 import { mapOrder } from '@/lib/queries/mappers';
+import { readCheckoutQuote } from '@/lib/billing/checkoutQuote';
+import { sendNewOrderPushNotification } from '@/lib/pushNotify';
 
 function text(value: unknown, max = 200): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -20,11 +22,19 @@ function text(value: unknown, max = 200): string {
 async function authenticatedUserId(request: Request): Promise<string | null> {
   const header = request.headers.get('authorization');
   const token = header?.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : '';
-  if (!token) return null;
+  if (!header) return null;
+  if (!token) throw new ApiAuthError('Invalid or expired session. Please sign in again.', 401);
   const admin = getSupabaseAdmin();
   if (!admin) return null;
   const { data, error } = await admin.auth.getUser(token);
-  return error ? null : data.user?.id || null;
+  if (error || !data.user) throw new ApiAuthError('Invalid or expired session. Please sign in again.', 401);
+  return data.user.id;
+}
+
+function basketIdentity(lines: unknown) {
+  return parseCheckoutLines(lines).map(line => ({
+    menuItemId: line.menuItemId || line.id, quantity: line.quantity, selectedPortion: line.selectedPortion || 'full',
+  }));
 }
 
 export async function POST(request: Request) {
@@ -57,15 +67,17 @@ export async function POST(request: Request) {
     const paymentMode = text(body?.paymentMode, 20) as PaymentMode;
     const lines = body?.items;
 
-    if (!ORDER_ID_PATTERN.test(orderId) || !customerName || !rawPhone || validatePhone(rawPhone)) {
+    if (!ORDER_ID_PATTERN.test(orderId) || !customerName || !rawPhone || validatePhone(rawPhone) !== null) {
       return NextResponse.json({ error: 'Customer details are incomplete.' }, { status: 400 });
     }
     if (paymentMode !== 'cash' && paymentMode !== 'razorpay') {
       return NextResponse.json({ error: 'Unsupported payment mode.' }, { status: 400 });
     }
 
-    const { items, totals, couponCode } = await priceCheckout(admin, lines, body?.couponCode);
-
+    const quote = body?.checkoutToken ? readCheckoutQuote(body.checkoutToken) : null;
+    if (body?.checkoutToken && (!quote || quote.orderId !== orderId || paymentMode !== 'razorpay')) {
+      return NextResponse.json({ error: 'Invalid payment checkout token.' }, { status: 402 });
+    }
     let paymentStatus: PaymentStatus = 'unpaid';
     let razorpayOrderId: string | null = null;
     let razorpayPaymentId: string | null = null;
@@ -73,17 +85,43 @@ export async function POST(request: Request) {
       razorpayOrderId = text(body?.razorpay?.razorpay_order_id, 120);
       razorpayPaymentId = text(body?.razorpay?.razorpay_payment_id, 120);
       const razorpaySignature = text(body?.razorpay?.razorpay_signature, 200);
-      if (!verifyRazorpaySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
+      if (quote ? quote.gatewayOrderId !== razorpayOrderId : !verifyRazorpaySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
         return NextResponse.json({ error: 'Payment could not be verified.' }, { status: 402 });
       }
+    }
+
+    const userId = await authenticatedUserId(request);
+    const requestedItems = basketIdentity(quote?.pricing.items ?? lines);
+    const requestedCoupon = quote?.pricing.couponCode ?? text(body?.couponCode, 80).toUpperCase();
+    const matchesRetry = (existing: Record<string, unknown>) =>
+      existing.customer_phone === customerPhone && existing.customer_name === customerName &&
+      (existing.user_id || null) === userId && existing.payment_mode === paymentMode &&
+      (existing.razorpay_payment_id || null) === razorpayPaymentId &&
+      (existing.razorpay_order_id || null) === razorpayOrderId &&
+      (existing.coupon_code || '') === requestedCoupon &&
+      isDeepStrictEqual(basketIdentity(existing.items), requestedItems);
+
+    // A committed sale is the source of truth on retry, even when staff have
+    // since changed the menu price, disabled a coupon or sold out the dish.
+    const { data: prior, error: lookupError } = await admin.from('orders').select('*').eq('id', orderId).maybeSingle();
+    if (lookupError) throw lookupError;
+    if (prior) {
+      return matchesRetry(prior)
+        ? NextResponse.json(mapOrder(prior))
+        : NextResponse.json({ error: 'This order ID is already in use for another checkout.' }, { status: 409 });
+    }
+
+    const { items, totals, couponCode } = quote?.pricing ?? await priceCheckout(admin, lines, body?.couponCode);
+
+    if (paymentMode === 'razorpay') {
 
       const razorpay = getRazorpayClient();
       if (!razorpay) {
         return NextResponse.json({ error: 'Online payment is not configured.' }, { status: 503 });
       }
       const [gatewayOrder, gatewayPayment] = await Promise.all([
-        razorpay.orders.fetch(razorpayOrderId),
-        razorpay.payments.fetch(razorpayPaymentId),
+        razorpay.orders.fetch(razorpayOrderId!),
+        razorpay.payments.fetch(razorpayPaymentId!),
       ]);
       const expectedPaise = Math.round(totals.grandTotal * 100);
       if (
@@ -100,11 +138,13 @@ export async function POST(request: Request) {
       paymentStatus = 'paid';
     }
 
-    const userId = await authenticatedUserId(request);
     const tenant = await getTenantContext(admin);
 
     const { orderTime } = orderStamps();
-    const { error: insertError } = await admin.from('orders').insert([{
+    // Tenant columns are optional (added by a later migration). Only send
+    // them when configured so single-restaurant databases without those
+    // columns don't fail the sale with 42703 undefined_column.
+    const row: Record<string, unknown> = {
       id: orderId,
       customer_name: customerName,
       customer_phone: customerPhone,
@@ -127,29 +167,42 @@ export async function POST(request: Request) {
       user_id: userId,
       razorpay_order_id: razorpayOrderId,
       razorpay_payment_id: razorpayPaymentId,
-      tenant_id: tenant.tenant_id,
-      restaurant_id: tenant.restaurant_id,
-      branch_id: tenant.branch_id,
-    }]);
+      ...tenantInsertFields(tenant),
+    };
+    let { error: insertError } = await admin.from('orders').insert([row]);
+
+    // Older databases predate the optional tenant columns. Retry without
+    // them rather than losing a paid sale.
+    if (insertError?.code === '42703') {
+      const rowWithoutTenant = { ...row };
+      delete rowWithoutTenant.tenant_id;
+      delete rowWithoutTenant.restaurant_id;
+      delete rowWithoutTenant.branch_id;
+      ({ error: insertError } = await admin.from('orders').insert([rowWithoutTenant]));
+    }
 
     if (insertError?.code === '23505') {
       // A response can be lost after the insert commits. Reusing the full ID
       // must return the saved order, rather than cause a second sale/payment.
       const { data: existing, error } = await admin.from('orders').select('*').eq('id', orderId).maybeSingle();
       if (error) throw error;
-      if (existing && existing.customer_phone === customerPhone && (existing.user_id || null) === userId &&
-          existing.payment_mode === paymentMode && (existing.razorpay_payment_id || null) === razorpayPaymentId &&
-          Number(existing.grand_total) === totals.grandTotal &&
-          isDeepStrictEqual(existing.items, JSON.parse(JSON.stringify(items)))) {
+      if (existing && matchesRetry(existing)) {
         return NextResponse.json(mapOrder(existing));
       }
       return NextResponse.json({ error: 'This order ID is already in use for another checkout.' }, { status: 409 });
     }
     if (insertError) throw insertError;
 
+    // Guest browsers have no staff/session token for the push trigger. Schedule
+    // the alert server-side only after the first insert commits, not on retries.
+    after(() => sendNewOrderPushNotification(orderId));
+
     return NextResponse.json({
       id: orderId,
       orderId,
+      customerName,
+      customerPhone,
+      orderType: 'takeaway',
       items,
       subtotal: totals.subtotal,
       cgst: totals.cgst,
@@ -165,6 +218,10 @@ export async function POST(request: Request) {
       razorpayPaymentId: razorpayPaymentId || undefined,
     });
   } catch (error) {
+    if (error instanceof ApiAuthError) {
+      const { body, status } = authErrorResponse(error);
+      return NextResponse.json(body, { status });
+    }
     if (error instanceof CheckoutValidationError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

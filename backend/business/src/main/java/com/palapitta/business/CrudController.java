@@ -36,7 +36,7 @@ public class CrudController {
         @RequestBody Map<String,Object> body,
         @RequestHeader(value = "If-Match", required = false) String ifMatch,
         @AuthenticationPrincipal Identity user) {
-        long version = parseVersion(ifMatch);
+        long version = RecordVersion.parse(ifMatch);
         return response(crud.update(resource, id, body, version, user), false);
     }
 
@@ -45,23 +45,13 @@ public class CrudController {
     public void delete(@PathVariable String resource, @PathVariable String id,
         @RequestHeader(value = "If-Match", required = false) String ifMatch,
         @AuthenticationPrincipal Identity user) {
-        long version = parseVersion(ifMatch);
+        long version = RecordVersion.parse(ifMatch);
         crud.delete(resource, id, version, user);
     }
 
     private ResponseEntity<?> response(Map<String,Object> row, boolean created) {
-        Object key = row.containsKey("id") ? row.get("id") : row.get("code");
-        String etag = key != null ? "\"" + key + "\"" : "\"1\"";
+        String etag = "\"" + row.get("version") + "\"";
         return ResponseEntity.status(created ? CREATED : OK).eTag(etag).body(Map.of("data", row));
     }
 
-    private long parseVersion(String value) {
-        if (value == null || value.isBlank()) return 1L;
-        String clean = value.replace("\"", "").trim();
-        try {
-            return Long.parseLong(clean);
-        } catch (NumberFormatException e) {
-            return 1L;
-        }
-    }
 }

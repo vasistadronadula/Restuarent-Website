@@ -89,57 +89,25 @@ export async function requireStaff(request: Request): Promise<StaffCaller> {
  * apply; between them, the endpoint stops being a free amplifier.
  */
 export function assertSameOrigin(request: Request): void {
-  const host = request.headers.get('host');
-  const forwardedHost = request.headers.get('x-forwarded-host');
-
-  const allowedHosts = new Set<string>();
-  if (host) allowedHosts.add(host.toLowerCase().split(':')[0]);
-  if (forwardedHost) allowedHosts.add(forwardedHost.toLowerCase().split(':')[0]);
-
-  // Always permit official deployment hosts and local test environments
-  allowedHosts.add('pala-pitta-ruchulu.vercel.app');
-  allowedHosts.add('palapittaruchulu.vercel.app');
-  allowedHosts.add('localhost');
-  allowedHosts.add('127.0.0.1');
-
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
-  if (siteUrl) {
-    try {
-      allowedHosts.add(new URL(siteUrl).hostname.toLowerCase());
-    } catch {
-      // Misconfigured env var — fall back to known hosts
-    }
+  const allowedOrigins = new Set([new URL(request.url).origin]);
+  for (const configured of [process.env.NEXT_PUBLIC_SITE_URL,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined]) {
+    if (!configured) continue;
+    try { allowedOrigins.add(new URL(configured).origin); } catch { /* Ignore malformed configuration. */ }
   }
-
-  if (process.env.VERCEL_URL) {
-    allowedHosts.add(process.env.VERCEL_URL.toLowerCase().split(':')[0]);
-  }
-
-  // If the browser signals same-origin fetch context directly
-  const secFetchSite = request.headers.get('sec-fetch-site');
-  if (secFetchSite === 'same-origin' || secFetchSite === 'none') {
-    return;
-  }
-
   const candidate = request.headers.get('origin') || request.headers.get('referer');
   if (!candidate) {
+    if (request.headers.get('sec-fetch-site') === 'same-origin') return;
     throw new ApiAuthError('Forbidden', 403);
   }
-
-  let candidateHost: string;
   try {
-    candidateHost = new URL(candidate).hostname.toLowerCase();
+    // Scheme and port are part of an origin. In particular, a localhost tab
+    // must not be allowed to call the production payment endpoints.
+    if (allowedOrigins.has(new URL(candidate).origin)) return;
   } catch {
     throw new ApiAuthError('Forbidden', 403);
   }
-
-  const isAllowed =
-    allowedHosts.has(candidateHost) ||
-    allowedHosts.has(candidateHost.replace(/:\d+$/, ''));
-
-  if (!isAllowed) {
-    throw new ApiAuthError('Forbidden', 403);
-  }
+  throw new ApiAuthError('Forbidden', 403);
 }
 
 /** Turns any thrown guard error into the response the route should return. */

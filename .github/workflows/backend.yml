@@ -1,9 +1,14 @@
 name: Backend CI
+
+concurrency:
+  group: backend-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
-    paths: ["backend/**", ".github/workflows/backend.yml"]
+    paths: ["backend/**", "supabase/migrations/**", ".github/workflows/backend.yml"]
   pull_request:
-    paths: ["backend/**", ".github/workflows/backend.yml"]
+    paths: ["backend/**", "supabase/migrations/**", ".github/workflows/backend.yml"]
 permissions:
   contents: read
 jobs:

@@ -11,7 +11,7 @@
 
 import {
   Armchair, BarChart3, BookOpen, Calculator, ChefHat, ClipboardList,
-  LayoutGrid, Receipt, Ticket, TrendingUp, UserCircle, Users,
+  LayoutGrid, Receipt, ScrollText, Ticket, TrendingUp, UserCircle, Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -132,6 +132,15 @@ export const ADMIN_NAV: readonly AdminNavItem[] = [
     title: 'Employee management',
     description: 'Staff logins, roles, shifts and salaries',
     icon: Users,
+    group: 'Account',
+  },
+  {
+    label: 'Audit log',
+    href: '/admin/audit',
+    kicker: 'Account',
+    title: 'Audit log',
+    description: 'Who changed what across orders, menu and staff',
+    icon: ScrollText,
     group: 'Account',
   },
   {

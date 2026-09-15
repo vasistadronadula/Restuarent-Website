@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -34,11 +37,23 @@ jobs:
 
       - run: npm ci
 
+      - name: Dependency audit
+        run: npm audit --omit=dev
+
       - name: Lint
         run: npm run lint
 
       - name: Unit tests
         run: npm test
 
+      - name: Account maintenance tests
+        run: node --test scripts/securePhoneAccounts.test.mjs
+
       - name: Build
         run: npm run build
+
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser flows
+        run: npm run test:e2e

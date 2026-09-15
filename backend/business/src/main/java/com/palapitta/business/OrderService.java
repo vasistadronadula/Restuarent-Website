@@ -14,7 +14,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,7 +31,7 @@ public class OrderService {
             + "-" + HexFormat.of().formatHex(bytes).substring(0, 19)
             + String.format(Locale.ROOT, "%04d", ORDER_RANDOM.nextInt(10000));
     }
-    public record Line(@NotBlank @Size(max=80) String menuItemId, @Min(1) @Max(1000) int quantity,
+    public record Line(@NotBlank @Size(max=80) String menuItemId, @Min(1) @Max(200) int quantity,
         @Pattern(regexp="single|full|large") String selectedPortion) {}
     public record Checkout(@NotBlank @Size(max=120) String customerName,
         @NotBlank @Pattern(regexp="[+0-9 ()-]{7,25}") String customerPhone,
@@ -43,7 +42,6 @@ public class OrderService {
 
     private final JdbcTemplate db;
     private final ObjectMapper json;
-    private final Map<String, String> idempotencyCache = new ConcurrentHashMap<>();
 
     public OrderService(JdbcTemplate db, ObjectMapper json) {
         this.db = db;
@@ -61,14 +59,27 @@ public class OrderService {
 
     @Transactional
     public Map<String,Object> checkout(Checkout input, String idempotencyKey, Identity user) {
-        String key = idempotencyKey != null ? idempotencyKey : UUID.randomUUID().toString();
-        String hash = hash(encode(input));
-
-        if (idempotencyCache.containsKey(key)) {
-            String existingOrderId = idempotencyCache.get(key);
-            try {
-                return one(existingOrderId, user);
-            } catch (Exception ignored) {}
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 200)
+            throw bad("An idempotency key is required to place an order");
+        String key = idempotencyKey;
+        String requestKey = hash((user == null ? "guest" : user.id().toString()) + ":" + key);
+        String requestHash = hash(encode(input));
+        // Transaction-scoped database lock serializes the same request across
+        // processes. The saved key commits atomically with the order.
+        db.queryForList("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", requestKey);
+        List<Map<String,Object>> previous = db.queryForList(
+            "SELECT request_hash, order_id FROM public.checkout_requests WHERE request_key=?", requestKey);
+        if (!previous.isEmpty()) {
+            Map<String,Object> saved = previous.getFirst();
+            if (!requestHash.equals(saved.get("request_hash"))) throw conflict("Idempotency key already used for a different basket");
+            Map<String,Object> order = decoded(db.queryForMap("SELECT *, xmin::text::bigint AS version FROM public.orders WHERE id=?", saved.get("order_id")));
+            // The key is scoped to one caller: never disclose another guest's
+            // or user's order through a reused key.
+            Object owner = order.get("user_id");
+            Object caller = user == null ? null : user.id().toString();
+            if (!Objects.equals(owner == null ? null : owner.toString(), caller))
+                throw conflict("Idempotency key already used for a different basket");
+            return order;
         }
 
         if (input.orderType().equals("dine-in")) {
@@ -95,7 +106,7 @@ public class OrderService {
         BigDecimal subtotal = BigDecimal.ZERO;
         for (Line line : input.items()) {
             Map<String,Object> item = menu.get(line.menuItemId());
-            int maxQty = item.get("max_quantity") != null ? ((Number)item.get("max_quantity")).intValue() : 50;
+            int maxQty = item.get("max_quantity") != null ? Math.min(((Number)item.get("max_quantity")).intValue(), 200) : 200;
             int quantity = quantities.merge(line.menuItemId(), line.quantity(), Integer::sum);
             if (quantity > maxQty) throw bad("Quantity exceeds the limit for item: " + item.get("name"));
 
@@ -117,7 +128,7 @@ public class OrderService {
                 "quantity", line.quantity(),
                 "selectedPortion", portion,
                 "vegStatus", item.get("veg_status") != null ? item.get("veg_status") : "non-veg",
-                "category", item.get("category")
+                "category", Objects.toString(item.get("category"), "")
             ));
             subtotal = subtotal.add(price.multiply(BigDecimal.valueOf(line.quantity())));
         }
@@ -151,14 +162,15 @@ public class OrderService {
                 payment_mode, payment_status, status, order_source, created_at
             )
             VALUES (?,?,?,?,?,?,CAST(? AS jsonb),?,?,?,?,?,?,?,'cash','unpaid','pending','direct',now())
-            RETURNING *
+            RETURNING *, xmin::text::bigint AS version
             """,
             orderId, userId, input.customerName(), input.customerPhone(), input.orderType(), input.tableNumber(),
             encode(lines), t.subtotal(), t.discount(), t.cgst(), t.sgst(), BigDecimal.ZERO, t.grandTotal(),
             code.isEmpty() ? null : code
         );
 
-        idempotencyCache.put(key, orderId);
+        db.update("INSERT INTO public.checkout_requests(request_key, request_hash, order_id) VALUES (?,?,?)",
+            requestKey, requestHash, orderId);
         audit(user, orderId, "order:create");
         return decoded(order);
     }
@@ -171,7 +183,7 @@ public class OrderService {
         if (to != null) { where += " AND created_at < ?"; args.add(java.sql.Timestamp.from(to)); }
         args.add(limit);
         args.add(offset);
-        return db.queryForList("SELECT * FROM public.orders WHERE " + where + " ORDER BY created_at DESC, id LIMIT ? OFFSET ?", args.toArray())
+        return db.queryForList("SELECT *, xmin::text::bigint AS version FROM public.orders WHERE " + where + " ORDER BY created_at DESC, id LIMIT ? OFFSET ?", args.toArray())
             .stream().map(this::decoded).toList();
     }
 
@@ -191,19 +203,20 @@ public class OrderService {
         List<Object> args = new ArrayList<>();
         String where = scope(user, args);
         args.add(id);
-        List<Map<String,Object>> rows = db.queryForList("SELECT * FROM public.orders WHERE " + where + " AND id=?", args.toArray());
+        List<Map<String,Object>> rows = db.queryForList("SELECT *, xmin::text::bigint AS version FROM public.orders WHERE " + where + " AND id=?", args.toArray());
         if (rows.isEmpty()) throw new ResponseStatusException(NOT_FOUND, "Order not found");
         return decoded(rows.getFirst());
     }
 
     @Transactional
-    public Map<String,Object> status(String id, String next, Identity user) {
+    public Map<String,Object> status(String id, String next, long version, Identity user) {
         List<Object> args = new ArrayList<>();
         String where = scope(user, args);
         args.add(id);
-        List<Map<String,Object>> rows = db.queryForList("SELECT * FROM public.orders WHERE " + where + " AND id=? FOR UPDATE", args.toArray());
+        List<Map<String,Object>> rows = db.queryForList("SELECT *, xmin::text::bigint AS version FROM public.orders WHERE " + where + " AND id=? FOR UPDATE", args.toArray());
         if (rows.isEmpty()) throw new ResponseStatusException(NOT_FOUND, "Order not found");
         Map<String,Object> order = rows.getFirst();
+        if (version > 0 && ((Number)order.get("version")).longValue() != version) throw conflict("Order changed; refresh before retrying");
         String current = order.get("status").toString();
 
         boolean staff = user != null && user.hasRole("admin", "manager", "cashier", "chef");
@@ -226,21 +239,22 @@ public class OrderService {
             throw conflict("Invalid order status transition from " + current + " to " + next);
         }
 
-        Map<String,Object> result = db.queryForMap("UPDATE public.orders SET status=? WHERE id=? RETURNING *", next, id);
+        Map<String,Object> result = db.queryForMap("UPDATE public.orders SET status=? WHERE id=? RETURNING *, xmin::text::bigint AS version", next, id);
         audit(user, id, "order:status:" + next);
         return decoded(result);
     }
 
     @Transactional
-    public Map<String,Object> collectCash(String id, Identity user) {
+    public Map<String,Object> collectCash(String id, long version, Identity user) {
         if (user == null || !user.hasRole("admin", "manager", "cashier")) {
             throw new ResponseStatusException(FORBIDDEN, "Only cashiers or managers can collect payment");
         }
         List<Map<String,Object>> rows = db.queryForList("""
             UPDATE public.orders SET payment_status='paid'
             WHERE id=? AND payment_mode='cash' AND payment_status='unpaid' AND status<>'cancelled'
-            RETURNING *
-            """, id);
+            AND (? = 0 OR xmin::text::bigint = ?)
+            RETURNING *, xmin::text::bigint AS version
+            """, id, version, version);
         if (rows.isEmpty()) throw conflict("Order not found or cannot accept cash payment");
         audit(user, id, "order:cash:collected");
         return decoded(rows.getFirst());
@@ -252,7 +266,7 @@ public class OrderService {
             throw new ResponseStatusException(FORBIDDEN, "Access denied");
         }
         if (delayMinutes < 0 || delayMinutes > 1440) throw bad("Invalid delay minutes");
-        String sql = "UPDATE public.orders SET delay_minutes = ?" + (notes != null ? ", notes = ?" : "") + " WHERE id = ? RETURNING *";
+        String sql = "UPDATE public.orders SET delay_minutes = ?" + (notes != null ? ", notes = ?" : "") + " WHERE id = ? RETURNING *, xmin::text::bigint AS version";
         List<Object> args = new ArrayList<>();
         args.add(delayMinutes);
         if (notes != null) args.add(notes);

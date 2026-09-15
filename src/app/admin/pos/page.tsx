@@ -11,12 +11,14 @@ import TableFloorMapModal from '@/components/pos/TableFloorMapModal';
 import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { useTables } from '@/lib/queries';
+import { useMenuItems } from '@/lib/queries/menu';
 import { usePosCart, type Portion } from '@/hooks/usePosCart';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { computeBillTotals } from '@/lib/billing';
 import { generateInvoiceNo, generateOrderId } from '@/lib/idGenerator';
 import { triggerNewOrderPush, triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
-import { markPosOrderPrinted } from '@/lib/posOrderTracker';
+import { markPosOrderPrinted, unmarkPosOrderPrinted } from '@/lib/posOrderTracker';
+import { clearPosCheckoutAttempt, reusePosCheckoutAttempt, samePosBasket } from '@/lib/orders/posCheckoutAttempt';
 import type { MenuItem, Order } from '@/types';
 import { toast } from 'sonner';
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -51,6 +53,7 @@ export default function PosPage() {
   const { user } = useAuth();
   const { addOrderLocallyAndDB: createOrderContext, categories: dbCategories, menuItems, orders } = useAdmin();
   const { data: tables = [] } = useTables();
+  const menuQuery = useMenuItems();
   const activeTables = React.useMemo(() => tables.filter((table) => table.isActive !== false), [tables]);
 
   /* State */
@@ -139,7 +142,7 @@ export default function PosPage() {
           if (typeof saved.specialInstructions === 'string') setSpecialInstructions(saved.specialInstructions);
         }
       } catch {
-        localStorage.removeItem('ppr:pos:ticket-settings');
+        try { localStorage.removeItem('ppr:pos:ticket-settings'); } catch { /* Storage may be disabled. */ }
       } finally {
         ticketSettingsHydrated.current = true;
       }
@@ -171,13 +174,17 @@ export default function PosPage() {
     remove: removeLine,
     add: addDish,
     clear: clearCart,
+    reconcile: reconcileCart,
+    hasHydrated: cartHydrated,
   } = usePosCart();
 
   useEffect(() => {
     if (!ticketSettingsHydrated.current || lines.length === 0) return;
-    localStorage.setItem('ppr:pos:ticket-settings', JSON.stringify({
-      orderType, tableNumber, paymentMode, packagingCharge, specialInstructions,
-    }));
+    try {
+      localStorage.setItem('ppr:pos:ticket-settings', JSON.stringify({
+        orderType, tableNumber, paymentMode, packagingCharge, specialInstructions,
+      }));
+    } catch { /* A storage failure must not crash a live ticket. */ }
   }, [lines.length, orderType, tableNumber, paymentMode, packagingCharge, specialInstructions]);
 
   const quantityInBill = (itemId: string) => quantityByMenuItem[itemId] || 0;
@@ -193,6 +200,7 @@ export default function PosPage() {
   /* Order Placing State */
   const [placing, setPlacing] = useState(false);
   const placingRef = useRef(false);
+  const checkoutAttemptRef = useRef<Order | null>(null);
   const [placedOrder, setPlacedOrder] = useState<Order | null>(null);
   const [placedInvoiceNo, setPlacedInvoiceNo] = useState<string | undefined>(undefined);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -230,6 +238,7 @@ export default function PosPage() {
       // An empty search falls back to every dish for the category — that's
       // how a cashier searches across categories without losing their place.
       const matchCategory =
+        selectedCategory === 'all' || !selectedCategory ||
         !!q ||
         item.category === selectedCategory ||
         (selectedCatObj && item.category === selectedCatObj.name) ||
@@ -241,7 +250,8 @@ export default function PosPage() {
   }, [menuItems, search, selectedCategory, vegFilter, activeCategories]);
 
   const handleAddDish = useCallback((item: MenuItem, portion?: Portion) => {
-    addDish(item, portion);
+    const result = addDish(item, portion);
+    if (!result.ok) toast.error(result.reason || 'Could not add this dish');
   }, [addDish]);
 
   const handleDecrementDish = useCallback((item: MenuItem, portion?: Portion) => {
@@ -253,6 +263,10 @@ export default function PosPage() {
   /* Complete Checkout & Place Order */
   const handlePlaceOrder = useCallback(async () => {
     if (placingRef.current) return;
+    if (!cartHydrated || !menuQuery.isSuccess) {
+      toast.error('Wait for the saved ticket and live menu to load before settling.');
+      return;
+    }
     if (lines.length === 0) {
       toast.error('Cart is empty! Add items before checkout.');
       return;
@@ -272,10 +286,17 @@ export default function PosPage() {
         toast.error('Enter enough cash received before settling.');
         return;
       }
+      const reference = paymentReference.trim();
+      // A UPI/card ticket marked 'paid' with no reference is indistinguishable
+      // from a free meal in the ledger. Cash is witnessed at the till; digital
+      // payments need their UTR/approval code on the record.
+      if (paymentMode !== 'cash' && reference.length < 6) {
+        toast.error('Enter the UPI UTR or card approval code before settling.');
+        return;
+      }
       const orderId = generateOrderId();
-      const invoiceNo = generateInvoiceNo(orderId);
 
-      const newOrder: Order = {
+      const candidate: Order = {
         id: orderId,
         orderId,
         customerName: 'Counter Customer',
@@ -283,7 +304,7 @@ export default function PosPage() {
         orderType,
         paymentMode,
         paymentStatus: 'paid',
-        paymentReference: paymentMode === 'cash' ? undefined : (paymentReference.trim() || undefined),
+        paymentReference: paymentMode === 'cash' ? undefined : reference,
         cashTendered: paymentMode === 'cash' ? tendered : undefined,
         status: 'pending',
         items: lines.map((l) => ({
@@ -316,8 +337,23 @@ export default function PosPage() {
         createdAt: new Date().toISOString(),
       };
 
+      const remembered = checkoutAttemptRef.current;
+      const newOrder = remembered && samePosBasket(remembered, candidate)
+        ? remembered : reusePosCheckoutAttempt(candidate);
+      // Retry an already submitted sale unchanged, even if its menu has since
+      // moved. New sales must be reconciled before taking payment.
+      if (newOrder === candidate && reconcileCart(menuItems)) {
+        clearPosCheckoutAttempt();
+        toast.warning('The menu or quantity limits changed. Review the updated ticket before settling.');
+        return;
+      }
+      checkoutAttemptRef.current = newOrder;
+      const invoiceNo = generateInvoiceNo(newOrder.id);
+
       markPosOrderPrinted(newOrder.id);
       await createOrderContext(newOrder);
+      checkoutAttemptRef.current = null;
+      clearPosCheckoutAttempt();
       triggerNewOrderPush(newOrder.id);
       triggerWhatsAppOrderConfirmation(newOrder.id);
 
@@ -326,7 +362,7 @@ export default function PosPage() {
       setConfirmOpen(true);
 
       clearCart();
-      localStorage.removeItem('ppr:pos:ticket-settings');
+      try { localStorage.removeItem('ppr:pos:ticket-settings'); } catch { /* The order is already saved. */ }
       setSpecialInstructions('');
       setPaymentReference('');
       setCashTendered('');
@@ -336,14 +372,15 @@ export default function PosPage() {
       setPackagingCharge(orderType === 'dine-in' ? 0 : 20);
       setTableNumber('');
       setCartOpen(false);
-      toast.success('Order settled & printed in sub-10s! ⚡');
+      toast.success('Order saved. Print the bill from the confirmation.');
     } catch {
+      if (checkoutAttemptRef.current) unmarkPosOrderPrinted(checkoutAttemptRef.current.id);
       toast.error('Failed to complete order');
     } finally {
       placingRef.current = false;
       setPlacing(false);
     }
-  }, [lines, orderType, tableNumber, paymentMode, paymentReference, cashTendered, totals, specialInstructions, createOrderContext, clearCart, activeTables]);
+  }, [lines, orderType, tableNumber, paymentMode, paymentReference, cashTendered, totals, specialInstructions, createOrderContext, clearCart, activeTables, cartHydrated, menuQuery.isSuccess, menuItems, reconcileCart]);
 
   /* Refs for keyboard shortcuts */
   const handlePlaceOrderRef = useRef(handlePlaceOrder);

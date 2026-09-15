@@ -1,16 +1,21 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const db = vi.hoisted(() => ({
   menu: [{ id: 'rice', name: 'Rice', price: 500, category: 'rice', veg_status: 'veg',
     is_available: true, portion_prices: { single: 500, full: 800 }, max_quantity: 10 }],
   coupon: { discount: 10, max_discount: 0, min_order: 100, is_active: true },
   insert: vi.fn(), createPayment: vi.fn(), verifySignature: vi.fn(),
-  fetchOrder: vi.fn(), fetchPayment: vi.fn(),
+  fetchOrder: vi.fn(), fetchPayment: vi.fn(), fetchPayments: vi.fn(), getUser: vi.fn(),
   existing: null as Record<string, unknown> | null,
+  after: vi.fn(), push: vi.fn(),
 }));
+
+vi.mock('next/server', async original => ({ ...await original<typeof import('next/server')>(), after: db.after }));
+vi.mock('@/lib/pushNotify', () => ({ sendNewOrderPushNotification: db.push }));
 
 vi.mock('@/lib/supabaseAdmin', () => ({
   getSupabaseAdmin: () => ({
+    auth: { getUser: db.getUser },
     from: (table: string) => ({
       select: () => ({
         in: async () => ({ data: db.menu, error: null }),
@@ -22,17 +27,18 @@ vi.mock('@/lib/supabaseAdmin', () => ({
 }));
 vi.mock('@/lib/razorpayServer', () => ({
   getRazorpayClient: () => ({
-    orders: { create: db.createPayment, fetch: db.fetchOrder },
+    orders: { create: db.createPayment, fetch: db.fetchOrder, fetchPayments: db.fetchPayments },
     payments: { fetch: db.fetchPayment },
   }),
   verifyRazorpaySignature: db.verifySignature,
 }));
-vi.mock('@/lib/auth/apiAuth', () => ({ assertSameOrigin: vi.fn(), authErrorResponse: vi.fn() }));
+vi.mock('@/lib/auth/apiAuth', async (original) => ({ ...await original<typeof import('@/lib/auth/apiAuth')>(), assertSameOrigin: vi.fn() }));
 vi.mock('@/lib/auth/rateLimit', () => ({ rateLimit: () => ({ allowed: true }), clientIp: () => 'test' }));
 vi.mock('@/lib/logger', () => ({ log: { error: vi.fn() } }));
 
 import { POST as checkout } from './route';
 import { POST as createPayment } from '../../razorpay/create-order/route';
+import { POST as paymentStatus } from '../../razorpay/order-status/route';
 
 const line = { menuItemId: 'rice', selectedPortion: 'single', quantity: 1 };
 const basket = { orderId: 'PPR-ORD-20260828-01234567890123456789', paymentMode: 'cash',
@@ -43,13 +49,16 @@ const request = (body: unknown) => new Request('https://restaurant.example/api/o
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('RAZORPAY_KEY_SECRET', 'test-signing-secret');
   db.menu[0].is_available = true;
   db.coupon = { discount: 10, max_discount: 0, min_order: 100, is_active: true };
   db.insert.mockResolvedValue({ error: null });
   db.existing = null;
   db.createPayment.mockResolvedValue({ id: 'order_gateway', amount: 52500, currency: 'INR' });
   db.verifySignature.mockReturnValue(false);
+  db.getUser.mockResolvedValue({ data: { user: null }, error: { message: 'Expired' } });
 });
+afterEach(() => vi.unstubAllEnvs());
 
 describe('checkout basket validation', () => {
   it.each(['1234567890', '98765432100000', 'phone9876543210'])('rejects invalid contact details: %s', async phone => {
@@ -75,6 +84,24 @@ describe('checkout basket validation', () => {
     db.existing = { ...db.insert.mock.calls[0][0][0], customer_phone: '9999999999' };
     db.insert.mockResolvedValue({ error: { code: '23505' } });
     expect((await checkout(request(basket))).status).toBe(409);
+  });
+  it('returns a committed order after its menu item is sold out', async () => {
+    await checkout(request(basket));
+    db.existing = db.insert.mock.calls[0][0][0];
+    db.menu[0].is_available = false;
+    const response = await checkout(request(basket));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ grandTotal: 525 });
+    expect(db.insert).toHaveBeenCalledOnce();
+    expect(db.after).toHaveBeenCalledOnce();
+    await db.after.mock.calls[0][0]();
+    expect(db.push).toHaveBeenCalledWith(basket.orderId);
+  });
+  it('does not silently turn an expired signed-in session into an untrackable guest order', async () => {
+    const req = request(basket);
+    req.headers.set('Authorization', 'Bearer expired');
+    expect((await checkout(req)).status).toBe(401);
+    expect(db.insert).not.toHaveBeenCalled();
   });
   it('prices a cash order from the menu, ignoring submitted prices', async () => {
     const response = await checkout(request({ ...basket, items: [{ ...line, price: 1 }] }));
@@ -150,5 +177,54 @@ describe('payment preflight', () => {
     const response = await createPayment(request({ amount: 525, items: [line], receipt: basket.orderId }));
     expect(response.status).toBe(200);
     expect(db.createPayment).toHaveBeenCalledWith(expect.objectContaining({ amount: 52500 }));
+    expect(await response.json()).toHaveProperty('checkoutToken');
+  });
+  it('rejects receipts that would be truncated and never match checkout', async () => {
+    const response = await createPayment(request({ amount: 525, items: [line], receipt: `${basket.orderId}1234567890` }));
+    expect(response.status).toBe(400);
+    expect(db.createPayment).not.toHaveBeenCalled();
+  });
+});
+
+describe('captured payment recovery', () => {
+  async function token() {
+    const response = await createPayment(request({ amount: 525, items: [line], receipt: basket.orderId }));
+    return (await response.json()).checkoutToken as string;
+  }
+  it('fulfills the approved basket after the live menu changes, without trusting submitted prices', async () => {
+    const checkoutToken = await token();
+    db.menu[0].is_available = false;
+    db.fetchOrder.mockResolvedValue({ amount: 52500, currency: 'INR', receipt: basket.orderId });
+    db.fetchPayment.mockResolvedValue({ amount: 52500, currency: 'INR', order_id: 'order_gateway', status: 'captured' });
+    const response = await checkout(request({ ...basket, paymentMode: 'razorpay', checkoutToken,
+      items: [], razorpay: { razorpay_order_id: 'order_gateway', razorpay_payment_id: 'payment' } }));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ grandTotal: 525, paymentStatus: 'paid', items: [expect.objectContaining({ price: 500 })] });
+  });
+  it('rejects a modified quote and a quote bound to a different order', async () => {
+    const checkoutToken = await token();
+    expect((await checkout(request({ ...basket, paymentMode: 'razorpay', checkoutToken: `${checkoutToken}x` }))).status).toBe(402);
+    expect((await checkout(request({ ...basket, orderId: basket.orderId.replace('0123', 'abcd'), paymentMode: 'razorpay', checkoutToken }))).status).toBe(402);
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+  it('rejects an expired quote even with a valid signature', async () => {
+    const { createHmac } = await import('node:crypto');
+    const quote = { orderId: basket.orderId, gatewayOrderId: 'order_gateway',
+      pricing: { items: [{ menuItemId: 'rice' }], totals: { grandTotal: 525 }, couponCode: '' },
+      exp: Math.floor(Date.now() / 1000) - 60 };
+    const payload = Buffer.from(JSON.stringify(quote)).toString('base64url');
+    const mac = createHmac('sha256', 'test-signing-secret').update(`checkout-quote:v1:${payload}`).digest('base64url');
+    const response = await checkout(request({ ...basket, paymentMode: 'razorpay', checkoutToken: `${payload}.${mac}`,
+      razorpay: { razorpay_order_id: 'order_gateway', razorpay_payment_id: 'payment' } }));
+    expect(response.status).toBe(402);
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+  it('requires a quote to check payment status and returns only matching captured payments', async () => {
+    expect((await paymentStatus(request({ razorpay_order_id: 'order_gateway' }))).status).toBe(400);
+    const checkoutToken = await token();
+    db.fetchPayments.mockResolvedValue({ items: [{ id: 'payment', status: 'authorized', amount: 52500, currency: 'INR' }] });
+    expect(await (await paymentStatus(request({ checkoutToken }))).json()).toEqual({ paid: false, pending: true });
+    db.fetchPayments.mockResolvedValue({ items: [{ id: 'payment', status: 'captured', amount: 52500, currency: 'INR' }] });
+    expect(await (await paymentStatus(request({ checkoutToken }))).json()).toMatchObject({ paid: true, razorpay_payment_id: 'payment', razorpay_order_id: 'order_gateway' });
   });
 });

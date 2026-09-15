@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { isInternalPhoneEmail, localMobile } from '@/lib/phoneIdentity';
+import { rateLimit } from '@/lib/auth/rateLimit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,9 +42,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Your session has expired. Please sign in again.' }, { status: 401 });
     }
 
+    // Per-account throttle: profile writes hit the service-role client, so a
+    // runaway or hostile client must not be able to hammer them.
+    const limit = rateLimit(`update-profile:user:${userId}`, 30, 60_000);
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many profile updates. Please wait a moment.' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
-    const fullName = typeof body.fullName === 'string' ? body.fullName.trim() : '';
-    const email = typeof body.email === 'string' ? body.email.trim() : '';
+    const fullName = typeof body.fullName === 'string' ? body.fullName.trim().slice(0, 80) : '';
+    const email = typeof body.email === 'string' ? body.email.trim().slice(0, 160) : '';
     const rawPhone = typeof body.phone === 'string' ? body.phone.replace(/\D/g, '') : '';
     const phone = rawPhone ? localMobile(rawPhone) : '';
 

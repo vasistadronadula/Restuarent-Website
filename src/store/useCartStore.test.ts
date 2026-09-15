@@ -55,4 +55,21 @@ describe('cart pricing and reconciliation', () => {
     expect(cart.reconcileWithMenu([dish]).removed).toEqual([]);
     expect(useCartStore.getState().items).toHaveLength(1);
   });
+  it('reprices a legacy cart line to the full portion price rather than the base price', () => {
+    const cart = useCartStore.getState();
+    cart.addItem(dish);
+    expect(cart.reconcileWithMenu([{ ...dish, portionPrices: { single: 100, full: 180 } }]).repriced).toEqual(['Rice']);
+    expect(useCartStore.getState().items[0].selectedPrice).toBe(180);
+  });
+  it('removes a legacy default portion when the full portion is unavailable', () => {
+    const cart = useCartStore.getState();
+    cart.addItem(dish);
+    expect(cart.reconcileWithMenu([{ ...dish, portionPrices: { single: 100 } }]).removed).toEqual(['Rice']);
+  });
+  it('enforces the server hard cap even for a dish without a configured limit', () => {
+    const cart = useCartStore.getState();
+    cart.addItem({ ...dish, maxQuantity: undefined }, 1000);
+    cart.increaseQty(dish.id);
+    expect(useCartStore.getState().items[0].quantity).toBe(200);
+  });
 });

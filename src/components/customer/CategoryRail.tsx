@@ -77,11 +77,45 @@ export default function CategoryRail({
   // deep link like /menu?category=desserts otherwise lands on a rail that's
   // still scrolled to its default left edge, with the highlighted chip
   // sitting off-screen to the right until the customer happens to swipe.
+  //
+  // Horizontal-only: scrollIntoView with block:'nearest' still nudges the
+  // *page* vertically whenever the rail sits half under the sticky strip,
+  // and it fires on every activeId change, fighting the customer's own
+  // swipe mid-gesture. So: skip while the finger is down, skip when the chip
+  // is already fully visible, and move only the track's scrollLeft.
+  const userScrollingRef = useRef(false);
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
+    let cooldown: ReturnType<typeof setTimeout>;
+    const mark = () => {
+      userScrollingRef.current = true;
+      clearTimeout(cooldown);
+      cooldown = setTimeout(() => { userScrollingRef.current = false; }, 900);
+    };
+    track.addEventListener('touchstart', mark, { passive: true });
+    track.addEventListener('wheel', mark, { passive: true });
+    return () => {
+      track.removeEventListener('touchstart', mark);
+      track.removeEventListener('wheel', mark);
+      clearTimeout(cooldown);
+    };
+  }, [categories.length]);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track || userScrollingRef.current) return;
     const activeButton = track.querySelector<HTMLButtonElement>('[aria-pressed="true"]');
-    activeButton?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    if (!activeButton) return;
+    const trackRect = track.getBoundingClientRect();
+    const btnRect = activeButton.getBoundingClientRect();
+    const fullyVisible =
+      btnRect.left >= trackRect.left - 1 && btnRect.right <= trackRect.right + 1;
+    if (fullyVisible) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const target =
+      track.scrollLeft + (btnRect.left - trackRect.left) - (track.clientWidth - btnRect.width) / 2;
+    track.scrollTo({ left: Math.max(0, target), behavior: reduce ? 'auto' : 'smooth' });
   }, [activeId]);
 
   const nudge = (direction: -1 | 1) => {
@@ -132,7 +166,7 @@ export default function CategoryRail({
                   // eslint-disable-next-line @next/next/no-img-element -- admin-pasted category photos come from arbitrary hosts, which next/image would need a remotePatterns entry per host for.
                   <img
                     src={cat.image}
-                    alt=""
+                    alt={`${cat.label} dishes`}
                     loading="lazy"
                     decoding="async"
                     className="size-full object-cover"

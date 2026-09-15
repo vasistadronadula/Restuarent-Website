@@ -3,6 +3,8 @@ import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { mapOrder } from '@/lib/queries/mappers';
 import { generateThermalBillPdf } from '@/lib/billing/generateThermalBillPdf';
 import { verifyBillToken } from '@/lib/billing/server';
+import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
+import { ORDER_ID_PATTERN } from '@/lib/idGenerator';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,8 +13,17 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   try {
+    // PDF rendering is CPU-heavy (font subsetting per request). Per-IP
+    // throttle plus strict ID shape so random-ID probing can't burn CPU.
+    const limit = rateLimit(`bill-pdf:ip:${clientIp(req)}`, 30, 60_000);
+    if (!limit.allowed) {
+      return new NextResponse('Too many requests', {
+        status: 429,
+        headers: { 'Retry-After': String(limit.retryAfter) },
+      });
+    }
     const { id } = await context.params;
-    if (!id) {
+    if (!id || !ORDER_ID_PATTERN.test(id)) {
       return new NextResponse('Order ID is required', { status: 400 });
     }
     if (!verifyBillToken(id, req.nextUrl.searchParams.get('token'))) {
@@ -26,7 +37,7 @@ export async function GET(
 
     const { data, error } = await supabase
       .from('orders')
-      .select('*')
+      .select('id, status, customer_name, customer_phone, order_type, table_number, items, subtotal, discount, delivery_charge, cgst, sgst, grand_total, payment_mode, payment_status, order_time, coupon_code, order_source, created_at')
       .eq('id', id)
       .maybeSingle();
 

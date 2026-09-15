@@ -113,20 +113,25 @@ function SignupForm() {
     }
 
     setLoading(true);
-    const res = await signUpWithEmail(
-      values.email.trim(),
-      values.password,
-      values.name.trim(),
-      normalizePhone(values.phone),
-    );
+    try {
+      const res = await signUpWithEmail(
+        values.email.trim(),
+        values.password,
+        values.name.trim(),
+        normalizePhone(values.phone),
+      );
 
-    if (!res.success) {
+      if (!res.success) {
+        setFormError('We could not create that account. If the email is already registered, try logging in instead. Otherwise check your connection and retry.');
+        return;
+      }
+
+      landAfterLogin(res.role ?? 'customer', redirectTo);
+    } catch {
+      setFormError('We could not create that account. Check your connection and try again.');
+    } finally {
       setLoading(false);
-      setFormError('We could not create that account. The email may already be registered — try logging in instead.');
-      return;
     }
-
-    landAfterLogin(res.role ?? 'customer', redirectTo);
   };
 
   const loginHref = explicitRedirect ? `/login?redirect=${encodeURIComponent(explicitRedirect)}` : '/login';
@@ -161,6 +166,7 @@ function SignupForm() {
         <>
           <PhoneOtpAuth
             isSignUpMode
+            termsAccepted={acceptedTerms}
             onSuccess={(role) => landAfterLogin(role ?? 'customer', redirectTo)}
             customSocials={
               <div className="space-y-4 pt-1">
@@ -173,8 +179,9 @@ function SignupForm() {
                 <div className="flex items-center justify-center gap-4">
                   <button
                     type="button"
-                    onClick={signInWithGoogle}
-                    className="w-10 h-10 border border-hair-1 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs"
+                    onClick={() => { if (!loading) { setLoading(true); void signInWithGoogle().finally(() => setLoading(false)); } }}
+                    disabled={loading}
+                    className="w-10 h-10 border border-hair-1 dark:border-stone-800 rounded-full flex items-center justify-center bg-white dark:bg-cobalt-900 hover:bg-hair-2 dark:hover:bg-ink-1 transition-colors shadow-xs disabled:opacity-60"
                     title="Sign up with Google"
                   >
                     <GoogleIcon />
@@ -191,6 +198,31 @@ function SignupForm() {
               </div>
             }
           />
+          <div className="mt-4 flex items-start space-x-2">
+            <Checkbox
+              id="terms-otp"
+              checked={acceptedTerms}
+              onCheckedChange={(checked) => {
+                setAcceptedTerms(Boolean(checked));
+                if (checked) setFormError(null);
+              }}
+            />
+            <Label htmlFor="terms-otp" className="text-xs leading-relaxed text-ink-3 dark:text-ink-4 font-bold select-none cursor-pointer">
+              I agree to the{' '}
+              <Link href="/terms" target="_blank" className="font-extrabold text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline">
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy-policy" target="_blank" className="font-extrabold text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline">
+                Privacy Policy
+              </Link>
+            </Label>
+          </div>
+          {formError && (
+            <div role="alert" className="mt-3 rounded-2xl border border-destructive/25 bg-destructive/5 dark:bg-destructive/10 p-3 text-xs font-semibold text-destructive leading-relaxed">
+              {formError}
+            </div>
+          )}
           <TermsNote />
         </>
       ) : (

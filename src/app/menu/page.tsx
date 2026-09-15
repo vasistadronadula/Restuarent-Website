@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Flame, LayoutGrid, Rows3, Search, Star, UtensilsCrossed, X,
 } from 'lucide-react';
@@ -39,6 +39,8 @@ const isVegStatus = (value: string | null): value is VegStatus =>
 function MenuBrowser() {
   const { menuItems, isLoadingDB, categories } = useAdmin();
   const menuQuery = useMenuItems();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   /* ── URL-backed state ───────────────────────────────────────────── */
@@ -70,6 +72,23 @@ function MenuBrowser() {
      bar grows and shrinks around it. */
   const heroSearchRef = useRef<HTMLDivElement>(null);
   const [searchDocked, setSearchDocked] = useState(false);
+  // Mobile sticky strip: same horizontal-only follow as the photo rail, so
+  // a deep-linked or sheet-picked category never sits off-screen right.
+  const stripRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const track = stripRef.current;
+    if (!track) return;
+    const active = track.querySelector<HTMLButtonElement>('[aria-pressed="true"]');
+    if (!active) return;
+    const trackRect = track.getBoundingClientRect();
+    const btnRect = active.getBoundingClientRect();
+    if (btnRect.left >= trackRect.left - 1 && btnRect.right <= trackRect.right + 1) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    track.scrollTo({
+      left: Math.max(0, track.scrollLeft + (btnRect.left - trackRect.left) - (track.clientWidth - btnRect.width) / 2),
+      behavior: reduce ? 'auto' : 'smooth',
+    });
+  }, [activeCategory]);
 
   useEffect(() => {
     let frame = 0;
@@ -185,10 +204,12 @@ function MenuBrowser() {
       if (bestsellerOnly && !item.isPopular && !item.isSpecial) return false;
       if (topRatedOnly && (item.rating ?? 0) < 4) return false;
       if (!needle) return true;
+      // DB rows are not guaranteed to carry every field: one null
+      // description or tags array used to throw and blank the whole menu.
       return (
-        item.name.toLowerCase().includes(needle) ||
-        item.description.toLowerCase().includes(needle) ||
-        item.tags.some((t) => t.toLowerCase().includes(needle))
+        (item.name || '').toLowerCase().includes(needle) ||
+        (item.description || '').toLowerCase().includes(needle) ||
+        (item.tags || []).some((t) => (t || '').toLowerCase().includes(needle))
       );
     });
 
@@ -218,16 +239,21 @@ function MenuBrowser() {
   // hand-written dependency array here disagreed with the one it inferred,
   // which makes it bail out of optimizing the whole component.
   const pushParams = (mutate: (params: URLSearchParams) => void, replace = false) => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(searchParams.toString());
     mutate(params);
     const query = params.toString();
-    const target = `${window.location.pathname}${query ? `?${query}` : ''}`;
-    // Client-only catalogue filters don't need a server navigation.
-    window.history[replace ? 'replaceState' : 'pushState'](null, '', target);
+    const target = `${pathname}${query ? `?${query}` : ''}`;
+    // Route through Next, not window.history: useSearchParams only re-emits
+    // on router navigations, so manual pushState left the filter UI desynced
+    // (typed search text appeared frozen). Client-side only, no scroll jump.
+    if (replace) router.replace(target, { scroll: false });
+    else router.push(target, { scroll: false });
   };
 
   const selectCategory = (id: string) => {
     pushParams((p) => (id === ALL ? p.delete('category') : p.set('category', id)));
+    // Smooth and margin-aware: #menu-results carries a scroll-mt that clears
+    // the navbar + sticky strip, so the heading lands visible, not buried.
     document.getElementById('menu-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
@@ -271,7 +297,7 @@ function MenuBrowser() {
   }, [activeCategory, activeFilterCount, filteredItems, railCategories, categoryLabels]);
 
   const resetAll = () => {
-    window.history.pushState(null, '', window.location.pathname);
+    router.push(pathname, { scroll: false });
   };
 
   /* ── Render ─────────────────────────────────────────────────────── */
@@ -286,7 +312,7 @@ function MenuBrowser() {
         <div className="w-full shrink-0" style={{ height: 'var(--ppr-nav-h, 68px)' }} aria-hidden="true" />
         <RestaurantHero rating={houseRating} />
 
-      <section id="menu-section" className="relative border-b border-hair-1 bg-store-surface scroll-mt-16">
+      <section id="menu-section" className="relative border-b border-hair-1 bg-store-surface scroll-mt-[calc(var(--ppr-nav-h,68px)+12px)]">
         <Container className="relative max-w-[1600px] py-4 sm:py-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div ref={heroSearchRef} className="relative max-w-[560px] flex-1">
@@ -426,7 +452,7 @@ function MenuBrowser() {
           )}
 
           {/* ── Mobile sticky categories strip — sticks under fixed navbar ── */}
-          {railCategories.length > 1 && (
+          {!isLoadingDB && railCategories.length > 1 && (
             <div
               className="border-hair-2 bg-white/95 sticky z-30 -mx-4 mb-4 border-b px-4 py-2 shadow-xs backdrop-blur-md md:hidden"
               // Parks under the live navbar height instead of a magic number:
@@ -434,7 +460,7 @@ function MenuBrowser() {
               // it the moment the search row docks in and the bar grows.
               style={{ top: 'var(--ppr-nav-h, 72px)' }}
             >
-              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+                <div ref={stripRef} className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
                 {railCategories.map((cat) => {
                   const active = cat.id === activeCategory;
                   return (
@@ -442,6 +468,8 @@ function MenuBrowser() {
                       key={cat.id}
                       type="button"
                       onClick={() => selectCategory(cat.id)}
+                      aria-pressed={active}
+                      aria-label={`${cat.label}, ${cat.count} dishes`}
                       className={cn(
                         'shrink-0 rounded-full px-3.5 py-1 text-[12px] font-bold transition-all whitespace-nowrap',
                         active
@@ -521,7 +549,10 @@ function MenuBrowser() {
             )}
 
             {/* ── Dishes ───────────────────────────────────────────── */}
-            <div id="menu-results" className="min-w-0 flex-1 scroll-mt-40">
+            {/* scroll-mt clears the fixed navbar plus the sticky mobile
+                strip: a fixed 160px used to leave a dead gap on short bars
+                and bury the heading under tall docked ones. */}
+            <div id="menu-results" className="min-w-0 flex-1 scroll-mt-[calc(var(--ppr-nav-h,72px)+56px)]">
               {/* Result header */}
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">

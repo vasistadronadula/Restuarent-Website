@@ -36,6 +36,7 @@ export default function ResetPasswordPage() {
     let settled = false;
 
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const query = new URLSearchParams(window.location.search);
     const urlError = hash.get('error_description') || hash.get('error');
 
     const settle = (next: Stage, message?: string) => {
@@ -49,12 +50,24 @@ export default function ResetPasswordPage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (urlError) return;
       if (event === 'PASSWORD_RECOVERY' || session) settle('ready');
+      subscription.unsubscribe();
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (urlError) settle('invalid', urlError);
-      else if (session) settle('ready');
-    });
+    // PKCE code flow (?code=…): exchange it for a session explicitly. The
+    // hash-only path below never sees these links, which used to land every
+    // code-link user on "This link has expired".
+    const code = query.get('code');
+    if (code && !urlError) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) settle('invalid', error.message);
+        else settle('ready');
+      });
+    } else {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (urlError) settle('invalid', urlError);
+        else if (session) settle('ready');
+      });
+    }
 
     const timer = setTimeout(() => settle('invalid'), EXCHANGE_TIMEOUT_MS);
 

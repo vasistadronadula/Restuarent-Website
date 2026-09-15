@@ -54,6 +54,7 @@ export function useAddTable() {
       tableNumber: number;
       capacity: number;
       description: string;
+      isActive?: boolean;
     }) => {
       const { error } = await supabase.from('restaurant_tables').insert([
         {
@@ -61,7 +62,7 @@ export function useAddTable() {
           table_number: t.tableNumber,
           capacity: t.capacity,
           description: t.description,
-          is_active: true,
+          is_active: t.isActive ?? true,
         },
       ]);
       if (error) {
@@ -75,7 +76,7 @@ export function useAddTable() {
       patchList<RestaurantTable>(queryClient, queryKeys.tables, (draft) =>
         draft.some((x) => x.id === t.id)
           ? draft
-          : [...draft, { ...t, isActive: true, createdAt: new Date().toISOString() }].sort(
+           : [...draft, { ...t, isActive: t.isActive ?? true, createdAt: new Date().toISOString() }].sort(
               (a, b) => a.tableNumber - b.tableNumber
             )
       ),

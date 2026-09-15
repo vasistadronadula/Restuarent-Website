@@ -1,8 +1,11 @@
 package com.palapitta.business;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -49,27 +52,29 @@ public class OrderController {
     @PatchMapping("/{id}/status")
     public ResponseEntity<?> status(@PathVariable String id,
         @Valid @RequestBody Status input,
+        @RequestHeader(value = "If-Match", required = false) String ifMatch,
         @AuthenticationPrincipal Identity user) {
-        return response(orders.status(id, input.status(), user));
+        return response(orders.status(id, input.status(), RecordVersion.parse(ifMatch), user));
     }
 
     @PostMapping("/{id}/cash-payment")
     public ResponseEntity<?> cash(@PathVariable String id,
+        @RequestHeader(value = "If-Match", required = false) String ifMatch,
         @AuthenticationPrincipal Identity user) {
-        return response(orders.collectCash(id, user));
+        return response(orders.collectCash(id, RecordVersion.parse(ifMatch), user));
     }
 
-    public record PrepInput(int delayMinutes, String notes) {}
+    public record PrepInput(@Min(0) @Max(1440) int delayMinutes, @Size(max=500) String notes) {}
 
     @PatchMapping("/{id}/prep")
     public ResponseEntity<?> prep(@PathVariable String id,
-        @RequestBody PrepInput input,
+        @Valid @RequestBody PrepInput input,
         @AuthenticationPrincipal Identity user) {
         return response(orders.updatePrep(id, input.delayMinutes(), input.notes(), user));
     }
 
     private ResponseEntity<?> response(Map<String,Object> row) {
-        String etag = row.get("id") != null ? "\"" + row.get("id") + "\"" : "\"1\"";
+        String etag = "\"" + row.get("version") + "\"";
         return ResponseEntity.ok().eTag(etag).body(Map.of("data", row));
     }
 }

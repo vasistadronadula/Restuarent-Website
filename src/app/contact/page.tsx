@@ -19,11 +19,19 @@ export default function ContactPage() {
   const [name, setName] = useState('');
   const [mobile, setMobile] = useState('');
   const [message, setMessage] = useState('');
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const text = `Hi Pala Pitta Ruchulu!\n\nName: ${name}\nMobile: ${mobile}\nMessage: ${message}`;
-    window.open(`https://wa.me/${PHONE_RAW}?text=${encodeURIComponent(text)}`, '_blank');
+    const cleanName = name.trim().slice(0, 80);
+    const digits = mobile.replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '');
+    if (cleanName.length < 2) { setFormError('Please tell us your name.'); return; }
+    if (!/^[6-9]\d{9}$/.test(digits)) { setFormError('Enter a valid 10-digit mobile number.'); return; }
+    const cleanMessage = message.trim().slice(0, 500);
+    if (!cleanMessage) { setFormError('Please write a message first.'); return; }
+    setFormError(null);
+    const text = `Hi Pala Pitta Ruchulu!\n\nName: ${cleanName}\nMobile: ${digits}\nMessage: ${cleanMessage}`;
+    window.open(`https://wa.me/${PHONE_RAW}?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -148,17 +156,23 @@ export default function ContactPage() {
               </p>
 
               <form onSubmit={handleSubmit} className="mt-4 grid gap-3">
+                {formError && (
+                  <p role="alert" className="border-nonveg/25 bg-nonveg/8 text-nonveg rounded-xl border px-3.5 py-2.5 text-[12.5px] font-semibold">
+                    {formError}
+                  </p>
+                )}
                 <input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => { setName(e.target.value); setFormError(null); }}
                   placeholder="Your name"
                   aria-label="Your name"
                   required
+                  maxLength={80}
                   className={fieldClass}
                 />
                 <input
                   value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
+                  onChange={(e) => { setMobile(e.target.value); setFormError(null); }}
                   placeholder="Mobile number"
                   aria-label="Mobile number"
                   type="tel"
@@ -168,11 +182,12 @@ export default function ContactPage() {
                 />
                 <textarea
                   value={message}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={(e) => { setMessage(e.target.value); setFormError(null); }}
                   placeholder="What would you like to tell us?"
                   aria-label="Message"
                   required
                   rows={4}
+                  maxLength={500}
                   className={cn(fieldClass, 'h-auto resize-none py-3 leading-relaxed lg:min-h-[180px]')}
                 />
                 <button

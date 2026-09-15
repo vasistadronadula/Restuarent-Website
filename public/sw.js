@@ -7,7 +7,7 @@
 
 // Bumped when the shell list or push handling changes — activating a new
 // version wipes the previous cache.
-const CACHE_VERSION = 'ppr-admin-v10';
+const CACHE_VERSION = 'ppr-admin-v11';
 
 // Each role's app starts on its own page, so all are pre-cached so a chef
 // opening Kitchen offline doesn't land on the dashboard shell.
@@ -46,16 +46,20 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   if (request.method !== 'GET') return;
 
+  const url = new URL(request.url);
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request).catch(() =>
-        caches.match(request).then((cached) => cached || caches.match('/admin'))
+        caches.match(request).then(async (cached) => cached
+          || (url.pathname.startsWith('/admin') ? await caches.match('/admin') : null)
+          || new Response('<!doctype html><html lang="en"><meta name="viewport" content="width=device-width"><title>You are offline</title><main><h1>You are offline</h1><p>Reconnect to load this page and check your order.</p><button onclick="location.reload()">Retry</button></main></html>', {
+            status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          }))
       )
     );
     return;
   }
 
-  const url = new URL(request.url);
   const isStaticAsset = /\.(png|jpg|jpeg|svg|webp|avif|ico|woff2?)$/.test(url.pathname);
   if (!isStaticAsset) return;
 
@@ -63,8 +67,17 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => {
       if (cached) return cached;
       return fetch(request).then((response) => {
+        // Only cache healthy responses, and keep the runtime cache bounded
+        // so a crawler-like session can't fill device storage.
+        if (!response || response.status !== 200) return response;
         const clone = response.clone();
-        caches.open(CACHE_VERSION).then((cache) => cache.put(request, clone));
+        caches.open(CACHE_VERSION).then((cache) =>
+          cache.put(request, clone).then(() =>
+            cache.keys().then((keys) => {
+              if (keys.length > 300) cache.delete(keys[0]);
+            })
+          ).catch(() => {})
+        );
         return response;
       });
     })
@@ -147,7 +160,8 @@ self.addEventListener('push', (event) => {
       tag:              payload.tag || `ppr-${type}`,
       // renotify: true replaces an older same-tag notification AND still rings/vibrates
       renotify:         true,
-      vibrate,
+       // The Notifications API rejects silent:true together with vibrate.
+       ...(silent ? {} : { vibrate }),
       // requireInteraction keeps the notification visible until the user dismisses it.
       // Only for high-priority types (new orders, reservations) — status updates
       // auto-dismiss after the system decides, which is less intrusive mid-service.
@@ -171,12 +185,18 @@ self.addEventListener('notificationclick', (event) => {
   const ACTION_URLS = {
     view_orders:       '/admin/orders',
     view_kitchen:      '/admin/kitchen',
-    view_reservations: '/admin/reservations',
+    view_reservations: '/admin/tables',
     view_admin:        '/admin',
   };
 
   const actionUrl = ACTION_URLS[event.action];
-  const targetUrl = actionUrl || event.notification.data?.url || '/admin';
+  // Only same-origin app paths are ever opened. Push payloads are data, not
+  // code: an absolute URL, protocol-relative URL, or backslash trick in
+  // `data.url` must never become an open redirect to a phishing page.
+  const rawUrl = actionUrl || event.notification.data?.url || '/admin';
+  const targetUrl = typeof rawUrl === 'string' && /^(\/(?!\/)[^\s\\]*)$/.test(rawUrl)
+    ? rawUrl
+    : '/admin';
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

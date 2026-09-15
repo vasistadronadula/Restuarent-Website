@@ -84,7 +84,9 @@ async function sendToRoles(roles: readonly UserRole[], payload: PushPayload): Pr
           // Subscription expired or was revoked — clean it up.
           await supabaseAdmin.from('push_subscriptions').delete().eq('id', sub.id);
         } else {
-          console.error('Push send failed:', err);
+          // Log the status only: the raw error embeds the endpoint URL,
+          // which identifies a staff member's device.
+          console.error('Push send failed:', statusCode ?? 'unknown');
         }
       }
     })
@@ -239,11 +241,11 @@ export async function sendOrderStatusPushNotification(
 
     const { data: order, error } = await supabaseAdmin
       .from('orders')
-      .select('id, customer_name, order_type, table_number')
+      .select('id, customer_name, order_type, table_number, status')
       .eq('id', orderId)
       .maybeSingle();
 
-    if (error || !order) return;
+    if (error || !order || order.status !== newStatus) return;
 
     const tokenNum = order.id.slice(-4).toUpperCase();
     const tableInfo = order.table_number ? ` · Table ${order.table_number}` : '';

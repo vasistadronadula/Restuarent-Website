@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendNewReservationPushNotification } from '@/lib/pushNotify';
+import { assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
+import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { log } from '@/lib/logger';
 
 // A reservation is only "new" for a short window after it's written. Past
 // that, this endpoint refuses to re-announce it.
 const FRESH_WINDOW_MS = 10 * 60 * 1000;
+const RESERVATION_ID_PATTERN = /^PPR-RES-\d{8}-[a-f0-9]{20}$/i;
 
 /**
  * Triggered by the browser right after a table booking is saved, to alert
@@ -21,8 +24,23 @@ const FRESH_WINDOW_MS = 10 * 60 * 1000;
  */
 export async function POST(request: Request) {
   try {
+    assertSameOrigin(request);
+  } catch (err) {
+    const { body, status } = authErrorResponse(err);
+    return NextResponse.json({ success: false, ...body }, { status });
+  }
+
+  const limit = rateLimit(`push:new-reservation:ip:${clientIp(request)}`, 10, 60_000);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { success: false, error: 'Too many requests. Please wait a moment.' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+    );
+  }
+
+  try {
     const { reservationId } = await request.json();
-    if (!reservationId || typeof reservationId !== 'string') {
+    if (!reservationId || typeof reservationId !== 'string' || !RESERVATION_ID_PATTERN.test(reservationId)) {
       return NextResponse.json({ success: false, error: 'Missing reservationId' }, { status: 400 });
     }
 

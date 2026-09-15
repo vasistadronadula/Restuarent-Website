@@ -67,8 +67,12 @@ export default function CouponsPage() {
   }, [form]);
 
   const handleSubmit = async (values: CouponFormOutput) => {
+    // The primary key is the uppercased code (see normalizeCouponCode in
+    // queries/coupons): normalize here too so toasts, optimistic rows, and
+    // the database all agree on the same value.
+    const code = values.code.toUpperCase().trim();
     const payload: Coupon = {
-      code: editing ? editing.code : values.code,
+      code: editing ? editing.code : code,
       discount: values.discount,
       maxDiscount: values.maxDiscount,
       minOrder: values.minOrder,
@@ -108,6 +112,7 @@ export default function CouponsPage() {
 
   const toggleActive = useCallback(
     (c: Coupon, next: boolean) => {
+      if (updateCoupon.isPending) return;
       updateCoupon.mutate(
         { ...c, isActive: next },
         {
