@@ -5,8 +5,8 @@ import { useAdmin } from '@/context/AdminContext';
 import { useAuth } from '@/context/AuthContext';
 import { Order } from '@/types';
 import ThermalReceiptModal from './ThermalReceiptModal';
-import { isPrinterConnected, printOrder, reconnectSavedPrinter } from '@/lib/thermalPrinter';
-import { wasPosOrderPrinted } from '@/lib/posOrderTracker';
+import { isPrinterConnected, printOrder, reconnectSavedPrinter } from '@/lib/printing/thermalPrinter';
+import { wasPosOrderPrinted } from '@/lib/orders/posOrderTracker';
 import { toast } from 'sonner';
 
 // Audio chime generator using browser Web Audio API (zero external files required)

@@ -4,8 +4,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Printer, Bluetooth, AlertCircle, Receipt, Loader2 } from 'lucide-react';
 import ThermalBill from '@/components/bill/ThermalBill';
 import PrintBillPortal from '@/components/bill/PrintBillPortal';
-import { isPrinterConnected, printOrder, savedPrinterName } from '@/lib/thermalPrinter';
-import { rupees } from '@/lib/billing';
+import { isPrinterConnected, printOrder, savedPrinterName } from '@/lib/printing/thermalPrinter';
+import { rupees } from '@/lib/billing/billing';
 import type { Order } from '@/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 

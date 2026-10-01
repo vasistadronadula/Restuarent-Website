@@ -5,7 +5,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { PageHeader, RoleBadge } from '@/components/admin/ui';
-import { ROLE_ACCESS_SUMMARY } from '@/lib/roleAccess';
+import { ROLE_ACCESS_SUMMARY } from '@/lib/auth/roleAccess';
 import { toast } from 'sonner';
 
 import { Camera, FolderOpen, Loader2, Trash2 } from 'lucide-react';

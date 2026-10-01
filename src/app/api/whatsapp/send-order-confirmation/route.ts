@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { sendOrderConfirmation } from '@/lib/whatsapp';
+import { sendOrderConfirmation } from '@/lib/notifications/whatsapp';
 import { mapOrder } from '@/lib/queries/mappers';
-import { orderItemPortion } from '@/lib/orderItems';
+import { orderItemPortion } from '@/lib/orders/orderItems';
 import { assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { log } from '@/lib/logger';

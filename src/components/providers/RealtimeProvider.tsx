@@ -5,8 +5,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 import { supabase } from '@/lib/supabase';
-import { playOrderChimeSound } from '@/lib/audio';
-import { receivesOrderNotifications, receivesReservationNotifications, isStaffRole } from '@/lib/roleAccess';
+import { playOrderChimeSound } from '@/lib/notifications/audio';
+import { receivesOrderNotifications, receivesReservationNotifications, isStaffRole } from '@/lib/auth/roleAccess';
 import { queryKeys } from '@/lib/queries/keys';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useOrderEventStore } from '@/store/useOrderEventStore';

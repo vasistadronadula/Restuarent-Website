@@ -18,7 +18,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { adminColors, roleColors, orderStatusColors, reservationStatusColors } from '@/theme/adminColors';
-import { ROLE_LABELS } from '@/lib/roleAccess';
+import { ROLE_LABELS } from '@/lib/auth/roleAccess';
 import type { UserRole } from '@/types';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 

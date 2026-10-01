@@ -2,8 +2,8 @@
 
 import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { receivesNotifications } from '@/lib/roleAccess';
-import { syncExistingSubscription } from '@/lib/pushClient';
+import { receivesNotifications } from '@/lib/auth/roleAccess';
+import { syncExistingSubscription } from '@/lib/notifications/pushClient';
 
 /**
  * Registers the staff app's service worker (needed for offline shell and to

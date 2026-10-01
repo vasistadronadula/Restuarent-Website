@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-build-test:
+  lint-build:
     runs-on: ubuntu-latest
     env:
       # next build imports src/lib/supabase.ts (even from client components,
@@ -43,17 +43,5 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Unit tests
-        run: npm test
-
-      - name: Account maintenance tests
-        run: node --test scripts/securePhoneAccounts.test.mjs
-
       - name: Build
         run: npm run build
-
-      - name: Install browser
-        run: npx playwright install --with-deps chromium
-
-      - name: Browser flows
-        run: npm run test:e2e

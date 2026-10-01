@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sendOrderStatusUpdate } from '@/lib/whatsapp';
+import { sendOrderStatusUpdate } from '@/lib/notifications/whatsapp';
 import { authErrorResponse } from '@/lib/auth/apiAuth';
 import { prepareOrderNotification } from '@/lib/notifications/orderNotification';
 

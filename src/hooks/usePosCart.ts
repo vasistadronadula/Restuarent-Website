@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useReducer, useEffect, useRef } from 'react';
 import type { MenuItem, PortionPrices, VegStatus } from '@/types';
-import { PORTION_LABELS, type Portion } from '@/lib/portionLabels';
+import { PORTION_LABELS, type Portion } from '@/lib/orders/portionLabels';
 
 /**
  * usePosCart — counter bill line items state machine with localStorage persistence.

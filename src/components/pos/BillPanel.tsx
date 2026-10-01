@@ -6,7 +6,7 @@ import {
   X, Package, MessageSquarePlus, Utensils,
 } from 'lucide-react';
 import { type PosLine } from '@/hooks/usePosCart';
-import type { BillTotals } from '@/lib/billing';
+import type { BillTotals } from '@/lib/billing/billing';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 

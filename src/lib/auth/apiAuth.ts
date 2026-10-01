@@ -1,7 +1,7 @@
 import 'server-only';
 import type { User } from '@supabase/supabase-js';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { STAFF_ROLES } from '@/lib/roleAccess';
+import { STAFF_ROLES } from '@/lib/auth/roleAccess';
 import type { UserRole } from '@/types';
 
 /**

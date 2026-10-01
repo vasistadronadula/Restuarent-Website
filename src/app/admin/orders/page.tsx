@@ -13,7 +13,7 @@ import { Eye, Clock, Truck, LayoutGrid, Table2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNow } from '@/hooks/useNow';
 import { formatOrderTimestamp } from '@/lib/utils';
-import { getOrderDisplayNumber } from '@/lib/orderNumber';
+import { getOrderDisplayNumber } from '@/lib/orders/orderNumber';
 
 const nextStatus: Record<OrderStatus, OrderStatus | null> = {
   pending: 'preparing',

@@ -20,14 +20,14 @@ import { queryKeys } from '@/lib/queries/keys';
 import {
   KITCHEN_STAGES, kitchenTarget, kitchenTiming, sortKitchenOrders,
   timestamp, kitchenItemKey, type KitchenSort, type KitchenStage
-} from '@/lib/kitchen';
-import { buildKitchenBatches } from '@/lib/kitchenBatch';
-import { playOrderChimeSound } from '@/lib/audio';
+} from '@/lib/kitchen/kitchen';
+import { buildKitchenBatches } from '@/lib/kitchen/kitchenBatch';
+import { playOrderChimeSound } from '@/lib/notifications/audio';
 import { postAuthedJson } from '@/lib/authedFetch';
 import { useNow } from '@/hooks/useNow';
 import { useRealtimeStore } from '@/store/useRealtimeStore';
 import type { Order, OrderStatus, OrderType } from '@/types';
-import { getOrderToken, getOrderDisplayNumber } from '@/lib/orderNumber';
+import { getOrderToken, getOrderDisplayNumber } from '@/lib/orders/orderNumber';
 
 const subscribeOnline = (listener: () => void) => {
   window.addEventListener('online', listener);

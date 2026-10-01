@@ -1,7 +1,7 @@
 'use client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { kitchenItemKey } from '@/lib/kitchen';
+import { kitchenItemKey } from '@/lib/kitchen/kitchen';
 import { mapOrder } from './mappers';
 import { queryKeys } from './keys';
 import type { Order } from '@/types';

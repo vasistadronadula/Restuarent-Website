@@ -19,15 +19,15 @@ import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAdmin } from '@/context/AdminContext';
 import { useCartStore } from '@/store/useCartStore';
-import { orderStamps } from '@/lib/orderTime';
-import { generateOrderId } from '@/lib/idGenerator';
+import { orderStamps } from '@/lib/orders/orderTime';
+import { generateOrderId, ORDER_ID_PATTERN } from '@/lib/idGenerator';
 import { supabase } from '@/lib/supabase';
 import { normalizePhone, validatePhone } from '@/lib/validation';
-import { accountDisplayName, isInternalPhoneEmail } from '@/lib/phoneIdentity';
-import { triggerWhatsAppOrderConfirmation } from '@/lib/triggerPush';
+import { accountDisplayName, isInternalPhoneEmail } from '@/lib/auth/phoneIdentity';
+import { triggerWhatsAppOrderConfirmation } from '@/lib/notifications/triggerPush';
 import { Skeleton } from '@/components/ui/skeleton';
 import { restaurantInfo } from '@/data/restaurantInfo';
-import { buildPrepTimeMap, estimateOrderMinutes } from '@/lib/orderEstimate';
+import { buildPrepTimeMap, estimateOrderMinutes } from '@/lib/orders/orderEstimate';
 import type { Order, PaymentMode } from '@/types';
 
 interface RazorpayResponse {
@@ -43,6 +43,7 @@ interface PendingPayment {
   customer: { name: string; phone: string };
 }
 const PENDING_PAYMENT_KEY = 'ppr:pendingPayment';
+const CHECKOUT_ATTEMPT_KEY = 'ppr:checkoutAttempt';
 interface RazorpayOptions {
   key: string;
   amount?: number;
@@ -222,6 +223,7 @@ function CheckoutForm() {
       const accessToken = sessionData.session?.access_token;
       const res = await fetch('/api/orders/checkout', {
         method: 'POST',
+        signal: AbortSignal.timeout(30_000),
         headers: {
           'Content-Type': 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
@@ -265,6 +267,10 @@ function CheckoutForm() {
       retrySaveRef.current = null;
       pendingPaymentRef.current = null;
       try { sessionStorage.removeItem(PENDING_PAYMENT_KEY); } catch { /* Optional storage. */ }
+      try {
+        const attempt = JSON.parse(localStorage.getItem(CHECKOUT_ATTEMPT_KEY) || 'null');
+        if (attempt?.id === id) localStorage.removeItem(CHECKOUT_ATTEMPT_KEY);
+      } catch { /* Optional storage. */ }
       setAwaitingConfirmation(false);
       clearCart();
       finishAttempt();
@@ -291,12 +297,14 @@ function CheckoutForm() {
         paymentHandledRef.current = true;
         retrySaveRef.current = () => finalizeOrder(pending.orderId, 'razorpay', result, pending.customer, pending.checkoutToken);
         await retrySaveRef.current();
-      } else if (reopenIfUnpaid && !result.pending) {
+      } else if (reopenIfUnpaid && !result.pending && !result.expired) {
         await openPayment(pending);
       } else {
         toast.error(result.pending
           ? 'Your payment is still processing. Retry confirmation in a moment.'
-          : 'Payment is not confirmed. Retry confirmation to check again or resume the same payment.');
+          : result.expired
+            ? `This payment session has expired. Please call ${restaurantInfo.phone} to confirm your order before paying again.`
+            : 'Payment is not confirmed. Retry confirmation to check again or resume the same payment.');
         finishAttempt();
       }
     } catch {
@@ -394,11 +402,26 @@ function CheckoutForm() {
     submittingRef.current = true;
     setLoading(true);
 
-    const basket = JSON.stringify({ items: state.items, couponCode: state.couponCode, name: effectiveName, phone: effectivePhone, paymentChoice, userId: user?.id, grandTotal });
+    const basket = JSON.stringify({
+      items: state.items.map(item => ({ id: item.id, quantity: item.quantity, portion: item.selectedPortion || 'full' })),
+      couponCode: state.couponCode, name: effectiveName.trim(), phone: normalizePhone(effectivePhone),
+      paymentChoice, userId: user?.id, grandTotal,
+    });
+    // A reload or navigation after a lost cash-checkout response must reuse
+    // the same sale ID. The cart itself also survives in localStorage.
+    if (paymentChoice === 'counter') {
+      try {
+        const saved = JSON.parse(localStorage.getItem(CHECKOUT_ATTEMPT_KEY) || 'null');
+        if (saved?.basket === basket && typeof saved.id === 'string' && ORDER_ID_PATTERN.test(saved.id)) {
+          attemptRef.current = saved;
+        }
+      } catch { /* In-memory retries still work without browser storage. */ }
+    }
     if (attemptRef.current?.basket !== basket) attemptRef.current = { basket, id: generateOrderId() };
     const activeOrderId = attemptRef.current.id;
 
     if (paymentChoice === 'counter') {
+      try { localStorage.setItem(CHECKOUT_ATTEMPT_KEY, JSON.stringify(attemptRef.current)); } catch { /* Optional storage. */ }
       await finalizeOrder(activeOrderId, 'cash');
       return;
     }
@@ -408,6 +431,7 @@ function CheckoutForm() {
     try {
       const res = await fetch('/api/razorpay/create-order', {
         method: 'POST',
+        signal: AbortSignal.timeout(30_000),
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: grandTotal,

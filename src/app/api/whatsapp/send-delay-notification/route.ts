@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sendPrepDelayNotification } from '@/lib/whatsapp';
+import { sendPrepDelayNotification } from '@/lib/notifications/whatsapp';
 import { authErrorResponse } from '@/lib/auth/apiAuth';
 import { prepareOrderNotification } from '@/lib/notifications/orderNotification';
 

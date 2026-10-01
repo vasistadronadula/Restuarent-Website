@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 
 import { useAdminStore } from '@/store/useAdminStore';
 import { useAuthStore } from '@/store/useAuthStore';
-import { canAccess } from '@/lib/roleAccess';
+import { canAccess } from '@/lib/auth/roleAccess';
 import {
   useOrders, useFloorOrders, useReservations, useMenuItems, useInventory, useEmployees,
   useUpdateOrderStatus, useUpdateOrderPrepTime, useUpdateReservationStatus,

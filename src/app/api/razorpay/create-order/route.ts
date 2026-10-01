@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
-import { getRazorpayClient } from '@/lib/razorpayServer';
+import { getRazorpayClient } from '@/lib/billing/razorpayServer';
 import { assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { log } from '@/lib/logger';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { CheckoutValidationError, priceCheckout } from '@/lib/checkoutPricing';
+import { CheckoutValidationError, priceCheckout } from '@/lib/billing/checkoutPricing';
 import { ORDER_ID_PATTERN } from '@/lib/idGenerator';
 import { signCheckoutQuote } from '@/lib/billing/checkoutQuote';
 

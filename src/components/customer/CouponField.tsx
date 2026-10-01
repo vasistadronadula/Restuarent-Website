@@ -52,6 +52,12 @@ export function CouponField({
     if (!applied || !applied.isActive || subtotal < applied.minOrder) {
       useCartStore.getState().removeCoupon();
       if (applied) toast.error(`${couponCode} no longer applies to this cart and was removed.`);
+      return;
+    }
+    const cart = useCartStore.getState();
+    if (cart.couponDiscount !== applied.discount || cart.couponMaxDiscount !== (applied.maxDiscount ?? 0)) {
+      cart.applyCoupon({ code: applied.code, discount: applied.discount, maxDiscount: applied.maxDiscount });
+      toast.info(`${couponCode} has changed. Please review your updated total.`);
     }
   }, [couponCode, coupons, couponsLoaded, subtotal]);
 

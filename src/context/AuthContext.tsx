@@ -14,8 +14,8 @@ import { toast } from 'sonner';
 
 import { supabase } from '@/lib/supabase';
 import { getErrorMessage } from '@/lib/errors';
-import { isStaffRole } from '@/lib/roleAccess';
-import { getLoginDestination } from '@/lib/portalRouting';
+import { isStaffRole } from '@/lib/auth/roleAccess';
+import { getLoginDestination } from '@/lib/auth/portalRouting';
 import type { UserRole } from '@/types';
 import { useAuthStore } from '@/store/useAuthStore';
 

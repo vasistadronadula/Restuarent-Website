@@ -10,7 +10,7 @@ import {
   getOrderStages,
   type OrderCategoryType,
   type StageDefinition,
-} from '@/lib/orderCategory';
+} from '@/lib/orders/orderCategory';
 
 export const ORDER_STAGES = getOrderStages('food');
 

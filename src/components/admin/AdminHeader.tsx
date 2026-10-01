@@ -9,10 +9,10 @@ import { useAuth } from '@/context/AuthContext';
 import {
   ROLE_LABELS, receivesOrderNotifications, receivesReservationNotifications,
   isStaffRole, canAccess,
-} from '@/lib/roleAccess';
-import { roleAppFor } from '@/lib/roleApps';
-import { getPushState } from '@/lib/pushClient';
-import { isPrinterConnected } from '@/lib/thermalPrinter';
+} from '@/lib/auth/roleAccess';
+import { roleAppFor } from '@/lib/auth/roleApps';
+import { getPushState } from '@/lib/notifications/pushClient';
+import { isPrinterConnected } from '@/lib/printing/thermalPrinter';
 import { useQueryClient } from '@tanstack/react-query';
 import MobileAppInstallModal from './MobileAppInstallModal';
 import PrinterSettingsPanel from './PrinterSettingsPanel';

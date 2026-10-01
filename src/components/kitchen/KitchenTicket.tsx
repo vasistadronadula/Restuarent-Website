@@ -2,11 +2,11 @@
 import React from 'react';
 import { AlertTriangle, ArrowUpRight, Check, Clock, Flame, Loader2, Printer, StickyNote, Timer, Undo2, UtensilsCrossed, ShoppingBag, Zap } from 'lucide-react';
 import type { Order } from '@/types';
-import { kitchenItemKey, kitchenTiming, KITCHEN_STAGES } from '@/lib/kitchen';
-import { orderItemPortion } from '@/lib/orderItems';
-import { PORTION_LABELS } from '@/lib/portionLabels';
-import { getOrderDisplayNumber, getOrderToken } from '@/lib/orderNumber';
-import { printKitchenTicket } from '@/lib/kotPrinter';
+import { kitchenItemKey, kitchenTiming, KITCHEN_STAGES } from '@/lib/kitchen/kitchen';
+import { orderItemPortion } from '@/lib/orders/orderItems';
+import { PORTION_LABELS } from '@/lib/orders/portionLabels';
+import { getOrderDisplayNumber, getOrderToken } from '@/lib/orders/orderNumber';
+import { printKitchenTicket } from '@/lib/printing/kotPrinter';
 import styles from './kitchen.module.css';
 
 export interface KitchenTicketProps {

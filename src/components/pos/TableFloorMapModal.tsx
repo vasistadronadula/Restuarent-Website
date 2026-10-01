@@ -6,7 +6,7 @@ import { Users, Clock } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Order } from '@/types';
 import { useNow } from '@/hooks/useNow';
-import { buildTableOccupancy } from '@/lib/tableOccupancy';
+import { buildTableOccupancy } from '@/lib/orders/tableOccupancy';
 
 export interface TableItem {
   id: string;

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getRazorpayClient, verifyRazorpaySignature } from '@/lib/razorpayServer';
+import { getRazorpayClient, verifyRazorpaySignature } from '@/lib/billing/razorpayServer';
 import { assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { log } from '@/lib/logger';

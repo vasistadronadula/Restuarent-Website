@@ -10,7 +10,7 @@ import {
   isBluetoothPrinterConnected, isPrinterSupported,
   printTestReceipt, reconnectSavedPrinter,
   savedPaperWidth, savedPrinterName, type PaperWidth,
-} from '@/lib/thermalPrinter';
+} from '@/lib/printing/thermalPrinter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';

@@ -8,7 +8,7 @@ import {
   type Auth,
   type ConfirmationResult,
 } from 'firebase/auth';
-import { toE164 } from '@/lib/phoneIdentity';
+import { toE164 } from '@/lib/auth/phoneIdentity';
 
 export type { ConfirmationResult };
 

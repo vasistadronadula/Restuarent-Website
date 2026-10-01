@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import type { MenuItem } from '@/types';
 import { useCartStore } from '@/store/useCartStore';
 import { flyToCart } from '@/lib/flyToCart';
-import { PORTION_LABELS, type Portion } from '@/lib/portionLabels';
+import { PORTION_LABELS, type Portion } from '@/lib/orders/portionLabels';
 
 export type { Portion };
 export { PORTION_LABELS };

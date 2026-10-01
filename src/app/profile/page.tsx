@@ -15,9 +15,9 @@ import { Container } from '@/components/customer/Container';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/useAuthStore';
-import { accountDisplayName, formatMobileForDisplay, isInternalPhoneEmail } from '@/lib/phoneIdentity';
+import { accountDisplayName, formatMobileForDisplay, isInternalPhoneEmail } from '@/lib/auth/phoneIdentity';
 import { validateEmail, validateName, validatePhone, normalizePhone } from '@/lib/validation';
-import { ROLE_LABELS, isStaffRole } from '@/lib/roleAccess';
+import { ROLE_LABELS, isStaffRole } from '@/lib/auth/roleAccess';
 
 const QUICK_LINKS = [
   {

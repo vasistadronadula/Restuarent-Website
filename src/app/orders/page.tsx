@@ -21,12 +21,12 @@ import { useAuth } from '@/context/AuthContext';
 import { useCartStore } from '@/store/useCartStore';
 import { useOrderEventStore } from '@/store/useOrderEventStore';
 import { useGuestOrders, useMyOrders } from '@/lib/queries';
-import { playOrderChimeSound } from '@/lib/audio';
+import { playOrderChimeSound } from '@/lib/notifications/audio';
 import type { Order, PersistedOrderItem, OrderStatus } from '@/types';
-import { orderItemId, orderItemPortion } from '@/lib/orderItems';
-import { classifyOrderCategory, getStatusBadgeMeta } from '@/lib/orderCategory';
-import { buildPrepTimeMap, estimateOrderMinutes } from '@/lib/orderEstimate';
-import { getOrderDisplayNumber } from '@/lib/orderNumber';
+import { orderItemId, orderItemPortion } from '@/lib/orders/orderItems';
+import { classifyOrderCategory, getStatusBadgeMeta } from '@/lib/orders/orderCategory';
+import { buildPrepTimeMap, estimateOrderMinutes } from '@/lib/orders/orderEstimate';
+import { getOrderDisplayNumber } from '@/lib/orders/orderNumber';
 
 import { Container } from '@/components/customer/Container';
 import { FilterPill, VegMark } from '@/components/customer/store-ui';
@@ -156,8 +156,7 @@ export default function OrderHistoryPage() {
 
     previousStatusMapRef.current.set(orderId, newStatus);
     previousDelayMapRef.current.set(orderId, newDelay);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastOrderEvent]);
+  }, [lastOrderEvent, user, guestOrderIds]);
 
   useEffect(() => {
     orders.forEach((o) => {

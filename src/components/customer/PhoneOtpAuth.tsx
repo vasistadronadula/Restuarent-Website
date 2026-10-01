@@ -8,10 +8,10 @@ import {
   sendOtp, verifyOtpCode, clearRecaptcha, describeOtpError, isFirebaseConfigured,
   type ConfirmationResult,
 } from '@/lib/firebase';
-import { formatMobileForDisplay, isValidMobile, toE164 } from '@/lib/phoneIdentity';
+import { formatMobileForDisplay, isValidMobile, toE164 } from '@/lib/auth/phoneIdentity';
 import { validateEmail, validateName } from '@/lib/validation';
 import { useAuth, landAfterLogin } from '@/context/AuthContext';
-import { isStaffRole } from '@/lib/roleAccess';
+import { isStaffRole } from '@/lib/auth/roleAccess';
 import type { UserRole } from '@/types';
 import OtpInput from './OtpInput';
 import { Button } from '@/components/ui/button';

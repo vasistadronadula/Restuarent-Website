@@ -21,6 +21,31 @@ export function scrollToAndFocus(el: HTMLElement | null | undefined): void {
 }
 
 /**
+ * Smoothly scrolls the viewport to the menu dishes (#menu-results),
+ * calculating exact clearance under both the sticky desktop navbar and the
+ * expanded mobile navbar + category strip.
+ */
+export function scrollToMenuResults(behavior: ScrollBehavior = 'smooth'): void {
+  if (typeof window === 'undefined') return;
+  const el = document.getElementById('menu-results');
+  if (!el) return;
+
+  window.requestAnimationFrame(() => {
+    const rect = el.getBoundingClientRect();
+    const scrollTop = window.scrollY || window.pageYOffset;
+
+    // Clearance needed under fixed/sticky elements:
+    // - Desktop (>= 768px): Fixed Navbar height is ~64px + 20px padding = 84px.
+    // - Mobile (< 768px): Fixed Navbar with search is ~96px + sticky category strip ~48px + 8px padding = 152px.
+    const isMobile = window.innerWidth < 768;
+    const clearance = isMobile ? 152 : 84;
+
+    const targetTop = Math.max(0, rect.top + scrollTop - clearance);
+    window.scrollTo({ top: targetTop, behavior });
+  });
+}
+
+/**
  * Rupee formatting, in one place.
  *
  * `en-IN` grouping matters here — ₹1,25,000 is what an Indian customer expects

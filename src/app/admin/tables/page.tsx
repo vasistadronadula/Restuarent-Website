@@ -17,7 +17,7 @@ import { formatCurrency } from '@/lib/utils';
 import { useNow } from '@/hooks/useNow';
 import { AdminQueryError, Pill } from '@/components/admin/ui';
 import { ConfirmDeleteDialog, FormDialog, NumberField, SwitchField, TextField } from '@/components/admin/form-fields';
-import { buildTableOccupancy } from '@/lib/tableOccupancy';
+import { buildTableOccupancy } from '@/lib/orders/tableOccupancy';
 
 const BLANK_FORM: DiningTableFormValues = {
   tableNumber: 1,

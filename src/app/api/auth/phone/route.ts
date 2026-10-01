@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { verifyFirebasePhoneToken, FirebaseTokenError } from '@/lib/auth/firebaseIdToken';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { internalPhoneEmail, localMobile } from '@/lib/phoneIdentity';
+import { internalPhoneEmail, localMobile } from '@/lib/auth/phoneIdentity';
 
 /**
  * POST /api/auth/phone — exchanges a verified Firebase phone token for a

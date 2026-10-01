@@ -6,12 +6,14 @@ export interface CheckoutQuote {
   orderId: string;
   gatewayOrderId: string;
   pricing: Awaited<ReturnType<typeof priceCheckout>>;
-  /** Unix seconds after which the quote must no longer be honored. */
+  /** Unix seconds after which an unpaid checkout must not be reopened. */
   exp: number;
 }
 
 /** Quotes live only long enough to complete one payment attempt. */
 export const CHECKOUT_QUOTE_TTL_SECONDS = 30 * 60;
+/** Allow delayed callbacks/retries to fulfill captured payments for seven days. */
+export const CHECKOUT_RECOVERY_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 function signature(payload: string): string {
   const secret = process.env.RAZORPAY_KEY_SECRET;
@@ -31,7 +33,7 @@ export function signCheckoutQuote(quote: Omit<CheckoutQuote, 'exp'>): string {
   return `${payload}.${signature(payload)}`;
 }
 
-export function readCheckoutQuote(token: unknown): CheckoutQuote | null {
+export function readCheckoutQuote(token: unknown, options: { forRecovery?: boolean } = {}): CheckoutQuote | null {
   if (typeof token !== 'string' || token.length > 100_000) return null;
   try {
     const [payload, mac, extra] = token.split('.');
@@ -41,7 +43,8 @@ export function readCheckoutQuote(token: unknown): CheckoutQuote | null {
     if (expected.length !== provided.length || !timingSafeEqual(expected, provided)) return null;
     const quote = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as CheckoutQuote;
     if (!quote.orderId || !quote.gatewayOrderId || !quote.pricing?.items?.length) return null;
-    if (!Number.isFinite(quote.exp) || quote.exp * 1000 < Date.now()) return null;
+    const grace = options.forRecovery ? CHECKOUT_RECOVERY_TTL_SECONDS : 0;
+    if (!Number.isFinite(quote.exp) || (quote.exp + grace) * 1000 <= Date.now()) return null;
     return quote;
   } catch { return null; }
 }

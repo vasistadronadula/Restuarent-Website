@@ -6,13 +6,13 @@ import {
   Bell, BellOff, Printer, Bluetooth, Info, Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { receivesNotifications } from '@/lib/roleAccess';
-import { roleAppFor, type RoleApp } from '@/lib/roleApps';
-import { enablePushNotifications, getPushState, type PushState } from '@/lib/pushClient';
+import { receivesNotifications } from '@/lib/auth/roleAccess';
+import { roleAppFor, type RoleApp } from '@/lib/auth/roleApps';
+import { enablePushNotifications, getPushState, type PushState } from '@/lib/notifications/pushClient';
 import {
   connectPrinter, disconnectPrinter, isBluetoothPrinterConnected, isPrinterSupported,
   printTestReceipt, reconnectSavedPrinter, savedPrinterName,
-} from '@/lib/thermalPrinter';
+} from '@/lib/printing/thermalPrinter';
 import type { UserRole } from '@/types';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';

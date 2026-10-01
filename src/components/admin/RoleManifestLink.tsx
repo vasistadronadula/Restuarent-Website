@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { roleAppFor } from '@/lib/roleApps';
+import { roleAppFor } from '@/lib/auth/roleApps';
 
 /**
  * Points the page's <link rel="manifest"> at the signed-in role's manifest

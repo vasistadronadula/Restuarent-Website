@@ -8,8 +8,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useAdminBadges } from '@/components/admin/useAdminBadges';
 import { HairlineGrid, StatCell, StatusChip, Bar, EmptyState } from '@/components/admin/ui';
 import type { Order, OrderItem } from '@/types';
-import { orderDateStamp } from '@/lib/orderTime';
-import { canAccess } from '@/lib/roleAccess';
+import { orderDateStamp } from '@/lib/orders/orderTime';
+import { canAccess } from '@/lib/auth/roleAccess';
 
 // IST-pinned, matching how mapOrder() stamps `orderDate` — the browser's own
 // local timezone must not decide "today" here. An admin opening the

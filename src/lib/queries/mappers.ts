@@ -8,7 +8,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Order, Reservation, MenuItem, InventoryItem, Employee, MenuCategory } from '@/types';
-import { orderDateStamp } from '@/lib/orderTime';
+import { orderDateStamp } from '@/lib/orders/orderTime';
 
 // ─── Restaurant table types ───────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import type { Order } from '@/types';
-import { getOrderDisplayNumber } from '@/lib/orderNumber';
+import { getOrderDisplayNumber } from '@/lib/orders/orderNumber';
 import { toast } from 'sonner';
 
 const escape = (value: unknown): string => String(value ?? '').replace(/[&<>"']/g, char => ({

@@ -11,7 +11,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import { useAdmin } from '@/context/AdminContext';
 import { PageHeader, HairlineGrid, StatCell, SectionCard, EmptyState } from '@/components/admin/ui';
 import { ArrowLeft } from 'lucide-react';
-import { orderDateStamp } from '@/lib/orderTime';
+import { orderDateStamp } from '@/lib/orders/orderTime';
 
 /* Chart chrome, matching brand theme */
 const ACCENT = '#df301c';

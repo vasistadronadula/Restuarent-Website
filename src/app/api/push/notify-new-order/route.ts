@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { sendNewOrderPushNotification } from '@/lib/pushNotify';
+import { sendNewOrderPushNotification } from '@/lib/notifications/pushNotify';
 import { log } from '@/lib/logger';
 import { requireStaff, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit } from '@/lib/auth/rateLimit';

@@ -25,14 +25,14 @@ import {
   X,
 } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
+import { cn, scrollToMenuResults } from '@/lib/utils';
 import { useScrolled } from '@/hooks/useScrolled';
 import { useCartStore, getCartTotalItems } from '@/store/useCartStore';
 import { CART_TARGET_ATTR } from '@/lib/flyToCart';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth } from '@/context/AuthContext';
-import { ROLE_LABELS, getRoleHome, isStaffRole, getRoleDashboardLabel } from '@/lib/roleAccess';
-import { accountDisplayName, accountIdentityLabel } from '@/lib/phoneIdentity';
+import { ROLE_LABELS, getRoleHome, isStaffRole, getRoleDashboardLabel } from '@/lib/auth/roleAccess';
+import { accountDisplayName, accountIdentityLabel } from '@/lib/auth/phoneIdentity';
 import { restaurantInfo } from '@/data/restaurantInfo';
 import PalaPittaLogo from './PalaPittaLogo';
 import { Container } from './Container';
@@ -121,9 +121,9 @@ function NavbarSearchInner() {
       const qs = params.toString();
       const target = qs ? `/menu?${qs}` : '/menu';
       if (pathname === '/menu' || pathname === '/') {
-        // Same reason as the menu page: useSearchParams only re-emits on
-        // router navigations, so history.replaceState desynced the filters.
-        router.replace(`${pathname}${qs ? `?${qs}` : ''}`, { scroll: false });
+        // Native history is integrated with Next's navigation hooks, without
+        // an asynchronous route request for each character typed.
+        window.history.replaceState(null, '', `${pathname}${qs ? `?${qs}` : ''}`);
       } else {
         router.push(target);
       }
@@ -133,13 +133,17 @@ function NavbarSearchInner() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    applyParams({ q: query.trim() || null });
+    const val = query.trim();
+    applyParams({ q: val || null });
+    if (val && (pathname === '/menu' || pathname === '/')) {
+      scrollToMenuResults();
+    }
   };
 
   const handleQueryChange = (val: string) => {
     setQuery(val);
     if (pathname === '/menu' || pathname === '/') {
-      applyParams({ q: val.trim() || null });
+      applyParams({ q: val || null });
     }
   };
 
@@ -186,11 +190,17 @@ function NavbarSearchInner() {
           'focus-within:border-white/40 focus-within:bg-black/30 focus-within:ring-2 focus-within:ring-white/20'
         )}
       >
-        <Search className="pointer-events-none ml-3 size-3.5 shrink-0 text-white/75 group-focus-within:text-white" />
+        <button
+          type="submit"
+          aria-label="Search menu"
+          className="ml-3 grid size-5 place-items-center text-white/75 transition-colors hover:text-white focus:outline-none"
+        >
+          <Search className="size-3.5 shrink-0" />
+        </button>
 
         <input
           type="search"
-            value={pathname === '/menu' || pathname === '/' ? qParam : query}
+          value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
           placeholder="Search dishes, biryani…"
           aria-label="Search dishes in menu"

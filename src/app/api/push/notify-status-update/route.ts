@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { sendOrderStatusPushNotification } from '@/lib/pushNotify';
+import { sendOrderStatusPushNotification } from '@/lib/notifications/pushNotify';
 import { authErrorResponse } from '@/lib/auth/apiAuth';
 import { prepareOrderNotification } from '@/lib/notifications/orderNotification';
 

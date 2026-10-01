@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
-import { isInternalPhoneEmail, localMobile } from '@/lib/phoneIdentity';
+import { isInternalPhoneEmail, localMobile } from '@/lib/auth/phoneIdentity';
 import { rateLimit } from '@/lib/auth/rateLimit';
 
 export const runtime = 'nodejs';

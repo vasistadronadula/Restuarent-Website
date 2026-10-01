@@ -3,7 +3,7 @@
 import { useEffect, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
-import { getPortalRedirect } from '@/lib/portalRouting';
+import { getPortalRedirect } from '@/lib/auth/portalRouting';
 
 /** Never mount storefront content while a restored account's role is unresolved. */
 export default function PortalBoundary({ children }: { children: ReactNode }) {

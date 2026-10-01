@@ -1,4 +1,4 @@
-import { buildManifest, roleAppBySlug } from '@/lib/roleApps';
+import { buildManifest, roleAppBySlug } from '@/lib/auth/roleApps';
 
 type RouteContext = { params: Promise<{ slug: string }> };
 

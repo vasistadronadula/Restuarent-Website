@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ADMIN_NAV, ADMIN_NAV_GROUPS, navItemForPath } from './adminNav';
 import { useAdminBadges } from './useAdminBadges';
-import { canAccess } from '@/lib/roleAccess';
+import { canAccess } from '@/lib/auth/roleAccess';
 import { useAuthStore } from '@/store/useAuthStore';
 import { X } from 'lucide-react';
 

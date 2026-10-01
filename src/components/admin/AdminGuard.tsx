@@ -4,7 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { toast } from 'sonner';
-import { canAccess, getRoleHome, isStaffRole } from '@/lib/roleAccess';
+import { canAccess, getRoleHome, isStaffRole } from '@/lib/auth/roleAccess';
 import PalaPittaLogo from '@/components/customer/PalaPittaLogo';
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {

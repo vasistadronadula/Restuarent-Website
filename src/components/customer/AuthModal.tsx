@@ -7,7 +7,7 @@ import { Eye, EyeOff, Loader2, Lock, Mail, Phone, User, X } from 'lucide-react';
 
 import { useAuthStore } from '@/store/useAuthStore';
 import { useAuth, landAfterLogin } from '@/context/AuthContext';
-import { isStaffRole } from '@/lib/roleAccess';
+import { isStaffRole } from '@/lib/auth/roleAccess';
 import { validateEmail, validateName, validatePhone, validatePassword, normalizePhone } from '@/lib/validation';
 import GoogleIcon from './GoogleIcon';
 import PhoneOtpAuth from './PhoneOtpAuth';

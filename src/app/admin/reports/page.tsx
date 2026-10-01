@@ -8,7 +8,7 @@ import {
 } from 'recharts';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useOrderHistory } from '@/lib/queries';
-import { orderDateStamp } from '@/lib/orderTime';
+import { orderDateStamp } from '@/lib/orders/orderTime';
 import { PageHeader, HairlineGrid, StatCell, SectionCard } from '@/components/admin/ui';
 import { Download, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';

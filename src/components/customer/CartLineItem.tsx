@@ -7,7 +7,7 @@ import type { CartItem } from '@/types';
 import { useCartStore } from '@/store/useCartStore';
 import CartStepper from './CartStepper';
 import { VegMark } from './store-ui';
-import { PORTION_LABELS } from '@/lib/portionLabels';
+import { PORTION_LABELS } from '@/lib/orders/portionLabels';
 
 /**
  * One row of the cart. Used by the drawer and the cart page so a line item

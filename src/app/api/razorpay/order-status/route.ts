@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getRazorpayClient } from '@/lib/razorpayServer';
+import { getRazorpayClient } from '@/lib/billing/razorpayServer';
 import { assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
 import { log } from '@/lib/logger';
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json().catch(() => null);
-    const quote = readCheckoutQuote(body?.checkoutToken);
+    const quote = readCheckoutQuote(body?.checkoutToken, { forRecovery: true });
     if (!quote) {
       return NextResponse.json({ error: 'A valid payment checkout token is required.' }, { status: 400 });
     }
@@ -60,7 +60,11 @@ export async function POST(request: Request) {
       });
     }
 
-    return NextResponse.json({ paid: false, pending: items.some((p) => p.status === 'authorized' || p.status === 'created') });
+    return NextResponse.json({
+      paid: false,
+      pending: items.some((p) => p.status === 'authorized' || p.status === 'created'),
+      expired: quote.exp * 1000 <= Date.now(),
+    });
   } catch (error) {
     log.error('razorpay_order_status_failed', { error });
     return NextResponse.json({ error: 'Failed to fetch order status' }, { status: 500 });

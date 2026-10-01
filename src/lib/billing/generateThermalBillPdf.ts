@@ -5,7 +5,7 @@ import { createPdfText } from './pdfText';
 import {
   billCounts, billHeader, billItems, billMetaLines, billPaymentLine, billSummaryLines,
   BILL_FOOTNOTE, BILL_THANKS, BILL_TITLE, BILL_UNPAID_NOTICE,
-} from '@/lib/billDocument';
+} from '@/lib/billing/billDocument';
 
 /** 80 mm receipt. Measure wrapped text before laying out the page so long
  * order IDs, customer names and dish names neither overlap nor get truncated. */

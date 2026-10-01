@@ -6,7 +6,7 @@ import {
   BILL_THANKS, INVOICE_DECLARATION,
   amountInWords, billAmount, billCounts, billDate, billHeader, billItems,
   billPaymentMethodLabel, billSummaryLines, billTaxSummary,
-} from '@/lib/billDocument';
+} from '@/lib/billing/billDocument';
 import { restaurantInfo } from '@/data/restaurantInfo';
 import type { Order } from '@/types';
 

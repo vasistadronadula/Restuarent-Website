@@ -1,13 +1,13 @@
 'use client';
 
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   Flame, LayoutGrid, Rows3, Search, Star, UtensilsCrossed, X,
 } from 'lucide-react';
-import { motion, MotionConfig } from 'motion/react';
+import { MotionConfig } from 'motion/react';
 
-import { cn } from '@/lib/utils';
+import { cn, scrollToMenuResults } from '@/lib/utils';
 import Navbar from '@/components/customer/Navbar';
 import Footer from '@/components/customer/Footer';
 import { Container } from '@/components/customer/Container';
@@ -29,6 +29,11 @@ const ALL = 'all';
 
 type SortMode = 'default' | 'price-asc' | 'price-desc';
 
+// Match the portion initially displayed by useDishPortion, including dishes
+// offered only as a half or large serving.
+const defaultDishPrice = (item: MenuItem) =>
+  item.portionPrices?.full ?? item.portionPrices?.single ?? item.portionPrices?.large ?? item.price;
+
 const isVegStatus = (value: string | null): value is VegStatus =>
   value !== null && ['veg', 'non-veg', 'egg'].includes(value);
 
@@ -39,7 +44,6 @@ const isVegStatus = (value: string | null): value is VegStatus =>
 function MenuBrowser() {
   const { menuItems, isLoadingDB, categories } = useAdmin();
   const menuQuery = useMenuItems();
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -52,7 +56,13 @@ function MenuBrowser() {
   const topRatedParam = searchParams.get('topRated');
   const sortParam = searchParams.get('sort');
 
-  const searchQuery = queryParam ?? '';
+  // Inputs must update immediately; URL updates may render in a transition.
+  const [searchQuery, setSearchQuery] = useState(queryParam ?? '');
+  const [syncedQuery, setSyncedQuery] = useState(queryParam);
+  if (queryParam !== syncedQuery) {
+    setSyncedQuery(queryParam);
+    setSearchQuery(queryParam ?? '');
+  }
   const activeCategory = categoryParam && categoryParam !== ALL ? categoryParam : ALL;
   const vegFilter = isVegStatus(vegParam) ? vegParam : ALL;
   const bestsellerOnly = bestsellerParam === 'true';
@@ -117,6 +127,16 @@ function MenuBrowser() {
       if (frame) window.cancelAnimationFrame(frame);
     };
   }, []);
+
+  // When arriving with a search query from navigation or direct link, scroll smoothly to the dishes
+  useEffect(() => {
+    if (queryParam) {
+      const timer = window.setTimeout(() => {
+        scrollToMenuResults('smooth');
+      }, 200);
+      return () => window.clearTimeout(timer);
+    }
+  }, [queryParam]);
 
   /* ── Cart ───────────────────────────────────────────────────────── */
 
@@ -214,9 +234,9 @@ function MenuBrowser() {
     });
 
     if (sort === 'price-asc') {
-      items = [...items].sort((a, b) => a.price - b.price);
+      items = [...items].sort((a, b) => defaultDishPrice(a) - defaultDishPrice(b));
     } else if (sort === 'price-desc') {
-      items = [...items].sort((a, b) => b.price - a.price);
+      items = [...items].sort((a, b) => defaultDishPrice(b) - defaultDishPrice(a));
     } else {
       // Default order: in stock first, then bestsellers, then by rating. An
       // out-of-stock dish at the top of a category is the fastest way to make
@@ -239,22 +259,26 @@ function MenuBrowser() {
   // hand-written dependency array here disagreed with the one it inferred,
   // which makes it bail out of optimizing the whole component.
   const pushParams = (mutate: (params: URLSearchParams) => void, replace = false) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(window.location.search);
     mutate(params);
     const query = params.toString();
     const target = `${pathname}${query ? `?${query}` : ''}`;
-    // Route through Next, not window.history: useSearchParams only re-emits
-    // on router navigations, so manual pushState left the filter UI desynced
-    // (typed search text appeared frozen). Client-side only, no scroll jump.
-    if (replace) router.replace(target, { scroll: false });
-    else router.push(target, { scroll: false });
+    // Next integrates native history with useSearchParams. These are local
+    // filters, so avoid a server navigation on every keystroke.
+    if (replace) window.history.replaceState(null, '', target);
+    else window.history.pushState(null, '', target);
   };
 
   const selectCategory = (id: string) => {
     pushParams((p) => (id === ALL ? p.delete('category') : p.set('category', id)));
-    // Smooth and margin-aware: #menu-results carries a scroll-mt that clears
-    // the navbar + sticky strip, so the heading lands visible, not buried.
-    document.getElementById('menu-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToMenuResults();
+  };
+
+  const handleHeroSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      scrollToMenuResults();
+    }
   };
 
   const activeFilterCount =
@@ -297,7 +321,7 @@ function MenuBrowser() {
   }, [activeCategory, activeFilterCount, filteredItems, railCategories, categoryLabels]);
 
   const resetAll = () => {
-    router.push(pathname, { scroll: false });
+    window.history.pushState(null, '', pathname);
   };
 
   /* ── Render ─────────────────────────────────────────────────────── */
@@ -317,18 +341,28 @@ function MenuBrowser() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div ref={heroSearchRef} className="relative max-w-[560px] flex-1">
               {!searchDocked ? (
-                <motion.div
-                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                <form
+                  role="search"
+                  onSubmit={handleHeroSearchSubmit}
                   className="relative"
                 >
-                  <Search className="text-ink-4 pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2" />
+                  <button
+                    type="submit"
+                    aria-label="Search dishes"
+                    className="text-ink-4 hover:text-brand-700 absolute top-1/2 left-3.5 -translate-y-1/2 rounded-full p-0.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+                  >
+                    <Search className="size-4" />
+                  </button>
                   <input
                     type="search"
                     value={searchQuery}
-                    onChange={(e) => pushParams((p) => {
+                    onChange={(e) => {
                       const val = e.target.value;
-                      if (val) p.set('q', val); else p.delete('q');
-                    }, true)}
+                      setSearchQuery(val);
+                      pushParams((p) => {
+                        if (val) p.set('q', val); else p.delete('q');
+                      }, true);
+                    }}
                     placeholder="Search dishes, biryani, starters, desserts…"
                     aria-label="Search dishes in menu"
                     className="text-ink-1 placeholder:text-ink-4 focus:border-brand focus:ring-brand/20 h-11 w-full rounded-full border border-hair-1 bg-white pr-9 pl-10 text-[13px] font-medium shadow-xs transition-all outline-none focus:ring-2"
@@ -343,7 +377,7 @@ function MenuBrowser() {
                       <X className="size-3.5" />
                     </button>
                   )}
-                </motion.div>
+                </form>
               ) : (
                 // Keeps the hero's height while the pill is docked in the
                 // navbar, so docking never shifts the page underneath it.
@@ -550,9 +584,8 @@ function MenuBrowser() {
 
             {/* ── Dishes ───────────────────────────────────────────── */}
             {/* scroll-mt clears the fixed navbar plus the sticky mobile
-                strip: a fixed 160px used to leave a dead gap on short bars
-                and bury the heading under tall docked ones. */}
-            <div id="menu-results" className="min-w-0 flex-1 scroll-mt-[calc(var(--ppr-nav-h,72px)+56px)]">
+                strip on phones, and uses cleaner spacing on desktop. */}
+            <div id="menu-results" className="min-w-0 flex-1 scroll-mt-[calc(var(--ppr-nav-h,72px)+56px)] md:scroll-mt-[calc(var(--ppr-nav-h,64px)+20px)]">
               {/* Result header */}
               <div className="mb-4 flex items-center justify-between gap-4">
                 <div className="min-w-0">

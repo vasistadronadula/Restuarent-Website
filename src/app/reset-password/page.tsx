@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 
 type Stage = 'checking' | 'ready' | 'invalid' | 'done';
 
-const EXCHANGE_TIMEOUT_MS = 6000;
+const EXCHANGE_TIMEOUT_MS = 15_000;
 
 export default function ResetPasswordPage() {
   const [stage, setStage] = useState<Stage>('checking');
@@ -37,7 +37,8 @@ export default function ResetPasswordPage() {
 
     const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const query = new URLSearchParams(window.location.search);
-    const urlError = hash.get('error_description') || hash.get('error');
+    const urlError = hash.get('error_description') || hash.get('error')
+      || query.get('error_description') || query.get('error');
 
     const settle = (next: Stage, message?: string) => {
       if (settled) return;
@@ -47,31 +48,23 @@ export default function ResetPasswordPage() {
       setStage(next);
     };
 
+    const timer = setTimeout(() => settle('invalid'), EXCHANGE_TIMEOUT_MS);
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (urlError) return;
       if (event === 'PASSWORD_RECOVERY' || session) settle('ready');
-      subscription.unsubscribe();
     });
 
-    // PKCE code flow (?code=…): exchange it for a session explicitly. The
-    // hash-only path below never sees these links, which used to land every
-    // code-link user on "This link has expired".
-    const code = query.get('code');
-    if (code && !urlError) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-        if (error) settle('invalid', error.message);
-        else settle('ready');
-      });
-    } else {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (urlError) settle('invalid', urlError);
-        else if (session) settle('ready');
-      });
-    }
-
-    const timer = setTimeout(() => settle('invalid'), EXCHANGE_TIMEOUT_MS);
+    // detectSessionInUrl exchanges both PKCE and hash callbacks during client
+    // initialization. getSession waits for that initialization; exchanging the
+    // same one-use code here again can race it and invalidate a working link.
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (urlError) settle('invalid', urlError);
+      else if (error) settle('invalid', error.message);
+      else settle(session ? 'ready' : 'invalid');
+    }).catch((error) => settle('invalid', getErrorMessage(error)));
 
     return () => {
+      settled = true;
       clearTimeout(timer);
       subscription.unsubscribe();
     };

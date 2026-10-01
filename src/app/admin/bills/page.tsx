@@ -15,10 +15,10 @@ import { Printer, Eye, AlertTriangle, RefreshCw } from 'lucide-react';
 import ThermalBill from '@/components/bill/ThermalBill';
 import PrintBillPortal, { type BillFormat } from '@/components/bill/PrintBillPortal';
 import { generateInvoiceNo } from '@/lib/idGenerator';
-import { rupees } from '@/lib/billing';
+import { rupees } from '@/lib/billing/billing';
 import { formatOrderTimestamp } from '@/lib/utils';
 import { flushSync } from 'react-dom';
-import { orderDateStamp } from '@/lib/orderTime';
+import { orderDateStamp } from '@/lib/orders/orderTime';
 
 export default function BillsPage() {
   return <Suspense fallback={<AdminLayout title="Bills Ledger"><div className="p-6 ad-muted">Loading complete ledger…</div></AdminLayout>}><GeneratedBillsPage /></Suspense>;

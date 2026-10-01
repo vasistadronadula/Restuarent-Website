@@ -1,5 +1,42 @@
 # Public launch review — 14 September 2026
 
+## Follow-up review — 16 September 2026
+
+Fixed and regression-checked:
+
+- Menu search lost characters during fast typing and removed spaces in the
+  docked navbar. Inputs now update immediately; local filters use Next.js's
+  supported native-history integration. Browser Back restores the filters.
+- Price sorting used the base price even when cards displayed a different
+  default portion price. Sorting now uses that default portion price.
+- Counter-checkout retry IDs were lost on reload/navigation, allowing a lost
+  response to produce a duplicate sale. The same customer/basket retry now
+  persists in browser storage and is cleared after confirmation.
+- Captured payments could no longer be fulfilled once the 30-minute checkout
+  quote expired. Signed quotes now have a bounded seven-day recovery grace
+  period, with gateway amount, receipt, currency and capture checks retained.
+  Expired unpaid sessions are not reopened; the customer is directed to contact
+  the restaurant before paying again.
+- Checkout and gateway-creation requests could remain busy indefinitely on a
+  hung connection. Both now time out after 30 seconds and expose retry handling.
+- A live coupon percentage/cap change left the applied discount stale and could
+  repeatedly fail payment preflight. The cart now refreshes the applied terms.
+- Password reset attempted to exchange a one-use PKCE code a second time after
+  Supabase's automatic initialization. It now waits for the initialized session,
+  handles query-string errors and rejected requests, and cleans up correctly
+  during React Strict Mode replay.
+
+Local verification: lint clean; production build (including TypeScript) passed;
+213 Vitest tests passed; all 30 desktop/mobile Playwright cases passed (the two
+Back-navigation cases were rerun after correcting their test selector); three
+phone-account maintenance tests passed; Go tests and `go vet ./...` passed;
+`npm audit --omit=dev` reported zero vulnerabilities.
+
+Java tests could not run in this environment: Maven is unavailable and the
+Docker daemon is stopped. Run `mvn test` in `backend/business` in CI or a configured
+environment. Hosted migration state and real payment, sign-in and notification
+delivery still require the deployment verification described below.
+
 ## Required deployment steps
 
 Apply these migrations to the intended Supabase project **before public traffic**:
@@ -69,7 +106,8 @@ or skips signature verification when this setting is missing.
 - Uploads trusting the browser-supplied MIME type; magic-byte verification added.
 - Bill PDF generation without throttling or ID validation; per-IP rate limit
   and strict order-ID shape added.
-- Checkout quotes that never expired; 30-minute expiry now enforced.
+- Checkout quotes that never expired; 30-minute payment-resume expiry with a
+  bounded captured-payment recovery window (see the follow-up review above).
 - Java checkout accepting missing idempotency keys and disclosing other
   callers' orders on key reuse; keys are required and replays are
   caller-scoped.
@@ -95,13 +133,14 @@ or skips signature verification when this setting is missing.
   paid-only everywhere money is summed.
 - Tenant scope cached forever per instance; 5-minute TTL.
 - Counter UPI/card reference floor of 3 characters; raised to 6.
-- Password-reset PKCE code links landing on "expired"; code exchange added.
+- Password-reset PKCE code links landing on "expired"; session initialization
+  corrected (see the follow-up review above).
 - Signup swallowing errors and leaving loading stuck; inline errors and
   try/finally added. Phone signup had no terms gate; consent checkbox wired
   into the OTP send button.
 - Menu search crashing on null description/tags; null-safe matching.
-- Menu/navbar filters bypassing Next router (frozen UI, broken Back);
-  routed through the Next router.
+- Menu/navbar filters desynchronizing the URL and UI; immediate input state and
+  Next-integrated native history now keep filtering and Back navigation in sync.
 - Bill displays omitting round-off; round-off row shown when non-zero.
 - Checkout retry identity ignoring totals; grandTotal fingerprinted.
 - Contact form without validation, caps, or opener protection; validated,

@@ -1,7 +1,7 @@
 'use client';
 
 import { cn, formatCurrency } from '@/lib/utils';
-import { PORTION_LABELS, type Portion } from '@/lib/portionLabels';
+import { PORTION_LABELS, type Portion } from '@/lib/orders/portionLabels';
 
 /** Shared portion controls: readable labels, wrapping chips, and real touch targets. */
 export default function PortionSelector({ portions, selected, onSelect, label, prices }: {

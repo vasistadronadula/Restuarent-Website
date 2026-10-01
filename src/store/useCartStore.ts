@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { MenuItem, CartItem } from '@/types';
-import { computeBillTotals, computeCouponDiscount } from '@/lib/billing';
+import { computeBillTotals, computeCouponDiscount } from '@/lib/billing/billing';
 
 interface CartState {
   items: CartItem[];

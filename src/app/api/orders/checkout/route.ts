@@ -3,9 +3,9 @@ import { isDeepStrictEqual } from 'node:util';
 import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { ApiAuthError, assertSameOrigin, authErrorResponse } from '@/lib/auth/apiAuth';
 import { rateLimit, clientIp } from '@/lib/auth/rateLimit';
-import { CheckoutValidationError, parseCheckoutLines, priceCheckout } from '@/lib/checkoutPricing';
-import { orderStamps } from '@/lib/orderTime';
-import { getRazorpayClient, verifyRazorpaySignature } from '@/lib/razorpayServer';
+import { CheckoutValidationError, parseCheckoutLines, priceCheckout } from '@/lib/billing/checkoutPricing';
+import { orderStamps } from '@/lib/orders/orderTime';
+import { getRazorpayClient, verifyRazorpaySignature } from '@/lib/billing/razorpayServer';
 import { log } from '@/lib/logger';
 import { getTenantContext, tenantInsertFields } from '@/lib/tenantContext';
 import type { PaymentMode, PaymentStatus } from '@/types';
@@ -13,7 +13,7 @@ import { ORDER_ID_PATTERN } from '@/lib/idGenerator';
 import { normalizePhone, validatePhone } from '@/lib/validation';
 import { mapOrder } from '@/lib/queries/mappers';
 import { readCheckoutQuote } from '@/lib/billing/checkoutQuote';
-import { sendNewOrderPushNotification } from '@/lib/pushNotify';
+import { sendNewOrderPushNotification } from '@/lib/notifications/pushNotify';
 
 function text(value: unknown, max = 200): string {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
@@ -74,7 +74,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unsupported payment mode.' }, { status: 400 });
     }
 
-    const quote = body?.checkoutToken ? readCheckoutQuote(body.checkoutToken) : null;
+    // Expiry prevents reopening an unpaid modal, not fulfilling money already
+    // captured. Recovery still verifies the gateway amount, receipt and state.
+    const quote = body?.checkoutToken ? readCheckoutQuote(body.checkoutToken, { forRecovery: true }) : null;
     if (body?.checkoutToken && (!quote || quote.orderId !== orderId || paymentMode !== 'razorpay')) {
       return NextResponse.json({ error: 'Invalid payment checkout token.' }, { status: 402 });
     }

@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useAuthStore } from '@/store/useAuthStore';
-import { getLoginDestination } from '@/lib/portalRouting';
+import { getLoginDestination } from '@/lib/auth/portalRouting';
 
 /**
  * Sends an already-signed-in visitor away from /login and /signup.

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { VegStatus } from '@/types';
-import { computeBillTotals, computeCouponDiscount } from '@/lib/billing';
+import { computeBillTotals, computeCouponDiscount } from '@/lib/billing/billing';
 
 export class CheckoutValidationError extends Error {}
 

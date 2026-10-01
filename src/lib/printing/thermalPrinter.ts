@@ -4,7 +4,7 @@ import {
   BILL_FOOTNOTE, BILL_THANKS, BILL_TITLE, BILL_UNPAID_NOTICE,
   billAmount, billCounts, billHeader, billItems, billMetaLines,
   billPaymentLine, billSummaryLines,
-} from '@/lib/billDocument';
+} from '@/lib/billing/billDocument';
 import type { Order } from '@/types';
 
 /**

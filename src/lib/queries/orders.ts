@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '@/lib/supabase';
-import { orderStamps } from '@/lib/orderTime';
+import { orderStamps } from '@/lib/orders/orderTime';
 import { generateOrderId } from '@/lib/idGenerator';
 import type { Order, OrderStatus } from '@/types';
 import { queryKeys } from './keys';

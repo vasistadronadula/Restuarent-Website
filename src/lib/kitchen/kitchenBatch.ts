@@ -1,6 +1,6 @@
 import type { Order } from '@/types';
-import { orderItemPortion } from '@/lib/orderItems';
-import { kitchenItemKey } from '@/lib/kitchen';
+import { orderItemPortion } from '@/lib/orders/orderItems';
+import { kitchenItemKey } from '@/lib/kitchen/kitchen';
 
 export const KITCHEN_BATCH_WINDOW_MS = 2 * 60 * 1000;
 
