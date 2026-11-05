@@ -11,6 +11,17 @@ Pala Pitta Ruchulu is a restaurant commerce platform for a modern South Indian f
 
 This repository includes the main web app and the supporting backend stack used to run restaurant operations.
 
+## Live Demo
+
+<p align="center">
+  <a href="https://palapittaruchulu.vercel.app/" target="_blank" rel="noopener noreferrer">
+    <img src="https://img.shields.io/badge/Live%20Demo-Open%20Website-00C853?logo=vercel&logoColor=white" alt="Open live demo" />
+  </a>
+</p>
+
+- Production website: https://palapittaruchulu.vercel.app/
+- Explore the live restaurant ordering, reservation, and admin experience in the deployed app.
+
 ## Why this project matters
 
 - Customer-friendly ordering experience for dine-in, takeaway, and delivery-style flows
