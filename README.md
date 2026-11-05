@@ -15,6 +15,12 @@ This repository includes the main web app and the supporting backend stack used 
 
 <p align="center">
   <a href="https://palapittaruchulu.vercel.app/" target="_blank" rel="noopener noreferrer">
+    <img src="https://image.thum.io/get/https://palapittaruchulu.vercel.app/" alt="Pala Pitta Ruchulu website preview" width="1200" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://palapittaruchulu.vercel.app/" target="_blank" rel="noopener noreferrer">
     <img src="https://img.shields.io/badge/Live%20Demo-Open%20Website-00C853?logo=vercel&logoColor=white" alt="Open live demo" />
   </a>
 </p>
