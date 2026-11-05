@@ -10,6 +10,7 @@
 Pala Pitta Ruchulu is a restaurant commerce platform for a modern South Indian food brand. It combines customer ordering, reservations, payments, and a full staff/admin operations layer for menu management, table workflows, kitchen coordination, and billing.
 
 This repository includes the main web app and the supporting backend stack used to run restaurant operations.
+Admin login:  ADMIN@gmail.com, pass: admin@123
 
 ## Live Demo
 
