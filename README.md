@@ -1,105 +1,170 @@
 # Pala Pitta Ruchulu
 
-Restaurant web app and POS for Pala Pitta Ruchulu — Telangana, Andhra and Hyderabadi
-food, ordering and table booking for customers, and a full admin/POS workspace for
-staff (orders, kitchen display, billing, inventory, reservations, reports).
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-16.3.4-000000?logo=next.js&logoColor=white" alt="Next.js" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white" alt="Supabase" />
+  <img src="https://img.shields.io/badge/Node.js-22%2B-339933?logo=node.js&logoColor=white" alt="Node.js 22+" />
+</p>
 
-Next.js App Router · React 19 · Radix UI + Tailwind CSS · Zustand + TanStack Query · Supabase · Razorpay.
+Pala Pitta Ruchulu is a restaurant commerce platform for a modern South Indian food brand. It combines customer ordering, reservations, payments, and a full staff/admin operations layer for menu management, table workflows, kitchen coordination, and billing.
 
-## Go + Spring Boot Backend (with Supabase Database)
+This repository includes the main web app and the supporting backend stack used to run restaurant operations.
 
-The backend services are organized under [`backend/`](backend/README.md):
-- **Go Gateway** (`:8080`): Rate-limiting, CORS, request IDs, reverse-proxying, and WebSocket routing.
-- **Java 21 / Spring Boot** (`:8081`): Business APIs, Supabase JWT authentication, authoritative pricing, 5% GST, and table management.
-- **Database**: 100% **Supabase** (PostgreSQL, Auth, Storage, and RLS).
+## Why this project matters
 
-See the [Backend README](backend/README.md) for configuration, endpoints, and startup instructions.
+- Customer-friendly ordering experience for dine-in, takeaway, and delivery-style flows
+- Real-time restaurant operations: orders, kitchen states, tables, billing, and reports
+- Secure role-based access for admins, managers, chefs, cashiers, waiters, and customers
+- Supabase-backed data model with server-side authorization patterns
+- Integrated payment and communication features such as Razorpay, UPI, and push notifications
 
-## Running it
+## Feature highlights
+
+### Customer experience
+- Restaurant landing page and menu browsing
+- Table booking and reservation flow
+- Cart and checkout experience
+- Phone OTP, email/password, and Google sign-in
+- UPI and Razorpay payment integration
+
+### Staff and admin operations
+- Admin dashboard and operational views
+- Order lifecycle management and kitchen dispatch flow
+- Billing and POS workflows
+- Inventory, menu, and staff management
+- Analytics and reporting for restaurant operations
+
+### Architecture and platform
+- Next.js App Router frontend with React 19 and Tailwind-based UI
+- Zustand state management and TanStack Query data layer
+- Supabase for PostgreSQL, Auth, Storage, and Row Level Security
+- Go + Spring Boot backend services for gatewaying, business logic, and API orchestration
+
+## Tech stack
+
+- Frontend: Next.js, React 19, TypeScript, Tailwind CSS, Radix UI
+- State/data: Zustand, TanStack Query
+- Backend: Go Gateway + Java 21 / Spring Boot
+- Database/auth: Supabase (PostgreSQL, Auth, Storage, RLS)
+- Payments: Razorpay, UPI
+- Notifications: Firebase + Web Push
+- Testing: Vitest, Playwright
+
+## Repository structure
+
+```text
+.
+├── src/                       # Frontend application and app routes
+├── public/                    # Static assets
+├── supabase/                  # Database schema, migrations, and RLS policies
+├── backend/                   # Go + Spring Boot backend services
+├── docs/                      # Launch and operational documentation
+├── scripts/                   # Seed/data scripts
+├── package.json               # Frontend scripts and dependencies
+├── next.config.ts             # Next.js config
+├── tsconfig.json              # TypeScript config
+├── .env.example               # Example environment file
+├── README.md                  # GitHub landing page
+└── ...
+```
+
+## Getting started
+
+### Prerequisites
+
+- Node.js 22+
+- npm
+- A Supabase project
+- Optional: Java 21 and Go 1.25 for backend services
+
+### 1) Install dependencies
 
 ```bash
 npm install
-npm run dev      # http://localhost:3001
-npm run build    # production build
+```
+
+### 2) Configure environment variables
+
+Create `.env.local` in the project root with your project settings:
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+
+NEXT_PUBLIC_RAZORPAY_KEY_ID=your_razorpay_key
+RAZORPAY_KEY_ID=your_razorpay_key
+RAZORPAY_KEY_SECRET=your_razorpay_secret
+
+NEXT_PUBLIC_UPI_ID=your_upi_id
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key
+VAPID_PRIVATE_KEY=your_vapid_private_key
+VAPID_SUBJECT=mailto:you@example.com
+```
+
+> Keep service-role and secret values on the server only. Never expose them in browser code.
+
+### 3) Run the app locally
+
+```bash
+npm run dev
+```
+
+The app runs at:
+
+- `http://localhost:3001`
+
+### 4) Production build and quality checks
+
+```bash
+npm run build
 npm run lint
+npm run typecheck
+npm test
 ```
 
-See [the public launch review](docs/LAUNCH_REVIEW.md) for required corrective
-database migrations, regression checks and deployment verification.
+## Backend services
 
-## Environment
+The project uses a dedicated backend stack under [`backend/`](backend/README.md):
 
-All of these go in `.env.local` locally, and in the hosting provider's
-environment for a deployment. The app refuses to start without the two Supabase
-values; the rest disable the feature they belong to.
+- Go gateway on port `8080`
+- Spring Boot business service on port `8081`
+- Supabase-backed PostgreSQL database and auth layer
 
-| Variable | Purpose |
-| --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project — **required** |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public client key — **required** |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only. Bypasses RLS; needed for phone sign-in, staff creation and push. **Never expose to the browser.** |
-| `NEXT_PUBLIC_FIREBASE_*` | Firebase web config (API key, auth domain, project id, storage bucket, sender id, app id) — the SMS gateway for phone sign-in |
-| `NEXT_PUBLIC_RAZORPAY_KEY_ID` / `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Online payments |
-| `NEXT_PUBLIC_UPI_ID` | Direct UPI QR payments |
-| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push for staff order and reservation alerts |
+See [backend/README.md](backend/README.md) for full API details, environment configuration, and service startup instructions.
 
-`NEXT_PUBLIC_FIREBASE_PROJECT_ID` is read on the server as well as the client —
-it is the audience every Firebase ID token is validated against, so a wrong
-value there silently breaks all phone sign-in.
+## Authentication model
 
-## Authentication
+The app supports:
 
-Three ways in, all landing on a Supabase session:
+- Phone OTP sign-in
+- Email/password sign-in
+- Google OAuth
 
-- **Phone OTP** (the default for customers)
-- **Email + password**
-- **Google OAuth**
+Roles such as `admin`, `manager`, `chef`, `cashier`, `waiter`, and `customer` are derived from the user profile in Supabase and enforced through application and database authorization checks.
 
-Roles (`admin`, `manager`, `chef`, `cashier`, `waiter`, `customer`) come from
-`profiles.role` and nowhere else — never from `user_metadata`, which any signed-in
-user can write to. `lib/roleAccess.ts` maps roles to the pages and notifications
-they get; the enforcing boundary is the RLS policy set in `supabase/migrations/`.
+## Documentation
 
-### How phone sign-in works
+- [Backend README](backend/README.md)
+- [Launch review](docs/LAUNCH_REVIEW.md)
+- Supabase database migrations under `supabase/migrations/`
 
-```
-browser  ── SMS code ──▶ Firebase          phone ownership proven to Google
-browser  ◀── ID token ── Firebase
-browser  ── ID token ──▶ /api/auth/phone   signature + claims verified server-side
-                       ──▶ Supabase        find-or-create account (service role)
-browser  ◀── one-time token hash
-browser  ── verifyOtp ──▶ Supabase         session issued
-```
+## License
 
-Firebase is only the SMS gateway. The trust boundary is
-`lib/auth/firebaseIdToken.ts`, which verifies the token's RS256 signature
-against Google's published certificates and checks every claim — audience,
-issuer, expiry, `sign_in_provider === 'phone'`, and an `auth_time` no older than
-ten minutes — before `/api/auth/phone` will mint anything. Nothing the browser
-*claims* about its identity is trusted anywhere in the flow.
+This project is currently a private/internal implementation for the restaurant brand and may not be intended for public reuse without written permission.
 
-Because Supabase keys accounts on email and these customers have none, each
-number maps to a reserved internal address (`phone_91…@palapitta.internal`,
-`.internal` being reserved by RFC 8375). That address is an identifier only: the
-password on such accounts is random, never derived and never used, and
-`lib/phoneIdentity.ts` keeps the placeholder out of anything a customer sees.
+## Maintainers
 
-> **Migration note.** Accounts created before this design used a password derived
-> from the phone number, which meant anyone knowing a customer's number could
-> sign in as them. `/api/auth/phone` rotates that password to random bytes the
-> first time each such account signs in. Any of those accounts that never signs
-> in again keeps its old password — worth clearing out server-side if the list
-> is short.
+This repository is designed for restaurant operations, product, and engineering work across the web application and backend services.
 
-## Layout
+---
 
-```
-src/app/          routes — public site, /admin workspace, /api route handlers
-src/components/   customer/, admin/, pos/, bill/
-src/context/      Auth, Cart, Admin providers — thin adapters over the stores below
-src/store/        Zustand stores (auth, cart, admin UI state)
-src/lib/queries/  TanStack Query hooks — all server data (orders, menu, inventory, …)
-src/lib/          supabase clients, auth verification, billing, printing, push
-supabase/migrations/       tables, RLS policies, role guards, RPCs
-scripts/seedDatabase.mjs   seeds the menu from src/data/menuItems.json
-```
+If you want, I can also generate a more premium GitHub landing page version with a hero banner, architecture diagram, feature cards, and a screenshot-ready section layout for this repo.
